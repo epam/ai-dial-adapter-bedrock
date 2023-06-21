@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, List, TypeVar
+from typing import List
 
 from langchain.schema import BaseMessage
 
@@ -7,9 +7,6 @@ from langchain.schema import BaseMessage
 class ChatEmulationType(Enum):
     ZERO_MEMORY = "zero_memory"
     META_CHAT = "meta_chat"
-
-
-T = TypeVar("T")
 
 
 def zero_memory_compression(prompt: List[BaseMessage]) -> str:
@@ -51,12 +48,3 @@ def history_compression(
             return meta_chat_compression(prompt)
         case _:
             raise Exception(f"Invalid emulation type: {emulation_type}")
-
-
-def completion_to_chat(
-    emulation_type: ChatEmulationType, predict: Callable[[str], T]
-) -> Callable[[List[BaseMessage]], T]:
-    def inner(prompt: List[BaseMessage]) -> T:
-        return predict(history_compression(emulation_type, prompt))
-
-    return inner

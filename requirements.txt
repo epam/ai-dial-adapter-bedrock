@@ -4,3 +4,7 @@ pyright
 python-dotenv
 colorama
 inquirer
+flask
+fastapi
+uvicorn
+openai
