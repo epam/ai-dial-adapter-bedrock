@@ -3,7 +3,7 @@ exclude = [
     ".git",
     ".venv",
     "**/__pycache__",
-    "bedrock",
+    "bedrock-python-sdk",
 ]
 
 [tool.black]
@@ -13,7 +13,7 @@ exclude = '''
     \.git
   | \.venv
   | \.__pycache__
-  | bedrock
+  | bedrock-python-sdk
 )/
 '''
 

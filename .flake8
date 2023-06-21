@@ -2,6 +2,6 @@
 # E501 line is too long
 ignore = E501
 exclude =
-    bedrock,
+    bedrock-python-sdk,
     .venv,
     __pycache__

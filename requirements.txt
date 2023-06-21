@@ -1,6 +1,6 @@
-./bedrock/awscli-1.27.142-py3-none-any.whl
-./bedrock/boto3-1.26.142-py3-none-any.whl
-./bedrock/botocore-1.29.142-py3-none-any.whl
+./bedrock-python-sdk/awscli-1.27.142-py3-none-any.whl
+./bedrock-python-sdk/boto3-1.26.142-py3-none-any.whl
+./bedrock-python-sdk/botocore-1.29.142-py3-none-any.whl
 langchain==0.0.207
 flake8==6.0.0
 pyright==1.1.314

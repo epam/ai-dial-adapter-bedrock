@@ -3,4 +3,4 @@
 .env
 .history
 __pycache__
-bedrock
+bedrock-python-sdk

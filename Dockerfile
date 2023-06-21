@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1
 
 # Install pip requirements
 COPY requirements.txt .
-COPY bedrock /bedrock
+COPY bedrock-python-sdk /bedrock-python-sdk
 RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
