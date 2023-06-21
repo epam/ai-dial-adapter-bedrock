@@ -2,14 +2,19 @@ from typing import List
 
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
 
 from llm.callback import CallbackWithNewLines
 from utils.env import get_env
 from utils.init import init
-from utils.printing import get_input, print_ai
+from utils.printing import print_ai
 
 if __name__ == "__main__":
     init()
+
+    prompt_history = FileHistory(".history")
 
     HOST = get_env("HOST")
     PORT = int(get_env("PORT"))
@@ -26,8 +31,10 @@ if __name__ == "__main__":
 
     history: List[BaseMessage] = []
 
+    session = PromptSession(history=prompt_history)
+
     while True:
-        content = get_input("> ")
+        content = session.prompt("> ", style=Style.from_dict({"": "#ff0000"}))
         history.append(HumanMessage(content=content))
 
         response = model.generate([history]).generations[0][-1].text
