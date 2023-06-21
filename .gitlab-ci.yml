@@ -1,0 +1,7 @@
+include:
+  - project: "DevOps/ci"
+    ref: 0.2.14
+    file: docker/docker-generic.gitlab-ci.yml
+
+variables:
+  ARTIFACTORY_DOCKER_PATH: deltix.docker/bedrock-open-ai-adapter/${CI_PROJECT_NAME}

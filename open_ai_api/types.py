@@ -1,12 +1,6 @@
 from typing import List, Optional
 
-from langchain.schema import (
-    AIMessage,
-    BaseMessage,
-    FunctionMessage,
-    HumanMessage,
-    SystemMessage,
-)
+from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from chat_client.init import BedrockModels

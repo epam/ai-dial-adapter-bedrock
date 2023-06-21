@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import json
 import time
 import uuid
 
 import uvicorn
-from fastapi import Body, FastAPI, Path, Query
+from fastapi import Body, FastAPI, Path
 from fastapi.middleware.cors import CORSMiddleware
 
 from chat_client.langchain import chat, create_model
@@ -13,14 +12,9 @@ from llm.chat_emulation import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery
 from utils.env import get_env
 
-HOST = get_env("HOST")
-PORT = int(get_env("PORT"))
-
-
 app = FastAPI(
     description="Bedrock adapter for OpenAI Chat API",
     version="0.0.1",
-    servers=[{"url": f"http://{HOST}:{PORT}"}],
 )
 
 # CORS
@@ -78,4 +72,6 @@ def chat_completion(
 
 
 if __name__ == "__main__":
+    HOST = get_env("HOST")
+    PORT = int(get_env("PORT"))
     uvicorn.run(app, host=HOST, port=PORT)
