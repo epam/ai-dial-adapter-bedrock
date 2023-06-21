@@ -47,6 +47,13 @@ def chat(
     )
 
 
+def completion(
+    model: Bedrock,
+    prompt: str,
+) -> str:
+    return model._call(prompt, stop=None)
+
+
 if __name__ == "__main__":
     model_id, chat_emulation_type = parse_args()
 

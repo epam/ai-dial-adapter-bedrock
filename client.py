@@ -6,6 +6,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 
+from chat_client.init import parse_args
 from llm.callback import CallbackWithNewLines
 from utils.env import get_env
 from utils.init import init
@@ -13,6 +14,8 @@ from utils.printing import print_ai
 
 if __name__ == "__main__":
     init()
+
+    model_id, chat_emulation_type = parse_args()
 
     prompt_history = FileHistory(".history")
 
@@ -22,8 +25,8 @@ if __name__ == "__main__":
     callbacks = [CallbackWithNewLines()]
     model = ChatOpenAI(
         callbacks=callbacks,
-        model="amazon.titan-tg1-large",
-        openai_api_base=f"http://{HOST}:{PORT}/zero_memory",
+        model=model_id.value,
+        openai_api_base=f"http://{HOST}:{PORT}/{chat_emulation_type.value}",
         verbose=True,
         temperature=0,
         request_timeout=6000,

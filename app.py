@@ -7,9 +7,9 @@ import uvicorn
 from fastapi import Body, FastAPI, Path
 from fastapi.middleware.cors import CORSMiddleware
 
-from chat_client.langchain import chat, create_model
+from chat_client.langchain import chat, completion, create_model
 from llm.chat_emulation import ChatEmulationType
-from open_ai_api.types import ChatCompletionQuery
+from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.env import get_env
 
 app = FastAPI(
@@ -32,10 +32,12 @@ app.add_middleware(
 # Endpoints
 
 
-def wrap_message(response_id: str, timestamp: float, content: str) -> dict:
+def wrap_message(
+    object: str, response_id: str, timestamp: float, content: str
+) -> dict:
     return {
         "id": response_id,
-        "object": "chat.completion",
+        "object": object,
         "created": timestamp,
         "choices": [
             {
@@ -56,7 +58,7 @@ def wrap_message(response_id: str, timestamp: float, content: str) -> dict:
 
 
 @app.post("/{chat_emulation_type}/chat/completions")
-def chat_completion(
+def chat_completions(
     chat_emulation_type: ChatEmulationType = Path(
         description="The chat emulation type for models which only support completion mode",
     ),
@@ -68,7 +70,19 @@ def chat_completion(
 
     response_id = str(uuid.uuid4())
     timestamp = time.time()
-    return wrap_message(response_id, timestamp, response)
+    return wrap_message("chat.completion", response_id, timestamp, response)
+
+
+@app.post("/completions")
+def completions(
+    query: CompletionQuery = Body(...),
+):
+    model = create_model(model_id=query.model, max_tokens=query.max_tokens)
+    response = completion(model, query.prompt)
+
+    response_id = str(uuid.uuid4())
+    timestamp = time.time()
+    return wrap_message("text_completion", response_id, timestamp, response)
 
 
 if __name__ == "__main__":

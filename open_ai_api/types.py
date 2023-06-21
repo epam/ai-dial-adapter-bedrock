@@ -36,3 +36,12 @@ class ChatCompletionQuery(BaseModel):
 
     class Config:
         extra = "allow"
+
+
+class CompletionQuery(BaseModel):
+    model: BedrockModels
+    prompt: str
+    max_tokens: Optional[int]
+
+    class Config:
+        extra = "allow"

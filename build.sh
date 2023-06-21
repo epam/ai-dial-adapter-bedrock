@@ -1,0 +1,1 @@
+docker build -t bedrock-open-ai-adapter:latest .
