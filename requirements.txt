@@ -1,3 +1,6 @@
+langchain
 flake8
 pyright
 python-dotenv
+colorama
+inquirer
