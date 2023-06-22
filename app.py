@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from chat_client.langchain import chat, completion, create_model
 from llm.chat_emulation import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
-from utils.env import get_env
+from utils.args import get_host_port_args
+from utils.init import init
 
 app = FastAPI(
     description="Bedrock adapter for OpenAI Chat API",
@@ -86,6 +87,6 @@ def completions(
 
 
 if __name__ == "__main__":
-    HOST = get_env("HOST")
-    PORT = int(get_env("PORT"))
-    uvicorn.run(app, host=HOST, port=PORT)
+    init()
+    host, port = get_host_port_args()
+    uvicorn.run(app, host=host, port=port)

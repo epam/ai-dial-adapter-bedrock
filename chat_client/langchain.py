@@ -14,8 +14,6 @@ from llm.chat_emulation import (
 from utils.init import init
 from utils.printing import get_input, print_ai
 
-init()
-
 
 def create_model(model_id: str, max_tokens: Optional[int]) -> Bedrock:
     provider = model_id.split(".")[0]
@@ -55,6 +53,8 @@ def completion(
 
 
 if __name__ == "__main__":
+    init()
+
     model_id, chat_emulation_type = parse_args()
 
     model = create_model(model_id=model_id, max_tokens=None)  # type: ignore

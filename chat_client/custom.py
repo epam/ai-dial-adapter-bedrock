@@ -10,9 +10,9 @@ from llm.bedrock import BedrockModel
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
 
-init()
-
 if __name__ == "__main__":
+    init()
+
     model_id, chat_emulation_type = parse_args()
 
     model = BedrockModel(

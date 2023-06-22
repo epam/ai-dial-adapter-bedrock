@@ -8,25 +8,21 @@ from prompt_toolkit.styles import Style
 
 from chat_client.init import parse_args
 from llm.callback import CallbackWithNewLines
-from utils.env import get_env
-from utils.init import init
+from utils.args import get_host_port_args
 from utils.printing import print_ai
 
 if __name__ == "__main__":
-    init()
+    host, port = get_host_port_args()
 
     model_id, chat_emulation_type = parse_args()
 
     prompt_history = FileHistory(".history")
 
-    HOST = get_env("HOST")
-    PORT = int(get_env("PORT"))
-
     callbacks = [CallbackWithNewLines()]
     model = ChatOpenAI(
         callbacks=callbacks,
         model=model_id.value,
-        openai_api_base=f"http://{HOST}:{PORT}/{chat_emulation_type.value}",
+        openai_api_base=f"http://{host}:{port}/{chat_emulation_type.value}",
         verbose=True,
         temperature=0,
         request_timeout=6000,
