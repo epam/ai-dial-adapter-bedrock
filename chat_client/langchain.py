@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 from typing import List, Optional
 
 from langchain.llms.bedrock import Bedrock
@@ -13,6 +14,8 @@ from llm.chat_emulation import (
 )
 from utils.init import init
 from utils.printing import get_input, print_ai
+
+log = logging.getLogger("bedrock")
 
 
 def create_model(model_id: str, max_tokens: Optional[int]) -> Bedrock:
@@ -40,16 +43,18 @@ def chat(
     if chat_emulation_type == ChatEmulationType.META_CHAT:
         stop = [meta_chat_stop]
 
-    return model._call(
-        history_compression(chat_emulation_type, history), stop=stop
-    )
+    prompt = history_compression(chat_emulation_type, history)
+    log.debug(f"prompt:\n{prompt}")
+    response = model._call(prompt, stop=stop)
+    log.debug(f"response:\n{response}")
+    return response
 
 
-def completion(
-    model: Bedrock,
-    prompt: str,
-) -> str:
-    return model._call(prompt, stop=None)
+def completion(model: Bedrock, prompt: str) -> str:
+    log.debug(f"prompt:\n{prompt}")
+    response = model._call(prompt, stop=None)
+    log.debug(f"response:\n{response}")
+    return response
 
 
 if __name__ == "__main__":

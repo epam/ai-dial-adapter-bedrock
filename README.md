@@ -38,8 +38,6 @@ python ./client.py
 First select the Bedrock model and chat emulation mode (zero-memory or meta-chat).
 Then you will be able to converse with the model.
 
-## Configuration
-
 ## Docker
 
 Build the image:
@@ -55,3 +53,11 @@ Run the image:
 ```
 
 Open `localhost:8080/docs` to make sure the server is up and running.
+
+## Dev
+
+Run linters before committing:
+
+```sh
+(pyright; flake8)
+```

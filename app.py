@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import time
 import uuid
 
@@ -12,6 +13,9 @@ from llm.chat_emulation import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.args import get_host_port_args
 from utils.init import init
+from utils.log_config import LogConfig
+
+logging.config.dictConfig(LogConfig().dict())  # type: ignore
 
 app = FastAPI(
     description="Bedrock adapter for OpenAI Chat API",
@@ -33,9 +37,10 @@ app.add_middleware(
 # Endpoints
 
 
-def wrap_message(
-    object: str, response_id: str, timestamp: float, content: str
-) -> dict:
+def wrap_message(object: str, content: str) -> dict:
+    response_id = str(uuid.uuid4())
+    timestamp = time.time()
+
     return {
         "id": response_id,
         "object": object,
@@ -69,9 +74,7 @@ def chat_completions(
     messages = [message.to_base_message() for message in query.messages]
     response = chat(model, chat_emulation_type, messages)
 
-    response_id = str(uuid.uuid4())
-    timestamp = time.time()
-    return wrap_message("chat.completion", response_id, timestamp, response)
+    return wrap_message("chat.completion", response)
 
 
 @app.post("/completions")
@@ -81,9 +84,7 @@ def completions(
     model = create_model(model_id=query.model, max_tokens=query.max_tokens)
     response = completion(model, query.prompt)
 
-    response_id = str(uuid.uuid4())
-    timestamp = time.time()
-    return wrap_message("text_completion", response_id, timestamp, response)
+    return wrap_message("text_completion", response)
 
 
 if __name__ == "__main__":
