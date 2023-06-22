@@ -22,7 +22,7 @@ You are participating in a dialog with user.
 The messages from user are prefixed with "[HUMAN]".
 The messages from you are prefixed with "[AI]".
 The messages providing additional user instructions are prefixed with "[SYSTEM]".
-Reply to the last message from user taking into account the given dialog history.
+Reply to the last message from user taking into account the preceding dialog history.
 ====================
 """.strip()
 

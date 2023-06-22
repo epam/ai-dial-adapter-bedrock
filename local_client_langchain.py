@@ -13,7 +13,6 @@ if __name__ == "__main__":
     init()
 
     model_id, chat_emulation_type = choose_model()
-
     model = create_model(model_id=model_id, max_tokens=None)
 
     history: List[BaseMessage] = []

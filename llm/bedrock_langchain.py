@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Optional
 
 from langchain.llms.bedrock import Bedrock
@@ -29,6 +30,13 @@ def create_model(model_id: str, max_tokens: Optional[int]) -> Bedrock:
     )  # type: ignore
 
 
+# Copy of langchain.llms.utils::enforce_stop_tokens with a bugfix: stop words are escaped.
+def enforce_stop_tokens(text: str, stop: List[str]) -> str:
+    """Cut off the text as soon as any stop words occur."""
+    stop_escaped = [re.escape(s) for s in stop]
+    return re.split("|".join(stop_escaped), text)[0]
+
+
 def chat(
     model: Bedrock,
     chat_emulation_type: ChatEmulationType,
@@ -40,7 +48,12 @@ def chat(
 
     prompt = history_compression(chat_emulation_type, history)
     log.debug(f"prompt:\n{prompt}")
-    response = model._call(prompt, stop=stop)
+    response = model._call(prompt)
+
+    # Langchain has a bug in enforce_stop_tokens, so we have to reimplement it here.
+    if stop is not None:
+        response = enforce_stop_tokens(response, stop)
+
     log.debug(f"response:\n{response}")
     return response
 
