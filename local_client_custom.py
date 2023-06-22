@@ -5,8 +5,8 @@ from typing import List
 
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
-from chat_client.init import choose_model
-from llm.bedrock import BedrockModel
+from llm.bedrock_custom import BedrockModel
+from llm.bedrock_models import choose_model
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
 

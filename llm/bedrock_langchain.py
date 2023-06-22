@@ -1,19 +1,14 @@
-#!/usr/bin/env python3
-
 import logging
 from typing import List, Optional
 
 from langchain.llms.bedrock import Bedrock
-from langchain.schema import AIMessage, BaseMessage, HumanMessage
+from langchain.schema import BaseMessage
 
-from chat_client.init import choose_model
 from llm.chat_emulation import (
     ChatEmulationType,
     history_compression,
     meta_chat_stop,
 )
-from utils.init import init
-from utils.printing import get_input, print_ai
 
 log = logging.getLogger("bedrock")
 
@@ -55,21 +50,3 @@ def completion(model: Bedrock, prompt: str) -> str:
     response = model._call(prompt, stop=None)
     log.debug(f"response:\n{response}")
     return response
-
-
-if __name__ == "__main__":
-    init()
-
-    model_id, chat_emulation_type = choose_model()
-
-    model = create_model(model_id=model_id, max_tokens=None)  # type: ignore
-
-    history: List[BaseMessage] = []
-
-    while True:
-        content = get_input("> ")
-        history.append(HumanMessage(content=content))
-
-        response = chat(model, chat_emulation_type, history)
-        print_ai(response.strip())
-        history.append(AIMessage(content=response))

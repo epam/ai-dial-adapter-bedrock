@@ -9,8 +9,8 @@ from fastapi import Body, FastAPI, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chat_client.langchain import chat, completion, create_model
-from llm.bedrock import BedrockModels
+from llm.bedrock_custom import BedrockModels
+from llm.bedrock_langchain import chat, completion, create_model
 from llm.chat_emulation import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.args import get_host_port_args
