@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Tuple
 
-from llm.chat_emulation import ChatEmulationType
+from llm.chat_emulation.types import ChatEmulationType
 from utils.cli import select_enum
 
 

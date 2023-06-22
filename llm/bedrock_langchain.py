@@ -5,11 +5,8 @@ from typing import List, Optional
 from langchain.llms.bedrock import Bedrock
 from langchain.schema import BaseMessage
 
-from llm.chat_emulation import (
-    ChatEmulationType,
-    history_compression,
-    meta_chat_stop,
-)
+from llm.chat_emulation import emulate_chat, meta_chat
+from llm.chat_emulation.types import ChatEmulationType
 
 log = logging.getLogger("bedrock")
 
@@ -44,9 +41,9 @@ def chat(
 ) -> str:
     stop: Optional[List[str]] = None
     if chat_emulation_type == ChatEmulationType.META_CHAT:
-        stop = [meta_chat_stop]
+        stop = [meta_chat.stop]
 
-    prompt = history_compression(chat_emulation_type, history)
+    prompt = emulate_chat(model.model_id, chat_emulation_type, history)
     log.debug(f"prompt:\n{prompt}")
     response = model._call(prompt)
 

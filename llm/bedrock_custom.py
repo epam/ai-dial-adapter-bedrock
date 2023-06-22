@@ -4,7 +4,8 @@ from typing import List, TypedDict
 import boto3
 from langchain.schema import BaseMessage
 
-from llm.chat_emulation import ChatEmulationType, history_compression
+from llm.chat_emulation import emulate_chat
+from llm.chat_emulation.types import ChatEmulationType
 from utils.printing import print_info
 
 
@@ -65,6 +66,6 @@ class BedrockModel:
         return json.loads(response["body"].read())
 
     def chat(self, prompt: List[BaseMessage]) -> BedrockResponse:
-        prompt1 = history_compression(self.chat_emulation_type, prompt)
+        prompt1 = emulate_chat(self.model_id, self.chat_emulation_type, prompt)
         print_info(prompt1)
         return self.predict(prompt1)

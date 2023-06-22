@@ -8,7 +8,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 
 from llm.callback import CallbackWithNewLines
-from llm.chat_emulation import ChatEmulationType
+from llm.chat_emulation.types import ChatEmulationType
 from utils.args import get_host_port_args
 from utils.cli import select_enum, select_option
 from utils.printing import print_ai

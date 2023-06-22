@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from llm.bedrock_custom import BedrockModels
 from llm.bedrock_langchain import chat, completion, create_model
-from llm.chat_emulation import ChatEmulationType
+from llm.chat_emulation.types import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.args import get_host_port_args
 from utils.init import init
