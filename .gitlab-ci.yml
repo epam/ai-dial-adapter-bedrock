@@ -4,4 +4,4 @@ include:
     file: docker/docker-generic.gitlab-ci.yml
 
 variables:
-  ARTIFACTORY_DOCKER_PATH: ai/dial/bedrock-open-ai-adapter
+  DOCKER_PATH: ai/dial/bedrock-open-ai-adapter
