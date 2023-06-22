@@ -19,7 +19,7 @@ AWS_SECRET_ACCESS_KEY=<key>
 
 The variables are required for the server to work, since the Bedrock models are hosted in AWS.
 
-## Test server locally
+## Running server locally
 
 Run the server:
 
@@ -53,6 +53,12 @@ Run the image:
 ```
 
 Open `localhost:8080/docs` to make sure the server is up and running.
+
+Run the client:
+
+```sh
+python ./client.py
+```
 
 ## Dev
 
