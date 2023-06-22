@@ -13,7 +13,7 @@ class BedrockModels(str, Enum):
     ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
 
 
-def parse_args() -> Tuple[BedrockModels, ChatEmulationType]:
+def choose_model() -> Tuple[BedrockModels, ChatEmulationType]:
     model_id = select_enum("Select the model", BedrockModels)
     chat_emulation_type = select_enum(
         "Select chat emulation type", ChatEmulationType

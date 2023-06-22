@@ -22,9 +22,26 @@ class BedrockResponse(TypedDict):
     results: List[BedrockResult]
 
 
+class BedrockModels:
+    def __init__(self, region: str = "us-east-1"):
+        session = boto3.Session()
+
+        self.bedrock = session.client(
+            "bedrock",
+            region,
+            endpoint_url=f"https://bedrock.{region}.amazonaws.com",
+        )
+
+    def models(self) -> List[BedrockModelId]:
+        return self.bedrock.list_foundation_models()["modelSummaries"]
+
+
 class BedrockModel:
     def __init__(
-        self, model_id: str, chat_emulation_type: ChatEmulationType, region: str
+        self,
+        model_id: str,
+        chat_emulation_type: ChatEmulationType,
+        region: str = "us-east-1",
     ):
         session = boto3.Session()
 
@@ -35,9 +52,6 @@ class BedrockModel:
         )
         self.model_id = model_id
         self.chat_emulation_type = chat_emulation_type
-
-    def available_models(self) -> List[BedrockModelId]:
-        return self.bedrock.list_foundation_models()["modelSummaries"]
 
     def predict(self, prompt: str) -> BedrockResponse:
         response = self.bedrock.invoke_model(

@@ -3,8 +3,6 @@ from typing import List, Optional
 from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from chat_client.init import BedrockModels
-
 
 class Message(BaseModel):
     role: str
@@ -30,7 +28,7 @@ class Message(BaseModel):
 
 # Direct translation of https://platform.openai.com/docs/api-reference/chat/create
 class ChatCompletionQuery(BaseModel):
-    model: BedrockModels
+    model: str
     messages: List[Message]
     max_tokens: Optional[int]
 
@@ -39,7 +37,7 @@ class ChatCompletionQuery(BaseModel):
 
 
 class CompletionQuery(BaseModel):
-    model: BedrockModels
+    model: str
     prompt: str
     max_tokens: Optional[int]
 

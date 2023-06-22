@@ -7,8 +7,10 @@ import uuid
 import uvicorn
 from fastapi import Body, FastAPI, Path
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from chat_client.langchain import chat, completion, create_model
+from llm.bedrock import BedrockModels
 from llm.chat_emulation import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.args import get_host_port_args
@@ -85,6 +87,23 @@ def completions(
     response = completion(model, query.prompt)
 
     return wrap_message("text_completion", response)
+
+
+class ModelDescription(BaseModel):
+    id: str
+    object: str
+
+
+@app.get("/models")
+def models():
+    bedrock_models = BedrockModels().models()
+
+    models = [
+        ModelDescription(id=model["modelId"], object="model").dict()
+        for model in bedrock_models
+    ]
+
+    return {"object": "list", "data": models}
 
 
 if __name__ == "__main__":

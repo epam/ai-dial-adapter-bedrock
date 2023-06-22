@@ -6,7 +6,7 @@ from typing import List, Optional
 from langchain.llms.bedrock import Bedrock
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
-from chat_client.init import parse_args
+from chat_client.init import choose_model
 from llm.chat_emulation import (
     ChatEmulationType,
     history_compression,
@@ -60,7 +60,7 @@ def completion(model: Bedrock, prompt: str) -> str:
 if __name__ == "__main__":
     init()
 
-    model_id, chat_emulation_type = parse_args()
+    model_id, chat_emulation_type = choose_model()
 
     model = create_model(model_id=model_id, max_tokens=None)  # type: ignore
 

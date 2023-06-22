@@ -5,7 +5,7 @@ from typing import List
 
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
-from chat_client.init import parse_args
+from chat_client.init import choose_model
 from llm.bedrock import BedrockModel
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
@@ -13,7 +13,7 @@ from utils.printing import get_input, print_ai, print_info
 if __name__ == "__main__":
     init()
 
-    model_id, chat_emulation_type = parse_args()
+    model_id, chat_emulation_type = choose_model()
 
     model = BedrockModel(
         model_id=model_id,
