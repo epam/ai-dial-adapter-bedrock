@@ -31,6 +31,7 @@ class ChatCompletionQuery(BaseModel):
     model: str
     messages: List[Message]
     max_tokens: Optional[int]
+    stream: Optional[bool]
 
     class Config:
         extra = "allow"
@@ -40,6 +41,7 @@ class CompletionQuery(BaseModel):
     model: str
     prompt: str
     max_tokens: Optional[int]
+    stream: Optional[bool]
 
     class Config:
         extra = "allow"

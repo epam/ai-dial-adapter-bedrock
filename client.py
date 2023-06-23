@@ -8,9 +8,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 
 from llm.callback import CallbackWithNewLines
-from llm.chat_emulation.types import ChatEmulationType
 from utils.args import get_host_port_args
-from utils.cli import select_enum, select_option
+from utils.cli import select_option
 from utils.printing import print_ai
 
 
@@ -25,18 +24,16 @@ if __name__ == "__main__":
 
     model = select_option("Select the model", get_available_models())
 
-    chat_emulation_type = select_enum(
-        "Select chat emulation type", ChatEmulationType
-    )
-
     prompt_history = FileHistory(".history")
 
+    streaming = True
     callbacks = [CallbackWithNewLines()]
     model = ChatOpenAI(
         callbacks=callbacks,
         model=model,
-        openai_api_base=f"http://{host}:{port}/{chat_emulation_type.value}",
+        openai_api_base=f"http://{host}:{port}",
         verbose=True,
+        streaming=streaming,
         temperature=0,
         request_timeout=6000,
     )  # type: ignore
@@ -50,6 +47,7 @@ if __name__ == "__main__":
         history.append(HumanMessage(content=content))
 
         response = model.generate([history]).generations[0][-1].text
-        print_ai(response.strip())
+        if not streaming:
+            print_ai(response.strip())
         message = AIMessage(content=response)
         history.append(message)

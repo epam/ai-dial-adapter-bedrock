@@ -1,6 +1,7 @@
 from typing import Any
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.schema import LLMResult
 from typing_extensions import override
 
 from utils.printing import print_ai
@@ -31,3 +32,7 @@ class CallbackWithNewLines(StreamingStdOutCallbackHandler):
 
         s = token.replace("\\n", "\n").replace('\\"', '"')
         print_ai(s, end="")
+
+    @override
+    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        print_ai("")
