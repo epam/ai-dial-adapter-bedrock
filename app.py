@@ -4,7 +4,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 import uvicorn
 from fastapi import Body, FastAPI, Query
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from llm.bedrock_custom import BedrockModels
-from llm.bedrock_langchain import chat, completion, create_model
+from llm.bedrock_langchain import TokenUsage, chat, completion, create_model
 from llm.chat_emulation.types import ChatEmulationType
 from open_ai_api.types import ChatCompletionQuery, CompletionQuery
 from utils.args import get_host_port_args
@@ -79,7 +79,7 @@ def wrap_streaming_chunk(name: str, id: str, timestamp: int, choice: dict):
 
 
 def wrap_single_message(
-    name: str, id: str, timestamp: int, chunk: dict
+    name: str, id: str, timestamp: int, chunk: dict, usage: TokenUsage
 ) -> dict:
     return {
         "id": id,
@@ -92,17 +92,14 @@ def wrap_single_message(
                 "finish_reason": "stop",
             }
         ],
-        "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 12,
-            "total_tokens": 21,
-        },
+        "usage": usage,
     }
 
 
-def make_response(name: str, streaming: bool, content: str):
+def make_response(name: str, streaming: bool, resp: Tuple[str, TokenUsage]):
     id = str(uuid.uuid4())
     timestamp = int(time.time())
+    content, usage = resp
 
     if streaming:
         chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
@@ -114,7 +111,7 @@ def make_response(name: str, streaming: bool, content: str):
             "role": "assistant",
             "content": content,
         }
-        return wrap_single_message(name, id, timestamp, chunk)
+        return wrap_single_message(name, id, timestamp, chunk, usage)
 
 
 @app.post("/chat/completions")

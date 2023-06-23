@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 import requests
@@ -10,7 +11,7 @@ from prompt_toolkit.styles import Style
 from llm.callback import CallbackWithNewLines
 from utils.args import get_host_port_args
 from utils.cli import select_option
-from utils.printing import print_ai
+from utils.printing import print_ai, print_info
 
 
 def get_available_models() -> List[str]:
@@ -46,8 +47,18 @@ if __name__ == "__main__":
         content = session.prompt("> ", style=Style.from_dict({"": "#ff0000"}))
         history.append(HumanMessage(content=content))
 
-        response = model.generate([history]).generations[0][-1].text
+        llm_result = model.generate([history])
+
+        usage = (
+            llm_result.llm_output.get("token_usage", {})
+            if llm_result.llm_output
+            else {}
+        )
+        print_info(json.dumps(usage, indent=2))
+
+        response = llm_result.generations[0][-1].text
         if not streaming:
             print_ai(response.strip())
+
         message = AIMessage(content=response)
         history.append(message)

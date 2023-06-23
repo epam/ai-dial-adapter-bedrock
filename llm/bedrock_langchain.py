@@ -1,12 +1,13 @@
 import logging
 import re
-from typing import List, Optional
+from typing import List, Optional, Tuple, TypedDict
 
 from langchain.llms.bedrock import Bedrock
 from langchain.schema import BaseMessage
 
 from llm.chat_emulation import emulate_chat, meta_chat
 from llm.chat_emulation.types import ChatEmulationType
+from utils.token_counter import get_num_tokens
 
 log = logging.getLogger("bedrock")
 
@@ -34,11 +35,28 @@ def enforce_stop_tokens(text: str, stop: List[str]) -> str:
     return re.split("|".join(stop_escaped), text)[0]
 
 
+class TokenUsage(TypedDict):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+def compute_usage(prompt: str, completion: str) -> TokenUsage:
+    prompt_tokens = get_num_tokens(prompt)
+    completion_tokens = get_num_tokens(completion)
+    total_tokens = prompt_tokens + completion_tokens
+    return TokenUsage(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+    )
+
+
 def chat(
     model: Bedrock,
     chat_emulation_type: ChatEmulationType,
     history: List[BaseMessage],
-) -> str:
+) -> Tuple[str, TokenUsage]:
     stop: Optional[List[str]] = None
     if chat_emulation_type == ChatEmulationType.META_CHAT:
         stop = [meta_chat.stop]
@@ -52,11 +70,11 @@ def chat(
         response = enforce_stop_tokens(response, stop)
 
     log.debug(f"response:\n{response}")
-    return response
+    return response, compute_usage(prompt, response)
 
 
-def completion(model: Bedrock, prompt: str) -> str:
+def completion(model: Bedrock, prompt: str) -> Tuple[str, TokenUsage]:
     log.debug(f"prompt:\n{prompt}")
     response = model._call(prompt, stop=None)
     log.debug(f"response:\n{response}")
-    return response
+    return response, compute_usage(prompt, response)

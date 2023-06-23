@@ -21,6 +21,6 @@ if __name__ == "__main__":
         content = get_input("> ")
         history.append(HumanMessage(content=content))
 
-        response = chat(model, chat_emulation_type, history)
+        response, _ = chat(model, chat_emulation_type, history)
         print_ai(response.strip())
         history.append(AIMessage(content=response))
