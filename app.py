@@ -7,8 +7,7 @@ from fastapi import Body, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from llm.bedrock_custom import BedrockModels
-from llm.bedrock_langchain import chat, completion, create_model
+from llm.bedrock_custom import BedrockCustom, BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
 from open_ai.response import make_response
 from open_ai.types import ChatCompletionQuery, CompletionQuery
@@ -63,9 +62,9 @@ def chat_completions(
     ),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = create_model(model_id=query.model, max_tokens=query.max_tokens)
+    model = BedrockCustom(model_id=query.model, max_tokens=query.max_tokens)
     messages = [message.to_base_message() for message in query.messages]
-    response = chat(model, chat_emulation_type, messages)
+    response = model.chat(chat_emulation_type, messages)
 
     streaming = query.stream or False
     return make_response("chat.completion", streaming, response)
@@ -75,8 +74,8 @@ def chat_completions(
 def completions(
     query: CompletionQuery = Body(...),
 ):
-    model = create_model(model_id=query.model, max_tokens=query.max_tokens)
-    response = completion(model, query.prompt)
+    model = BedrockCustom(model_id=query.model, max_tokens=query.max_tokens)
+    response = model._call(query.prompt)
 
     streaming = query.stream or False
     return make_response("text_completion", streaming, response)

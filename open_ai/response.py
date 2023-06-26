@@ -58,7 +58,7 @@ def wrap_single_message(
                 "finish_reason": "stop",
             }
         ],
-        "usage": usage,
+        "usage": usage.to_dict(),
     }
 
 

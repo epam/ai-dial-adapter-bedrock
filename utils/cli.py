@@ -3,13 +3,15 @@ from typing import List, Type, TypeVar
 
 import inquirer
 
+V = TypeVar("V")
 
-def select_option(title: str, options: List[str]) -> str:
+
+def select_option(title: str, options: List[V]) -> V:
     questions = [
         inquirer.List(
             "option",
             message=title,
-            choices=[(option, option) for option in options],
+            choices=[(str(option), option) for option in options],
             carousel=True,
         ),
     ]

@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     prompt_history = FileHistory(".history")
 
-    streaming = True
+    streaming = select_option("Streaming?", [True, False])
     callbacks = [CallbackWithNewLines()]
     model = ChatOpenAI(
         callbacks=callbacks,
@@ -54,11 +54,12 @@ if __name__ == "__main__":
             if llm_result.llm_output
             else {}
         )
-        print_info(json.dumps(usage, indent=2))
 
         response = llm_result.generations[0][-1].text
         if not streaming:
             print_ai(response.strip())
+
+        print_info("Usage:\n" + json.dumps(usage, indent=2))
 
         message = AIMessage(content=response)
         history.append(message)
