@@ -9,6 +9,7 @@ import llm.chat_emulation.claude as claude
 import llm.chat_emulation.meta_chat as meta_chat
 import llm.chat_emulation.zero_memory as zero_memory
 from llm.chat_emulation.types import ChatEmulationType
+from open_ai.types import CompletionParameters
 
 
 class TokenUsage(BaseModel):
@@ -36,9 +37,11 @@ def enforce_stop_tokens(text: str, stop: List[str]) -> str:
 
 class ChatModel(ABC):
     model_id: str
+    model_params: CompletionParameters
 
     @abstractmethod
     def _call(self, prompt: str) -> Tuple[str, TokenUsage]:
+        # TODO: Support multiple results: call the model in cycle of `self.model_params.n` iterations
         pass
 
     def chat(
@@ -47,6 +50,11 @@ class ChatModel(ABC):
         history: List[BaseMessage],
     ) -> Tuple[str, TokenUsage]:
         prompt, stop = emulate_chat(self.model_id, chat_emulation_type, history)
+
+        # To support models, which doesn't have intrinsic support of stop sequences.
+        if self.model_params.stop is not None:
+            stop.extend(self.model_params.stop)
+
         response, usage = self._call(prompt)
         if stop:
             response = enforce_stop_tokens(response, stop)

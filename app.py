@@ -62,7 +62,7 @@ def chat_completions(
     ),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=query.model, max_tokens=query.max_tokens)
+    model = BedrockCustom(model_id=query.model, model_params=query)
     messages = [message.to_base_message() for message in query.messages]
     response = model.chat(chat_emulation_type, messages)
 
@@ -74,7 +74,7 @@ def chat_completions(
 def completions(
     query: CompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=query.model, max_tokens=query.max_tokens)
+    model = BedrockCustom(model_id=query.model, model_params=query)
     response = model._call(query.prompt)
 
     streaming = query.stream or False

@@ -20,7 +20,7 @@ def emulate(prompt: List[BaseMessage]) -> str:
 
     msgs = [prelude]
     for msg in prompt:
-        msgs.append(f"[{msg.type.upper()}] {msg.content}")
+        msgs.append(f"[{msg.type.upper()}] {msg.content.lstrip()}")
     msgs.append("[AI] ")
 
     return "\n".join(msgs)

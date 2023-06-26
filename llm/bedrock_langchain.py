@@ -1,15 +1,17 @@
 import logging
-from typing import Optional, Tuple
+from typing import Tuple
 
 from langchain.llms.bedrock import Bedrock
 
+from llm.bedrock_custom import prepare_model_kwargs
 from llm.chat_model import ChatModel, TokenUsage
+from open_ai.types import CompletionParameters
 from utils.token_counter import get_num_tokens
 
 log = logging.getLogger("bedrock")
 
 
-def compute_usage(prompt: str, completion: str) -> TokenUsage:
+def compute_usage_estimation(prompt: str, completion: str) -> TokenUsage:
     prompt_tokens = get_num_tokens(prompt)
     completion_tokens = get_num_tokens(completion)
     return TokenUsage(
@@ -22,17 +24,15 @@ class BedrockLangChain(ChatModel):
     def __init__(
         self,
         model_id: str,
-        max_tokens: Optional[int],
+        model_params: CompletionParameters,
         region: str = "us-east-1",
     ):
         self.model_id = model_id
+        self.model_params = model_params
+
         provider = model_id.split(".")[0]
 
-        model_kwargs = {}
-        if provider == "anthropic":
-            model_kwargs["max_tokens_to_sample"] = (
-                max_tokens if max_tokens is not None else 500
-            )
+        model_kwargs = prepare_model_kwargs(provider, model_params)
 
         self.model = Bedrock(
             model_id=model_id,
@@ -44,4 +44,4 @@ class BedrockLangChain(ChatModel):
         log.debug(f"prompt:\n{prompt}")
         response = self.model._call(prompt)
         log.debug(f"response:\n{response}")
-        return response, compute_usage(prompt, response)
+        return response, compute_usage_estimation(prompt, response)

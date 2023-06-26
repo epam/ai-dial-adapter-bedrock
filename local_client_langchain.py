@@ -6,6 +6,7 @@ from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
 from llm.bedrock_langchain import BedrockLangChain
 from llm.bedrock_models import choose_model
+from open_ai.types import CompletionParameters
 from utils.init import init
 from utils.printing import get_input, print_ai
 
@@ -13,7 +14,9 @@ if __name__ == "__main__":
     init()
 
     model_id, chat_emulation_type = choose_model()
-    model = BedrockLangChain(model_id=model_id, max_tokens=None)
+    model = BedrockLangChain(
+        model_id=model_id, model_params=CompletionParameters()
+    )
 
     history: List[BaseMessage] = []
 

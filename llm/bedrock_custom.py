@@ -1,15 +1,15 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 import boto3
 from anthropic.tokenizer import count_tokens
-from langchain.llms.bedrock import LLMInputOutputAdapter
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from llm.chat_model import ChatModel, TokenUsage
+from open_ai.types import CompletionParameters
 
 
 class BedrockModelId(TypedDict):
@@ -164,21 +164,95 @@ class BedrockModels:
 log = logging.getLogger("bedrock")
 
 
+# Simplified copy of langchain.llms.bedrock.LLMInputOutputAdapter.prepare_input
+def prepare_input(
+    provider: str, prompt: str, model_kwargs: Dict[str, Any]
+) -> Dict[str, Any]:
+    input_body = {**model_kwargs}
+    if provider == "anthropic" or provider == "ai21":
+        input_body["prompt"] = prompt
+    elif provider == "amazon":
+        input_body = dict()
+        input_body["inputText"] = prompt
+        input_body["textGenerationConfig"] = {**model_kwargs}
+    else:
+        input_body["inputText"] = prompt
+
+    return input_body
+
+
+def prepare_model_kwargs(
+    provider: str, model_params: CompletionParameters
+) -> Dict[str, Any]:
+    model_kwargs = {}
+
+    # NOTE: See https://docs.anthropic.com/claude/reference/complete_post
+    if provider == "anthropic":
+        if model_params.max_tokens is not None:
+            model_kwargs["max_tokens_to_sample"] = model_params.max_tokens
+        else:
+            # The max tokens parameter is required for Anthropic models.
+            # Choosing reasonable default.
+            model_kwargs["max_tokens_to_sample"] = 500
+
+        if model_params.stop is not None:
+            model_kwargs["stop_sequences"] = model_params.stop
+
+        if model_params.temperature is not None:
+            model_kwargs["temperature"] = model_params.temperature
+
+        # Doesn't have any effect. AWS always sends the whole response at once.
+        # streaming = model_kwargs.streaming
+
+        if model_params.top_p is not None:
+            model_kwargs["top_p"] = model_params.top_p
+
+        if model_params.top_k is not None:
+            model_kwargs["top_k"] = model_params.top_k
+
+    # NOTE: See https://docs.ai21.com/reference/j2-instruct-ref
+    if provider == "ai21":
+        if model_params.max_tokens is not None:
+            model_kwargs["maxTokens"] = model_params.max_tokens
+        else:
+            # The default for max tokens is 16, which is too small for most use cases
+            model_kwargs["maxTokens"] = 500
+
+        if model_params.temperature is not None:
+            model_kwargs["temperature"] = model_params.temperature
+        else:
+            # The default AI21 temperature is 0.7.
+            # The default OpenAI temperature is 1.0.
+            # Choosing the OpenAI default since we pretend AI21 to be OpenAI.
+            model_kwargs["temperature"] = 1.0
+
+        if model_params.top_p is not None:
+            model_kwargs["topP"] = model_params.top_p
+
+        if model_params.stop is not None:
+            model_kwargs["stopSequences"] = model_params.stop
+
+        # NOTE: AI21 has "numResults" parameter, however we emulate multiple result
+        # via mutliple calls to support all models uniformly.
+
+    # NOTE: There is no documentation for Amazon models currently.
+
+    return model_kwargs
+
+
 class BedrockCustom(ChatModel):
     def __init__(
         self,
         model_id: str,
-        max_tokens: Optional[int],
+        model_params: CompletionParameters,
         region: str = "us-east-1",
     ):
         self.model_id = model_id
+        self.model_params = model_params
+
         provider = model_id.split(".")[0]
 
-        self.model_kwargs = {}
-        if provider == "anthropic":
-            self.model_kwargs["max_tokens_to_sample"] = (
-                max_tokens if max_tokens is not None else 500
-            )
+        self.model_kwargs = prepare_model_kwargs(provider, model_params)
 
         session = boto3.Session()
         self.bedrock = session.client(
@@ -193,11 +267,7 @@ class BedrockCustom(ChatModel):
         provider = self.model_id.split(".")[0]
 
         model_response = self.bedrock.invoke_model(
-            body=json.dumps(
-                LLMInputOutputAdapter.prepare_input(
-                    provider, prompt, self.model_kwargs
-                )
-            ),
+            body=json.dumps(prepare_input(provider, prompt, self.model_kwargs)),
             modelId=self.model_id,
             contentType="application/json",
             accept="application/json",

@@ -26,22 +26,28 @@ class Message(BaseModel):
                 raise ValueError(f"Unknown role: {self.role}")
 
 
+class CompletionParameters(BaseModel):
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+    stop: Optional[List[str]] = None
+    n: Optional[int] = None
+    stream: Optional[bool] = None
+    top_p: Optional[float] = None
+    top_k: Optional[float] = None
+
+
 # Direct translation of https://platform.openai.com/docs/api-reference/chat/create
-class ChatCompletionQuery(BaseModel):
+class ChatCompletionQuery(CompletionParameters, BaseModel):
     model: str
     messages: List[Message]
-    max_tokens: Optional[int]
-    stream: Optional[bool]
 
     class Config:
         extra = "allow"
 
 
-class CompletionQuery(BaseModel):
+class CompletionQuery(CompletionParameters, BaseModel):
     model: str
     prompt: str
-    max_tokens: Optional[int]
-    stream: Optional[bool]
 
     class Config:
         extra = "allow"
