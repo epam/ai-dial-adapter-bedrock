@@ -235,7 +235,11 @@ def prepare_model_kwargs(
         # NOTE: AI21 has "numResults" parameter, however we emulate multiple result
         # via mutliple calls to support all models uniformly.
 
-    # NOTE: There is no documentation for Amazon models currently.
+    if provider == "amazon":
+        if model_params.temperature is not None:
+            model_kwargs["temperature"] = model_params.temperature
+        # NOTE: There is no documentation for Amazon models currently.
+        # NOTE: max tokens is 128 by default. The parameter name is not known.
 
     return model_kwargs
 
