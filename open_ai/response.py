@@ -19,28 +19,27 @@ class ResponseParameters(BaseModel):
 def generate_event_stream(
     params: ResponseParameters,
     gen: Generator[dict, None, None],
-    usage: Optional[TokenUsage],
+    usage: TokenUsage,
 ):
     def event_stream():
         for item in gen:
             if item == {}:
                 choice = {"index": 0, "delta": {}, "finish_reason": "stop"}
-                yield wrap_streaming_chunk(params, {"choices": [choice]})
 
                 # Extra bit specific for the Universal API
-                if usage is not None:
-                    statistics = {
-                        "per_model": [
-                            {
-                                "index": 0,
-                                "name": params.model,
-                                **usage.to_dict(),
-                            }
-                        ]
-                    }
-                    yield wrap_streaming_chunk(
-                        params, {"statistics": statistics}
-                    )
+                statistics = {
+                    "per_model": [
+                        {
+                            "index": 0,
+                            "name": params.model,
+                            **usage.to_dict(),
+                        }
+                    ]
+                }
+
+                yield wrap_streaming_chunk(
+                    params, {"choices": [choice], "statistics": statistics}
+                )
 
                 yield "data: [DONE]\n\n"
                 break
@@ -96,9 +95,7 @@ def make_response(
             model=model_id, id=id, created=timestamp, object=name + ".chunk"
         )
         chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
-
-        # TODO: Usage is optional depending on wether the client uses Universal API or not
-        return generate_event_stream(params, (c for c in chunks), None)
+        return generate_event_stream(params, (c for c in chunks), usage)
     else:
         params = ResponseParameters(
             model=model_id, id=id, created=timestamp, object=name
