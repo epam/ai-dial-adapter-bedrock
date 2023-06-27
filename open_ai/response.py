@@ -1,43 +1,65 @@
 import json
 import time
 import uuid
-from typing import Generator, List, Tuple
+from typing import Generator, List, Optional, Tuple
 
+from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from llm.bedrock_langchain import TokenUsage
 
 
+class ResponseParameters(BaseModel):
+    created: int
+    id: str
+    model: str
+    object: str
+
+
 def generate_event_stream(
-    name: str, id: str, timestamp: int, gen: Generator[dict, None, None]
+    params: ResponseParameters,
+    gen: Generator[dict, None, None],
+    usage: Optional[TokenUsage],
 ):
     def event_stream():
         for item in gen:
             if item == {}:
                 choice = {"index": 0, "delta": {}, "finish_reason": "stop"}
-                message = wrap_streaming_chunk(name, id, timestamp, choice)
-                yield message
+                yield wrap_streaming_chunk(params, {"choices": [choice]})
+
+                # Extra bit specific for the Universal API
+                if usage is not None:
+                    statistics = {
+                        "per_model": [
+                            {
+                                "index": 0,
+                                "name": params.model,
+                                **usage.to_dict(),
+                            }
+                        ]
+                    }
+                    yield wrap_streaming_chunk(
+                        params, {"statistics": statistics}
+                    )
+
                 yield "data: [DONE]\n\n"
                 break
 
             choice = {"index": 0, "delta": item, "finish_reason": None}
-            message = wrap_streaming_chunk(name, id, timestamp, choice)
-            yield message
+            yield wrap_streaming_chunk(params, {"choices": [choice]})
 
     return StreamingResponse(
         event_stream(), headers={"Content-Type": "text/event-stream"}
     )
 
 
-def wrap_streaming_chunk(name: str, id: str, timestamp: int, choice: dict):
+def wrap_streaming_chunk(params: ResponseParameters, payload: dict):
     return (
         "data: "
         + json.dumps(
             {
-                "id": id,
-                "object": name,
-                "created": timestamp,
-                "choices": [choice],
+                **params.dict(),
+                **payload,
             }
         )
         + "\n\n"
@@ -45,12 +67,11 @@ def wrap_streaming_chunk(name: str, id: str, timestamp: int, choice: dict):
 
 
 def wrap_single_message(
-    name: str, id: str, timestamp: int, chunk: dict, usage: TokenUsage
+    params: ResponseParameters,
+    chunk: dict,
+    usage: TokenUsage,
 ) -> dict:
     return {
-        "id": id,
-        "object": name,
-        "created": timestamp,
         "choices": [
             {
                 "index": 0,
@@ -58,24 +79,32 @@ def wrap_single_message(
                 "finish_reason": "stop",
             }
         ],
+        **params.dict(),
         "usage": usage.to_dict(),
     }
 
 
-def make_response(name: str, streaming: bool, resp: Tuple[str, TokenUsage]):
+def make_response(
+    streaming: bool, model_id: str, name: str, resp: Tuple[str, TokenUsage]
+):
     id = str(uuid.uuid4())
     timestamp = int(time.time())
     content, usage = resp
 
     if streaming:
-        # TODO: add token usage!
-        chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
-        return generate_event_stream(
-            name + ".chunk", id, timestamp, (c for c in chunks)
+        params = ResponseParameters(
+            model=model_id, id=id, created=timestamp, object=name + ".chunk"
         )
+        chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
+
+        # TODO: Usage is optional depending on wether the client uses Universal API or not
+        return generate_event_stream(params, (c for c in chunks), None)
     else:
+        params = ResponseParameters(
+            model=model_id, id=id, created=timestamp, object=name
+        )
         chunk = {
             "role": "assistant",
             "content": content,
         }
-        return wrap_single_message(name, id, timestamp, chunk, usage)
+        return wrap_single_message(params, chunk, usage)

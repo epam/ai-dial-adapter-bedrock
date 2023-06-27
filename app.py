@@ -62,23 +62,25 @@ def chat_completions(
     ),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=query.model, model_params=query)
+    model_id = query.model
+    model = BedrockCustom(model_id=model_id, model_params=query)
     messages = [message.to_base_message() for message in query.messages]
     response = model.chat(chat_emulation_type, messages)
 
     streaming = query.stream or False
-    return make_response("chat.completion", streaming, response)
+    return make_response(streaming, model_id, "chat.completion", response)
 
 
 @app.post("/completions")
 def completions(
     query: CompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=query.model, model_params=query)
+    model_id = query.model
+    model = BedrockCustom(model_id=model_id, model_params=query)
     response = model._call(query.prompt)
 
     streaming = query.stream or False
-    return make_response("text_completion", streaming, response)
+    return make_response(streaming, model_id, "text_completion", response)
 
 
 if __name__ == "__main__":
