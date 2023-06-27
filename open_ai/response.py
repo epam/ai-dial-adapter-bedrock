@@ -68,6 +68,7 @@ def make_response(name: str, streaming: bool, resp: Tuple[str, TokenUsage]):
     content, usage = resp
 
     if streaming:
+        # TODO: add token usage!
         chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
         return generate_event_stream(
             name + ".chunk", id, timestamp, (c for c in chunks)

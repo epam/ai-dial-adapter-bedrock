@@ -1,4 +1,3 @@
-import re
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
@@ -10,6 +9,8 @@ import llm.chat_emulation.meta_chat as meta_chat
 import llm.chat_emulation.zero_memory as zero_memory
 from llm.chat_emulation.types import ChatEmulationType
 from open_ai.types import CompletionParameters
+from utils.operators import Unary, identity
+from utils.text import enforce_stop_tokens
 
 
 class TokenUsage(BaseModel):
@@ -28,13 +29,6 @@ class TokenUsage(BaseModel):
         }
 
 
-# Copy of langchain.llms.utils::enforce_stop_tokens with a bugfix: stop words are escaped.
-def enforce_stop_tokens(text: str, stop: List[str]) -> str:
-    """Cut off the text as soon as any stop words occur."""
-    stop_escaped = [re.escape(s) for s in stop]
-    return re.split("|".join(stop_escaped), text)[0]
-
-
 class ChatModel(ABC):
     model_id: str
     model_params: CompletionParameters
@@ -49,15 +43,18 @@ class ChatModel(ABC):
         chat_emulation_type: ChatEmulationType,
         history: List[BaseMessage],
     ) -> Tuple[str, TokenUsage]:
-        prompt, stop = emulate_chat(self.model_id, chat_emulation_type, history)
+        prompt, post_process = emulate_chat(
+            self.model_id, chat_emulation_type, history
+        )
+
+        response, usage = self._call(prompt)
 
         # To support models, which doesn't have intrinsic support of stop sequences.
         if self.model_params.stop is not None:
-            stop.extend(self.model_params.stop)
+            response = enforce_stop_tokens(response, self.model_params.stop)
 
-        response, usage = self._call(prompt)
-        if stop:
-            response = enforce_stop_tokens(response, stop)
+        response = post_process(response)
+
         return response, usage
 
 
@@ -73,15 +70,15 @@ def parse_model_id(model_id: str) -> Model:
 
 def emulate_chat(
     model_id: str, emulation_type: ChatEmulationType, prompt: List[BaseMessage]
-) -> Tuple[str, List[str]]:
+) -> Tuple[str, Unary[str]]:
     model = parse_model_id(model_id)
     if model.provider == "anthropic" and "claude" in model.model:
-        return claude.emulate(prompt), []
+        return claude.emulate(prompt), identity
 
     match emulation_type:
         case ChatEmulationType.ZERO_MEMORY:
-            return zero_memory.emulate(prompt), []
+            return zero_memory.emulate(prompt), identity
         case ChatEmulationType.META_CHAT:
-            return meta_chat.emulate(prompt), [meta_chat.stop]
+            return meta_chat.emulate(prompt)
         case _:
             raise Exception(f"Invalid emulation type: {emulation_type}")

@@ -30,7 +30,7 @@ class ClaudeHistory:
     def print(self) -> str:
         return "".join(
             [
-                f"\n\n{msg.role.value}: {msg.content.strip()}"
+                f"\n\n{msg.role.value}: {msg.content.lstrip()}".rstrip()
                 for msg in self.history
             ]
         )
