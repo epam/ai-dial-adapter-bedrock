@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import logging
+from typing import Optional
 
 import uvicorn
-from fastapi import Body, FastAPI, Query, Request
+from fastapi import Body, FastAPI, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -45,7 +46,7 @@ class ModelDescription(BaseModel):
     object: str
 
 
-@app.get("/models")
+@app.get("/openai/models")
 @error_handling_decorator
 def models():
     bedrock_models = BedrockModels().models()
@@ -58,16 +59,16 @@ def models():
     return {"object": "list", "data": models}
 
 
-@app.post("/chat/completions")
+@app.post("/openai/deployments/{model_id}/chat/completions")
 @error_handling_decorator
 def chat_completions(
+    model_id: str = Path(...),
     chat_emulation_type: ChatEmulationType = Query(
         default=ChatEmulationType.META_CHAT,
         description="The chat emulation type for models which only support completion mode",
     ),
     query: ChatCompletionQuery = Body(...),
 ):
-    model_id = query.model
     model = BedrockCustom(model_id=model_id, model_params=query)
     messages = [message.to_base_message() for message in query.messages]
     response = model.chat(chat_emulation_type, messages)
@@ -76,12 +77,12 @@ def chat_completions(
     return make_response(streaming, model_id, "chat.completion", response)
 
 
-@app.post("/completions")
+@app.post("/openai/deployments/{model_id}/completions")
 @error_handling_decorator
 def completions(
+    model_id: str = Path(...),
     query: CompletionQuery = Body(...),
 ):
-    model_id = query.model
     model = BedrockCustom(model_id=model_id, model_params=query)
     response = model._call(query.prompt)
 

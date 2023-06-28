@@ -2,7 +2,7 @@ import json
 from typing import List
 
 import requests
-from langchain.chat_models import ChatOpenAI
+from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -15,7 +15,7 @@ from utils.printing import print_ai, print_info
 
 
 def get_available_models(base_url: str) -> List[str]:
-    resp = requests.get(f"{base_url}/models")
+    resp = requests.get(f"{base_url}/openai/models")
     if resp.status_code != 200:
         raise Exception(f"Error getting models: {resp.text}")
     resp = resp.json()
@@ -27,16 +27,17 @@ if __name__ == "__main__":
     host, port = get_host_port_args()
 
     base_url = f"http://{host}:{port}"
-    model = select_option("Select the model", get_available_models(base_url))
+    model_id = select_option("Select the model", get_available_models(base_url))
 
     prompt_history = FileHistory(".history")
 
     streaming = select_option("Streaming?", [True, False])
     callbacks = [CallbackWithNewLines()]
-    model = ChatOpenAI(
+    model = AzureChatOpenAI(
+        deployment_name=model_id,
         callbacks=callbacks,
-        model=model,
         openai_api_base=base_url,
+        openai_api_version="2023-03-15-preview",
         verbose=True,
         streaming=streaming,
         temperature=0,
