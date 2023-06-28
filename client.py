@@ -14,8 +14,11 @@ from utils.cli import select_option
 from utils.printing import print_ai, print_info
 
 
-def get_available_models() -> List[str]:
-    resp = requests.get(f"http://{host}:{port}/models").json()
+def get_available_models(base_url: str) -> List[str]:
+    resp = requests.get(f"{base_url}/models")
+    if resp.status_code != 200:
+        raise Exception(f"Error getting models: {resp.text}")
+    resp = resp.json()
     models = [r["id"] for r in resp["data"]]
     return models
 
@@ -23,7 +26,8 @@ def get_available_models() -> List[str]:
 if __name__ == "__main__":
     host, port = get_host_port_args()
 
-    model = select_option("Select the model", get_available_models())
+    base_url = f"http://{host}:{port}"
+    model = select_option("Select the model", get_available_models(base_url))
 
     prompt_history = FileHistory(".history")
 
@@ -32,7 +36,7 @@ if __name__ == "__main__":
     model = ChatOpenAI(
         callbacks=callbacks,
         model=model,
-        openai_api_base=f"http://{host}:{port}",
+        openai_api_base=base_url,
         verbose=True,
         streaming=streaming,
         temperature=0,

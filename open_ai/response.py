@@ -1,7 +1,7 @@
 import json
 import time
 import uuid
-from typing import Generator, List, Optional, Tuple
+from typing import Generator, List, Tuple
 
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
