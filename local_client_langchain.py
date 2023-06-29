@@ -15,7 +15,9 @@ if __name__ == "__main__":
 
     model_id, chat_emulation_type = choose_model()
     model = BedrockLangChain(
-        model_id=model_id, model_params=CompletionParameters()
+        region="us-east-1",
+        model_id=model_id,
+        model_params=CompletionParameters(),
     )
 
     history: List[BaseMessage] = []

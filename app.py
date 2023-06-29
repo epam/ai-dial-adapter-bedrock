@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import logging
-from typing import Optional
 
 import uvicorn
 from fastapi import Body, FastAPI, Path, Query, Request
@@ -46,10 +45,15 @@ class ModelDescription(BaseModel):
     object: str
 
 
+default_region = "us-east-1"
+
+
 @app.get("/openai/models")
 @error_handling_decorator
-def models():
-    bedrock_models = BedrockModels().models()
+def models(
+    region: str = Query(default=default_region, description="AWS region")
+):
+    bedrock_models = BedrockModels(region).models()
 
     models = [
         ModelDescription(id=model["modelId"], object="model").dict()
@@ -67,9 +71,10 @@ def chat_completions(
         default=ChatEmulationType.META_CHAT,
         description="The chat emulation type for models which only support completion mode",
     ),
+    region: str = Query(default=default_region, description="AWS region"),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=model_id, model_params=query)
+    model = BedrockCustom(region=region, model_id=model_id, model_params=query)
     messages = [message.to_base_message() for message in query.messages]
     response = model.chat(chat_emulation_type, messages)
 
@@ -81,9 +86,10 @@ def chat_completions(
 @error_handling_decorator
 def completions(
     model_id: str = Path(...),
+    region: str = Query(default=default_region, description="AWS region"),
     query: CompletionQuery = Body(...),
 ):
-    model = BedrockCustom(model_id=model_id, model_params=query)
+    model = BedrockCustom(region=region, model_id=model_id, model_params=query)
     response = model._call(query.prompt)
 
     streaming = query.stream or False

@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-import requests
+import openai
 from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 from prompt_toolkit import PromptSession
@@ -13,13 +13,14 @@ from utils.args import get_host_port_args
 from utils.cli import select_option
 from utils.printing import print_ai, print_info
 
+api_version = "2023-03-15-preview"
+
 
 def get_available_models(base_url: str) -> List[str]:
-    resp = requests.get(f"{base_url}/openai/models")
-    if resp.status_code != 200:
-        raise Exception(f"Error getting models: {resp.text}")
-    resp = resp.json()
-    models = [r["id"] for r in resp["data"]]
+    resp: dict = openai.Model.list(
+        api_type="azure", api_base=base_url, api_version=api_version
+    )  # type: ignore
+    models = [r["id"] for r in resp.get("data", [])]
     return models
 
 
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         deployment_name=model_id,
         callbacks=callbacks,
         openai_api_base=base_url,
-        openai_api_version="2023-03-15-preview",
+        openai_api_version=api_version,
         verbose=True,
         streaming=streaming,
         temperature=0,

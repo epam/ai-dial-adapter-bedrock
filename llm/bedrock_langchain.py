@@ -25,7 +25,7 @@ class BedrockLangChain(ChatModel):
         self,
         model_id: str,
         model_params: CompletionParameters,
-        region: str = "us-east-1",
+        region: str,
     ):
         self.model_id = model_id
         self.model_params = model_params

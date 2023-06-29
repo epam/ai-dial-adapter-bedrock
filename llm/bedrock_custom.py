@@ -148,7 +148,7 @@ class BedrockResponse(BaseModel, IOutput):
 
 
 class BedrockModels:
-    def __init__(self, region: str = "us-east-1"):
+    def __init__(self, region: str):
         session = boto3.Session()
 
         self.bedrock = session.client(
@@ -248,8 +248,8 @@ class BedrockCustom(ChatModel):
     def __init__(
         self,
         model_id: str,
+        region: str,
         model_params: CompletionParameters,
-        region: str = "us-east-1",
     ):
         self.model_id = model_id
         self.model_params = model_params
