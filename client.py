@@ -4,14 +4,14 @@ from typing import List
 import openai
 from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
-from prompt_toolkit import PromptSession
+from openai.error import OpenAIError
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.styles import Style
 
 from llm.callback import CallbackWithNewLines
 from utils.args import get_host_port_args
 from utils.cli import select_option
-from utils.printing import print_ai, print_info
+from utils.input import make_input
+from utils.printing import print_ai, print_error, print_info
 
 api_version = "2023-03-15-preview"
 
@@ -22,6 +22,13 @@ def get_available_models(base_url: str) -> List[str]:
     )  # type: ignore
     models = [r["id"] for r in resp.get("data", [])]
     return models
+
+
+def print_exception(exc: Exception) -> None:
+    if isinstance(exc, OpenAIError):
+        print_error(json.dumps(exc.json_body, indent=2))
+    else:
+        print_error(str(exc))
 
 
 if __name__ == "__main__":
@@ -47,13 +54,18 @@ if __name__ == "__main__":
 
     history: List[BaseMessage] = []
 
-    session = PromptSession(history=prompt_history)
+    input = make_input()
 
     while True:
-        content = session.prompt("> ", style=Style.from_dict({"": "#ff0000"}))
+        content = input()
         history.append(HumanMessage(content=content))
 
-        llm_result = model.generate([history])
+        try:
+            llm_result = model.generate([history])
+        except Exception as e:
+            print_exception(e)
+            history.pop()
+            continue
 
         usage = (
             llm_result.llm_output.get("token_usage", {})
