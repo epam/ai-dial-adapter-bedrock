@@ -64,7 +64,12 @@ class Model(BaseModel):
 
 
 def parse_model_id(model_id: str) -> Model:
-    provider, model = model_id.split(".")
+    parts = model_id.split(".")
+    if len(parts) != 2:
+        raise Exception(
+            f"Invalid model id '{model_id}'. The model id is expected to be in format 'provider.model'"
+        )
+    provider, model = parts
     return Model(provider=provider, model=model)
 
 
