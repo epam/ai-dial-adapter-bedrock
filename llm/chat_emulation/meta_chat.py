@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from langchain.schema import AIMessage, BaseMessage
+from langchain.schema import AIMessage, BaseMessage, SystemMessage
 
 from utils.operators import Unary
 from utils.text import enforce_stop_tokens, remove_prefix
@@ -32,6 +32,10 @@ def emulate(prompt: List[BaseMessage]) -> Tuple[str, Unary[str]]:
 
     msgs = [prelude]
     for msg in history:
+        # Skipping empty system messages
+        if isinstance(msg, SystemMessage) and msg.content.strip() == "":
+            continue
+
         role = type_to_role(msg.type)
         msgs.append(f"\n\n{role}: {msg.content.lstrip()}".rstrip())
 

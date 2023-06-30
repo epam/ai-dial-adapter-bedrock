@@ -210,7 +210,8 @@ def prepare_model_kwargs(
         if model_params.top_k is not None:
             model_kwargs["top_k"] = model_params.top_k
 
-    # NOTE: See https://docs.ai21.com/reference/j2-instruct-ref
+    # NOTE: API See https://docs.ai21.com/reference/j2-instruct-ref
+    # NOTE: Per-model token limits: https://docs.ai21.com/docs/choosing-the-right-instance-type-for-amazon-sagemaker-models#foundation-models
     if provider == "ai21":
         if model_params.max_tokens is not None:
             model_kwargs["maxTokens"] = model_params.max_tokens
