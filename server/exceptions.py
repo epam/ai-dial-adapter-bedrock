@@ -17,6 +17,9 @@ class OpenAIException(Exception):
         self.error = error
 
 
+# TODO: Catch the rate limit exception and dress it like OpenAI rate limit exception: botocore.errorfactory.ThrottlingException: An error occurred (ThrottlingException) when calling the InvokeModel operation (reached max retries: 4): Too many requests, please wait before trying again. You have sent too many requests.  Wait before trying again.
+
+
 def error_handling_decorator(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
