@@ -10,9 +10,9 @@ from pydantic import BaseModel
 
 from llm.bedrock_custom import BedrockCustom, BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
-from open_ai.response import make_response
-from open_ai.types import ChatCompletionQuery, CompletionQuery
 from server.exceptions import OpenAIException, error_handling_decorator
+from universal_api.request import ChatCompletionQuery, CompletionQuery
+from universal_api.response import make_response
 from utils.args import get_host_port_args
 from utils.init import init
 from utils.log_config import LogConfig

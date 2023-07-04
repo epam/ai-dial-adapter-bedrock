@@ -8,25 +8,10 @@ import llm.chat_emulation.claude as claude
 import llm.chat_emulation.meta_chat as meta_chat
 import llm.chat_emulation.zero_memory as zero_memory
 from llm.chat_emulation.types import ChatEmulationType
-from open_ai.types import CompletionParameters
+from universal_api.request import CompletionParameters
+from universal_api.token_usage import TokenUsage
 from utils.operators import Unary, identity
 from utils.text import enforce_stop_tokens
-
-
-class TokenUsage(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
-
-    @property
-    def total_tokens(self) -> int:
-        return self.prompt_tokens + self.completion_tokens
-
-    def to_dict(self) -> dict:
-        return {
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
-            "total_tokens": self.total_tokens,
-        }
 
 
 class ChatModel(ABC):

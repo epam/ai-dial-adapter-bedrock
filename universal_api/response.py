@@ -6,7 +6,7 @@ from typing import Generator, List, Tuple
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
-from llm.bedrock_langchain import TokenUsage
+from universal_api.token_usage import TokenUsage
 
 
 class ResponseParameters(BaseModel):
@@ -26,19 +26,10 @@ def generate_event_stream(
             if item == {}:
                 choice = {"index": 0, "delta": {}, "finish_reason": "stop"}
 
-                # Extra bit specific for the Universal API
-                statistics = {
-                    "per_model": [
-                        {
-                            "index": 0,
-                            "name": params.model,
-                            **usage.to_dict(),
-                        }
-                    ]
-                }
-
+                # Adding usage to the last chunk.
+                # OpenAI itself leaves this field undefined/null, but we provide meaningful usage.
                 yield wrap_streaming_chunk(
-                    params, {"choices": [choice], "statistics": statistics}
+                    params, {"choices": [choice], "usage": usage.to_dict()}
                 )
 
                 yield "data: [DONE]\n\n"

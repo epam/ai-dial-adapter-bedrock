@@ -5,7 +5,7 @@ from langchain.llms.bedrock import Bedrock
 
 from llm.bedrock_custom import prepare_model_kwargs
 from llm.chat_model import ChatModel, TokenUsage
-from open_ai.types import CompletionParameters
+from universal_api.request import CompletionParameters
 from utils.token_counter import get_num_tokens
 
 log = logging.getLogger("bedrock")

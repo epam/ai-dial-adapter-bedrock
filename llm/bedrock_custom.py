@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from llm.chat_model import ChatModel, TokenUsage
-from open_ai.types import CompletionParameters
+from universal_api.request import CompletionParameters
 
 
 class BedrockModelId(TypedDict):

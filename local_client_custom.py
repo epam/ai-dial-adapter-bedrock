@@ -6,7 +6,7 @@ from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
 from llm.bedrock_custom import BedrockCustom
 from llm.bedrock_models import choose_model
-from open_ai.types import CompletionParameters
+from universal_api.request import CompletionParameters
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
 
