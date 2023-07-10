@@ -24,7 +24,7 @@ def error_handling_decorator(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
         try:
-            return func(*args, **kwargs)
+            return await func(*args, **kwargs)
         except ClientError as e:
             if "The security token included in the request is invalid" in str(
                 e

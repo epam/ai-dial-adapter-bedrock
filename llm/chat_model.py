@@ -23,7 +23,12 @@ class ChatModel(ABC):
         # TODO: Support multiple results: call the model in cycle of `self.model_params.n` iterations
         pass
 
-    def chat(
+    @abstractmethod
+    async def _acall(self, prompt: str) -> Tuple[str, TokenUsage]:
+        # TODO: Support multiple results: call the model in cycle of `self.model_params.n` iterations
+        pass
+
+    async def achat(
         self,
         chat_emulation_type: ChatEmulationType,
         history: List[BaseMessage],
@@ -32,7 +37,7 @@ class ChatModel(ABC):
             self.model_id, chat_emulation_type, history
         )
 
-        response, usage = self._call(prompt)
+        response, usage = await self._acall(prompt)
 
         # To support models, which doesn't have intrinsic support of stop sequences.
         if self.model_params.stop is not None:
