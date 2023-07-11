@@ -1,8 +1,8 @@
 image:
   pullPolicy: Always
-  registry: registry-dev.deltixhub.com
+  registry: registry-test.deltixhub.com
   pullSecrets:
-    - epm-rtc-registry-dev
+    - epm-rtc-registry-test
 
 podAnnotations:
   autorestart: '{{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC" }}'

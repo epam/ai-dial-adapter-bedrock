@@ -10,6 +10,7 @@ from typing_extensions import Annotated
 
 from llm.chat_model import ChatModel, TokenUsage
 from universal_api.request import CompletionParameters
+from utils.asyncio import make_async
 
 
 class BedrockModelId(TypedDict):
@@ -249,22 +250,34 @@ class BedrockCustom(ChatModel):
     def __init__(
         self,
         model_id: str,
-        region: str,
-        model_params: CompletionParameters,
+        model_kwargs: Dict[str, Any],
+        bedrock: Any,
     ):
         self.model_id = model_id
-        self.model_params = model_params
+        self.model_kwargs = model_kwargs
+        self.bedrock = bedrock
 
+    @classmethod
+    async def create(
+        cls, model_id: str, region: str, model_params: CompletionParameters
+    ) -> "BedrockCustom":
         provider = model_id.split(".")[0]
 
-        self.model_kwargs = prepare_model_kwargs(provider, model_params)
+        model_kwargs = prepare_model_kwargs(provider, model_params)
 
-        session = boto3.Session()
-        self.bedrock = session.client(
-            "bedrock",
-            region,
-            endpoint_url=f"https://bedrock.{region}.amazonaws.com",
+        bedrock = await make_async(
+            lambda _: boto3.Session().client(
+                "bedrock",
+                region,
+                endpoint_url=f"https://bedrock.{region}.amazonaws.com",
+            ),
+            (),
         )
+
+        return cls(model_id, model_kwargs, bedrock)
+
+    async def _acall(self, prompt: str) -> Tuple[str, TokenUsage]:
+        return await make_async(self._call, prompt)
 
     def _call(self, prompt: str) -> Tuple[str, TokenUsage]:
         log.debug(f"prompt:\n{prompt}")

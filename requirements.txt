@@ -13,3 +13,5 @@ openai==0.27.8
 prompt-toolkit==3.0.38
 tiktoken==0.4.0
 anthropic==0.2.10
+locust==2.15.1
+locust-plugins==3.3.1

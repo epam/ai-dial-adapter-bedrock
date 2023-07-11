@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-
 import logging
 
-import uvicorn
 from fastapi import Body, FastAPI, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,8 +10,6 @@ from llm.chat_emulation.types import ChatEmulationType
 from server.exceptions import OpenAIException, error_handling_decorator
 from universal_api.request import ChatCompletionQuery, CompletionQuery
 from universal_api.response import make_response
-from utils.args import get_host_port_args
-from utils.init import init
 from utils.log_config import LogConfig
 
 logging.config.dictConfig(LogConfig().dict())  # type: ignore
@@ -50,7 +45,7 @@ default_region = "us-east-1"
 
 @app.get("/openai/models")
 @error_handling_decorator
-def models(
+async def models(
     region: str = Query(default=default_region, description="AWS region")
 ):
     bedrock_models = BedrockModels(region).models()
@@ -65,7 +60,7 @@ def models(
 
 @app.post("/openai/deployments/{model_id}/chat/completions")
 @error_handling_decorator
-def chat_completions(
+async def chat_completions(
     model_id: str = Path(...),
     chat_emulation_type: ChatEmulationType = Query(
         default=ChatEmulationType.META_CHAT,
@@ -74,9 +69,11 @@ def chat_completions(
     region: str = Query(default=default_region, description="AWS region"),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = BedrockCustom(region=region, model_id=model_id, model_params=query)
+    model = await BedrockCustom.create(
+        region=region, model_id=model_id, model_params=query
+    )
     messages = [message.to_base_message() for message in query.messages]
-    response = model.chat(chat_emulation_type, messages)
+    response = await model.achat(chat_emulation_type, messages)
 
     streaming = query.stream or False
     return make_response(streaming, model_id, "chat.completion", response)
@@ -84,13 +81,15 @@ def chat_completions(
 
 @app.post("/openai/deployments/{model_id}/completions")
 @error_handling_decorator
-def completions(
+async def completions(
     model_id: str = Path(...),
     region: str = Query(default=default_region, description="AWS region"),
     query: CompletionQuery = Body(...),
 ):
-    model = BedrockCustom(region=region, model_id=model_id, model_params=query)
-    response = model._call(query.prompt)
+    model = await BedrockCustom.create(
+        region=region, model_id=model_id, model_params=query
+    )
+    response = await model._acall(query.prompt)
 
     streaming = query.stream or False
     return make_response(streaming, model_id, "text_completion", response)
@@ -101,9 +100,3 @@ async def open_ai_exception_handler(request: Request, exc: OpenAIException):
     return JSONResponse(
         status_code=exc.status_code, content={"error": exc.error}
     )
-
-
-if __name__ == "__main__":
-    init()
-    host, port = get_host_port_args()
-    uvicorn.run(app, host=host, port=port)
