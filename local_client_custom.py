@@ -29,11 +29,11 @@ async def main():
         content = get_input("> ")
         history.append(HumanMessage(content=content))
 
-        response, usage = await model.achat(chat_emulation_type, history)
+        response = await model.achat(chat_emulation_type, history)
 
-        print_info(usage.json(indent=2))
+        print_info(response.usage.json(indent=2))
 
-        print_ai(response.strip())
+        print_ai(response.content.strip())
         history.append(AIMessage(content=response))
 
 

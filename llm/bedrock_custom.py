@@ -1,14 +1,15 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 import boto3
 from anthropic.tokenizer import count_tokens
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from llm.chat_model import ChatModel, TokenUsage
+from llm.chat_model import ChatModel, TokenUsage, ResponseData, ModelResponse
 from universal_api.request import CompletionParameters
 from utils.asyncio import make_async
 
@@ -20,8 +21,11 @@ class BedrockModelId(TypedDict):
 
 class IOutput(ABC):
     @abstractmethod
-    def output(self) -> str:
+    def content(self) -> str:
         pass
+
+    def data(self) -> list[ResponseData]:
+        return []
 
     @abstractmethod
     def usage(self, prompt: str) -> TokenUsage:
@@ -38,7 +42,7 @@ class AmazonResponse(BaseModel, IOutput):
     inputTextTokenCount: int
     results: List[AmazonResult]
 
-    def output(self) -> str:
+    def content(self) -> str:
         assert (
             len(self.results) == 1
         ), "AmazonResponse should only have one result"
@@ -58,7 +62,7 @@ class AnthropicResponse(BaseModel, IOutput):
     completion: str
     stop_reason: str  # Literal["stop_sequence"]
 
-    def output(self) -> str:
+    def content(self) -> str:
         return self.completion
 
     def usage(self, prompt: str) -> TokenUsage:
@@ -105,7 +109,7 @@ class AI21Response(BaseModel, IOutput):
     prompt: TextAndTokens
     completions: List[Completion]
 
-    def output(self) -> str:
+    def content(self) -> str:
         assert (
             len(self.completions) == 1
         ), "AI21Response should only have one completion"
@@ -121,6 +125,47 @@ class AI21Response(BaseModel, IOutput):
         )
 
 
+class StabilityStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
+class StabilityError(BaseModel):
+    id: str
+    message: str
+    name: str
+
+
+class StabilityArtifact(BaseModel):
+    seed: int
+    base64: str
+    finish_reason: str = Field(alias="finishReason")
+
+
+class StabilityResponse(BaseModel, IOutput):
+    result: str
+    artifacts: Optional[list[StabilityArtifact]]
+    error: Optional[StabilityError]
+
+    def content(self) -> str:
+        self._throw_if_error()
+        return ""
+
+    def data(self) -> list[ResponseData]:
+        self._throw_if_error()
+        return [ResponseData("image/png", self.artifacts[0].base64)]
+
+    def usage(self, prompt: str) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=0,
+            completion_tokens=0,
+        )
+
+    def _throw_if_error(self):
+        if self.result == StabilityStatus.ERROR:
+            raise Exception(self.error.message)
+
+
 class TaggedAmazonResponse(AmazonResponse):
     provider: Literal["amazon"]
 
@@ -133,16 +178,23 @@ class TaggedAI21Response(AI21Response):
     provider: Literal["ai21"]
 
 
+class TaggedStabilityResponse(StabilityResponse):
+    provider: Literal["stability"]
+
+
 class BedrockResponse(BaseModel, IOutput):
     __root__: Annotated[
         Union[
-            TaggedAmazonResponse, TaggedAnthropicResponse, TaggedAI21Response
+            TaggedAmazonResponse, TaggedAnthropicResponse, TaggedAI21Response, TaggedStabilityResponse
         ],
         Field(discriminator="provider"),
     ]
 
-    def output(self) -> str:
-        return self.__root__.output()
+    def content(self) -> str:
+        return self.__root__.content()
+
+    def data(self) -> list[ResponseData]:
+        return self.__root__.data()
 
     def usage(self, prompt: str) -> TokenUsage:
         return self.__root__.usage(prompt)
@@ -176,6 +228,8 @@ def prepare_input(
         input_body = dict()
         input_body["inputText"] = prompt
         input_body["textGenerationConfig"] = {**model_kwargs}
+    elif provider == "stability":
+        input_body["text_prompts"] = [{"text": prompt}]
     else:
         input_body["inputText"] = prompt
 
@@ -278,10 +332,10 @@ class BedrockCustom(ChatModel):
 
         return cls(model_id, model_params, model_kwargs, bedrock)
 
-    async def _acall(self, prompt: str) -> Tuple[str, TokenUsage]:
+    async def acall(self, prompt: str) -> ModelResponse:
         return await make_async(self._call, prompt)
 
-    def _call(self, prompt: str) -> Tuple[str, TokenUsage]:
+    def _call(self, prompt: str) -> ModelResponse:
         log.debug(f"prompt:\n{prompt}")
 
         provider = self.model_id.split(".")[0]
@@ -295,7 +349,7 @@ class BedrockCustom(ChatModel):
 
         body = json.loads(model_response["body"].read())
         resp = BedrockResponse.parse_obj({"provider": provider, **body})
-        response, usage = resp.output(), resp.usage(prompt)
+        response = ModelResponse(resp.content(), resp.data(), resp.usage(prompt))
 
         log.debug(f"response:\n{response}")
-        return response, usage
+        return response
