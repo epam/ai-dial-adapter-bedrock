@@ -1,1 +1,1 @@
-docker build -t bedrock-open-ai-adapter:latest .
+docker build --platform linux/amd64 -t bedrock-open-ai-adapter:latest .

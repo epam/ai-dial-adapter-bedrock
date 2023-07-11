@@ -1,1 +1,1 @@
-docker run --env-file ./.env -p 8080:5000 bedrock-open-ai-adapter:latest
+docker run --platform linux/amd64 --env-file ./.env -p 8080:5000 bedrock-open-ai-adapter:latest

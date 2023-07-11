@@ -39,7 +39,7 @@ class ChatModel(ABC):
 
         response, usage = await self._acall(prompt)
 
-        # To support models, which doesn't have intrinsic support of stop sequences.
+        # To support models, which don't have intrinsic support of stop sequences.
         if self.model_params.stop is not None:
             response = enforce_stop_tokens(response, self.model_params.stop)
 

@@ -250,10 +250,12 @@ class BedrockCustom(ChatModel):
     def __init__(
         self,
         model_id: str,
+        model_params: CompletionParameters,
         model_kwargs: Dict[str, Any],
         bedrock: Any,
     ):
         self.model_id = model_id
+        self.model_params = model_params
         self.model_kwargs = model_kwargs
         self.bedrock = bedrock
 
@@ -274,7 +276,7 @@ class BedrockCustom(ChatModel):
             (),
         )
 
-        return cls(model_id, model_kwargs, bedrock)
+        return cls(model_id, model_params, model_kwargs, bedrock)
 
     async def _acall(self, prompt: str) -> Tuple[str, TokenUsage]:
         return await make_async(self._call, prompt)
