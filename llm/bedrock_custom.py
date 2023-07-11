@@ -152,9 +152,6 @@ class StabilityResponse(BaseModel, IOutput):
         return ""
 
     def data(self) -> list[ResponseData]:
-        assert (
-            len(self.artifacts) == 1
-        ), "StabilityResponse must have one artifact"
         self._throw_if_error()
         return [ResponseData("image/png", self.artifacts[0].base64)]
 
