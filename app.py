@@ -89,7 +89,7 @@ async def completions(
     model = await BedrockCustom.create(
         region=region, model_id=model_id, model_params=query
     )
-    response = await model._acall(query.prompt)
+    response = await model.acall(query.prompt)
 
     streaming = query.stream or False
     return make_response(streaming, model_id, "text_completion", response)

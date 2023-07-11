@@ -1,11 +1,12 @@
 import json
 import time
 import uuid
-from typing import Generator, List, Tuple
+from typing import Generator, List
 
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
+from llm.chat_model import ResponseData, ModelResponse
 from universal_api.token_usage import TokenUsage
 
 
@@ -75,24 +76,33 @@ def wrap_single_message(
 
 
 def make_response(
-    streaming: bool, model_id: str, name: str, resp: Tuple[str, TokenUsage]
+    streaming: bool, model_id: str, name: str, resp: ModelResponse
 ):
     id = str(uuid.uuid4())
     timestamp = int(time.time())
-    content, usage = resp
 
     if streaming:
         params = ResponseParameters(
             model=model_id, id=id, created=timestamp, object=name + ".chunk"
         )
-        chunks: List[dict] = [{"role": "assistant"}, {"content": content}, {}]
-        return generate_event_stream(params, (c for c in chunks), usage)
+        chunks: List[dict] = [{"role": "assistant"}, {"content": resp.content} | make_attachments(resp.data), {}]
+        return generate_event_stream(params, (c for c in chunks), resp.usage)
     else:
         params = ResponseParameters(
             model=model_id, id=id, created=timestamp, object=name
         )
         chunk = {
             "role": "assistant",
-            "content": content,
+            "content": resp.content,
+        } | make_attachments(resp.data)
+        return wrap_single_message(params, chunk, resp.usage)
+
+
+def make_attachments(data: list[ResponseData]):
+    return {} if len(data) == 0 else {
+        "custom_content": {
+            "attachments": [
+                {"index": index, "type": d.mime_type, "data": d.content} for index, d in enumerate(data)
+            ]
         }
-        return wrap_single_message(params, chunk, usage)
+    }
