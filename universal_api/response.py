@@ -102,7 +102,12 @@ def make_attachments(data: list[ResponseData]):
     return {} if len(data) == 0 else {
         "custom_content": {
             "attachments": [
-                {"index": index, "type": d.mime_type, "data": d.content} for index, d in enumerate(data)
+                {
+                    "index": index,
+                    "type": d.mime_type,
+                    "title": d.name,
+                    "data": d.content
+                } for index, d in enumerate(data)
             ]
         }
     }

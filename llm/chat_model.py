@@ -16,6 +16,7 @@ from utils.text import enforce_stop_tokens
 
 class ResponseData(BaseModel):
     mime_type: str
+    name: str
     content: str
 
 
