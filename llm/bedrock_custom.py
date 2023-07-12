@@ -153,7 +153,7 @@ class StabilityResponse(BaseModel, IOutput):
 
     def data(self) -> list[ResponseData]:
         self._throw_if_error()
-        return [ResponseData(mime_type="image/png", content=self.artifacts[0].base64)]
+        return [ResponseData(mime_type="image/png", name="image", content=self.artifacts[0].base64)]
 
     def usage(self, prompt: str) -> TokenUsage:
         return TokenUsage(
