@@ -14,37 +14,15 @@ from utils.operators import Unary, identity
 from utils.text import enforce_stop_tokens
 
 
-class ResponseData:
-    def __init__(self, mime_type: str, data: str):
-        self._mime_type = mime_type
-        self._data = data
-
-    @property
-    def mime_type(self) -> str:
-        return self._mime_type
-
-    @property
-    def content(self) -> str:
-        return self._data
+class ResponseData(BaseModel):
+    mime_type: str
+    content: str
 
 
-class ModelResponse:
-    def __init__(self, content: str, data: list[ResponseData], usage: TokenUsage):
-        self._content = content
-        self._data = data
-        self._usage = usage
-
-    @property
-    def content(self) -> str:
-        return self._content
-
-    @property
-    def data(self) -> list[ResponseData]:
-        return self._data
-
-    @property
-    def usage(self) -> TokenUsage:
-        return self._usage
+class ModelResponse(BaseModel):
+    content: str
+    data: list[ResponseData]
+    usage: TokenUsage
 
 
 class ChatModel(ABC):
@@ -73,7 +51,7 @@ class ChatModel(ABC):
             # To support models, which don't have intrinsic support of stop sequences.
             else enforce_stop_tokens(response.content, self.model_params.stop))
 
-        return ModelResponse(content, response.data, response.usage)
+        return ModelResponse(content=content, data=response.data, usage=response.usage)
 
 
 class Model(BaseModel):
