@@ -153,7 +153,7 @@ class StabilityResponse(BaseModel, IOutput):
 
     def data(self) -> list[ResponseData]:
         self._throw_if_error()
-        return [ResponseData("image/png", self.artifacts[0].base64)]
+        return [ResponseData(mime_type="image/png", content=self.artifacts[0].base64)]
 
     def usage(self, prompt: str) -> TokenUsage:
         return TokenUsage(
@@ -349,7 +349,7 @@ class BedrockCustom(ChatModel):
 
         body = json.loads(model_response["body"].read())
         resp = BedrockResponse.parse_obj({"provider": provider, **body})
-        response = ModelResponse(resp.content(), resp.data(), resp.usage(prompt))
+        response = ModelResponse(content=resp.content(), data=resp.data(), usage=resp.usage(prompt))
 
-        log.debug(f"response:\n{response}")
+        log.debug(f"response:\n{response.json()}")
         return response
