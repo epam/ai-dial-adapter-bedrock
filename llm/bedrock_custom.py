@@ -229,6 +229,7 @@ def prepare_input(
         input_body["inputText"] = prompt
         input_body["textGenerationConfig"] = {**model_kwargs}
     elif provider == "stability":
+        input_body = dict()
         input_body["text_prompts"] = [{"text": prompt}]
     else:
         input_body["inputText"] = prompt
