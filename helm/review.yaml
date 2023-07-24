@@ -30,3 +30,6 @@ ingress:
 
 serviceAccount:
   create: true
+
+env:
+  DEFAULT_REGION: "us-east-1"
