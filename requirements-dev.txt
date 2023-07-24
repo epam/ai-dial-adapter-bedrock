@@ -1,0 +1,9 @@
+-r requirements.txt
+python-dotenv==1.0.0
+flake8==6.0.0
+pyright==1.1.316
+inquirer==3.1.3
+prompt-toolkit==3.0.38
+locust==2.15.1
+locust-plugins==3.3.1
+ai21[AWS]==1.2.2
