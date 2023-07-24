@@ -9,7 +9,7 @@ from anthropic.tokenizer import count_tokens
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from llm.chat_model import ChatModel, TokenUsage, ResponseData, ModelResponse
+from llm.chat_model import ChatModel, ModelResponse, ResponseData, TokenUsage
 from universal_api.request import CompletionParameters
 from utils.asyncio import make_async
 
@@ -143,6 +143,7 @@ class StabilityArtifact(BaseModel):
 
 
 class StabilityResponse(BaseModel, IOutput):
+    # TODO: Use tagged union artifacts/error
     result: str
     artifacts: Optional[list[StabilityArtifact]]
     error: Optional[StabilityError]
@@ -153,7 +154,7 @@ class StabilityResponse(BaseModel, IOutput):
 
     def data(self) -> list[ResponseData]:
         self._throw_if_error()
-        return [ResponseData(mime_type="image/png", name="image", content=self.artifacts[0].base64)]
+        return [ResponseData(mime_type="image/png", name="image", content=self.artifacts[0].base64)]  # type: ignore
 
     def usage(self, prompt: str) -> TokenUsage:
         return TokenUsage(
@@ -163,7 +164,7 @@ class StabilityResponse(BaseModel, IOutput):
 
     def _throw_if_error(self):
         if self.result == StabilityStatus.ERROR:
-            raise Exception(self.error.message)
+            raise Exception(self.error.message)  # type: ignore
 
 
 class TaggedAmazonResponse(AmazonResponse):
@@ -185,7 +186,10 @@ class TaggedStabilityResponse(StabilityResponse):
 class BedrockResponse(BaseModel, IOutput):
     __root__: Annotated[
         Union[
-            TaggedAmazonResponse, TaggedAnthropicResponse, TaggedAI21Response, TaggedStabilityResponse
+            TaggedAmazonResponse,
+            TaggedAnthropicResponse,
+            TaggedAI21Response,
+            TaggedStabilityResponse,
         ],
         Field(discriminator="provider"),
     ]
@@ -350,7 +354,9 @@ class BedrockCustom(ChatModel):
 
         body = json.loads(model_response["body"].read())
         resp = BedrockResponse.parse_obj({"provider": provider, **body})
-        response = ModelResponse(content=resp.content(), data=resp.data(), usage=resp.usage(prompt))
+        response = ModelResponse(
+            content=resp.content(), data=resp.data(), usage=resp.usage(prompt)
+        )
 
         log.debug(f"response:\n{response.json()}")
         return response
