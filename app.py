@@ -10,6 +10,7 @@ from llm.chat_emulation.types import ChatEmulationType
 from server.exceptions import OpenAIException, error_handling_decorator
 from universal_api.request import ChatCompletionQuery, CompletionQuery
 from universal_api.response import make_response
+from utils.env import get_env
 from utils.log_config import LogConfig
 
 logging.config.dictConfig(LogConfig().dict())  # type: ignore
@@ -40,7 +41,7 @@ class ModelDescription(BaseModel):
     object: str
 
 
-default_region = "us-east-1"
+default_region = get_env("DEFAULT_REGION")
 
 
 @app.get("/openai/models")

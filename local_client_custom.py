@@ -8,6 +8,7 @@ from langchain.schema import AIMessage, BaseMessage, HumanMessage
 from llm.bedrock_custom import BedrockCustom
 from llm.bedrock_models import choose_model
 from universal_api.request import CompletionParameters
+from utils.env import get_env
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
 
@@ -20,7 +21,7 @@ async def main():
     model = await BedrockCustom.create(
         model_id=model_id,
         model_params=CompletionParameters(),
-        region="us-east-1",
+        region=get_env("DEFAULT_REGION"),
     )
 
     history: List[BaseMessage] = []
@@ -34,7 +35,7 @@ async def main():
         print_info(response.usage.json(indent=2))
 
         print_ai(response.content.strip())
-        history.append(AIMessage(content=response))
+        history.append(AIMessage(content=response.content))
 
 
 if __name__ == "__main__":
