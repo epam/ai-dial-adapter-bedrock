@@ -68,3 +68,9 @@ Don't forget to run linters before committing:
 ```sh
 (pyright; flake8)
 ```
+
+## Running tests
+
+```sh
+(load_env; pytest)
+```

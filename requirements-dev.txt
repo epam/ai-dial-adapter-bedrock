@@ -7,3 +7,4 @@ prompt-toolkit==3.0.38
 locust==2.15.1
 locust-plugins==3.3.1
 ai21[AWS]==1.2.2
+pytest==7.4.0

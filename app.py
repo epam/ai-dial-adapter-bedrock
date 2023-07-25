@@ -1,4 +1,4 @@
-import logging
+import logging.config
 
 from fastapi import Body, FastAPI, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
