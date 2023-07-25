@@ -15,6 +15,7 @@ Create `.env` file and enter the AWS credentials as environment variables:
 ```
 AWS_ACCESS_KEY_ID=<key>
 AWS_SECRET_ACCESS_KEY=<key>
+DEFAULT_REGION=us-east-1
 ```
 
 The variables are required for the server to work, since the Bedrock models are hosted in AWS.
@@ -24,7 +25,7 @@ The variables are required for the server to work, since the Bedrock models are 
 Run the server:
 
 ```sh
-python ./app.py
+python ./debug_app.py
 ```
 
 Open `localhost:8080/docs` to make sure the server is up and running.
@@ -62,7 +63,7 @@ python ./client.py
 
 ## Dev
 
-Run linters before committing:
+Don't forget to run linters before committing:
 
 ```sh
 (pyright; flake8)
