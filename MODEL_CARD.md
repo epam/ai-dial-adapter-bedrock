@@ -41,5 +41,10 @@ return TokenUsage(
 
 Tokenizer is unknown.
 
-1. `ai21` package calls `tokenize` endpoint to do tokenization (see `ai21/modules/tokenization.py`).
-2. There is API for [tokenization](https://docs.ai21.com/reference/tokenize-ref)
+### Tokenization via AI21 API Key
+
+SDK: `ai21` package calls `tokenize` endpoint to do tokenization (see `ai21/modules/tokenization.py`).
+
+REST: There is API for [tokenization](https://docs.ai21.com/reference/tokenize-ref)
+
+**Tokenization via Bedrock API is currently unsupported** (see `./local_client_ai21.py`).
