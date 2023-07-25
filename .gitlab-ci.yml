@@ -42,8 +42,8 @@ stages:
   - production # Stage name used in include. Not used. ToDo - delete this
 
 linting:
-  stage: linting
   image: python:3.11.4-slim
+  stage: linting
   before_script:
     - python3 -m venv .venv
     - source .venv/bin/activate
@@ -51,6 +51,9 @@ linting:
   script:
     - pyright
     - flake8
+  rules:
+  - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $review_DEPLOY_ENV
+      == "true"
   tags:
     - kubernetes
 
