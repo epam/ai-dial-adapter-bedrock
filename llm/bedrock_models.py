@@ -11,6 +11,7 @@ class BedrockModels(str, Enum):
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
+    STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
 
 
 def choose_model() -> Tuple[BedrockModels, ChatEmulationType]:
