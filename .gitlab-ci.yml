@@ -51,6 +51,8 @@ linting:
   script:
     - pyright
     - flake8
+  tags:
+    - kubernetes
 
 deploy_development:
   image: "registry.deltixhub.com/deltix.docker/devops/kubernetes-tools:0.17.1"
