@@ -22,7 +22,7 @@ class ResponseData(BaseModel):
 
 class ModelResponse(BaseModel):
     content: str
-    data: list[ResponseData]
+    data: List[ResponseData]
     usage: TokenUsage
 
 

@@ -25,7 +25,7 @@ server-run: $(BUILD)
 
 client-run: $(BUILD)
 	@source ./load_env.sh; load_env; \
-	(PYTHONPATH=. python ./client/adapter.py)
+	(PYTHONPATH=. python ./client/client_adapter.py)
 
 clean:
 	rm -rf $(VENV)

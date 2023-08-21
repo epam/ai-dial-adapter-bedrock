@@ -55,7 +55,7 @@ def main():
     base_url = f"http://{host}:{port}"
 
     model_id = select_option("Select the model", get_available_models(base_url))
-    streaming = select_option("Streaming?", [True, False])
+    streaming = select_option("Streaming?", [False, True])
 
     model = create_model(base_url, model_id, streaming)
 

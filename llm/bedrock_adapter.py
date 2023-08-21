@@ -1,5 +1,4 @@
 import json
-import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
@@ -12,6 +11,7 @@ from typing_extensions import Annotated
 from llm.chat_model import ChatModel, ModelResponse, ResponseData, TokenUsage
 from universal_api.request import CompletionParameters
 from utils.asyncio import make_async
+from utils.log_config import bedrock_logger as log
 
 
 class BedrockModelId(TypedDict):
@@ -218,9 +218,6 @@ class BedrockModels:
         return self.bedrock.list_foundation_models()["modelSummaries"]
 
 
-log = logging.getLogger("bedrock")
-
-
 # Simplified copy of langchain.llms.bedrock.LLMInputOutputAdapter.prepare_input
 def prepare_input(
     provider: str, prompt: str, model_kwargs: Dict[str, Any]
@@ -341,7 +338,7 @@ class BedrockAdapter(ChatModel):
         return await make_async(self._call, prompt)
 
     def _call(self, prompt: str) -> ModelResponse:
-        log.debug(f"prompt:\n{prompt}")
+        log.debug(f"Bedrock prompt:\n{prompt}")
 
         provider = self.model_id.split(".")[0]
 
@@ -358,5 +355,5 @@ class BedrockAdapter(ChatModel):
             content=resp.content(), data=resp.data(), usage=resp.usage(prompt)
         )
 
-        log.debug(f"response:\n{response.json()}")
+        log.debug(f"Bedrock response:\n{response.json()}")
         return response

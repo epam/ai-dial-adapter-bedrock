@@ -1,4 +1,11 @@
+import logging
+import os
+
 from pydantic import BaseModel
+
+# By default (in prod) we don't want to print debug messages,
+# because they typically contain prompts.
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 
 class LogConfig(BaseModel):
@@ -22,11 +29,19 @@ class LogConfig(BaseModel):
         },
     }
     loggers = {
-        "app": {"handlers": ["default"], "level": "DEBUG"},
-        "bedrock": {"handlers": ["default"], "level": "DEBUG"},
+        "app": {"handlers": ["default"], "level": LOG_LEVEL},
+        "bedrock": {"handlers": ["default"], "level": LOG_LEVEL},
         "uvicorn": {
             "handlers": ["default"],
-            "level": "INFO",
+            "level": LOG_LEVEL,
             "propagate": False,
         },
     }
+
+
+# Loggers in order from high-level to low-level
+# High-level logs from the adapter server
+app_logger = logging.getLogger("app")
+
+# LLM requests and responses
+bedrock_logger = logging.getLogger("bedrock")

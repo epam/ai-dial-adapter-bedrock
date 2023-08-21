@@ -11,7 +11,7 @@ from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from app import app
-from client.adapter import create_model
+from client.client_adapter import create_model
 from llm.bedrock_models import BedrockModels
 from utils.server import ping_server, wait_for_server
 
@@ -122,6 +122,8 @@ llm_models = [
     BedrockModels.AMAZON_TITAN_TG1_LARGE,
     BedrockModels.AI21_J2_GRANDE_INSTRUCT,
     BedrockModels.AI21_J2_JUMBO_INSTRUCT,
+    BedrockModels.AI21_J2_MID,
+    BedrockModels.AI21_J2_ULTRA,
     BedrockModels.ANTHROPIC_CLAUDE_INSTANT_V1,
     BedrockModels.ANTHROPIC_CLAUDE_V1,
     BedrockModels.ANTHROPIC_CLAUDE_V2,

@@ -1,3 +1,4 @@
+import json
 import logging.config
 
 from fastapi import Body, FastAPI, Path, Query, Request, Response
@@ -12,6 +13,7 @@ from universal_api.request import ChatCompletionQuery, CompletionQuery
 from universal_api.response import make_response
 from utils.env import get_env
 from utils.log_config import LogConfig
+from utils.log_config import app_logger as log
 
 logging.config.dictConfig(LogConfig().dict())  # type: ignore
 
@@ -80,6 +82,7 @@ async def chat_completions(
     )
     messages = [message.to_base_message() for message in query.messages]
     response = await model.achat(chat_emulation_type, messages)
+    log.debug(f"Adapter response: {response}")
 
     streaming = query.stream or False
     return make_response(streaming, model_id, "chat.completion", response)
@@ -96,6 +99,7 @@ async def completions(
         region=region, model_id=model_id, model_params=query
     )
     response = await model.acall(query.prompt)
+    log.debug(f"Adapter response: {response}")
 
     streaming = query.stream or False
     return make_response(streaming, model_id, "text_completion", response)
