@@ -6,7 +6,7 @@ from typing import Generator, List
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
-from llm.chat_model import ResponseData, ModelResponse
+from llm.chat_model import ModelResponse, ResponseData
 from universal_api.token_usage import TokenUsage
 
 
@@ -85,7 +85,11 @@ def make_response(
         params = ResponseParameters(
             model=model_id, id=id, created=timestamp, object=name + ".chunk"
         )
-        chunks: List[dict] = [{"role": "assistant"}, {"content": resp.content} | make_attachments(resp.data), {}]
+        chunks: List[dict] = [
+            {"role": "assistant"},
+            {"content": resp.content} | make_attachments(resp.data),
+            {},
+        ]
         return generate_event_stream(params, (c for c in chunks), resp.usage)
     else:
         params = ResponseParameters(
@@ -99,15 +103,20 @@ def make_response(
 
 
 def make_attachments(data: list[ResponseData]):
-    return {} if len(data) == 0 else {
-        "custom_content": {
-            "attachments": [
-                {
-                    "index": index,
-                    "type": d.mime_type,
-                    "title": d.name,
-                    "data": d.content
-                } for index, d in enumerate(data)
-            ]
+    return (
+        {}
+        if len(data) == 0
+        else {
+            "custom_content": {
+                "attachments": [
+                    {
+                        "index": index,
+                        "type": d.mime_type,
+                        "title": d.name,
+                        "data": d.content,
+                    }
+                    for index, d in enumerate(data)
+                ]
+            }
         }
-    }
+    )

@@ -5,7 +5,7 @@ The server provides `/chat/completions` and `/completions` endpoint compatible w
 ## Installation
 
 ```sh
-./install.sh
+make all
 ```
 
 ## Configuration
@@ -25,15 +25,15 @@ The variables are required for the server to work, since the Bedrock models are 
 Run the server:
 
 ```sh
-python ./debug_app.py
+make server-run
 ```
 
-Open `localhost:8080/docs` to make sure the server is up and running.
+Open `localhost:5001/docs` to make sure the server is up and running.
 
 Run the client:
 
 ```sh
-python ./client.py
+make client-run
 ```
 
 First select the Bedrock model and chat emulation mode (zero-memory or meta-chat).
@@ -44,13 +44,13 @@ Then you will be able to converse with the model.
 Build the image:
 
 ```sh
-./build.sh
+make docker-build
 ```
 
 Run the image:
 
 ```sh
-./run.sh
+make docker-run
 ```
 
 Open `localhost:8080/docs` to make sure the server is up and running.
@@ -58,19 +58,20 @@ Open `localhost:8080/docs` to make sure the server is up and running.
 Run the client:
 
 ```sh
-python ./client.py
+make client-run
 ```
 
 ## Dev
 
-Don't forget to run linters before committing:
+Don't forget to run linters and formatters before committing:
 
 ```sh
-(pyright; flake8)
+make lint
+make format
 ```
 
 ## Running tests
 
 ```sh
-(load_env; pytest)
+make test
 ```

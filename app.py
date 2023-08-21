@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from llm.bedrock_custom import BedrockCustom, BedrockModels
+from llm.bedrock_custom import BedrockAdapter, BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
 from server.exceptions import OpenAIException, error_handling_decorator
 from universal_api.request import ChatCompletionQuery, CompletionQuery
@@ -70,7 +70,7 @@ async def chat_completions(
     region: str = Query(default=default_region, description="AWS region"),
     query: ChatCompletionQuery = Body(...),
 ):
-    model = await BedrockCustom.create(
+    model = await BedrockAdapter.create(
         region=region, model_id=model_id, model_params=query
     )
     messages = [message.to_base_message() for message in query.messages]
@@ -87,7 +87,7 @@ async def completions(
     region: str = Query(default=default_region, description="AWS region"),
     query: CompletionQuery = Body(...),
 ):
-    model = await BedrockCustom.create(
+    model = await BedrockAdapter.create(
         region=region, model_id=model_id, model_params=query
     )
     response = await model.acall(query.prompt)

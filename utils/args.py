@@ -2,7 +2,7 @@ import argparse
 
 # default values
 DEFAULT_HOST = "0.0.0.0"
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 5001
 
 
 def get_host_port_args():

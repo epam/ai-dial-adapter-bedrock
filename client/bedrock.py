@@ -5,7 +5,7 @@ from typing import List
 
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
-from llm.bedrock_custom import BedrockCustom
+from llm.bedrock_custom import BedrockAdapter
 from llm.bedrock_models import choose_model
 from universal_api.request import CompletionParameters
 from utils.env import get_env
@@ -18,7 +18,7 @@ async def main():
 
     model_id, chat_emulation_type = choose_model()
 
-    model = await BedrockCustom.create(
+    model = await BedrockAdapter.create(
         model_id=model_id,
         model_params=CompletionParameters(),
         region=get_env("DEFAULT_REGION"),

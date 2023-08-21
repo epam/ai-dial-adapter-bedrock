@@ -50,9 +50,12 @@ class ChatModel(ABC):
             response.content
             if self.model_params.stop is None
             # To support models, which don't have intrinsic support of stop sequences.
-            else enforce_stop_tokens(response.content, self.model_params.stop))
+            else enforce_stop_tokens(response.content, self.model_params.stop)
+        )
 
-        return ModelResponse(content=content, data=response.data, usage=response.usage)
+        return ModelResponse(
+            content=content, data=response.data, usage=response.usage
+        )
 
 
 class Model(BaseModel):

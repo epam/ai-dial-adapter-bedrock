@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-
 import asyncio
 
 from langchain.schema import HumanMessage
 
-from llm.bedrock_custom import BedrockCustom
+from llm.bedrock_custom import BedrockAdapter
 from llm.bedrock_models import BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
 from universal_api.request import CompletionParameters
@@ -19,7 +17,7 @@ async def main():
 
     model_id = select_enum("Select model", BedrockModels)
 
-    model = await BedrockCustom.create(
+    model = await BedrockAdapter.create(
         model_id=model_id,
         model_params=CompletionParameters(max_tokens=1),
         region=get_env("DEFAULT_REGION"),

@@ -305,7 +305,7 @@ def prepare_model_kwargs(
     return model_kwargs
 
 
-class BedrockCustom(ChatModel):
+class BedrockAdapter(ChatModel):
     def __init__(
         self,
         model_id: str,
@@ -321,7 +321,7 @@ class BedrockCustom(ChatModel):
     @classmethod
     async def create(
         cls, model_id: str, region: str, model_params: CompletionParameters
-    ) -> "BedrockCustom":
+    ) -> "BedrockAdapter":
         provider = model_id.split(".")[0]
 
         model_kwargs = prepare_model_kwargs(provider, model_params)
