@@ -6,6 +6,7 @@ The server provides `/chat/completions` and `/completions` endpoint compatible w
 
 ```sh
 make all
+source .venv/bin/activate
 ```
 
 ## Configuration

@@ -35,22 +35,21 @@ variables:
 
 stages:
   - tag
-  - linting
+  - lint
   - publish # publish docker images
   - deploy
   - promote # copy docker image to public repo
   - production # Stage name used in include. Not used. ToDo - delete this
 
-linting:
+lint:
   image: python:3.11-slim
-  stage: linting
+  stage: lint
   before_script:
-    - python3 -m venv .venv
+    - apt-get update && apt-get install -y make
+    - make all
     - source .venv/bin/activate
-    - pip install -r requirements-dev.txt
   script:
-    - pyright
-    - flake8
+    - make lint
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $review_DEPLOY_ENV == "true"
     - if: $CI_COMMIT_BRANCH  == "development"
