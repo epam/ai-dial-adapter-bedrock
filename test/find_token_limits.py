@@ -2,7 +2,7 @@ import asyncio
 
 from langchain.schema import HumanMessage
 
-from llm.bedrock_custom import BedrockAdapter
+from llm.bedrock_adapter import BedrockAdapter
 from llm.bedrock_models import BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
 from universal_api.request import CompletionParameters

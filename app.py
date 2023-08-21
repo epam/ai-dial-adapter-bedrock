@@ -1,11 +1,11 @@
 import logging.config
 
-from fastapi import Body, FastAPI, Path, Query, Request
+from fastapi import Body, FastAPI, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from llm.bedrock_custom import BedrockAdapter, BedrockModels
+from llm.bedrock_adapter import BedrockAdapter, BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
 from server.exceptions import OpenAIException, error_handling_decorator
 from universal_api.request import ChatCompletionQuery, CompletionQuery
@@ -42,6 +42,11 @@ class ModelDescription(BaseModel):
 
 
 default_region = get_env("DEFAULT_REGION")
+
+
+@app.get("/healthcheck")
+def healthcheck():
+    return Response("OK")
 
 
 @app.get("/openai/models")

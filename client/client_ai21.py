@@ -2,12 +2,12 @@ from typing import Any
 
 import ai21
 
+from utils.env import get_env
 from utils.init import init
 
 init()
 
-# The bedrock API is available only to us-east-1 scoped clients right now
-ai21.aws_region = "us-east-1"
+ai21.aws_region = get_env("DEFAULT_REGION")
 
 destination = ai21.BedrockDestination(
     model_id=ai21.BedrockModelID.J2_JUMBO_INSTRUCT
