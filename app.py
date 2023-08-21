@@ -1,4 +1,3 @@
-import json
 import logging.config
 
 from fastapi import Body, FastAPI, Path, Query, Request, Response
