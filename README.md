@@ -10,15 +10,14 @@ make all
 
 ## Configuration
 
-Create `.env` file and enter the AWS credentials as environment variables:
+Copy `.env.example` to `.env` and fill the gaps:
 
 ```
 AWS_ACCESS_KEY_ID=<key>
 AWS_SECRET_ACCESS_KEY=<key>
-DEFAULT_REGION=us-east-1
 ```
 
-The variables are required for the server to work, since the Bedrock models are hosted in AWS.
+The AWS credentials are required for the server to work, since the Bedrock models are hosted on AWS.
 
 ## Running server locally
 
