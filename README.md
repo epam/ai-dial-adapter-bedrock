@@ -53,7 +53,7 @@ Run the image:
 make docker-run
 ```
 
-Open `localhost:8080/docs` to make sure the server is up and running.
+Open `localhost:5001/docs` to make sure the server is up and running.
 
 Run the client:
 
