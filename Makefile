@@ -16,17 +16,17 @@ all: $(BUILD)
 $(BUILD): $(REQ)
 	python3 -m venv $(VENV)
 	$(VENV)/bin/pip install -r $(REQ)
-	echo "\033[31mActivate venv by running:\n> source $(BUILD)\033[0m"
+	@echo "\033[31mActivate venv by running:\n> source $(BUILD)\033[0m"
 
 .PHONY: all server-run client-run clean lint format test docker-build docker-run
 
 server-run: $(BUILD)
 	@source ./load_env.sh; load_env; \
-	python ./debug_app.py --port=$(PORT)
+	python -m debug_app --port=$(PORT)
 
 client-run: $(BUILD)
 	@source ./load_env.sh; load_env; \
-	(PYTHONPATH=. python ./client/client_adapter.py)
+	python -m client.client_adapter
 
 clean:
 	rm -rf $(VENV)

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from llm.bedrock_adapter import BedrockAdapter, BedrockModels
 from llm.chat_emulation.types import ChatEmulationType
-from server.exceptions import OpenAIException, error_handling_decorator
+from server.exceptions import OpenAIException, open_ai_exception_decorator
 from universal_api.request import ChatCompletionQuery, CompletionQuery
 from universal_api.response import make_response
 from utils.env import get_env
@@ -51,7 +51,7 @@ def healthcheck():
 
 
 @app.get("/openai/models")
-@error_handling_decorator
+@open_ai_exception_decorator
 async def models(
     region: str = Query(default=default_region, description="AWS region")
 ):
@@ -66,7 +66,7 @@ async def models(
 
 
 @app.post("/openai/deployments/{model_id}/chat/completions")
-@error_handling_decorator
+@open_ai_exception_decorator
 async def chat_completions(
     model_id: str = Path(...),
     chat_emulation_type: ChatEmulationType = Query(
@@ -81,14 +81,15 @@ async def chat_completions(
     )
     messages = [message.to_base_message() for message in query.messages]
     response = await model.achat(chat_emulation_type, messages)
-    log.debug(f"Adapter response: {response}")
+    log.debug(f"response:\n{response}")
 
-    streaming = query.stream or False
-    return make_response(streaming, model_id, "chat.completion", response)
+    return make_response(
+        bool(query.stream), model_id, "chat.completion", response
+    )
 
 
 @app.post("/openai/deployments/{model_id}/completions")
-@error_handling_decorator
+@open_ai_exception_decorator
 async def completions(
     model_id: str = Path(...),
     region: str = Query(default=default_region, description="AWS region"),
@@ -98,14 +99,16 @@ async def completions(
         region=region, model_id=model_id, model_params=query
     )
     response = await model.acall(query.prompt)
-    log.debug(f"Adapter response: {response}")
+    log.debug(f"response:\n{response}")
 
-    streaming = query.stream or False
-    return make_response(streaming, model_id, "text_completion", response)
+    return make_response(
+        bool(query.stream), model_id, "text_completion", response
+    )
 
 
 @app.exception_handler(OpenAIException)
-async def open_ai_exception_handler(request: Request, exc: OpenAIException):
+async def exception_handler(request: Request, exc: OpenAIException):
+    log.exception(f"Exception: {str(exc)}")
     return JSONResponse(
         status_code=exc.status_code, content={"error": exc.error}
     )

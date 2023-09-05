@@ -338,7 +338,7 @@ class BedrockAdapter(ChatModel):
         return await make_async(self._call, prompt)
 
     def _call(self, prompt: str) -> ModelResponse:
-        log.debug(f"Bedrock prompt:\n{prompt}")
+        log.debug(f"prompt:\n{prompt}")
 
         provider = self.model_id.split(".")[0]
 
@@ -355,5 +355,5 @@ class BedrockAdapter(ChatModel):
             content=resp.content(), data=resp.data(), usage=resp.usage(prompt)
         )
 
-        log.debug(f"Bedrock response:\n{response.json()}")
+        log.debug(f"response:\n{response.json()}")
         return response
