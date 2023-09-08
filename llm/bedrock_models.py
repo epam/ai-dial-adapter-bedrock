@@ -1,8 +1,4 @@
 from enum import Enum
-from typing import Tuple
-
-from llm.chat_emulation.types import ChatEmulationType
-from utils.cli import select_enum
 
 
 class BedrockDeployment(str, Enum):
@@ -18,12 +14,3 @@ class BedrockDeployment(str, Enum):
 
     def get_model_id(self) -> str:
         return self.value
-
-
-def choose_deployment() -> Tuple[BedrockDeployment, ChatEmulationType]:
-    deployment = select_enum("Select the deployment", BedrockDeployment)
-    chat_emulation_type = select_enum(
-        "Select chat emulation type", ChatEmulationType
-    )
-
-    return deployment, chat_emulation_type

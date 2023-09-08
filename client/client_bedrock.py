@@ -6,8 +6,8 @@ from typing import List
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
 from llm.bedrock_adapter import BedrockAdapter
-from llm.bedrock_models import choose_deployment
 from universal_api.request import CompletionParameters
+from utils.cli import choose_deployment
 from utils.env import get_env
 from utils.init import init
 from utils.printing import get_input, print_ai, print_info
