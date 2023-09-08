@@ -3,7 +3,7 @@ import asyncio
 from langchain.schema import HumanMessage
 
 from llm.bedrock_adapter import BedrockAdapter
-from llm.bedrock_models import BedrockModels
+from llm.bedrock_models import BedrockDeployment
 from llm.chat_emulation.types import ChatEmulationType
 from universal_api.request import CompletionParameters
 from utils.cli import select_enum
@@ -15,7 +15,7 @@ from utils.printing import print_error, print_info
 async def main():
     init()
 
-    model_id = select_enum("Select model", BedrockModels)
+    model_id = select_enum("Select model", BedrockDeployment)
 
     model = await BedrockAdapter.create(
         model_id=model_id,

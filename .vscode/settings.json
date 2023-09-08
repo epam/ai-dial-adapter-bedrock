@@ -1,6 +1,4 @@
 {
-  "editor.formatOnSave": true,
-  "python.analysis.typeCheckingMode": "basic",
   "cSpell.enabled": true,
   "files.exclude": {
     "**/.git": true,
@@ -19,6 +17,7 @@
   },
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": true
     },

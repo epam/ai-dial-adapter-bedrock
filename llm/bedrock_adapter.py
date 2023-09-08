@@ -10,7 +10,7 @@ from typing_extensions import Annotated
 
 from llm.chat_model import ChatModel, ModelResponse, ResponseData, TokenUsage
 from universal_api.request import CompletionParameters
-from utils.asyncio import make_async
+from utils.concurrency import make_async
 from utils.log_config import bedrock_logger as log
 
 
@@ -207,12 +207,7 @@ class BedrockResponse(BaseModel, IOutput):
 class BedrockModels:
     def __init__(self, region: str):
         session = boto3.Session()
-
-        self.bedrock = session.client(
-            "bedrock",
-            region,
-            endpoint_url=f"https://bedrock.{region}.amazonaws.com",
-        )
+        self.bedrock = session.client("bedrock", region)
 
     def models(self) -> List[BedrockModelId]:
         return self.bedrock.list_foundation_models()["modelSummaries"]
@@ -324,11 +319,7 @@ class BedrockAdapter(ChatModel):
         model_kwargs = prepare_model_kwargs(provider, model_params)
 
         bedrock = await make_async(
-            lambda _: boto3.Session().client(
-                "bedrock",
-                region,
-                endpoint_url=f"https://bedrock.{region}.amazonaws.com",
-            ),
+            lambda _: boto3.Session().client("bedrock", region),
             (),
         )
 

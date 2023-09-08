@@ -1,4 +1,6 @@
 [tool.pyright]
+typeCheckingMode = "basic"
+reportUnusedVariable = "error"
 exclude = [
     ".git",
     ".venv",
@@ -15,8 +17,16 @@ exclude = '''
 )/
 '''
 
-[tool.autoflake]
-check = true
-
 [tool.isort]
+line_length = 80
 profile = "black"
+
+[tool.autoflake]
+ignore_init_module_imports = true
+remove_all_unused_imports = true
+in_place = true
+recursive = true
+quiet = true
+exclude = [
+    "\\.venv",
+]
