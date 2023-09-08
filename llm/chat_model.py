@@ -47,10 +47,7 @@ class ChatModel(ABC):
         response = await self.acall(prompt)
 
         content = post_process(
-            response.content
-            if self.model_params.stop is None
-            # To support models, which don't have intrinsic support of stop sequences.
-            else enforce_stop_tokens(response.content, self.model_params.stop)
+            enforce_stop_tokens(response.content, self.model_params.stop)
         )
 
         return ModelResponse(

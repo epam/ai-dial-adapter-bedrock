@@ -5,7 +5,7 @@ from llm.chat_emulation.types import ChatEmulationType
 from utils.cli import select_enum
 
 
-class BedrockModels(str, Enum):
+class BedrockDeployment(str, Enum):
     AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
@@ -16,11 +16,14 @@ class BedrockModels(str, Enum):
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
 
+    def get_model_id(self) -> str:
+        return self.value
 
-def choose_model() -> Tuple[BedrockModels, ChatEmulationType]:
-    model_id = select_enum("Select the model", BedrockModels)
+
+def choose_deployment() -> Tuple[BedrockDeployment, ChatEmulationType]:
+    deployment = select_enum("Select the deployment", BedrockDeployment)
     chat_emulation_type = select_enum(
         "Select chat emulation type", ChatEmulationType
     )
 
-    return model_id, chat_emulation_type
+    return deployment, chat_emulation_type

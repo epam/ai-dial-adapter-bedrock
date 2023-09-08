@@ -6,9 +6,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from llm.bedrock_adapter import BedrockAdapter, BedrockModels
+from llm.bedrock_models import BedrockDeployment
 from llm.chat_emulation.types import ChatEmulationType
 from server.exceptions import OpenAIException, open_ai_exception_decorator
-from universal_api.request import ChatCompletionQuery, CompletionQuery
+from universal_api.request import ChatCompletionQuery
 from universal_api.response import make_response
 from utils.env import get_env
 from utils.log_config import LogConfig
@@ -65,10 +66,10 @@ async def models(
     return {"object": "list", "data": models}
 
 
-@app.post("/openai/deployments/{model_id}/chat/completions")
+@app.post("/openai/deployments/{deployment}/chat/completions")
 @open_ai_exception_decorator
 async def chat_completions(
-    model_id: str = Path(...),
+    deployment: BedrockDeployment = Path(...),
     chat_emulation_type: ChatEmulationType = Query(
         default=ChatEmulationType.META_CHAT,
         description="The chat emulation type for models which only support completion mode",
@@ -76,6 +77,7 @@ async def chat_completions(
     region: str = Query(default=default_region, description="AWS region"),
     query: ChatCompletionQuery = Body(...),
 ):
+    model_id = deployment.get_model_id()
     model = await BedrockAdapter.create(
         region=region, model_id=model_id, model_params=query
     )
@@ -84,25 +86,7 @@ async def chat_completions(
     log.debug(f"response:\n{response}")
 
     return make_response(
-        bool(query.stream), model_id, "chat.completion", response
-    )
-
-
-@app.post("/openai/deployments/{model_id}/completions")
-@open_ai_exception_decorator
-async def completions(
-    model_id: str = Path(...),
-    region: str = Query(default=default_region, description="AWS region"),
-    query: CompletionQuery = Body(...),
-):
-    model = await BedrockAdapter.create(
-        region=region, model_id=model_id, model_params=query
-    )
-    response = await model.acall(query.prompt)
-    log.debug(f"response:\n{response}")
-
-    return make_response(
-        bool(query.stream), model_id, "text_completion", response
+        bool(query.stream), deployment, "chat.completion", response
     )
 
 

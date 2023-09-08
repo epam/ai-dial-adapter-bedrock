@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from app import app
 from client.client_adapter import create_model
-from llm.bedrock_models import BedrockModels
+from llm.bedrock_models import BedrockDeployment
 from utils.server import ping_server, wait_for_server
 
 client = TestClient(app)
@@ -63,7 +63,7 @@ def models_request_openai() -> Any:
 
 def assert_models_subset(models: Any):
     actual_models = [model["id"] for model in models["data"]]
-    expected_models = [option.value for option in BedrockModels]
+    expected_models = [option.value for option in BedrockDeployment]
 
     assert set(expected_models).issubset(
         set(actual_models)
@@ -110,7 +110,7 @@ async def assert_dialog(
     )
 
     # Usage is missing when and only where streaming is enabled
-    assert (actual_usage is None) == streaming
+    assert (actual_usage in [None, {}]) == streaming
 
     actual_output = llm_result.generations[0][-1].text
 
@@ -119,44 +119,58 @@ async def assert_dialog(
     ), f"Failed output test, actual output: {actual_output}"
 
 
-llm_models = [
-    BedrockModels.AMAZON_TITAN_TG1_LARGE,
-    BedrockModels.AI21_J2_GRANDE_INSTRUCT,
-    BedrockModels.AI21_J2_JUMBO_INSTRUCT,
-    BedrockModels.AI21_J2_MID,
-    BedrockModels.AI21_J2_ULTRA,
-    BedrockModels.ANTHROPIC_CLAUDE_INSTANT_V1,
-    BedrockModels.ANTHROPIC_CLAUDE_V1,
-    BedrockModels.ANTHROPIC_CLAUDE_V2,
+chat_deployments = [
+    BedrockDeployment.AMAZON_TITAN_TG1_LARGE,
+    BedrockDeployment.AI21_J2_GRANDE_INSTRUCT,
+    BedrockDeployment.AI21_J2_JUMBO_INSTRUCT,
+    BedrockDeployment.AI21_J2_MID,
+    BedrockDeployment.AI21_J2_ULTRA,
+    BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
+    BedrockDeployment.ANTHROPIC_CLAUDE_V1,
+    BedrockDeployment.ANTHROPIC_CLAUDE_V2,
 ]
 
 
-class ModelTestCase(BaseModel):
-    model_id: str
+class TestCase(BaseModel):
+    __test__ = False
+
+    deployment: BedrockDeployment
+    streaming: bool
+
     query: str | List[str]
     test: Callable[[str], bool]
 
     def get_id(self):
-        return f"{self.model_id}: {self.query}"
+        return (
+            f"{self.deployment.value}[streaming={self.streaming}]: {self.query}"
+        )
 
     def get_history(self) -> List[str]:
         return [self.query] if isinstance(self.query, str) else self.query
 
 
-def get_test_cases_for_model(model_id: str) -> List[ModelTestCase]:
-    ret: List[ModelTestCase] = []
+def get_test_cases(
+    deployment: BedrockDeployment, streaming: bool
+) -> List[TestCase]:
+    ret: List[TestCase] = []
 
     ret.append(
-        ModelTestCase(model_id=model_id, query="2+3=?", test=lambda s: "5" in s)
+        TestCase(
+            deployment=deployment,
+            streaming=streaming,
+            query="2+3=?",
+            test=lambda s: "5" in s,
+        )
     )
 
     query = 'Reply with "Hello"'
-    if model_id == BedrockModels.ANTHROPIC_CLAUDE_INSTANT_V1.value:
+    if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     ret.append(
-        ModelTestCase(
-            model_id=model_id,
+        TestCase(
+            deployment=deployment,
+            streaming=streaming,
             query=query,
             test=lambda s: "hello" in s.lower(),
         )
@@ -167,18 +181,16 @@ def get_test_cases_for_model(model_id: str) -> List[ModelTestCase]:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "test_case",
+    "test",
     [
-        test_case
-        for model in llm_models
-        for test_case in get_test_cases_for_model(model.value)
+        test
+        for deployment in chat_deployments
+        for streaming in [False, True]
+        for test in get_test_cases(deployment, streaming)
     ],
-    ids=lambda test_case: test_case.get_id(),
+    ids=lambda test: test.get_id(),
 )
-async def test_bedrock_llm_openai(server, test_case: ModelTestCase):
-    streaming = False
-    model = create_model(BASE_URL, test_case.model_id, streaming)
-
-    await assert_dialog(
-        model, test_case.get_history(), test_case.test, streaming
-    )
+async def test_chat_completion_langchain(server, test: TestCase):
+    streaming = test.streaming
+    model = create_model(BASE_URL, test.deployment, streaming)
+    await assert_dialog(model, test.get_history(), test.test, streaming)
