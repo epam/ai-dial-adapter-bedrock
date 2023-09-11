@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List
 
 import openai
@@ -12,9 +13,9 @@ from llm.callback import CallbackWithNewLines
 from utils.args import get_host_port_args
 from utils.cli import select_option
 from utils.input import make_input
-from utils.printing import print_ai, print_error
-from utils.printing import print_exception as print_exc
-from utils.printing import print_info
+from utils.printing import print_ai, print_error, print_info
+
+log = logging.getLogger(__name__)
 
 DEFAULT_API_VERSION = "2023-03-15-preview"
 
@@ -32,7 +33,7 @@ def get_available_models(base_url: str) -> List[str]:
 
 
 def print_exception(exc: Exception) -> None:
-    print_exc()
+    log.exception(exc)
     if isinstance(exc, OpenAIError):
         print_error(json.dumps(exc.json_body, indent=2))
     else:
