@@ -4,6 +4,8 @@ from typing import List
 from langchain.schema import BaseMessage
 from pydantic import BaseModel
 
+from llm.exceptions import ValidationError
+
 
 class ClaudeRole(Enum):
     HUMAN = "Human"
@@ -38,7 +40,7 @@ class ClaudeHistory:
 
 def emulate(prompt: List[BaseMessage]) -> str:
     if len(prompt) == 0:
-        raise Exception("Prompt must not be empty")
+        raise ValidationError("Prompt must not be empty")
 
     history = ClaudeHistory()
     for msg in prompt:

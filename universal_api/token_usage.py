@@ -15,3 +15,9 @@ class TokenUsage(BaseModel):
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
         }
+
+    def __add__(self, other: "TokenUsage") -> "TokenUsage":
+        return TokenUsage(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+        )

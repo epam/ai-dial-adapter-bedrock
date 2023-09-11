@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
-from langchain.schema import BaseMessage
+from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 import llm.chat_emulation.claude as claude
 import llm.chat_emulation.meta_chat as meta_chat
 import llm.chat_emulation.zero_memory as zero_memory
 from llm.chat_emulation.types import ChatEmulationType
-from universal_api.request import CompletionParameters
+from llm.exceptions import ValidationError
+from universal_api.request import ChatCompletionParameters, Message
 from universal_api.token_usage import TokenUsage
 from utils.operators import Unary, identity
 from utils.text import enforce_stop_tokens
@@ -26,9 +27,24 @@ class ModelResponse(BaseModel):
     usage: TokenUsage
 
 
+def parse_message(msg: Message) -> BaseMessage:
+    if msg.content is None:
+        raise ValidationError("Message content must not be empty")
+
+    match msg.role:
+        case "system":
+            return SystemMessage(content=msg.content)
+        case "user":
+            return HumanMessage(content=msg.content)
+        case "assistant":
+            return AIMessage(content=msg.content)
+        case "function":
+            raise ValidationError("Function calls are not supported")
+
+
 class ChatModel(ABC):
     model_id: str
-    model_params: CompletionParameters
+    model_params: ChatCompletionParameters
 
     @abstractmethod
     async def acall(self, prompt: str) -> ModelResponse:
@@ -38,10 +54,12 @@ class ChatModel(ABC):
     async def achat(
         self,
         chat_emulation_type: ChatEmulationType,
-        history: List[BaseMessage],
+        messages: List[Message],
     ) -> ModelResponse:
         prompt, post_process = emulate_chat(
-            self.model_id, chat_emulation_type, history
+            self.model_id,
+            chat_emulation_type,
+            list(map(parse_message, messages)),
         )
 
         response = await self.acall(prompt)
@@ -59,31 +77,31 @@ class Model(BaseModel):
     provider: str
     model: str
 
-
-def parse_model_id(model_id: str) -> Model:
-    parts = model_id.split(".")
-    if len(parts) != 2:
-        raise Exception(
-            f"Invalid model id '{model_id}'. The model id is expected to be in format 'provider.model'"
-        )
-    provider, model = parts
-    return Model(provider=provider, model=model)
+    @classmethod
+    def parse(cls, model_id: str) -> "Model":
+        parts = model_id.split(".")
+        if len(parts) != 2:
+            raise Exception(
+                f"Invalid model id '{model_id}'. The model id is expected to be in format 'provider.model'"
+            )
+        provider, model = parts
+        return cls(provider=provider, model=model)
 
 
 def emulate_chat(
-    model_id: str, emulation_type: ChatEmulationType, prompt: List[BaseMessage]
+    model_id: str, emulation_type: ChatEmulationType, history: List[BaseMessage]
 ) -> Tuple[str, Unary[str]]:
-    model = parse_model_id(model_id)
+    model = Model.parse(model_id)
     if model.provider == "anthropic" and "claude" in model.model:
-        return claude.emulate(prompt), identity
+        return claude.emulate(history), identity
 
     if model.provider == "stability":
-        return zero_memory.emulate(prompt), identity
+        return zero_memory.emulate(history), identity
 
     match emulation_type:
         case ChatEmulationType.ZERO_MEMORY:
-            return zero_memory.emulate(prompt), identity
+            return zero_memory.emulate(history), identity
         case ChatEmulationType.META_CHAT:
-            return meta_chat.emulate(prompt)
+            return meta_chat.emulate(history)
         case _:
             raise Exception(f"Invalid emulation type: {emulation_type}")

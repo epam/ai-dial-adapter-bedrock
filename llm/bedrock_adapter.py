@@ -8,8 +8,14 @@ from anthropic.tokenizer import count_tokens
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from llm.chat_model import ChatModel, ModelResponse, ResponseData, TokenUsage
-from universal_api.request import CompletionParameters
+from llm.chat_model import (
+    ChatModel,
+    Model,
+    ModelResponse,
+    ResponseData,
+    TokenUsage,
+)
+from universal_api.request import ChatCompletionParameters
 from utils.concurrency import make_async
 from utils.log_config import bedrock_logger as log
 
@@ -234,7 +240,7 @@ def prepare_input(
 
 
 def prepare_model_kwargs(
-    provider: str, model_params: CompletionParameters
+    provider: str, model_params: ChatCompletionParameters
 ) -> Dict[str, Any]:
     model_kwargs = {}
 
@@ -301,29 +307,33 @@ class BedrockAdapter(ChatModel):
     def __init__(
         self,
         model_id: str,
-        model_params: CompletionParameters,
+        model_provider: str,
+        model_params: ChatCompletionParameters,
         model_kwargs: Dict[str, Any],
         bedrock: Any,
     ):
         self.model_id = model_id
+        self.model_provider = model_provider
         self.model_params = model_params
         self.model_kwargs = model_kwargs
         self.bedrock = bedrock
 
     @classmethod
     async def create(
-        cls, model_id: str, region: str, model_params: CompletionParameters
+        cls, model_id: str, region: str, model_params: ChatCompletionParameters
     ) -> "BedrockAdapter":
-        provider = model_id.split(".")[0]
+        model_provider = Model.parse(model_id).provider
 
-        model_kwargs = prepare_model_kwargs(provider, model_params)
+        model_kwargs = prepare_model_kwargs(model_provider, model_params)
 
         bedrock = await make_async(
             lambda _: boto3.Session().client("bedrock", region),
             (),
         )
 
-        return cls(model_id, model_params, model_kwargs, bedrock)
+        return cls(
+            model_id, model_provider, model_params, model_kwargs, bedrock
+        )
 
     async def acall(self, prompt: str) -> ModelResponse:
         return await make_async(self._call, prompt)
@@ -331,17 +341,19 @@ class BedrockAdapter(ChatModel):
     def _call(self, prompt: str) -> ModelResponse:
         log.debug(f"prompt:\n{prompt}")
 
-        provider = self.model_id.split(".")[0]
-
         model_response = self.bedrock.invoke_model(
-            body=json.dumps(prepare_input(provider, prompt, self.model_kwargs)),
+            body=json.dumps(
+                prepare_input(self.model_provider, prompt, self.model_kwargs)
+            ),
             modelId=self.model_id,
             contentType="application/json",
             accept="application/json",
         )
 
         body = json.loads(model_response["body"].read())
-        resp = BedrockResponse.parse_obj({"provider": provider, **body})
+        resp = BedrockResponse.parse_obj(
+            {"provider": self.model_provider, **body}
+        )
         response = ModelResponse(
             content=resp.content(), data=resp.data(), usage=resp.usage(prompt)
         )

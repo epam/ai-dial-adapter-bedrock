@@ -1,11 +1,9 @@
 import asyncio
 
-from langchain.schema import HumanMessage
-
 from llm.bedrock_adapter import BedrockAdapter
 from llm.bedrock_models import BedrockDeployment
 from llm.chat_emulation.types import ChatEmulationType
-from universal_api.request import CompletionParameters
+from universal_api.request import ChatCompletionParameters, Message
 from utils.cli import select_enum
 from utils.env import get_env
 from utils.init import init
@@ -19,7 +17,7 @@ async def main():
 
     model = await BedrockAdapter.create(
         model_id=model_id,
-        model_params=CompletionParameters(max_tokens=1),
+        model_params=ChatCompletionParameters(max_tokens=1),
         region=get_env("DEFAULT_REGION"),
     )
 
@@ -30,12 +28,13 @@ async def main():
     x = 1
 
     while True:
-        prompt = x * base
+        prompt: str = x * base
         print(f"{min_x} <= {x} <= {max_x}")
 
         try:
             response = await model.achat(
-                ChatEmulationType.ZERO_MEMORY, [HumanMessage(content=prompt)]
+                ChatEmulationType.ZERO_MEMORY,
+                [Message(role="user", content=prompt)],
             )
 
             print_info(f"{x}: " + response.usage.json(indent=2))

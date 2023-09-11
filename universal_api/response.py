@@ -1,13 +1,23 @@
 import json
 import time
 import uuid
-from typing import Generator, List
+from typing import Generator, List, Literal
 
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from llm.chat_model import ModelResponse, ResponseData
 from universal_api.token_usage import TokenUsage
+
+
+class ModelObject(BaseModel):
+    object: Literal["model"] = "model"
+    id: str
+
+
+class ModelsResponse(BaseModel):
+    object: Literal["list"] = "list"
+    data: List[ModelObject]
 
 
 class ResponseParameters(BaseModel):
