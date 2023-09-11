@@ -3,6 +3,8 @@ from typing import Literal, Optional, TypedDict
 
 from botocore.exceptions import ClientError
 
+from llm.exceptions import ValidationError
+
 
 class OpenAIError(TypedDict):
     type: Literal["invalid_request_error", "internal_server_error"] | str
@@ -43,6 +45,17 @@ def to_open_ai_exception(e: Exception) -> OpenAIException:
                     "param": None,
                 },
             )
+
+    if isinstance(e, ValidationError):
+        return OpenAIException(
+            status_code=422,
+            error={
+                "type": "invalid_request_error",
+                "message": e.message,
+                "code": "invalid_argument",
+                "param": None,
+            },
+        )
 
     return OpenAIException(
         status_code=500,

@@ -2,6 +2,7 @@ from typing import List, Tuple
 
 from langchain.schema import AIMessage, BaseMessage, SystemMessage
 
+from llm.exceptions import ValidationError
 from utils.operators import Unary
 from utils.text import enforce_stop_tokens, remove_prefix
 
@@ -25,7 +26,7 @@ def type_to_role(ty: str) -> str:
 
 def emulate(prompt: List[BaseMessage]) -> Tuple[str, Unary[str]]:
     if len(prompt) == 0:
-        raise Exception("Prompt must not be empty")
+        raise ValidationError("Prompt must not be empty")
 
     history = prompt.copy()
     history.append(AIMessage(content=""))
