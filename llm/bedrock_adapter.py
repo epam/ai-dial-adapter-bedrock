@@ -15,7 +15,7 @@ from llm.chat_model import (
     ResponseData,
     TokenUsage,
 )
-from universal_api.request import ChatCompletionParameters
+from universal_api.request import ModelParameters
 from utils.concurrency import make_async
 from utils.log_config import bedrock_logger as log
 
@@ -240,7 +240,7 @@ def prepare_input(
 
 
 def prepare_model_kwargs(
-    provider: str, model_params: ChatCompletionParameters
+    provider: str, model_params: ModelParameters
 ) -> Dict[str, Any]:
     model_kwargs = {}
 
@@ -265,8 +265,9 @@ def prepare_model_kwargs(
         if model_params.top_p is not None:
             model_kwargs["top_p"] = model_params.top_p
 
-        if model_params.top_k is not None:
-            model_kwargs["top_k"] = model_params.top_k
+        # OpenAI API doesn't have top_k parameter.
+        # if model_params.top_k is not None:
+        #    model_kwargs["top_k"] = model_params.top_k
 
     # NOTE: API See https://docs.ai21.com/reference/j2-instruct-ref
     # NOTE: Per-model token limits: https://docs.ai21.com/docs/choosing-the-right-instance-type-for-amazon-sagemaker-models#foundation-models
@@ -308,7 +309,7 @@ class BedrockAdapter(ChatModel):
         self,
         model_id: str,
         model_provider: str,
-        model_params: ChatCompletionParameters,
+        model_params: ModelParameters,
         model_kwargs: Dict[str, Any],
         bedrock: Any,
     ):
@@ -320,7 +321,7 @@ class BedrockAdapter(ChatModel):
 
     @classmethod
     async def create(
-        cls, model_id: str, region: str, model_params: ChatCompletionParameters
+        cls, model_id: str, region: str, model_params: ModelParameters
     ) -> "BedrockAdapter":
         model_provider = Model.parse(model_id).provider
 

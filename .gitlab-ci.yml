@@ -36,6 +36,7 @@ variables:
 stages:
   - tag
   - lint
+  - test
   - publish # publish docker images
   - deploy
   - promote # copy docker image to public repo
@@ -46,10 +47,25 @@ lint:
   stage: lint
   before_script:
     - apt-get update && apt-get install -y make
-    - make all
+    - make install
     - source .venv/bin/activate
   script:
     - make lint
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $review_DEPLOY_ENV == "true"
+    - if: $CI_COMMIT_BRANCH  == "development"
+  tags:
+    - kubernetes
+
+test:
+  image: python:3.11-slim
+  stage: test
+  before_script:
+    - apt-get update && apt-get install -y make
+    - make install
+    - source .venv/bin/activate
+  script:
+    - make test
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $review_DEPLOY_ENV == "true"
     - if: $CI_COMMIT_BRANCH  == "development"

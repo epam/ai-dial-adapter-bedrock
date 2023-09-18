@@ -1,8 +1,10 @@
 import asyncio
 from typing import List
 
+from aidial_sdk.chat_completion.request import Message
+
 from llm.bedrock_adapter import BedrockAdapter
-from universal_api.request import ChatCompletionParameters, Message
+from universal_api.request import ModelParameters
 from utils.cli import choose_deployment
 from utils.env import get_env
 from utils.init import init
@@ -16,7 +18,7 @@ async def main():
 
     model = await BedrockAdapter.create(
         model_id=deployment.get_model_id(),
-        model_params=ChatCompletionParameters(),
+        model_params=ModelParameters(),
         region=get_env("DEFAULT_REGION"),
     )
 

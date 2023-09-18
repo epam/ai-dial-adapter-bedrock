@@ -7,5 +7,5 @@ from llm.exceptions import ValidationError
 
 def emulate(prompt: List[BaseMessage]) -> str:
     if len(prompt) == 0:
-        raise ValidationError("Prompt must not be empty")
+        raise ValidationError("List of messages must not be empty")
     return prompt[-1].content

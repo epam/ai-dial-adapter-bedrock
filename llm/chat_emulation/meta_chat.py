@@ -26,7 +26,7 @@ def type_to_role(ty: str) -> str:
 
 def emulate(prompt: List[BaseMessage]) -> Tuple[str, Unary[str]]:
     if len(prompt) == 0:
-        raise ValidationError("Prompt must not be empty")
+        raise ValidationError("List of messages must not be empty")
 
     history = prompt.copy()
     history.append(AIMessage(content=""))

@@ -9,7 +9,8 @@ def ping_server(url: str) -> bool:
     try:
         response = requests.get(healthcheck_url)
         return response.status_code == 200 and response.text == "OK"
-    except requests.ConnectionError:
+    except requests.ConnectionError as e:
+        print(e)
         return False
 
 
