@@ -8,4 +8,4 @@ exclude =
     __pycache__
 per-file-ignores =
     # imported but unused
-    test/locust.py: F401
+    tests/locust/app.py: F401

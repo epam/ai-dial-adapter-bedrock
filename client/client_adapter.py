@@ -49,12 +49,14 @@ def create_model(
         callbacks=callbacks,
         openai_api_base=base_url,
         openai_api_version=DEFAULT_API_VERSION,
-        openai_api_key="dummy_key",
+        openai_api_key="dummy_openai_api_key",
+        model_kwargs={"deployment_id": model_id, "api_key": "dummy_api_key"},
         verbose=True,
         streaming=streaming,
-        temperature=0,
+        temperature=0.0,
         request_timeout=10,
         client=None,
+        max_retries=0,
     )
 
 

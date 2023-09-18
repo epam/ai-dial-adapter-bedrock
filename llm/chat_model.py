@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
+from aidial_sdk.chat_completion.request import Message
 from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
@@ -9,7 +10,7 @@ import llm.chat_emulation.meta_chat as meta_chat
 import llm.chat_emulation.zero_memory as zero_memory
 from llm.chat_emulation.types import ChatEmulationType
 from llm.exceptions import ValidationError
-from universal_api.request import ChatCompletionParameters, Message
+from universal_api.request import ModelParameters
 from universal_api.token_usage import TokenUsage
 from utils.operators import Unary, identity
 from utils.text import enforce_stop_tokens
@@ -28,7 +29,7 @@ class ModelResponse(BaseModel):
 
 
 def parse_message(msg: Message) -> BaseMessage:
-    if msg.content is None:
+    if msg.content is None or msg.content == "":
         raise ValidationError("Message content must not be empty")
 
     match msg.role:
@@ -44,7 +45,7 @@ def parse_message(msg: Message) -> BaseMessage:
 
 class ChatModel(ABC):
     model_id: str
-    model_params: ChatCompletionParameters
+    model_params: ModelParameters
 
     @abstractmethod
     async def acall(self, prompt: str) -> ModelResponse:

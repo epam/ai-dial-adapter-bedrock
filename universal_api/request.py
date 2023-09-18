@@ -1,31 +1,35 @@
-from typing import List, Literal, Optional
+from typing import Mapping, Optional, Union
 
-from pydantic import BaseModel
-
-
-class Message(BaseModel):
-    role: Literal["system", "user", "assistant", "function"]
-    content: Optional[str]
-    name: Optional[str] = None
-    function_call: Optional[str] = None
-
-    class Config:
-        extra = "allow"
+from aidial_sdk.chat_completion.request import (
+    ChatCompletionRequest,
+    N,
+    Penalty,
+    Stop,
+    Temperature,
+    TopP,
+)
+from pydantic import BaseModel, PositiveInt
 
 
-class ChatCompletionParameters(BaseModel):
-    max_tokens: Optional[int] = None
-    temperature: Optional[float] = None
-    stop: Optional[List[str]] = None
-    n: Optional[int] = None
-    stream: Optional[bool] = None
-    top_p: Optional[float] = None
-    top_k: Optional[float] = None
+class ModelParameters(BaseModel):
+    temperature: Optional[Temperature] = None
+    top_p: Optional[TopP] = None
+    n: Optional[N] = None
+    stop: Optional[Union[str, Stop]] = None
+    max_tokens: Optional[PositiveInt] = None
+    presence_penalty: Optional[Penalty] = None
+    frequency_penalty: Optional[Penalty] = None
+    logit_bias: Optional[Mapping[int, float]] = None
 
-
-# Direct translation of https://platform.openai.com/docs/api-reference/chat/create
-class ChatCompletionRequest(ChatCompletionParameters, BaseModel):
-    messages: List[Message]
-
-    class Config:
-        extra = "allow"
+    @classmethod
+    def create(cls, request: ChatCompletionRequest) -> "ModelParameters":
+        return cls(
+            temperature=request.temperature,
+            top_p=request.top_p,
+            n=request.n,
+            stop=request.stop,
+            max_tokens=request.max_tokens,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            logit_bias=request.logit_bias,
+        )

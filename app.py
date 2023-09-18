@@ -1,43 +1,63 @@
 import logging.config
 
-from fastapi import Body, FastAPI, Path, Query, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from aidial_sdk import (
+    ChatCompletion,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    DIALApp,
+)
+from fastapi import Query, Response
 
 from llm.bedrock_adapter import BedrockAdapter, BedrockModels
 from llm.bedrock_models import BedrockDeployment
 from llm.chat_emulation.types import ChatEmulationType
-from server.exceptions import OpenAIException, open_ai_exception_decorator
-from universal_api.request import ChatCompletionRequest
-from universal_api.response import ModelObject, ModelsResponse, make_response
+from server.exceptions import dial_exception_decorator
+from universal_api.request import ModelParameters
+from universal_api.response import ModelObject, ModelsResponse
+from universal_api.token_usage import TokenUsage
 from utils.env import get_env
 from utils.log_config import LogConfig
-from utils.log_config import app_logger as log
 
 logging.config.dictConfig(LogConfig().dict())
 
-app = FastAPI(
-    description="Bedrock adapter for OpenAI Chat API",
-    version="0.0.1",
-)
-
-# CORS
-
-origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Endpoints
-
-
 default_region = get_env("DEFAULT_REGION")
+chat_emulation_type = ChatEmulationType.META_CHAT
+
+
+class BedrockChatCompletion(ChatCompletion):
+    @dial_exception_decorator
+    async def chat_completion(
+        self, request: ChatCompletionRequest, response: ChatCompletionResponse
+    ):
+        model = await BedrockAdapter.create(
+            region=default_region,
+            model_id=request.deployment_id,
+            model_params=ModelParameters.create(request),
+        )
+
+        model_response = await model.achat(
+            chat_emulation_type, request.messages
+        )
+
+        usage = TokenUsage()
+
+        for _ in range(request.n or 1):
+            with response.create_choice() as choice:
+                choice.append_content(model_response.content)
+
+                for data in model_response.data:
+                    choice.add_attachment(
+                        title=data.name,
+                        data=data.content,
+                        type=data.mime_type,
+                    )
+
+                usage += model_response.usage
+
+        response.set_usage(usage.prompt_tokens, usage.completion_tokens)
+
+
+app = DIALApp()
 
 
 @app.get("/healthcheck")
@@ -46,45 +66,14 @@ def healthcheck():
 
 
 @app.get("/openai/models")
-@open_ai_exception_decorator
+@dial_exception_decorator
 async def models(
     region: str = Query(default=default_region, description="AWS region")
-) -> ModelsResponse:
-    return get_models(region)
-
-
-def get_models(region: str) -> ModelsResponse:
+):
     bedrock_models = BedrockModels(region).models()
     models = [ModelObject(id=model["modelId"]) for model in bedrock_models]
     return ModelsResponse(data=models)
 
 
-@app.post("/openai/deployments/{deployment}/chat/completions")
-@open_ai_exception_decorator
-async def chat_completions(
-    deployment: BedrockDeployment = Path(...),
-    chat_emulation_type: ChatEmulationType = Query(
-        default=ChatEmulationType.META_CHAT,
-        description="The chat emulation type for models which only support completion mode",
-    ),
-    region: str = Query(default=default_region, description="AWS region"),
-    query: ChatCompletionRequest = Body(...),
-):
-    model_id = deployment.get_model_id()
-    model = await BedrockAdapter.create(
-        region=region, model_id=model_id, model_params=query
-    )
-    response = await model.achat(chat_emulation_type, query.messages)
-    log.debug(f"response:\n{response}")
-
-    return make_response(
-        bool(query.stream), deployment, "chat.completion", response
-    )
-
-
-@app.exception_handler(OpenAIException)
-async def exception_handler(request: Request, exc: OpenAIException):
-    log.exception(f"Exception: {str(exc)}")
-    return JSONResponse(
-        status_code=exc.status_code, content={"error": exc.error}
-    )
+for deployment in BedrockDeployment:
+    app.add_chat_completion(deployment.get_model_id(), BedrockChatCompletion())

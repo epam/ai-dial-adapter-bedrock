@@ -1,20 +1,4 @@
 {
-  "cSpell.enabled": true,
-  "files.exclude": {
-    "**/.git": true,
-    "**/.svn": true,
-    "**/.hg": true,
-    "**/CVS": true,
-    "**/.DS_Store": true,
-    "**/Thumbs.db": true,
-    "**/__pycache__": true,
-    "**/.pytest_cache": true,
-    "**/.gradle": true,
-    "**/bin": true,
-    "**/build": true,
-    ".idea": true,
-    ".venv": true
-  },
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,
@@ -25,5 +9,6 @@
   },
   "python.testing.pytestArgs": ["."],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "python.analysis.typeCheckingMode": "basic"
 }

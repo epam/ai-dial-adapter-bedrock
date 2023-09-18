@@ -2,8 +2,8 @@ from pydantic import BaseModel
 
 
 class TokenUsage(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
