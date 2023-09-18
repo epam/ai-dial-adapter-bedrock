@@ -5,7 +5,7 @@ from prompt_toolkit.styles import Style
 from utils.files import get_project_root
 
 
-def make_input():
+def make_input(limit: int = 8000):
     session = None
 
     def input(prompt_text="> ", style=Style.from_dict({"": "#ff0000"})):
@@ -15,6 +15,7 @@ def make_input():
                 history=FileHistory(str(get_project_root() / ".history"))
             )
 
-        return session.prompt(prompt_text, style=style)
+        response = session.prompt(prompt_text, style=style)
+        return response[:limit]
 
     return input

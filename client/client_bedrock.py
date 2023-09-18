@@ -8,7 +8,8 @@ from universal_api.request import ModelParameters
 from utils.cli import choose_deployment
 from utils.env import get_env
 from utils.init import init
-from utils.printing import get_input, print_ai, print_info
+from utils.input import make_input
+from utils.printing import print_ai, print_info
 
 
 async def main():
@@ -24,8 +25,14 @@ async def main():
 
     history: List[Message] = []
 
-    while True:
-        content = get_input("> ")
+    input = make_input()
+
+    turn = 0
+    max_turns = 128
+    while turn < max_turns:
+        turn += 1
+
+        content = input()
         history.append(Message(role="user", content=content))
 
         response = await model.achat(chat_emulation_type, history)

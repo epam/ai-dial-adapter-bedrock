@@ -73,7 +73,11 @@ def main():
 
     input = make_input()
 
-    while True:
+    turn = 0
+    max_turns = 128
+    while turn < max_turns:
+        turn += 1
+
         content = input()
         if content == ":clear":
             history = []
