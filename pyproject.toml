@@ -50,7 +50,7 @@ flake8 = "6.0.0"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2023.4.22"
-langchain = "0.0.207"
+langchain = "0.0.308"
 
 [tool.pyright]
 typeCheckingMode = "basic"
