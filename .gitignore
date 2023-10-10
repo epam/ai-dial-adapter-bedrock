@@ -1,0 +1,12 @@
+.DS_Store
+venv
+.venv
+.env
+.history
+.idea
+__pycache__
+.nox
+dist
+.vscode/launch.json
+~*
+leftovers

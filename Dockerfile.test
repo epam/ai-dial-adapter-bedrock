@@ -1,0 +1,29 @@
+FROM python:3.11-slim as builder
+
+RUN pip install poetry
+
+WORKDIR /app
+
+# Install split into two steps (the dependencies and the sources)
+# in order to leverage the Docker caching
+COPY pyproject.toml poetry.lock poetry.toml ./
+RUN poetry install --no-interaction --no-ansi --no-cache --no-root --no-directory --with test
+
+COPY . .
+RUN poetry install --no-interaction --no-ansi --no-cache --with test
+
+FROM python:3.11-slim as test
+
+WORKDIR /app
+
+# Copy the sources and virtual env. No poetry.
+RUN adduser -u 1001 --disabled-password --gecos "" appuser
+COPY --chown=appuser --from=builder /app .
+
+COPY ./scripts/docker_entrypoint.sh /docker_entrypoint.sh
+RUN chmod +x /docker_entrypoint.sh
+
+USER appuser
+ENTRYPOINT ["/docker_entrypoint.sh"]
+
+CMD ["pytest", "tests/unit_tests"]
