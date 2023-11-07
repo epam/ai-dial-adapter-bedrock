@@ -37,7 +37,7 @@ ai21 = {version = "1.2.2", extras = ["aws"]}
 pytest-dotenv = "^0.5.2"
 
 [tool.poetry.group.lint.dependencies]
-pyright = "1.1.324"
+pyright = "1.1.334"
 black = "23.3.0"
 isort = "5.12.0"
 autoflake = "2.2.0"
