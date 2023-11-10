@@ -1,11 +1,15 @@
 import logging
 import os
 
+from aidial_sdk import logger as aidial_logger
 from pydantic import BaseModel
 
 # By default (in prod) we don't want to print debug messages,
 # because they typically contain prompts.
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+AIDIAL_LOG_LEVEL = os.getenv("AIDIAL_LOG_LEVEL", "WARNING")
+aidial_logger.setLevel(AIDIAL_LOG_LEVEL)
 
 
 class LogConfig(BaseModel):
@@ -16,7 +20,7 @@ class LogConfig(BaseModel):
     formatters = {
         "default": {
             "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(levelprefix)s | %(asctime)s | %(name)s | %(process)d | %(message)s",
+            "fmt": "%(levelprefix)s | %(asctime)s | %(process)d | %(name)s | %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
             "use_colors": True,
         },

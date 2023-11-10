@@ -9,8 +9,10 @@ class TokenUsage(BaseModel):
     def total_tokens(self) -> int:
         return self.prompt_tokens + self.completion_tokens
 
+    def accumulate(self, other: "TokenUsage") -> "TokenUsage":
+        self.prompt_tokens += other.prompt_tokens
+        self.completion_tokens += other.completion_tokens
+        return self
+
     def __add__(self, other: "TokenUsage") -> "TokenUsage":
-        return TokenUsage(
-            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
-            completion_tokens=self.completion_tokens + other.completion_tokens,
-        )
+        return self.copy().accumulate(other)

@@ -15,7 +15,7 @@ def make_input(limit: int = 8000):
                 history=FileHistory(str(get_project_root() / ".history"))
             )
 
-        response = session.prompt(prompt_text, style=style)
+        response = session.prompt(prompt_text, style=style, in_thread=True)
         return response[:limit]
 
     return input

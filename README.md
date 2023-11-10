@@ -4,9 +4,18 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 Supported models:
 * Amazon Titan
+  - amazon.titan-tg1-large
 * AI21 J2
-* Anthropic Claude V1, V2
+  - ai21.j2-grande-instruct
+  - ai21.j2-jumbo-instruct
+  - ai21.j2-mid
+  - ai21.j2-ultra
+* Anthropic Claude
+  - anthropic.claude-instant-v1
+  - anthropic.claude-v1
+  - anthropic.claude-v2
 * Stable Diffusion
+  - stability.stable-diffusion-xl
 
 ## Developer environment
 
@@ -54,6 +63,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AWS_SECRET_ACCESS_KEY|NA|AWS credentials with access to Bedrock service|
 |DEFAULT_REGION||AWS region e.g. "us-east-1"|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
+|AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |TEST_SERVER_URL|http://0.0.0.0:5001|Server URL used in the integration tests|
 

@@ -1,10 +1,7 @@
 from enum import Enum
-from typing import List, Tuple, Type, TypeVar
+from typing import List, Type, TypeVar
 
 import inquirer
-
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.chat_emulation.types import ChatEmulationType
 
 V = TypeVar("V")
 
@@ -34,12 +31,3 @@ def select_enum(title: str, enum: Type[T]) -> T:
         ),
     ]
     return inquirer.prompt(questions)["option"]  # type: ignore
-
-
-def choose_deployment() -> Tuple[BedrockDeployment, ChatEmulationType]:
-    deployment = select_enum("Select the deployment", BedrockDeployment)
-    chat_emulation_type = select_enum(
-        "Select chat emulation type", ChatEmulationType
-    )
-
-    return deployment, chat_emulation_type
