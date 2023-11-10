@@ -76,12 +76,10 @@ def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
         model_kwargs["maxTokens"] = DEFAULT_MAX_TOKENS_AI21
 
     if model_params.temperature is not None:
-        model_kwargs["temperature"] = model_params.temperature
-    else:
-        # The default AI21 temperature is 0.7.
-        # The default OpenAI temperature is 1.0.
-        # Choosing the OpenAI default since we pretend AI21 to be OpenAI.
-        model_kwargs["temperature"] = 1.0
+        #   AI21 temperature ranges from 0.0 to 1.0
+        # OpenAI temperature ranges from 0.0 to 2.0
+        # Thus scaling down by 2x to match the AI21 range
+        model_kwargs["temperature"] = model_params.temperature / 2.0
 
     if model_params.top_p is not None:
         model_kwargs["topP"] = model_params.top_p
