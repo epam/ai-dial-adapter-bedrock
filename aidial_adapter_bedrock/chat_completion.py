@@ -1,51 +1,58 @@
 import asyncio
-from typing import List
+from typing import Optional, Set
 
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 
-from aidial_adapter_bedrock.llm.bedrock_adapter import BedrockAdapter
-from aidial_adapter_bedrock.llm.chat_emulation.types import ChatEmulationType
+from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
+from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.universal_api.request import ModelParameters
 from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 class BedrockChatCompletion(ChatCompletion):
     region: str
-    chat_emulation_type: ChatEmulationType
 
-    def __init__(self, region: str, chat_emulation_type: ChatEmulationType):
+    def __init__(self, region: str):
         self.region = region
-        self.chat_emulation_type = chat_emulation_type
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
-        model = await BedrockAdapter.create(
+        model_params = ModelParameters.create(request)
+        model = await get_bedrock_adapter(
             region=self.region,
             model_id=request.deployment_id,
-            model_params=ModelParameters.create(request),
         )
 
-        async def generate_response(idx: int) -> TokenUsage:
-            model_response = await model.achat(
-                self.chat_emulation_type, request.messages
-            )
-
+        async def generate_response(
+            usage: TokenUsage,
+            discarded_messages_set: Set[Optional[int]],
+            choice_idx: int,
+        ) -> None:
             with response.create_choice() as choice:
-                choice.append_content(model_response.content)
+                consumer = ChoiceConsumer(choice)
+                await model.achat(consumer, model_params, request.messages)
+                usage.accumulate(consumer.usage)
+                discarded_messages_set.add(consumer.discarded_messages)
 
-                for data in model_response.data:
-                    choice.add_attachment(
-                        title=data.name,
-                        data=data.content,
-                        type=data.mime_type,
-                    )
+        usage = TokenUsage()
+        discarded_messages_set: Set[Optional[int]] = set()
 
-                return model_response.usage
-
-        usages: List[TokenUsage] = await asyncio.gather(
-            *(generate_response(idx) for idx in range(request.n or 1))
+        await asyncio.gather(
+            *(
+                generate_response(usage, discarded_messages_set, idx)
+                for idx in range(request.n or 1)
+            )
         )
 
-        usage = sum(usages, TokenUsage())
+        log.debug(f"usage: {usage}")
         response.set_usage(usage.prompt_tokens, usage.completion_tokens)
+
+        assert (
+            len(discarded_messages_set) == 1
+        ), "Discarded messages count must be the same for each choice."
+
+        discarded_messages = next(iter(discarded_messages_set))
+        if discarded_messages is not None:
+            response.set_discarded_messages(discarded_messages)

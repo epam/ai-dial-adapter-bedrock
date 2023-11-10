@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, Optional
 
 from langchain.callbacks.base import Callbacks
 from langchain.chat_models import AzureChatOpenAI
@@ -28,9 +28,12 @@ def sanitize_test_name(name: str) -> str:
 
 
 async def run_model(
-    model: BaseChatModel, messages: List[BaseMessage], streaming: bool
+    model: BaseChatModel,
+    messages: List[BaseMessage],
+    streaming: bool,
+    stop: Optional[List[str]],
 ) -> str:
-    llm_result = await model.agenerate([messages])
+    llm_result = await model.agenerate([messages], stop=stop)
 
     actual_usage = (
         llm_result.llm_output.get("token_usage", None)
@@ -45,7 +48,10 @@ async def run_model(
 
 
 def create_model(
-    base_url: str, model_id: str, streaming: bool
+    base_url: str,
+    model_id: str,
+    streaming: bool,
+    max_tokens: Optional[int],
 ) -> BaseChatModel:
     callbacks: Callbacks = [CallbackWithNewLines()]
     return AzureChatOpenAI(
@@ -54,9 +60,13 @@ def create_model(
         openai_api_base=base_url,
         openai_api_version=DEFAULT_API_VERSION,
         openai_api_key="dummy_openai_api_key",
-        model_kwargs={"deployment_id": model_id, "api_key": "dummy_api_key"},
+        model_kwargs={
+            "deployment_id": model_id,
+            "api_key": "dummy_api_key",
+        },
         verbose=True,
         streaming=streaming,
+        max_tokens=max_tokens,
         temperature=0.0,
         request_timeout=10,
         client=None,

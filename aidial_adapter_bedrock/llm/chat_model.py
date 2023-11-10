@@ -1,60 +1,114 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
-import aidial_adapter_bedrock.llm.chat_emulation.claude as claude
-import aidial_adapter_bedrock.llm.chat_emulation.meta_chat as meta_chat
-import aidial_adapter_bedrock.llm.chat_emulation.zero_memory as zero_memory
-from aidial_adapter_bedrock.llm.chat_emulation.types import ChatEmulationType
-from aidial_adapter_bedrock.llm.message import BaseMessage, parse_message
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
+    PseudoChatHistory,
+)
+from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.message import (
+    BaseMessage,
+    SystemMessage,
+    parse_message,
+)
 from aidial_adapter_bedrock.universal_api.request import ModelParameters
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.utils.operators import Unary, identity
-from aidial_adapter_bedrock.utils.text import enforce_stop_tokens
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
-class ResponseData(BaseModel):
-    mime_type: str
-    name: str
-    content: str
+def _is_empty_system_message(msg: BaseMessage) -> bool:
+    return isinstance(msg, SystemMessage) and msg.content.strip() == ""
 
 
-class ModelResponse(BaseModel):
-    content: str
-    data: List[ResponseData]
-    usage: TokenUsage
+class ChatPrompt(BaseModel):
+    text: str
+    stop_sequences: List[str]
+    discarded_messages: Optional[int] = None
 
 
 class ChatModel(ABC):
     model_id: str
-    model_params: ModelParameters
+
+    def __init__(self, model_id: str):
+        self.model_id = model_id
 
     @abstractmethod
-    async def acall(self, prompt: str) -> ModelResponse:
-        # TODO: Support multiple results: call the model in cycle of `self.model_params.n` iterations
+    def _prepare_prompt(
+        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
+    ) -> ChatPrompt:
         pass
+
+    @abstractmethod
+    async def _apredict(
+        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+    ) -> None:
+        pass
+
+    def _validate_and_cleanup_messages(
+        self, messages: List[BaseMessage]
+    ) -> List[BaseMessage]:
+        # Skipping empty system messages
+        messages = [
+            msg for msg in messages if not _is_empty_system_message(msg)
+        ]
+
+        if len(messages) == 0:
+            raise ValidationError("List of messages must not be empty")
+
+        return messages
 
     async def achat(
         self,
-        chat_emulation_type: ChatEmulationType,
+        consumer: Consumer,
+        model_params: ModelParameters,
         messages: List[Message],
-    ) -> ModelResponse:
-        prompt, post_process = emulate_chat(
-            self.model_id,
-            chat_emulation_type,
-            list(map(parse_message, messages)),
+    ):
+        base_messages = list(map(parse_message, messages))
+        base_messages = self._validate_and_cleanup_messages(base_messages)
+
+        chat_prompt = self._prepare_prompt(
+            base_messages, model_params.max_prompt_tokens
         )
 
-        response = await self.acall(prompt)
-
-        content = post_process(
-            enforce_stop_tokens(response.content, self.model_params.stop)
+        model_params = model_params.add_stop_sequences(
+            chat_prompt.stop_sequences
         )
 
-        return ModelResponse(
-            content=content, data=response.data, usage=response.usage
+        log.debug(
+            f"model parameters:\n{model_params.json(indent=2, exclude_none=True)}"
+        )
+        log.debug(f"prompt:\n{chat_prompt.text}")
+
+        await self._apredict(consumer, model_params, chat_prompt.text)
+
+        if chat_prompt.discarded_messages is not None:
+            consumer.set_discarded_messages(chat_prompt.discarded_messages)
+
+
+class PseudoChatModel(ChatModel, ABC):
+    def __init__(self, model_id: str, count_tokens: Callable[[str], int]):
+        super().__init__(model_id)
+        self.count_tokens = count_tokens
+
+    def _prepare_prompt(
+        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
+    ) -> ChatPrompt:
+        history = PseudoChatHistory.create(messages)
+        if max_prompt_tokens is None:
+            return ChatPrompt(
+                text=history.format(), stop_sequences=history.stop_sequences
+            )
+
+        history, discarded_messages_count = history.trim(
+            lambda text: self.count_tokens(text), max_prompt_tokens
+        )
+
+        return ChatPrompt(
+            text=history.format(),
+            stop_sequences=history.stop_sequences,
+            discarded_messages=discarded_messages_count,
         )
 
 
@@ -67,26 +121,8 @@ class Model(BaseModel):
         parts = model_id.split(".")
         if len(parts) != 2:
             raise Exception(
-                f"Invalid model id '{model_id}'. The model id is expected to be in format 'provider.model'"
+                f"Invalid model id '{model_id}'. "
+                "The model id is expected to be in format 'provider.model'"
             )
         provider, model = parts
         return cls(provider=provider, model=model)
-
-
-def emulate_chat(
-    model_id: str, emulation_type: ChatEmulationType, history: List[BaseMessage]
-) -> Tuple[str, Unary[str]]:
-    model = Model.parse(model_id)
-    if model.provider == "anthropic" and "claude" in model.model:
-        return claude.emulate(history), identity
-
-    if model.provider == "stability":
-        return zero_memory.emulate(history), identity
-
-    match emulation_type:
-        case ChatEmulationType.ZERO_MEMORY:
-            return zero_memory.emulate(history), identity
-        case ChatEmulationType.META_CHAT:
-            return meta_chat.emulate(history)
-        case _:
-            raise Exception(f"Invalid emulation type: {emulation_type}")

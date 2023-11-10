@@ -2,6 +2,7 @@ PORT ?= 5001
 IMAGE_NAME ?= ai-dial-adapter-bedrock
 PLATFORM ?= linux/amd64
 DEV_PYTHON ?= 3.11
+DOCKER ?= docker
 ARGS=
 
 .PHONY: all install build serve clean lint format test integration_tests docker_build docker_run
@@ -35,12 +36,12 @@ integration_tests: install
 	poetry run nox -s integration_tests
 
 docker_test:
-	docker build --platform $(PLATFORM) -f Dockerfile.test -t $(IMAGE_NAME):test .
-	docker run --platform $(PLATFORM) --rm $(IMAGE_NAME):test
+	$(DOCKER) build --platform $(PLATFORM) -f Dockerfile.test -t $(IMAGE_NAME):test .
+	$(DOCKER) run --platform $(PLATFORM) --rm $(IMAGE_NAME):test
 
 docker_serve:
-	docker build --platform $(PLATFORM) -t $(IMAGE_NAME):dev .
-	docker run --platform $(PLATFORM) --env-file ./.env --rm -p $(PORT):5000 $(IMAGE_NAME):dev
+	$(DOCKER) build --platform $(PLATFORM) -t $(IMAGE_NAME):dev .
+	$(DOCKER) run --platform $(PLATFORM) --env-file ./.env --rm -p $(PORT):5000 $(IMAGE_NAME):dev
 
 help:
 	@echo '===================='
