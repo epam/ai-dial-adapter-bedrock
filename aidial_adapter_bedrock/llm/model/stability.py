@@ -4,14 +4,14 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.zero_memory_chat import (
     ZeroMemoryChatHistory,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
-from aidial_adapter_bedrock.universal_api.request import ModelParameters
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import make_async
 
 
