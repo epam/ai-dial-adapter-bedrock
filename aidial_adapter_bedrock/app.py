@@ -19,7 +19,7 @@ logging.config.dictConfig(LogConfig().dict())
 
 default_region = get_env("DEFAULT_REGION")
 
-app = DIALApp(description="AWS Bedrock adapter for RAIL API")
+app = DIALApp(description="AWS Bedrock adapter for DIAL API")
 
 
 @app.get("/healthcheck")

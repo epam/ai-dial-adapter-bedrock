@@ -1,10 +1,12 @@
 import json
+import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.storage import ImageStorage
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.zero_memory_chat import (
     ZeroMemoryChatHistory,
@@ -13,12 +15,7 @@ from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.utils.concurrency import make_async
-
-
-class ResponseData(BaseModel):
-    mime_type: str
-    name: str
-    content: str
+from aidial_adapter_bedrock.utils.env import get_env
 
 
 class StabilityStatus(str, Enum):
@@ -40,7 +37,7 @@ class StabilityArtifact(BaseModel):
 
 class StabilityResponse(BaseModel):
     # TODO: Use tagged union artifacts/error
-    result: str
+    result: StabilityStatus
     artifacts: Optional[list[StabilityArtifact]]
     error: Optional[StabilityError]
 
@@ -48,17 +45,18 @@ class StabilityResponse(BaseModel):
         self._throw_if_error()
         return ""
 
-    def data(self) -> list[ResponseData]:
+    def attachments(self) -> list[Attachment]:
         self._throw_if_error()
         return [
-            ResponseData(
-                mime_type="image/png",
-                name="image",
-                content=self.artifacts[0].base64,  # type: ignore
+            Attachment(
+                title="image",
+                type="image/png",
+                data=self.artifacts[0].base64,  # type: ignore
             )
         ]
 
     def usage(self) -> TokenUsage:
+        self._throw_if_error()
         return TokenUsage(
             prompt_tokens=0,
             completion_tokens=1,
@@ -73,14 +71,40 @@ def prepare_input(prompt: str) -> Dict[str, Any]:
     return {"text_prompts": [{"text": prompt}]}
 
 
+async def save_to_storage(
+    storage: ImageStorage, attachment: Attachment
+) -> Attachment:
+    if attachment.type == "image/png" and attachment.data is not None:
+        response = await storage.upload_base64_png_image(attachment.data)
+        return Attachment(
+            title=attachment.title,
+            type=attachment.type,
+            url=response["path"] + "/" + response["name"],
+        )
+
+    return attachment
+
+
+DIAL_BEDROCK_API_KEY = os.getenv("DIAL_BEDROCK_API_KEY")
+if DIAL_BEDROCK_API_KEY is not None:
+    DIAL_URL = get_env("DIAL_URL")
+
+
 class StabilityAdapter(ChatModel):
-    def __init__(
-        self,
-        bedrock: Any,
-        model_id: str,
-    ):
+    bedrock: Any
+    storage: Optional[ImageStorage]
+
+    def __init__(self, bedrock: Any, model_id: str):
         super().__init__(model_id)
         self.bedrock = bedrock
+        self.storage = None
+
+        if DIAL_BEDROCK_API_KEY is not None:
+            self.storage = ImageStorage(
+                dial_url=DIAL_URL,
+                api_key=DIAL_BEDROCK_API_KEY,
+                base_dir="stability",
+            )
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
@@ -95,16 +119,14 @@ class StabilityAdapter(ChatModel):
     async def _apredict(
         self, consumer: Consumer, model_params: ModelParameters, prompt: str
     ):
-        return await make_async(
-            lambda args: self._call(*args), (consumer, prompt)
-        )
-
-    def _call(self, consumer: Consumer, prompt: str):
-        model_response = self.bedrock.invoke_model(
-            modelId=self.model_id,
-            accept="application/json",
-            contentType="application/json",
-            body=json.dumps(prepare_input(prompt)),
+        model_response = await make_async(
+            lambda args: self.bedrock.invoke_model(
+                accept="application/json",
+                contentType="application/json",
+                modelId=args[0],
+                body=args[1],
+            ),
+            (self.model_id, json.dumps(prepare_input(prompt))),
         )
 
         body = json.loads(model_response["body"].read())
@@ -113,11 +135,7 @@ class StabilityAdapter(ChatModel):
         consumer.append_content(resp.content())
         consumer.add_usage(resp.usage())
 
-        for data in resp.data():
-            consumer.add_attachment(
-                Attachment(
-                    title=data.name,
-                    data=data.content,
-                    type=data.mime_type,
-                )
-            )
+        for attachment in resp.attachments():
+            if self.storage is not None:
+                attachment = await save_to_storage(self.storage, attachment)
+            consumer.add_attachment(attachment)
