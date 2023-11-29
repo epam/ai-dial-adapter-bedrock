@@ -64,6 +64,9 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |DEFAULT_REGION||AWS region e.g. "us-east-1"|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
+|USE_DIAL_FILE_STORAGE|True|Save model artifacts to DIAL File storage (particularly, Stability images are uploaded to the files storage and their base64 encodings are replaced with links to the storage)|
+|DIAL_URL|NA|URL of the core DIAL server|
+|DIAL_BEDROCK_API_KEY|NA|API Key for DIAL File storage|
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |TEST_SERVER_URL|http://0.0.0.0:5001|Server URL used in the integration tests|
 

@@ -85,9 +85,13 @@ async def save_to_storage(
     return attachment
 
 
-DIAL_BEDROCK_API_KEY = os.getenv("DIAL_BEDROCK_API_KEY")
-if DIAL_BEDROCK_API_KEY is not None:
+USE_DIAL_FILE_STORAGE = (
+    os.getenv("USE_DIAL_FILE_STORAGE", "true").lower() == "true"
+)
+
+if USE_DIAL_FILE_STORAGE:
     DIAL_URL = get_env("DIAL_URL")
+    DIAL_BEDROCK_API_KEY = get_env("DIAL_BEDROCK_API_KEY")
 
 
 class StabilityAdapter(ChatModel):
@@ -99,7 +103,7 @@ class StabilityAdapter(ChatModel):
         self.bedrock = bedrock
         self.storage = None
 
-        if DIAL_BEDROCK_API_KEY is not None:
+        if USE_DIAL_FILE_STORAGE:
             self.storage = ImageStorage(
                 dial_url=DIAL_URL,
                 api_key=DIAL_BEDROCK_API_KEY,
