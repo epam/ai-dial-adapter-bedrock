@@ -40,28 +40,6 @@ class FileStorage:
         )
         return data
 
-    async def list(self) -> list[FileMetadata]:
-        async with aiohttp.ClientSession() as session:
-            url = f"{self.base_url}?purpose=metadata&path=relative"
-            async with session.get(
-                url, headers=self.auth_headers()
-            ) as response:
-                response.raise_for_status()
-                ret = await response.json()
-                log.debug(f"Listed files at '{url}': {ret}")
-                return ret
-
-    async def delete(self, filename: str):
-        async with aiohttp.ClientSession() as session:
-            url = f"{self.base_url}/{filename}"
-            async with session.delete(
-                url, headers=self.auth_headers()
-            ) as response:
-                response.raise_for_status()
-                ret = await response.text()
-                log.debug(f"Removed files at '{url}': {ret}")
-                return ret
-
     async def upload(
         self, filename: str, content_type: str, content: bytes
     ) -> FileMetadata:
@@ -73,15 +51,11 @@ class FileStorage:
                 headers=self.auth_headers(),
             ) as response:
                 response.raise_for_status()
-                ret = await response.json()
+                meta = await response.json()
                 log.debug(
-                    f"Uploaded to '{self.base_url}' file '{filename}': {ret}"
+                    f"Uploaded file: path={self.base_url}, file={filename}, metadata={meta}"
                 )
-                return ret
-
-
-def hash_digest(string: str) -> str:
-    return hashlib.sha256(string.encode()).hexdigest()
+                return meta
 
 
 class ImageStorage:
@@ -90,7 +64,11 @@ class ImageStorage:
     def __init__(self, dial_url: str, base_dir: str, api_key: str):
         self.storage = FileStorage(dial_url, base_dir, api_key)
 
+    @staticmethod
+    def hash_digest(string: str) -> str:
+        return hashlib.sha256(string.encode()).hexdigest()
+
     async def upload_base64_png_image(self, data: str) -> FileMetadata:
-        filename = hash_digest(data) + ".png"
+        filename = ImageStorage.hash_digest(data) + ".png"
         content: bytes = base64.b64decode(data)
         return await self.storage.upload(filename, "image/png", content)

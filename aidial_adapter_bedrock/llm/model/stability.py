@@ -86,7 +86,7 @@ async def save_to_storage(
 
 
 USE_DIAL_FILE_STORAGE = (
-    os.getenv("USE_DIAL_FILE_STORAGE", "true").lower() == "true"
+    os.getenv("USE_DIAL_FILE_STORAGE", "false").lower() == "true"
 )
 
 if USE_DIAL_FILE_STORAGE:
