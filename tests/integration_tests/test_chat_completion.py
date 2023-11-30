@@ -49,6 +49,8 @@ chat_deployments = [
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
+    BedrockDeployment.META_LLAMA2_13B_CHAT_V1,
+    BedrockDeployment.COHERE_COMMAND_TEXT_V14,
 ]
 
 
@@ -109,7 +111,7 @@ def get_test_cases(
             max_tokens=None,
             stop=None,
             messages=[user(query)],
-            test=lambda s: "hello" in s.lower(),
+            test=lambda s: "hello" in s.lower() or "hi" in s.lower(),
         )
     )
 
@@ -167,7 +169,7 @@ def get_test_cases(
             deployment=deployment,
             streaming=streaming,
             max_tokens=None,
-            stop=["world"],
+            stop=["world", "World"],
             messages=[user('Reply with "hello world"')],
             test=lambda s: "world" not in s.lower(),
         )

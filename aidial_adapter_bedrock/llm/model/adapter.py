@@ -4,6 +4,8 @@ from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.anthropic import AnthropicAdapter
+from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
+from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 from aidial_adapter_bedrock.utils.concurrency import make_async
 
@@ -36,5 +38,9 @@ async def get_bedrock_adapter(model_id: str, region: str) -> ChatModel:
             return StabilityAdapter(bedrock, model_id)
         case "amazon":
             return AmazonAdapter(bedrock, model_id, count_tokens)
+        case "meta":
+            return MetaAdapter(bedrock, model_id, count_tokens)
+        case "cohere":
+            return CohereAdapter(bedrock, model_id, count_tokens)
         case _:
             raise ValueError(f"Unknown model provider: '{model_provider}'")
