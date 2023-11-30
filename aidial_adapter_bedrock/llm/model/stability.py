@@ -6,7 +6,10 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.storage import ImageStorage
+from aidial_adapter_bedrock.dial_api.storage import (
+    FileStorage,
+    upload_base64_file,
+)
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.zero_memory_chat import (
     ZeroMemoryChatHistory,
@@ -72,10 +75,12 @@ def prepare_input(prompt: str) -> Dict[str, Any]:
 
 
 async def save_to_storage(
-    storage: ImageStorage, attachment: Attachment
+    storage: FileStorage, attachment: Attachment
 ) -> Attachment:
     if attachment.type == "image/png" and attachment.data is not None:
-        response = await storage.upload_base64_png_image(attachment.data)
+        response = await upload_base64_file(
+            storage, attachment.data, attachment.type, ".png"
+        )
         return Attachment(
             title=attachment.title,
             type=attachment.type,
@@ -96,7 +101,7 @@ if USE_DIAL_FILE_STORAGE:
 
 class StabilityAdapter(ChatModel):
     bedrock: Any
-    storage: Optional[ImageStorage]
+    storage: Optional[FileStorage]
 
     def __init__(self, bedrock: Any, model_id: str):
         super().__init__(model_id)
@@ -104,7 +109,7 @@ class StabilityAdapter(ChatModel):
         self.storage = None
 
         if USE_DIAL_FILE_STORAGE:
-            self.storage = ImageStorage(
+            self.storage = FileStorage(
                 dial_url=DIAL_URL,
                 api_key=DIAL_BEDROCK_API_KEY,
                 base_dir="stability",

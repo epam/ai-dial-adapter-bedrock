@@ -58,17 +58,13 @@ class FileStorage:
                 return meta
 
 
-class ImageStorage:
-    storage: FileStorage
+def _hash_digest(string: str) -> str:
+    return hashlib.sha256(string.encode()).hexdigest()
 
-    def __init__(self, dial_url: str, base_dir: str, api_key: str):
-        self.storage = FileStorage(dial_url, base_dir, api_key)
 
-    @staticmethod
-    def hash_digest(string: str) -> str:
-        return hashlib.sha256(string.encode()).hexdigest()
-
-    async def upload_base64_png_image(self, data: str) -> FileMetadata:
-        filename = ImageStorage.hash_digest(data) + ".png"
-        content: bytes = base64.b64decode(data)
-        return await self.storage.upload(filename, "image/png", content)
+async def upload_base64_file(
+    storage: FileStorage, data: str, content_type: str, file_ext: str
+) -> FileMetadata:
+    filename = _hash_digest(data) + file_ext
+    content: bytes = base64.b64decode(data)
+    return await storage.upload(filename, content_type, content)
