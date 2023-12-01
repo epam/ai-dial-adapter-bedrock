@@ -3,11 +3,11 @@ from typing import Optional, Set
 
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 
+from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.universal_api.request import ModelParameters
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
