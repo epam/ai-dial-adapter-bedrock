@@ -5,13 +5,13 @@ from pydantic import BaseModel
 from typing_extensions import override
 
 import aidial_adapter_bedrock.utils.stream as stream
+from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import RolePrompt
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
-from aidial_adapter_bedrock.universal_api.request import ModelParameters
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
