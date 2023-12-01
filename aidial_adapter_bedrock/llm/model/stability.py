@@ -77,9 +77,13 @@ def prepare_input(prompt: str) -> Dict[str, Any]:
 async def save_to_storage(
     storage: FileStorage, attachment: Attachment
 ) -> Attachment:
-    if attachment.type == "image/png" and attachment.data is not None:
+    if (
+        attachment.type is not None
+        and attachment.type.startswith("image/")
+        and attachment.data is not None
+    ):
         response = await upload_base64_file(
-            storage, attachment.data, attachment.type, ".png"
+            storage, attachment.data, attachment.type
         )
         return Attachment(
             title=attachment.title,

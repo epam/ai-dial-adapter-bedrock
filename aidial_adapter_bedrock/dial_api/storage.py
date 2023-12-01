@@ -63,8 +63,8 @@ def _hash_digest(string: str) -> str:
 
 
 async def upload_base64_file(
-    storage: FileStorage, data: str, content_type: str, file_ext: str
+    storage: FileStorage, data: str, content_type: str
 ) -> FileMetadata:
-    filename = _hash_digest(data) + file_ext
+    filename = _hash_digest(data)
     content: bytes = base64.b64decode(data)
     return await storage.upload(filename, content_type, content)
