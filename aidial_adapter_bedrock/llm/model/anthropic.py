@@ -3,6 +3,8 @@ from typing import Any, Dict, Generator, List, Optional
 
 from anthropic.tokenizer import count_tokens
 
+from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation import claude_chat
 from aidial_adapter_bedrock.llm.chat_emulation.claude_chat import (
     ClaudeChatHistory,
@@ -11,8 +13,6 @@ from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
-from aidial_adapter_bedrock.universal_api.request import ModelParameters
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 

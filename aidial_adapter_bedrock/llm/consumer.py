@@ -4,7 +4,7 @@ from typing import List, Optional
 from aidial_sdk.chat_completion import Choice
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.universal_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 
 
 class Attachment(BaseModel):

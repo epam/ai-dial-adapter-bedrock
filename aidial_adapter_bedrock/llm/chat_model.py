@@ -4,6 +4,7 @@ from typing import Callable, List, Optional
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
     PseudoChatHistory,
 )
@@ -14,7 +15,6 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     parse_message,
 )
-from aidial_adapter_bedrock.universal_api.request import ModelParameters
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
