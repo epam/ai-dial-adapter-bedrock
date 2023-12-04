@@ -1,15 +1,14 @@
-import json
 from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
-from aidial_adapter_bedrock.utils.concurrency import make_async
 
 
 class TextRange(BaseModel):
@@ -66,7 +65,7 @@ class AI21Response(BaseModel):
 
 
 # NOTE: See https://docs.ai21.com/reference/j2-instruct-ref
-def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+def convert_params(params: ModelParameters) -> Dict[str, Any]:
     ret = {}
 
     if params.max_tokens is not None:
@@ -94,40 +93,30 @@ def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
     return ret
 
 
-def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    return {"prompt": prompt, **model_kwargs}
+def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    return {"prompt": prompt, **params}
 
 
 class AI21Adapter(PseudoChatModel):
+    client: Bedrock
+
     def __init__(
         self,
-        bedrock: Any,
-        model_id: str,
+        client: Bedrock,
+        model: str,
         count_tokens: Callable[[str], int],
         pseudo_history_conf: PseudoChatConf,
     ):
-        super().__init__(model_id, count_tokens, pseudo_history_conf)
-        self.bedrock = bedrock
+        super().__init__(model, count_tokens, pseudo_history_conf)
+        self.client = client
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
-        await make_async(
-            lambda args: self._call(*args), (consumer, params, prompt)
-        )
+        args = create_request(prompt, convert_params(params))
+        response = await self.client.ainvoke_non_streaming(self.model, args)
 
-    def _call(self, consumer: Consumer, params: ModelParameters, prompt: str):
-        model_kwargs = prepare_model_kwargs(params)
-
-        model_response = self.bedrock.invoke_model(
-            modelId=self.model,
-            accept="application/json",
-            contentType="application/json",
-            body=json.dumps(prepare_input(prompt, model_kwargs)),
-        )
-
-        body = json.loads(model_response["body"].read())
-        resp = AI21Response.parse_obj(body)
+        resp = AI21Response.parse_obj(response)
 
         consumer.append_content(resp.content())
         consumer.add_usage(resp.usage())

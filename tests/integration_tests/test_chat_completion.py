@@ -163,13 +163,18 @@ def get_test_cases(
         )
     )
 
+    # ai21 models do not support more than one stop word
+    stop = ["world", "World"]
+    if "ai21" in deployment.value:
+        stop = ["world"]
+
     ret.append(
         TestCase(
             name="stop sequence",
             deployment=deployment,
             streaming=streaming,
             max_tokens=None,
-            stop=["world", "World"],
+            stop=stop,
             messages=[user('Reply with "hello world"')],
             test=lambda s: "world" not in s.lower(),
         )

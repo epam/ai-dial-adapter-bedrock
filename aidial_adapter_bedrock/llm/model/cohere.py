@@ -1,10 +1,9 @@
-import json
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 from typing_extensions import override
 
-import aidial_adapter_bedrock.utils.stream as stream
+from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
@@ -12,7 +11,6 @@ from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
-from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -70,7 +68,7 @@ class CohereResponse(BaseModel):
         )
 
 
-def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+def convert_params(params: ModelParameters) -> Dict[str, Any]:
     ret = {}
 
     if params.temperature is not None:
@@ -84,26 +82,21 @@ def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
 
     ret["return_likelihoods"] = "ALL"
 
-    # NOTE: num_generations
+    # NOTE: num_generations is supported
 
     return ret
 
 
-def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "prompt": prompt,
-        **model_kwargs,
-    }
+def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    return {"prompt": prompt, **params}
 
 
-def get_generator_for_non_streaming(
-    response: Any,
-    usage: TokenUsage,
-) -> Generator[str, None, None]:
-    body = json.loads(response["body"].read())
-    log.debug(f"body: {body}")
+async def response_to_stream(
+    response: dict, usage: TokenUsage
+) -> AsyncIterator[str]:
+    log.debug(f"response: {response}")
 
-    resp = CohereResponse.parse_obj(body)
+    resp = CohereResponse.parse_obj(response)
 
     log.debug(f"prompt_completion:\n{resp.prompt_completion}")
 
@@ -114,40 +107,18 @@ def get_generator_for_non_streaming(
     yield resp.content()
 
 
-def post_process_stream(
-    params: ModelParameters,
-    content_stream: Generator[str, None, None],
-    pseudo_chat_conf: PseudoChatConf,
-) -> Generator[str, None, None]:
-    content_stream = stream.lstrip(content_stream)
-
-    # Titan occasionally starts its response with the role prefix
-    content_stream = stream.remove_prefix(
-        content_stream,
-        pseudo_chat_conf.mapping["ai"] + " ",
-    )
-
-    # Titan doesn't support stop sequences, so do it manually
-    if params.stop:
-        content_stream = stream.stop_at(content_stream, params.stop)
-
-    # After all the post processing, the stream may become empty.
-    # To avoid this, add a space to the stream.
-    content_stream = stream.ensure_not_empty(content_stream, " ")
-
-    return content_stream
-
-
 class CohereAdapter(PseudoChatModel):
+    client: Bedrock
+
     def __init__(
         self,
-        bedrock: Any,
+        client: Bedrock,
         model_id: str,
         count_tokens: Callable[[str], int],
         pseudo_history_conf: PseudoChatConf,
     ):
         super().__init__(model_id, count_tokens, pseudo_history_conf)
-        self.bedrock = bedrock
+        self.client = client
 
     @override
     def _validate_and_cleanup_messages(
@@ -165,30 +136,16 @@ class CohereAdapter(PseudoChatModel):
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
-        await make_async(
-            lambda args: self._call(*args), (consumer, params, prompt)
-        )
-
-    def _call(self, consumer: Consumer, params: ModelParameters, prompt: str):
-        model_kwargs = prepare_model_kwargs(params)
-
-        invoke_params = {
-            "modelId": self.model,
-            "accept": "application/json",
-            "contentType": "application/json",
-            "body": json.dumps(prepare_input(prompt, model_kwargs)),
-        }
+        args = create_request(prompt, convert_params(params))
+        response = await self.client.ainvoke_non_streaming(self.model, args)
 
         usage = TokenUsage()
-
-        response = self.bedrock.invoke_model(**invoke_params)
-        content_stream = get_generator_for_non_streaming(response, usage)
-        content_stream = post_process_stream(
-            params, content_stream, self.pseudo_history_conf
+        stream = response_to_stream(response, usage)
+        stream = self.post_process_stream(
+            stream, params, self.pseudo_history_conf
         )
 
-        for content in content_stream:
-            log.debug(f"content: {repr(content)}")
+        async for content in stream:
             consumer.append_content(content)
 
         consumer.add_usage(usage)

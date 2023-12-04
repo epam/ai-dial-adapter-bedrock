@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any, AsyncIterator
 
@@ -20,7 +21,7 @@ class Bedrock:
         )
         return cls(client)
 
-    def _create_args(self, model: str, body: dict) -> dict:
+    def _create_invoke_params(self, model: str, body: dict) -> dict:
         return {
             "modelId": model,
             "body": json.dumps(body),
@@ -28,22 +29,23 @@ class Bedrock:
             "contentType": "application/json",
         }
 
-    async def ainvoke_non_streaming(self, model: str, body: dict) -> dict:
-        args = self._create_args(model, body)
+    async def ainvoke_non_streaming(self, model: str, args: dict) -> dict:
+        params = self._create_invoke_params(model, args)
         response = await make_async(
-            lambda _: self.client.invoke_model(**args), ()
+            lambda _: self.client.invoke_model(**params), ()
         )
 
         body = json.loads(response["body"].read())
-        log.debug(f"body [stream=false]: {body}")
+        log.debug(f"body [stream=false]: {args}")
         return body
 
     async def ainvoke_streaming(
-        self, model: str, body: dict
+        self, model: str, args: dict
     ) -> AsyncIterator[dict]:
-        args = self._create_args(model, body)
+        params = self._create_invoke_params(model, args)
         response = await make_async(
-            lambda _: self.client.invoke_model_with_response_stream(**args), ()
+            lambda _: self.client.invoke_model_with_response_stream(**params),
+            (),
         )
 
         body = response["body"]
@@ -52,5 +54,5 @@ class Bedrock:
             if chunk:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
                 log.debug(f"chunk [stream=true]: {chunk_dict}")
-
                 yield chunk_dict
+                await asyncio.sleep(1e-6)

@@ -1,11 +1,11 @@
-from typing import Generator, List
+from typing import AsyncIterator, List
 
 import tests.utils.string as string
 
 
-def lstrip(gen: Generator[str, None, None]) -> Generator[str, None, None]:
+async def lstrip(stream: AsyncIterator[str]) -> AsyncIterator[str]:
     start = True
-    for chunk in gen:
+    async for chunk in stream:
         if start:
             chunk = chunk.lstrip()
             if chunk != "":
@@ -15,13 +15,13 @@ def lstrip(gen: Generator[str, None, None]) -> Generator[str, None, None]:
             yield chunk
 
 
-def remove_prefix(
-    gen: Generator[str, None, None], prefix: str
-) -> Generator[str, None, None]:
+async def remove_prefix(
+    stream: AsyncIterator[str], prefix: str
+) -> AsyncIterator[str]:
     acc = ""
     start = True
 
-    for chunk in gen:
+    async for chunk in stream:
         if start:
             acc += chunk
             if len(acc) >= len(prefix):
@@ -34,17 +34,18 @@ def remove_prefix(
         yield acc
 
 
-def stop_at(
-    gen: Generator[str, None, None], stop_sequences: List[str]
-) -> Generator[str, None, None]:
+async def stop_at(
+    stream: AsyncIterator[str], stop_sequences: List[str]
+) -> AsyncIterator[str]:
     if len(stop_sequences) == 0:
-        yield from gen
+        async for item in stream:
+            yield item
         return
 
     buffer_len = max(map(len, stop_sequences)) - 1
 
     hold = ""
-    for chunk in gen:
+    async for chunk in stream:
         hold += chunk
 
         min_index = len(hold)
@@ -66,11 +67,11 @@ def stop_at(
         yield hold
 
 
-def ensure_not_empty(
-    gen: Generator[str, None, None], default: str
-) -> Generator[str, None, None]:
+async def ensure_not_empty(
+    gen: AsyncIterator[str], default: str
+) -> AsyncIterator[str]:
     all_chunks_are_empty = True
-    for chunk in gen:
+    async for chunk in gen:
         all_chunks_are_empty = all_chunks_are_empty and chunk == ""
         yield chunk
 

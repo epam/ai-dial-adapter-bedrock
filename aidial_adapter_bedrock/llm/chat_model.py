@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional
+from typing import AsyncIterator, Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
+import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
     PseudoChatConf,
@@ -120,6 +121,31 @@ class PseudoChatModel(ChatModel, ABC):
             stop_sequences=history.stop_sequences,
             discarded_messages=discarded_messages_count,
         )
+
+    @staticmethod
+    def post_process_stream(
+        stream: AsyncIterator[str],
+        params: ModelParameters,
+        pseudo_chat_conf: PseudoChatConf,
+    ) -> AsyncIterator[str]:
+        # Removing leading spaces
+        stream = stream_utils.lstrip(stream)
+
+        # Model may occasionally starts its response with the role prefix
+        stream = stream_utils.remove_prefix(
+            stream,
+            pseudo_chat_conf.mapping["ai"] + " ",
+        )
+
+        # If the model doesn't support stop sequences, so do it manually
+        if params.stop:
+            stream = stream_utils.stop_at(stream, params.stop)
+
+        # After all the post processing, the stream may become empty.
+        # To avoid this, add a space to the stream.
+        stream = stream_utils.ensure_not_empty(stream, " ")
+
+        return stream
 
 
 class Model(BaseModel):

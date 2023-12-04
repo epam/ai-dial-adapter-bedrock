@@ -1,5 +1,4 @@
-import boto3
-
+from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import std_conf
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
@@ -8,7 +7,6 @@ from aidial_adapter_bedrock.llm.model.anthropic import AnthropicAdapter
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
-from aidial_adapter_bedrock.utils.concurrency import make_async
 
 
 def count_tokens(string: str) -> int:
@@ -26,9 +24,7 @@ def count_tokens(string: str) -> int:
 
 
 async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
-    client = await make_async(
-        lambda _: boto3.Session().client("bedrock-runtime", region), ()
-    )
+    client = await Bedrock.acreate(region)
     provider = Model.parse(model).provider
     match provider:
         case "anthropic":
