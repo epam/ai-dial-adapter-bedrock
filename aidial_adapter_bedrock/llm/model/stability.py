@@ -130,7 +130,7 @@ class StabilityAdapter(ChatModel):
         )
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         model_response = await make_async(
             lambda args: self.bedrock.invoke_model(
@@ -139,7 +139,7 @@ class StabilityAdapter(ChatModel):
                 modelId=args[0],
                 body=args[1],
             ),
-            (self.model_id, json.dumps(prepare_input(prompt))),
+            (self.model, json.dumps(prepare_input(prompt))),
         )
 
         body = json.loads(model_response["body"].read())

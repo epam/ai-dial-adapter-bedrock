@@ -25,23 +25,23 @@ def count_tokens(string: str) -> int:
     return len(string.encode("utf-8"))
 
 
-async def get_bedrock_adapter(model_id: str, region: str) -> ChatModel:
+async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
     bedrock = await make_async(
         lambda _: boto3.Session().client("bedrock-runtime", region), ()
     )
-    model_provider = Model.parse(model_id).provider
+    model_provider = Model.parse(model).provider
     match model_provider:
         case "anthropic":
-            return AnthropicAdapter(bedrock, model_id)
+            return AnthropicAdapter(bedrock, model)
         case "ai21":
-            return AI21Adapter(bedrock, model_id, count_tokens, std_conf)
+            return AI21Adapter(bedrock, model, count_tokens, std_conf)
         case "stability":
-            return StabilityAdapter(bedrock, model_id)
+            return StabilityAdapter(bedrock, model)
         case "amazon":
-            return AmazonAdapter(bedrock, model_id, count_tokens, std_conf)
+            return AmazonAdapter(bedrock, model, count_tokens, std_conf)
         case "meta":
-            return MetaAdapter(bedrock, model_id, count_tokens, std_conf)
+            return MetaAdapter(bedrock, model, count_tokens, std_conf)
         case "cohere":
-            return CohereAdapter(bedrock, model_id, count_tokens, std_conf)
+            return CohereAdapter(bedrock, model, count_tokens, std_conf)
         case _:
             raise ValueError(f"Unknown model provider: '{model_provider}'")

@@ -25,26 +25,26 @@ def compute_usage(prompt: str, completion: str) -> TokenUsage:
 
 
 # NOTE: See https://docs.anthropic.com/claude/reference/complete_post
-def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
-    model_kwargs = {}
+def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+    ret = {}
 
-    if model_params.max_tokens is not None:
-        model_kwargs["max_tokens_to_sample"] = model_params.max_tokens
+    if params.max_tokens is not None:
+        ret["max_tokens_to_sample"] = params.max_tokens
     else:
         # The max tokens parameter is required for Anthropic models.
         # Choosing reasonable default.
-        model_kwargs["max_tokens_to_sample"] = DEFAULT_MAX_TOKENS_ANTHROPIC
+        ret["max_tokens_to_sample"] = DEFAULT_MAX_TOKENS_ANTHROPIC
 
-    if model_params.stop:
-        model_kwargs["stop_sequences"] = model_params.stop
+    if params.stop:
+        ret["stop_sequences"] = params.stop
 
-    if model_params.temperature is not None:
-        model_kwargs["temperature"] = model_params.temperature
+    if params.temperature is not None:
+        ret["temperature"] = params.temperature
 
-    if model_params.top_p is not None:
-        model_kwargs["top_p"] = model_params.top_p
+    if params.top_p is not None:
+        ret["top_p"] = params.top_p
 
-    return model_kwargs
+    return ret
 
 
 def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -99,25 +99,25 @@ class AnthropicAdapter(ChatModel):
         )
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         return await make_async(
-            lambda args: self._predict(*args), (consumer, model_params, prompt)
+            lambda args: self._predict(*args), (consumer, params, prompt)
         )
 
     def _predict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
-        model_kwargs = prepare_model_kwargs(model_params)
+        model_kwargs = prepare_model_kwargs(params)
 
         invoke_params = {
-            "modelId": self.model_id,
+            "modelId": self.model,
             "accept": "application/json",
             "contentType": "application/json",
             "body": json.dumps(prepare_input(prompt, model_kwargs)),
         }
 
-        if not model_params.stream:
+        if not params.stream:
             response = self.bedrock.invoke_model(**invoke_params)
             content_stream = get_generator_for_non_streaming(response)
 

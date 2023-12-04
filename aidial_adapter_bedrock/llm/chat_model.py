@@ -30,10 +30,10 @@ class ChatPrompt(BaseModel):
 
 
 class ChatModel(ABC):
-    model_id: str
+    model: str
 
-    def __init__(self, model_id: str):
-        self.model_id = model_id
+    def __init__(self, model: str):
+        self.model = model
 
     @abstractmethod
     def _prepare_prompt(
@@ -43,7 +43,7 @@ class ChatModel(ABC):
 
     @abstractmethod
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ) -> None:
         pass
 
@@ -63,26 +63,24 @@ class ChatModel(ABC):
     async def achat(
         self,
         consumer: Consumer,
-        model_params: ModelParameters,
+        params: ModelParameters,
         messages: List[Message],
     ):
         base_messages = list(map(parse_message, messages))
         base_messages = self._validate_and_cleanup_messages(base_messages)
 
         chat_prompt = self._prepare_prompt(
-            base_messages, model_params.max_prompt_tokens
+            base_messages, params.max_prompt_tokens
         )
 
-        model_params = model_params.add_stop_sequences(
-            chat_prompt.stop_sequences
-        )
+        params = params.add_stop_sequences(chat_prompt.stop_sequences)
 
         log.debug(
-            f"model parameters:\n{model_params.json(indent=2, exclude_none=True)}"
+            f"model parameters:\n{params.json(indent=2, exclude_none=True)}"
         )
         log.debug(f"prompt:\n{chat_prompt.text}")
 
-        await self._apredict(consumer, model_params, chat_prompt.text)
+        await self._apredict(consumer, params, chat_prompt.text)
 
         if chat_prompt.discarded_messages is not None:
             consumer.set_discarded_messages(chat_prompt.discarded_messages)
@@ -94,11 +92,11 @@ class PseudoChatModel(ChatModel, ABC):
 
     def __init__(
         self,
-        model_id: str,
+        model: str,
         count_tokens: Callable[[str], int],
         pseudo_history_conf: PseudoChatConf,
     ):
-        super().__init__(model_id)
+        super().__init__(model)
         self.count_tokens = count_tokens
         self.pseudo_history_conf = pseudo_history_conf
 

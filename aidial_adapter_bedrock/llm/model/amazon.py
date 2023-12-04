@@ -42,28 +42,28 @@ class AmazonResponse(BaseModel):
         )
 
 
-def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
-    model_kwargs = {}
+def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+    ret = {}
 
-    if model_params.temperature is not None:
-        model_kwargs["temperature"] = model_params.temperature
+    if params.temperature is not None:
+        ret["temperature"] = params.temperature
 
-    if model_params.top_p is not None:
-        model_kwargs["topP"] = model_params.top_p
+    if params.top_p is not None:
+        ret["topP"] = params.top_p
 
-    if model_params.max_tokens is not None:
-        model_kwargs["maxTokenCount"] = model_params.max_tokens
+    if params.max_tokens is not None:
+        ret["maxTokenCount"] = params.max_tokens
     else:
         # The default for max tokens is 128, which is too small for most use cases.
         # Choosing reasonable default.
-        model_kwargs["maxTokenCount"] = DEFAULT_MAX_TOKENS_AMAZON
+        ret["maxTokenCount"] = DEFAULT_MAX_TOKENS_AMAZON
 
     # NOTE: Amazon Titan (amazon.titan-tg1-large) currently only supports
     # stop sequences matching pattern "$\|+".
-    # if model_params.stop is not None:
-    #     model_kwargs["stopSequences"] = model_params.stop
+    # if params.stop is not None:
+    #     ret["stopSequences"] = params.stop
 
-    return model_kwargs
+    return ret
 
 
 def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -112,7 +112,7 @@ def get_generator_for_non_streaming(
 
 
 def post_process_stream(
-    model_params: ModelParameters,
+    params: ModelParameters,
     content_stream: Generator[str, None, None],
     pseudo_chat_conf: PseudoChatConf,
 ) -> Generator[str, None, None]:
@@ -125,8 +125,8 @@ def post_process_stream(
     )
 
     # Titan doesn't support stop sequences, so do it manually
-    if model_params.stop:
-        content_stream = stream.stop_at(content_stream, model_params.stop)
+    if params.stop:
+        content_stream = stream.stop_at(content_stream, params.stop)
 
     # After all the post processing, the stream may become empty.
     # To avoid this, add a space to the stream.
@@ -160,19 +160,17 @@ class AmazonAdapter(PseudoChatModel):
         return messages
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         await make_async(
-            lambda args: self._call(*args), (consumer, model_params, prompt)
+            lambda args: self._call(*args), (consumer, params, prompt)
         )
 
-    def _call(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
-    ):
-        model_kwargs = prepare_model_kwargs(model_params)
+    def _call(self, consumer: Consumer, params: ModelParameters, prompt: str):
+        model_kwargs = prepare_model_kwargs(params)
 
         invoke_params = {
-            "modelId": self.model_id,
+            "modelId": self.model,
             "accept": "application/json",
             "contentType": "application/json",
             "body": json.dumps(prepare_input(prompt, model_kwargs)),
@@ -180,7 +178,7 @@ class AmazonAdapter(PseudoChatModel):
 
         usage = TokenUsage()
 
-        if not model_params.stream:
+        if not params.stream:
             response = self.bedrock.invoke_model(**invoke_params)
             content_stream = get_generator_for_non_streaming(response, usage)
         else:
@@ -190,7 +188,7 @@ class AmazonAdapter(PseudoChatModel):
             content_stream = get_generator_for_streaming(response, usage)
 
         content_stream = post_process_stream(
-            model_params, content_stream, self.pseudo_history_conf
+            params, content_stream, self.pseudo_history_conf
         )
 
         for content in content_stream:

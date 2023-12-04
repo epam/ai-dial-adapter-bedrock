@@ -66,32 +66,32 @@ class AI21Response(BaseModel):
 
 
 # NOTE: See https://docs.ai21.com/reference/j2-instruct-ref
-def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
-    model_kwargs = {}
+def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+    ret = {}
 
-    if model_params.max_tokens is not None:
-        model_kwargs["maxTokens"] = model_params.max_tokens
+    if params.max_tokens is not None:
+        ret["maxTokens"] = params.max_tokens
     else:
         # The default for max tokens is 16, which is too small for most use cases.
         # Choosing reasonable default.
-        model_kwargs["maxTokens"] = DEFAULT_MAX_TOKENS_AI21
+        ret["maxTokens"] = DEFAULT_MAX_TOKENS_AI21
 
-    if model_params.temperature is not None:
+    if params.temperature is not None:
         #   AI21 temperature ranges from 0.0 to 1.0
         # OpenAI temperature ranges from 0.0 to 2.0
         # Thus scaling down by 2x to match the AI21 range
-        model_kwargs["temperature"] = model_params.temperature / 2.0
+        ret["temperature"] = params.temperature / 2.0
 
-    if model_params.top_p is not None:
-        model_kwargs["topP"] = model_params.top_p
+    if params.top_p is not None:
+        ret["topP"] = params.top_p
 
-    if model_params.stop:
-        model_kwargs["stopSequences"] = model_params.stop
+    if params.stop:
+        ret["stopSequences"] = params.stop
 
     # NOTE: AI21 has "numResults" parameter, however we emulate multiple result
     # via multiple calls to support all models uniformly.
 
-    return model_kwargs
+    return ret
 
 
 def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -110,19 +110,17 @@ class AI21Adapter(PseudoChatModel):
         self.bedrock = bedrock
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         await make_async(
-            lambda args: self._call(*args), (consumer, model_params, prompt)
+            lambda args: self._call(*args), (consumer, params, prompt)
         )
 
-    def _call(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
-    ):
-        model_kwargs = prepare_model_kwargs(model_params)
+    def _call(self, consumer: Consumer, params: ModelParameters, prompt: str):
+        model_kwargs = prepare_model_kwargs(params)
 
         model_response = self.bedrock.invoke_model(
-            modelId=self.model_id,
+            modelId=self.model,
             accept="application/json",
             contentType="application/json",
             body=json.dumps(prepare_input(prompt, model_kwargs)),

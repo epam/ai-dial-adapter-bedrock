@@ -38,22 +38,22 @@ class MetaResponse(BaseModel):
         )
 
 
-def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
-    model_kwargs = {}
+def prepare_model_kwargs(params: ModelParameters) -> Dict[str, Any]:
+    ret = {}
 
-    if model_params.temperature is not None:
-        model_kwargs["temperature"] = model_params.temperature
+    if params.temperature is not None:
+        ret["temperature"] = params.temperature
 
-    if model_params.top_p is not None:
-        model_kwargs["top_p"] = model_params.top_p
+    if params.top_p is not None:
+        ret["top_p"] = params.top_p
 
-    if model_params.max_tokens is not None:
-        model_kwargs["max_gen_len"] = model_params.max_tokens
+    if params.max_tokens is not None:
+        ret["max_gen_len"] = params.max_tokens
     else:
         # Choosing reasonable default
-        model_kwargs["max_gen_len"] = DEFAULT_MAX_TOKENS_META
+        ret["max_gen_len"] = DEFAULT_MAX_TOKENS_META
 
-    return model_kwargs
+    return ret
 
 
 def prepare_input(prompt: str, model_kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -77,7 +77,7 @@ def get_generator_for_non_streaming(
 
 
 def post_process_stream(
-    model_params: ModelParameters,
+    params: ModelParameters,
     content_stream: Generator[str, None, None],
     pseudo_chat_conf: PseudoChatConf,
 ) -> Generator[str, None, None]:
@@ -90,7 +90,7 @@ def post_process_stream(
     )
 
     # Titan doesn't support stop sequences, so do it manually
-    content_stream = stream.stop_at(content_stream, model_params.stop)
+    content_stream = stream.stop_at(content_stream, params.stop)
 
     # After all the post processing, the stream may become empty.
     # To avoid this, add a space to the stream.
@@ -103,11 +103,11 @@ class MetaAdapter(PseudoChatModel):
     def __init__(
         self,
         bedrock: Any,
-        model_id: str,
+        model: str,
         count_tokens: Callable[[str], int],
         pseudo_history_conf: PseudoChatConf,
     ):
-        super().__init__(model_id, count_tokens, pseudo_history_conf)
+        super().__init__(model, count_tokens, pseudo_history_conf)
         self.bedrock = bedrock
 
     @override
@@ -124,19 +124,17 @@ class MetaAdapter(PseudoChatModel):
         return messages
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         await make_async(
-            lambda args: self._call(*args), (consumer, model_params, prompt)
+            lambda args: self._call(*args), (consumer, params, prompt)
         )
 
-    def _call(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
-    ):
-        model_kwargs = prepare_model_kwargs(model_params)
+    def _call(self, consumer: Consumer, params: ModelParameters, prompt: str):
+        model_kwargs = prepare_model_kwargs(params)
 
         invoke_params = {
-            "modelId": self.model_id,
+            "modelId": self.model,
             "accept": "application/json",
             "contentType": "application/json",
             "body": json.dumps(prepare_input(prompt, model_kwargs)),
@@ -147,7 +145,7 @@ class MetaAdapter(PseudoChatModel):
         response = self.bedrock.invoke_model(**invoke_params)
         content_stream = get_generator_for_non_streaming(response, usage)
         content_stream = post_process_stream(
-            model_params, content_stream, self.pseudo_history_conf
+            params, content_stream, self.pseudo_history_conf
         )
 
         for content in content_stream:
