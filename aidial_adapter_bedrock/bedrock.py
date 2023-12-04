@@ -3,6 +3,8 @@ import json
 from typing import Any, AsyncIterator
 
 import boto3
+from botocore.eventstream import EventStream
+from botocore.response import StreamingBody
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -35,24 +37,28 @@ class Bedrock:
             lambda _: self.client.invoke_model(**params), ()
         )
 
-        body = json.loads(response["body"].read())
-        log.debug(f"body [stream=false]: {args}")
-        return body
+        log.debug(f"response: {response}")
+
+        body: StreamingBody = response["body"]
+        body_dict = json.loads(body.read())
+
+        log.debug(f"response['body']: {body_dict}")
+
+        return body_dict
 
     async def ainvoke_streaming(
         self, model: str, args: dict
     ) -> AsyncIterator[dict]:
         params = self._create_invoke_params(model, args)
-        response = await make_async(
-            lambda _: self.client.invoke_model_with_response_stream(**params),
-            (),
-        )
+        response = self.client.invoke_model_with_response_stream(**params)
 
-        body = response["body"]
+        log.debug(f"response: {response}")
+
+        body: EventStream = response["body"]
         for event in body:
             chunk = event.get("chunk")
             if chunk:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
-                log.debug(f"chunk [stream=true]: {chunk_dict}")
+                log.debug(f"chunk: {chunk_dict}")
                 yield chunk_dict
                 await asyncio.sleep(1e-6)
