@@ -1,5 +1,6 @@
 import boto3
 
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import std_conf
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
@@ -33,14 +34,14 @@ async def get_bedrock_adapter(model_id: str, region: str) -> ChatModel:
         case "anthropic":
             return AnthropicAdapter(bedrock, model_id)
         case "ai21":
-            return AI21Adapter(bedrock, model_id, count_tokens)
+            return AI21Adapter(bedrock, model_id, count_tokens, std_conf)
         case "stability":
             return StabilityAdapter(bedrock, model_id)
         case "amazon":
-            return AmazonAdapter(bedrock, model_id, count_tokens)
+            return AmazonAdapter(bedrock, model_id, count_tokens, std_conf)
         case "meta":
-            return MetaAdapter(bedrock, model_id, count_tokens)
+            return MetaAdapter(bedrock, model_id, count_tokens, std_conf)
         case "cohere":
-            return CohereAdapter(bedrock, model_id, count_tokens)
+            return CohereAdapter(bedrock, model_id, count_tokens, std_conf)
         case _:
             raise ValueError(f"Unknown model provider: '{model_provider}'")

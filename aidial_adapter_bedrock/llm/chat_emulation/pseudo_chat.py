@@ -1,5 +1,6 @@
-from enum import Enum
-from typing import Callable, List, Optional, Set, Tuple
+from typing import Callable, List, Optional, Set, Tuple, TypedDict
+
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.chat_emulation.history import (
     FormattedMessage,
@@ -11,39 +12,56 @@ from aidial_adapter_bedrock.llm.message import (
     AIMessage,
     BaseMessage,
     HumanMessage,
-    SystemMessage,
 )
 from aidial_adapter_bedrock.utils.list import exclude_indices
 
 
-class RolePrompt(str, Enum):
-    HUMAN = "\n\nHuman:"
-    ASSISTANT = "\n\nAssistant:"
+class RoleMapping(TypedDict):
+    system: str
+    human: str
+    ai: str
 
 
-STOP_SEQUENCES: List[str] = [RolePrompt.HUMAN]
+class PseudoChatConf(BaseModel):
+    prelude_template: str
+    mapping: RoleMapping
+    separator: str
+
+    @property
+    def prelude(self) -> str:
+        return self.prelude_template.format(**self.mapping)
+
+    @property
+    def stop_sequences(self) -> List[str]:
+        return [self.separator + self.mapping["human"]]
+
+    def format_message(self, message: BaseMessage) -> str:
+        role = self.mapping.get(message.type)
+        if role is None:
+            raise ValueError(f"Unknown message type: {message.type}")
+        return (self.separator + role + " " + message.content.lstrip()).rstrip()
 
 
-PRELUDE = f"""
+std_conf = PseudoChatConf(
+    prelude_template="""
 You are a helpful assistant participating in a dialog with a user.
-The messages from the user start with "{RolePrompt.HUMAN.strip()}".
-The messages from you start with "{RolePrompt.ASSISTANT.strip()}".
+The messages from the user start with "{ai}".
+The messages from you start with "{human}".
 Reply to the last message from the user taking into account the preceding dialog history.
 ====================
-""".strip()
-
-
-def _format_message(message: BaseMessage) -> str:
-    role = (
-        RolePrompt.HUMAN
-        if isinstance(message, (SystemMessage, HumanMessage))
-        else RolePrompt.ASSISTANT
-    )
-    return (role + " " + message.content.lstrip()).rstrip()
+""".strip(),
+    mapping=RoleMapping(
+        system="Human:",
+        human="Human:",
+        ai="Assistant:",
+    ),
+    separator="\n\n",
+)
 
 
 class PseudoChatHistory(History):
     stop_sequences: List[str]
+    pseudo_history_conf: PseudoChatConf
 
     def trim(
         self, count_tokens: Callable[[str], int], max_prompt_tokens: int
@@ -77,7 +95,8 @@ class PseudoChatHistory(History):
                                 self.messages, discarded_messages
                             )
                             if message.source_message
-                        ]
+                        ],
+                        pseudo_history_conf=self.pseudo_history_conf,
                     ),
                     len(discarded_messages),
                 )
@@ -88,12 +107,15 @@ class PseudoChatHistory(History):
                 source_messages_count - discarded_messages_count == 1
                 and isinstance(last_source_message, HumanMessage)
             ):
-                history = PseudoChatHistory.create([last_source_message])
+                history = PseudoChatHistory.create(
+                    messages=[last_source_message],
+                    pseudo_history_conf=self.pseudo_history_conf,
+                )
                 prompt_tokens = sum(
                     count_tokens(message.text) for message in history.messages
                 )
                 if prompt_tokens <= max_prompt_tokens:
-                    return history, len(discarded_messages)
+                    return history, discarded_messages_count
 
             raise ValidationError(
                 f"The token size of system messages and the last user message ({prompt_tokens}) exceeds"
@@ -105,32 +127,45 @@ class PseudoChatHistory(History):
         )
 
     @classmethod
-    def create(cls, messages: List[BaseMessage]) -> "PseudoChatHistory":
+    def create(
+        cls,
+        messages: List[BaseMessage],
+        pseudo_history_conf: PseudoChatConf = std_conf,
+    ) -> "PseudoChatHistory":
         if len(messages) == 1 and isinstance(messages[0], HumanMessage):
-            single_message = messages[0]
+            message = messages[0]
             return cls(
                 messages=[
                     FormattedMessage(
-                        text=single_message.content,
-                        source_message=single_message,
+                        text=message.content,
+                        source_message=message,
                     )
                 ],
                 stop_sequences=[],
+                pseudo_history_conf=pseudo_history_conf,
             )
 
-        formatted_messages = [FormattedMessage(text=PRELUDE)]
+        formatted_messages = [
+            FormattedMessage(text=pseudo_history_conf.prelude)
+        ]
 
         for index, message in enumerate(messages):
             formatted_messages.append(
                 FormattedMessage(
-                    text=_format_message(message),
+                    text=pseudo_history_conf.format_message(message),
                     source_message=message,
                     is_important=is_important_message(messages, index),
                 )
             )
 
         formatted_messages.append(
-            FormattedMessage(text=_format_message(AIMessage(content="")))
+            FormattedMessage(
+                text=pseudo_history_conf.format_message(AIMessage(content=""))
+            )
         )
 
-        return cls(messages=formatted_messages, stop_sequences=STOP_SEQUENCES)
+        return cls(
+            messages=formatted_messages,
+            stop_sequences=pseudo_history_conf.stop_sequences,
+            pseudo_history_conf=pseudo_history_conf,
+        )

@@ -7,7 +7,7 @@ from typing_extensions import override
 import aidial_adapter_bedrock.utils.stream as stream
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import RolePrompt
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -112,13 +112,16 @@ def get_generator_for_non_streaming(
 
 
 def post_process_stream(
-    model_params: ModelParameters, content_stream: Generator[str, None, None]
+    model_params: ModelParameters,
+    content_stream: Generator[str, None, None],
+    pseudo_chat_conf: PseudoChatConf,
 ) -> Generator[str, None, None]:
     content_stream = stream.lstrip(content_stream)
 
     # Titan occasionally starts its response with the role prefix
     content_stream = stream.remove_prefix(
-        content_stream, RolePrompt.ASSISTANT.lstrip() + " "
+        content_stream,
+        pseudo_chat_conf.mapping["ai"] + " ",
     )
 
     # Titan doesn't support stop sequences, so do it manually
@@ -139,9 +142,13 @@ def post_process_stream(
 
 class AmazonAdapter(PseudoChatModel):
     def __init__(
-        self, bedrock: Any, model_id: str, count_tokens: Callable[[str], int]
+        self,
+        bedrock: Any,
+        model_id: str,
+        count_tokens: Callable[[str], int],
+        pseudo_history_conf: PseudoChatConf,
     ):
-        super().__init__(model_id, count_tokens)
+        super().__init__(model_id, count_tokens, pseudo_history_conf)
         self.bedrock = bedrock
 
     @override
@@ -187,7 +194,9 @@ class AmazonAdapter(PseudoChatModel):
             )
             content_stream = get_generator_for_streaming(response, usage)
 
-        content_stream = post_process_stream(model_params, content_stream)
+        content_stream = post_process_stream(
+            model_params, content_stream, self.pseudo_history_conf
+        )
 
         for content in content_stream:
             log.debug(f"content: {repr(content)}")

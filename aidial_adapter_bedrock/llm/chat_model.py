@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
+    PseudoChatConf,
     PseudoChatHistory,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -88,14 +89,25 @@ class ChatModel(ABC):
 
 
 class PseudoChatModel(ChatModel, ABC):
-    def __init__(self, model_id: str, count_tokens: Callable[[str], int]):
+    pseudo_history_conf: PseudoChatConf
+    count_tokens: Callable[[str], int]
+
+    def __init__(
+        self,
+        model_id: str,
+        count_tokens: Callable[[str], int],
+        pseudo_history_conf: PseudoChatConf,
+    ):
         super().__init__(model_id)
         self.count_tokens = count_tokens
+        self.pseudo_history_conf = pseudo_history_conf
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
-        history = PseudoChatHistory.create(messages)
+        history = PseudoChatHistory.create(
+            messages=messages, pseudo_history_conf=self.pseudo_history_conf
+        )
         if max_prompt_tokens is None:
             return ChatPrompt(
                 text=history.format(), stop_sequences=history.stop_sequences

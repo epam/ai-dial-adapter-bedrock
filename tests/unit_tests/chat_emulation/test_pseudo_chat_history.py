@@ -4,8 +4,8 @@ import pytest
 
 from aidial_adapter_bedrock.llm.chat_emulation.history import FormattedMessage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
-    PRELUDE,
     PseudoChatHistory,
+    std_conf,
 )
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
@@ -27,7 +27,7 @@ def test_construction():
 
     assert history.stop_sequences == ["\n\nHuman:"]
     assert history.messages == [
-        FormattedMessage(text=PRELUDE),
+        FormattedMessage(text=history.pseudo_history_conf.prelude),
         FormattedMessage(
             text="\n\nHuman: system message1", source_message=messages[0]
         ),
@@ -64,7 +64,9 @@ def test_formatting():
         FormattedMessage(text="text2"),
         FormattedMessage(text="text3"),
     ]
-    history = PseudoChatHistory(messages=messages, stop_sequences=[])
+    history = PseudoChatHistory(
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
+    )
 
     prompt = history.format()
 
@@ -77,7 +79,9 @@ def test_no_trimming():
         FormattedMessage(text="text2"),
         FormattedMessage(text="text3"),
     ]
-    history = PseudoChatHistory(messages=messages, stop_sequences=[])
+    history = PseudoChatHistory(
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
+    )
 
     trimmed_history, discarded_messages_count = history.trim(lambda _: 1, 3)
 
@@ -104,8 +108,7 @@ def test_trimming():
         FormattedMessage(text="\n\nAssistant:"),
     ]
     history = PseudoChatHistory(
-        messages=messages,
-        stop_sequences=[],
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
     )
 
     trimmed_history, discarded_messages_count = history.trim(lambda _: 1, 4)
@@ -113,7 +116,7 @@ def test_trimming():
     assert discarded_messages_count == 2
     assert trimmed_history.stop_sequences == ["\n\nHuman:"]
     assert trimmed_history.messages == [
-        FormattedMessage(text=PRELUDE),
+        FormattedMessage(text=history.pseudo_history_conf.prelude),
         FormattedMessage(
             text="\n\nHuman: system message1",
             source_message=SystemMessage(content="system message1"),
@@ -143,8 +146,7 @@ def test_trimming_with_one_message_left():
         ),
     ]
     history = PseudoChatHistory(
-        messages=messages,
-        stop_sequences=[],
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
     )
 
     trimmed_history, discarded_messages_count = history.trim(lambda _: 1, 1)
@@ -172,8 +174,7 @@ def test_trimming_with_one_message_accepted_after_second_check():
         ),
     ]
     history = PseudoChatHistory(
-        messages=messages,
-        stop_sequences=[],
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
     )
 
     trimmed_history, discarded_messages_count = history.trim(
@@ -195,7 +196,9 @@ def test_prompt_is_too_big():
         FormattedMessage(text="text2"),
         FormattedMessage(text="text3"),
     ]
-    history = PseudoChatHistory(messages=messages, stop_sequences=[])
+    history = PseudoChatHistory(
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
+    )
 
     with pytest.raises(ValidationError) as exc_info:
         history.trim(lambda _: 1, 2)
@@ -212,7 +215,9 @@ def test_prompt_with_history_is_too_big():
         FormattedMessage(text="text2", is_important=False),
         FormattedMessage(text="text3"),
     ]
-    history = PseudoChatHistory(messages=messages, stop_sequences=[])
+    history = PseudoChatHistory(
+        messages=messages, stop_sequences=[], pseudo_history_conf=std_conf
+    )
 
     with pytest.raises(ValidationError) as exc_info:
         history.trim(lambda _: 1, 1)
