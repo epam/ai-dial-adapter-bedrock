@@ -11,7 +11,6 @@ from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 class MetaResult(BaseModel):
@@ -59,17 +58,10 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def response_to_stream(
-    response: dict,
-    usage: TokenUsage,
+    response: dict, usage: TokenUsage
 ) -> AsyncIterator[str]:
-    log.debug(f"response: {response}")
-
     resp = MetaResponse.parse_obj(response)
-
-    token_usage = resp.usage()
-    usage.completion_tokens = token_usage.completion_tokens
-    usage.prompt_tokens = token_usage.prompt_tokens
-
+    usage.accumulate(resp.usage())
     yield resp.content()
 
 
@@ -92,8 +84,9 @@ class MetaAdapter(PseudoChatModel):
     ) -> List[BaseMessage]:
         messages = super()._validate_and_cleanup_messages(messages)
 
-        # AWS Titan doesn't support empty messages,
-        # so we replace it with a single space.
+        # Llama behave strangely on empty prompt:
+        # it generate empty string, but claims to used up all available completion tokens.
+        # So replace it with a single space.
         for msg in messages:
             msg.content = msg.content or " "
 

@@ -43,11 +43,8 @@ class CohereResponse(BaseModel):
 
     @property
     def tokens(self) -> List[str]:
+        """Includes prompt and completion tokens"""
         return [lh.token for lh in self.generations[0].token_likelihoods]
-
-    @property
-    def prompt_completion(self) -> str:
-        return "".join(self.tokens)
 
     def usage(self) -> TokenUsage:
         special_tokens = 2
@@ -94,15 +91,10 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 async def response_to_stream(
     response: dict, usage: TokenUsage
 ) -> AsyncIterator[str]:
-    log.debug(f"response: {response}")
-
     resp = CohereResponse.parse_obj(response)
+    usage.accumulate(resp.usage())
 
-    log.debug(f"prompt_completion:\n{resp.prompt_completion}")
-
-    token_usage = resp.usage()
-    usage.completion_tokens = token_usage.completion_tokens
-    usage.prompt_tokens = token_usage.prompt_tokens
+    log.debug(f"tokens :\n{''.join(resp.tokens)}")
 
     yield resp.content()
 
@@ -126,8 +118,8 @@ class CohereAdapter(PseudoChatModel):
     ) -> List[BaseMessage]:
         messages = super()._validate_and_cleanup_messages(messages)
 
-        # AWS Titan doesn't support empty messages,
-        # so we replace it with a single space.
+        # Cohere doesn't support empty messages,
+        # so replace it with a single space.
         for msg in messages:
             msg.content = msg.content or " "
 
