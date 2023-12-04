@@ -19,10 +19,10 @@ class BedrockChatCompletion(ChatCompletion):
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
-        model_params = ModelParameters.create(request)
+        params = ModelParameters.create(request)
         model = await get_bedrock_adapter(
             region=self.region,
-            model_id=request.deployment_id,
+            model=request.deployment_id,
         )
 
         async def generate_response(
@@ -32,7 +32,7 @@ class BedrockChatCompletion(ChatCompletion):
         ) -> None:
             with response.create_choice() as choice:
                 consumer = ChoiceConsumer(choice)
-                await model.achat(consumer, model_params, request.messages)
+                await model.achat(consumer, params, request.messages)
                 usage.accumulate(consumer.usage)
                 discarded_messages_set.add(consumer.discarded_messages)
 

@@ -1,10 +1,10 @@
-import json
 import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -17,7 +17,6 @@ from aidial_adapter_bedrock.llm.chat_emulation.zero_memory_chat import (
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
-from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_env
 
 
@@ -70,7 +69,7 @@ class StabilityResponse(BaseModel):
             raise Exception(self.error.message)  # type: ignore
 
 
-def prepare_input(prompt: str) -> Dict[str, Any]:
+def create_request(prompt: str) -> Dict[str, Any]:
     return {"text_prompts": [{"text": prompt}]}
 
 
@@ -104,12 +103,12 @@ if USE_DIAL_FILE_STORAGE:
 
 
 class StabilityAdapter(ChatModel):
-    bedrock: Any
+    client: Bedrock
     storage: Optional[FileStorage]
 
-    def __init__(self, bedrock: Any, model_id: str):
-        super().__init__(model_id)
-        self.bedrock = bedrock
+    def __init__(self, client: Bedrock, model: str):
+        super().__init__(model)
+        self.client = client
         self.storage = None
 
         if USE_DIAL_FILE_STORAGE:
@@ -130,25 +129,16 @@ class StabilityAdapter(ChatModel):
         )
 
     async def _apredict(
-        self, consumer: Consumer, model_params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
-        model_response = await make_async(
-            lambda args: self.bedrock.invoke_model(
-                accept="application/json",
-                contentType="application/json",
-                modelId=args[0],
-                body=args[1],
-            ),
-            (self.model_id, json.dumps(prepare_input(prompt))),
-        )
+        args = create_request(prompt)
+        response = await self.client.ainvoke_non_streaming(self.model, args)
 
-        body = json.loads(model_response["body"].read())
-        resp = StabilityResponse.parse_obj(body)
-
+        resp = StabilityResponse.parse_obj(response)
         consumer.append_content(resp.content())
         consumer.add_usage(resp.usage())
 
         for attachment in resp.attachments():
-            if self.storage is not None:
+            if self.storage:
                 attachment = await save_to_storage(self.storage, attachment)
             consumer.add_attachment(attachment)
