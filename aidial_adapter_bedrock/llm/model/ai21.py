@@ -85,12 +85,8 @@ def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
     if model_params.top_p is not None:
         model_kwargs["topP"] = model_params.top_p
 
-    if model_params.stop is not None:
-        model_kwargs["stopSequences"] = (
-            [model_params.stop]
-            if isinstance(model_params.stop, str)
-            else model_params.stop
-        )
+    if model_params.stop:
+        model_kwargs["stopSequences"] = model_params.stop
 
     # NOTE: AI21 has "numResults" parameter, however we emulate multiple result
     # via multiple calls to support all models uniformly.

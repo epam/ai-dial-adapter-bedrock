@@ -35,12 +35,8 @@ def prepare_model_kwargs(model_params: ModelParameters) -> Dict[str, Any]:
         # Choosing reasonable default.
         model_kwargs["max_tokens_to_sample"] = DEFAULT_MAX_TOKENS_ANTHROPIC
 
-    if model_params.stop is not None:
-        model_kwargs["stop_sequences"] = (
-            [model_params.stop]
-            if isinstance(model_params.stop, str)
-            else model_params.stop
-        )
+    if model_params.stop:
+        model_kwargs["stop_sequences"] = model_params.stop
 
     if model_params.temperature is not None:
         model_kwargs["temperature"] = model_params.temperature

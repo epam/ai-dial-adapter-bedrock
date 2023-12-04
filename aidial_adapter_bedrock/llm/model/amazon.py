@@ -125,13 +125,8 @@ def post_process_stream(
     )
 
     # Titan doesn't support stop sequences, so do it manually
-    if model_params.stop is not None:
-        stop_sequences = (
-            [model_params.stop]
-            if isinstance(model_params.stop, str)
-            else model_params.stop
-        )
-        content_stream = stream.stop_at(content_stream, stop_sequences)
+    if model_params.stop:
+        content_stream = stream.stop_at(content_stream, model_params.stop)
 
     # After all the post processing, the stream may become empty.
     # To avoid this, add a space to the stream.
