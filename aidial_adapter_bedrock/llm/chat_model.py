@@ -105,7 +105,7 @@ class PseudoChatModel(ChatModel, ABC):
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
         history = PseudoChatHistory.create(
-            messages=messages, pseudo_history_conf=self.pseudo_history_conf
+            messages=messages, conf=self.pseudo_history_conf
         )
         if max_prompt_tokens is None:
             return ChatPrompt(

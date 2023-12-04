@@ -6,7 +6,10 @@ from typing_extensions import override
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
+    PseudoChatConf,
+    RoleMapping,
+)
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -94,9 +97,22 @@ async def response_to_stream(
     resp = CohereResponse.parse_obj(response)
     usage.accumulate(resp.usage())
 
-    log.debug(f"tokens :\n{''.join(resp.tokens)}")
+    log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
 
     yield resp.content()
+
+
+cohere_chat_conf = PseudoChatConf(
+    prelude_template=None,
+    annotate_first=False,
+    add_invitation=False,
+    mapping=RoleMapping(
+        system="User:",
+        human="User:",
+        ai="Chatbot:",
+    ),
+    separator="\n",
+)
 
 
 class CohereAdapter(PseudoChatModel):

@@ -1,10 +1,13 @@
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import std_conf
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import default_conf
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.anthropic import AnthropicAdapter
-from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
+from aidial_adapter_bedrock.llm.model.cohere import (
+    CohereAdapter,
+    cohere_chat_conf,
+)
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
@@ -30,14 +33,14 @@ async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
         case "anthropic":
             return AnthropicAdapter(client, model)
         case "ai21":
-            return AI21Adapter(client, model, count_tokens, std_conf)
+            return AI21Adapter(client, model, count_tokens, default_conf)
         case "stability":
             return StabilityAdapter(client, model)
         case "amazon":
-            return AmazonAdapter(client, model, count_tokens, std_conf)
+            return AmazonAdapter(client, model, count_tokens, default_conf)
         case "meta":
-            return MetaAdapter(client, model, count_tokens, std_conf)
+            return MetaAdapter(client, model, count_tokens, default_conf)
         case "cohere":
-            return CohereAdapter(client, model, count_tokens, std_conf)
+            return CohereAdapter(client, model, count_tokens, cohere_chat_conf)
         case _:
             raise ValueError(f"Unknown model provider: '{provider}'")
