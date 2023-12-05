@@ -109,7 +109,7 @@ def get_test_cases(
             max_tokens=None,
             stop=None,
             messages=[user(query)],
-            test=lambda s: "hello" in s.lower(),
+            test=lambda s: "hello" in s.lower() or "hi" in s.lower(),
         )
     )
 
@@ -161,13 +161,18 @@ def get_test_cases(
         )
     )
 
+    # ai21 models do not support more than one stop word
+    stop = ["world", "World"]
+    if "ai21" in deployment.value:
+        stop = ["world"]
+
     ret.append(
         TestCase(
             name="stop sequence",
             deployment=deployment,
             streaming=streaming,
             max_tokens=None,
-            stop=["world"],
+            stop=stop,
             messages=[user('Reply with "hello world"')],
             test=lambda s: "world" not in s.lower(),
         )

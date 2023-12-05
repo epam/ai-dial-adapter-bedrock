@@ -1,4 +1,4 @@
-from typing import Generator, List, Tuple
+from typing import AsyncIterator, List, Tuple
 
 import pytest
 
@@ -11,13 +11,16 @@ from aidial_adapter_bedrock.utils.stream import (
 )
 
 
-def list_to_gen(xs: List[str]) -> Generator[str, None, None]:
+async def list_to_stream(xs: List[str]) -> AsyncIterator[str]:
     for x in xs:
         yield x
 
 
-def gen_to_string(gen: Generator[str, None, None]) -> str:
-    return "".join(x for x in gen)
+async def stream_to_string(stream: AsyncIterator[str]) -> str:
+    ret = ""
+    async for chunk in stream:
+        ret += chunk
+    return ret
 
 
 lstrip_test_cases: List[Tuple[List[str]]] = [
@@ -35,16 +38,17 @@ lstrip_test_cases: List[Tuple[List[str]]] = [
 ]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     lstrip_test_cases,
     ids=lambda arg: f"{arg[0]}",
 )
-def test_lstrip(test):
+async def test_lstrip(test):
     (xs,) = test
-    gen = lstrip(list_to_gen(xs))
-    actual = gen_to_string(gen)
-    expected = "".join(xs).lstrip()
+    stream = lstrip(list_to_stream(xs))
+    actual: str = await stream_to_string(stream)
+    expected: str = "".join(xs).lstrip()
     assert actual == expected
 
 
@@ -70,16 +74,17 @@ remove_prefix_test_cases: List[Tuple[str, List[str]]] = [
 ]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     remove_prefix_test_cases,
     ids=lambda arg: f"{arg[0]}-{arg[1]}",
 )
-def test_remove_prefix(test):
+async def test_remove_prefix(test):
     (prefix, xs) = test
-    gen = remove_prefix(list_to_gen(xs), prefix)
-    actual = gen_to_string(gen)
-    expected = string.remove_prefix(prefix, "".join(xs))
+    steam = remove_prefix(list_to_stream(xs), prefix)
+    actual: str = await stream_to_string(steam)
+    expected: str = string.remove_prefix(prefix, "".join(xs))
     assert actual == expected
 
 
@@ -108,17 +113,18 @@ stop_at_test_cases: List[Tuple[str | List[str], List[str]]] = [
 ]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     stop_at_test_cases,
     ids=lambda arg: f"{arg[0]}-{arg[1]}",
 )
-def test_stop_at(test):
+async def test_stop_at(test):
     (stop, xs) = test
     stop_sequences: List[str] = [stop] if isinstance(stop, str) else stop
-    gen = stop_at(list_to_gen(xs), stop_sequences)
-    actual = gen_to_string(gen)
-    expected = string.stop_at(stop_sequences, "".join(xs))
+    stream = stop_at(list_to_stream(xs), stop_sequences)
+    actual: str = await stream_to_string(stream)
+    expected: str = string.stop_at(stop_sequences, "".join(xs))
     assert actual == expected
 
 
@@ -130,14 +136,15 @@ ensure_not_empty_test_cases: List[Tuple[str | List[str], List[str]]] = [
 ]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     ensure_not_empty_test_cases,
     ids=lambda arg: f"{arg[0]}-{arg[1]}",
 )
-def test_ensure_not_empty(test):
+async def test_ensure_not_empty(test):
     (default, xs) = test
-    gen = ensure_not_empty(list_to_gen(xs), default)
-    actual = gen_to_string(gen)
-    expected = string.ensure_not_empty(default, "".join(xs))
+    stream = ensure_not_empty(list_to_stream(xs), default)
+    actual: str = await stream_to_string(stream)
+    expected: str = string.ensure_not_empty(default, "".join(xs))
     assert actual == expected
