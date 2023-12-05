@@ -6,10 +6,10 @@ T = TypeVar("T")
 A = TypeVar("A")
 
 
-async def make_async(func: Callable[[A], T], arg: A) -> T:
+async def make_async(func: Callable[[], T]) -> T:
     with ThreadPoolExecutor() as executor:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, func, arg)
+        return await loop.run_in_executor(executor, func)
 
 
 async def to_async_iterator(iter: Iterator[T]) -> AsyncIterator[T]:
@@ -20,7 +20,7 @@ async def to_async_iterator(iter: Iterator[T]) -> AsyncIterator[T]:
             return True, None
 
     while True:
-        is_end, item = await make_async(lambda _: _next(), ())
+        is_end, item = await make_async(lambda: _next())
         if is_end:
             break
         else:

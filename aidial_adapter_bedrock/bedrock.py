@@ -21,7 +21,7 @@ class Bedrock:
     @classmethod
     async def acreate(cls, region: str) -> "Bedrock":
         client = await make_async(
-            lambda _: boto3.Session().client("bedrock-runtime", region), ()
+            lambda: boto3.Session().client("bedrock-runtime", region)
         )
         return cls(client)
 
@@ -35,14 +35,12 @@ class Bedrock:
 
     async def ainvoke_non_streaming(self, model: str, args: dict) -> dict:
         params = self._create_invoke_params(model, args)
-        response = await make_async(
-            lambda _: self.client.invoke_model(**params), ()
-        )
+        response = await make_async(lambda: self.client.invoke_model(**params))
 
         log.debug(f"response: {response}")
 
         body: StreamingBody = response["body"]
-        body_dict = json.loads(await make_async(lambda _: body.read(), ()))
+        body_dict = json.loads(await make_async(lambda: body.read()))
 
         log.debug(f"response['body']: {body_dict}")
 
@@ -53,8 +51,7 @@ class Bedrock:
     ) -> AsyncIterator[dict]:
         params = self._create_invoke_params(model, args)
         response = await make_async(
-            lambda _: self.client.invoke_model_with_response_stream(**params),
-            (),
+            lambda: self.client.invoke_model_with_response_stream(**params)
         )
 
         log.debug(f"response: {response}")
