@@ -93,13 +93,13 @@ async def save_to_storage(
     return attachment
 
 
-USE_DIAL_FILE_STORAGE = (
-    os.getenv("USE_DIAL_FILE_STORAGE", "false").lower() == "true"
+DIAL_USE_FILE_STORAGE = (
+    os.getenv("DIAL_USE_FILE_STORAGE", "false").lower() == "true"
 )
 
-if USE_DIAL_FILE_STORAGE:
+if DIAL_USE_FILE_STORAGE:
     DIAL_URL = get_env("DIAL_URL")
-    DIAL_BEDROCK_API_KEY = get_env("DIAL_BEDROCK_API_KEY")
+    DIAL_API_KEY = get_env("DIAL_API_KEY")
 
 
 class StabilityAdapter(ChatModel):
@@ -111,10 +111,10 @@ class StabilityAdapter(ChatModel):
         self.client = client
         self.storage = None
 
-        if USE_DIAL_FILE_STORAGE:
+        if DIAL_USE_FILE_STORAGE:
             self.storage = FileStorage(
                 dial_url=DIAL_URL,
-                api_key=DIAL_BEDROCK_API_KEY,
+                api_key=DIAL_API_KEY,
                 base_dir="stability",
             )
 
