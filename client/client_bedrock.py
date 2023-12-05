@@ -20,10 +20,10 @@ async def main():
 
     deployment = select_enum("Select the deployment", BedrockDeployment)
 
-    model_params = ModelParameters()
+    params = ModelParameters()
 
     model = await get_bedrock_adapter(
-        model_id=deployment.get_model_id(),
+        model=deployment.get_model_id(),
         region=location,
     )
 
@@ -39,7 +39,7 @@ async def main():
         messages.append(Message(role=Role.USER, content=content))
 
         response = CollectConsumer()
-        await model.achat(response, model_params, messages)
+        await model.achat(response, params, messages)
 
         print_info(response.usage.json(indent=2))
 
