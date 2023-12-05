@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import AsyncIterator, Callable, Iterator, Optional, Tuple, TypeVar
 
 T = TypeVar("T")
-A = TypeVar("A")
 
 
 async def make_async(func: Callable[[], T]) -> T:
