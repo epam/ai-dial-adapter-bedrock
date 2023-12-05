@@ -2,6 +2,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from anthropic.tokenizer import count_tokens
 
+import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -93,13 +94,15 @@ class AnthropicAdapter(ChatModel):
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            content_stream = chunks_to_stream(chunks)
+            stream = chunks_to_stream(chunks)
         else:
             response = await self.client.ainvoke_non_streaming(self.model, args)
-            content_stream = response_to_stream(response)
+            stream = response_to_stream(response)
+
+        stream = stream_utils.lstrip(stream)
 
         completion = ""
-        async for content in content_stream:
+        async for content in stream:
             completion += content
             consumer.append_content(content)
 
