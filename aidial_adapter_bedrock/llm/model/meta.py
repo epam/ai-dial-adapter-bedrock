@@ -84,7 +84,7 @@ class MetaAdapter(PseudoChatModel):
     ) -> List[BaseMessage]:
         messages = super()._validate_and_cleanup_messages(messages)
 
-        # Llama behave strangely on empty prompt:
+        # Llama behaves strangely on empty prompt:
         # it generate empty string, but claims to used up all available completion tokens.
         # So replace it with a single space.
         for msg in messages:
