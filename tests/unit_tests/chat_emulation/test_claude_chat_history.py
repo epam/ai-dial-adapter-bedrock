@@ -12,18 +12,26 @@ from aidial_adapter_bedrock.llm.message import (
 )
 
 
-def test_construction():
+@pytest.mark.parametrize("system_message_is_supported", [False, True])
+def test_construction(system_message_is_supported: bool):
     messages = [
-        SystemMessage(content="system message1"),
-        HumanMessage(content=" human message1 "),
-        AIMessage(content="    ai message1    "),
-        HumanMessage(content=" human message2 "),
+        SystemMessage(content=" system message1 "),
+        HumanMessage(content="  human message1  "),
+        AIMessage(content="     ai message1     "),
+        HumanMessage(content="  human message2  "),
     ]
-    history = ClaudeChatHistory.create(messages)
+    history = ClaudeChatHistory.create(
+        messages, system_message_is_supported=system_message_is_supported
+    )
+
+    sys_message_prefix = (
+        "\n\nHuman: " if not system_message_is_supported else ""
+    )
 
     assert history.messages == [
         FormattedMessage(
-            text="\n\nHuman: system message1", source_message=messages[0]
+            text=f"{sys_message_prefix}system message1",
+            source_message=messages[0],
         ),
         FormattedMessage(
             text="\n\nHuman: human message1",

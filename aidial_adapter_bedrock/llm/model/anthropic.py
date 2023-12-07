@@ -6,6 +6,7 @@ import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_emulation import claude_chat
 from aidial_adapter_bedrock.llm.chat_emulation.claude_chat import (
     ClaudeChatHistory,
@@ -71,7 +72,13 @@ class AnthropicAdapter(ChatModel):
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
-        history = ClaudeChatHistory.create(messages)
+        is_claude_2_1 = (
+            self.model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+        )
+        history = ClaudeChatHistory.create(
+            messages, system_message_is_supported=is_claude_2_1
+        )
+
         if max_prompt_tokens is None:
             return ChatPrompt(
                 text=history.format(), stop_sequences=claude_chat.STOP_SEQUENCES

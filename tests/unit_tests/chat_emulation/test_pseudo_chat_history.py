@@ -18,10 +18,10 @@ from aidial_adapter_bedrock.llm.message import (
 
 def test_construction():
     messages = [
-        SystemMessage(content="system message1"),
-        HumanMessage(content=" human message1 "),
-        AIMessage(content="    ai message1    "),
-        HumanMessage(content=" human message2 "),
+        SystemMessage(content=" system message1 "),
+        HumanMessage(content="  human message1  "),
+        AIMessage(content="     ai message1     "),
+        HumanMessage(content="  human message2  "),
     ]
     history = PseudoChatHistory.create(messages, conf=default_conf)
 

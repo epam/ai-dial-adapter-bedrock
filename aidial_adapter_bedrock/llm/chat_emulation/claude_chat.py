@@ -26,13 +26,25 @@ class RolePrompt(str, Enum):
 STOP_SEQUENCES: List[str] = [anthropic.HUMAN_PROMPT]
 
 
-def _format_message(message: BaseMessage) -> str:
-    role = (
-        RolePrompt.HUMAN
-        if isinstance(message, (SystemMessage, HumanMessage))
-        else RolePrompt.AI
-    )
-    return (role + " " + message.content.lstrip()).rstrip()
+def _format_message(
+    message: BaseMessage,
+    is_first_message: bool,
+    system_message_is_supported: bool,
+) -> str:
+    if (
+        isinstance(message, SystemMessage)
+        and is_first_message
+        and system_message_is_supported
+    ):
+        role_prefix = ""
+    else:
+        role_prefix = (
+            RolePrompt.HUMAN
+            if isinstance(message, (SystemMessage, HumanMessage))
+            else RolePrompt.AI
+        ) + " "
+
+    return (role_prefix + message.content.lstrip()).rstrip()
 
 
 class ClaudeChatHistory(History):
@@ -71,20 +83,32 @@ class ClaudeChatHistory(History):
         )
 
     @classmethod
-    def create(cls, messages: List[BaseMessage]) -> "ClaudeChatHistory":
-        formatted_messages = []
+    def create(
+        cls, messages: List[BaseMessage], system_message_is_supported: bool
+    ) -> "ClaudeChatHistory":
+        msgs: List[FormattedMessage] = []
 
         for index, message in enumerate(messages):
-            formatted_messages.append(
+            msgs.append(
                 FormattedMessage(
-                    text=_format_message(message),
+                    text=_format_message(
+                        message,
+                        len(msgs) == 0,
+                        system_message_is_supported,
+                    ),
                     source_message=message,
                     is_important=is_important_message(messages, index),
                 )
             )
 
-        formatted_messages.append(
-            FormattedMessage(text=_format_message(AIMessage(content="")))
+        msgs.append(
+            FormattedMessage(
+                text=_format_message(
+                    AIMessage(content=""),
+                    len(msgs) == 0,
+                    system_message_is_supported,
+                )
+            )
         )
 
-        return cls(messages=formatted_messages)
+        return cls(messages=msgs)

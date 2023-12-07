@@ -10,12 +10,10 @@ class BedrockDeployment(str, Enum):
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
+    ANTHROPIC_CLAUDE_V2_1_200K = "anthropic.claude-v2:1:200k"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     META_LLAMA2_13B_CHAT_V1 = "meta.llama2-13b-chat-v1"
-    # NOTE: the following are declared, but not yet available
-    # META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"
-    # META_LLAMA2_13B_V1 = "meta.llama2-13b-v1"
-    # META_LLAMA2_70B_V1 = "meta.llama2-70b-v1"
+    META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
