@@ -11,11 +11,9 @@ from aidial_adapter_bedrock.dial_api.storage import (
     upload_base64_file,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.zero_memory_chat import (
-    ZeroMemoryChatHistory,
-)
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
+from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.utils.env import get_env
 
@@ -121,11 +119,13 @@ class StabilityAdapter(ChatModel):
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
-        history = ZeroMemoryChatHistory.create(messages)
+        if len(messages) == 0:
+            raise ValidationError("List of messages must not be empty")
+
         return ChatPrompt(
-            text=history.format(),
+            text=messages[-1].content,
             stop_sequences=[],
-            discarded_messages=history.discarded_messages,
+            discarded_messages=len(messages) - 1,
         )
 
     async def _apredict(
