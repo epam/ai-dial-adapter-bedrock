@@ -15,7 +15,7 @@ class RolePrefixes(TypedDict):
     ai: Optional[str]
 
 
-class PseudoChat(BaseModel):
+class ChatEmulator(BaseModel):
     prelude_template: Optional[str]
     add_role_prefix: Callable[[BaseMessage, int], bool]
     add_invitation: bool
@@ -78,7 +78,7 @@ class PseudoChat(BaseModel):
         return "".join(ret), stop_sequences
 
 
-default_conf = PseudoChat(
+default_conf = ChatEmulator(
     prelude_template="""
 You are a helpful assistant participating in a dialog with a user.
 The messages from the user start with "{ai}".

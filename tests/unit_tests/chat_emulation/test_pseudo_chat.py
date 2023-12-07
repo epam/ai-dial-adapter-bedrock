@@ -1,7 +1,7 @@
 from typing import List, Set
 
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
-    PseudoChat,
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+    ChatEmulator,
     RolePrefixes,
     default_conf,
 )
@@ -18,7 +18,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 )
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 
-noop_conf = PseudoChat(
+noop_conf = ChatEmulator(
     prelude_template=None,
     add_role_prefix=lambda *_: False,
     add_invitation=False,

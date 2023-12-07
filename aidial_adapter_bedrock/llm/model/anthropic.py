@@ -8,8 +8,8 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
-    PseudoChat,
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+    ChatEmulator,
     RolePrefixes,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
@@ -63,7 +63,7 @@ async def response_to_stream(response: dict) -> AsyncIterator[str]:
     yield response["completion"]
 
 
-def get_anthropic_conf(is_system_message_supported: bool) -> PseudoChat:
+def get_anthropic_conf(is_system_message_supported: bool) -> ChatEmulator:
     def add_role_prefix(message: BaseMessage, idx: int) -> bool:
         if (
             idx == 0
@@ -73,7 +73,7 @@ def get_anthropic_conf(is_system_message_supported: bool) -> PseudoChat:
             return False
         return True
 
-    return PseudoChat(
+    return ChatEmulator(
         prelude_template=None,
         add_role_prefix=add_role_prefix,
         add_invitation=True,

@@ -1,5 +1,5 @@
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import default_conf
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import default_conf
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter

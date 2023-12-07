@@ -6,7 +6,7 @@ from typing_extensions import override
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChat
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -102,9 +102,9 @@ class AmazonAdapter(PseudoChatModel):
         client: Bedrock,
         model_id: str,
         count_tokens: Callable[[str], int],
-        pseudo_chat: PseudoChat,
+        chat_emulator: ChatEmulator,
     ):
-        super().__init__(model_id, count_tokens, pseudo_chat)
+        super().__init__(model_id, count_tokens, chat_emulator)
         self.client = client
 
     @override
@@ -134,7 +134,7 @@ class AmazonAdapter(PseudoChatModel):
             response = await self.client.ainvoke_non_streaming(self.model, args)
             stream = response_to_stream(response, usage)
 
-        stream = self.post_process_stream(stream, params, self.pseudo_chat)
+        stream = self.post_process_stream(stream, params, self.chat_emulator)
 
         async for content in stream:
             consumer.append_content(content)

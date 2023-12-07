@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChat
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
@@ -105,9 +105,9 @@ class AI21Adapter(PseudoChatModel):
         client: Bedrock,
         model: str,
         count_tokens: Callable[[str], int],
-        pseudo_chat: PseudoChat,
+        chat_emulator: ChatEmulator,
     ):
-        super().__init__(model, count_tokens, pseudo_chat)
+        super().__init__(model, count_tokens, chat_emulator)
         self.client = client
 
     async def _apredict(

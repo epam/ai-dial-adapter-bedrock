@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChat
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
@@ -96,21 +96,21 @@ def is_important_message(messages: List[BaseMessage], index: int) -> bool:
 
 
 class PseudoChatModel(ChatModel, ABC):
-    pseudo_chat: PseudoChat
+    chat_emulator: ChatEmulator
     count_tokens: Callable[[str], int]
 
     def __init__(
         self,
         model: str,
         count_tokens: Callable[[str], int],
-        pseudo_chat: PseudoChat,
+        chat_emulator: ChatEmulator,
     ):
         super().__init__(model)
         self.count_tokens = count_tokens
-        self.pseudo_chat = pseudo_chat
+        self.chat_emulator = chat_emulator
 
     def _count_tokens(self, messages: List[BaseMessage]) -> int:
-        return self.count_tokens(self.pseudo_chat.display(messages)[0])
+        return self.count_tokens(self.chat_emulator.display(messages)[0])
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
@@ -130,7 +130,7 @@ class PseudoChatModel(ChatModel, ABC):
 
         messages = omit_by_indices(messages, truncate_result)
 
-        text, stop_sequences = self.pseudo_chat.display(messages)
+        text, stop_sequences = self.chat_emulator.display(messages)
 
         return ChatPrompt(
             text=text,
@@ -142,13 +142,13 @@ class PseudoChatModel(ChatModel, ABC):
     def post_process_stream(
         stream: AsyncIterator[str],
         params: ModelParameters,
-        pseudo_chat_conf: PseudoChat,
+        chat_emulator_conf: ChatEmulator,
     ) -> AsyncIterator[str]:
         # Removing leading spaces
         stream = stream_utils.lstrip(stream)
 
         # Model may occasionally starts its response with the role prefix
-        ai_role = pseudo_chat_conf.role_prefixes["ai"]
+        ai_role = chat_emulator_conf.role_prefixes["ai"]
         if ai_role is not None:
             stream = stream_utils.remove_prefix(stream, ai_role + " ")
 
