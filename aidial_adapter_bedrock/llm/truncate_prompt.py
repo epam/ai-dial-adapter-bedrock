@@ -14,10 +14,6 @@ class InconsistentLimitsError(TruncatePromptError):
     user_limit: int
     model_limit: int
 
-    def __init__(self, user_limit: int, model_limit: int):
-        self.user_limit = user_limit
-        self.model_limit = model_limit
-
     def print(self) -> str:
         return (
             f"Maximum prompt tokens ({self.model_limit}) "
@@ -29,10 +25,6 @@ class ModelLimitOverflow(TruncatePromptError):
     model_limit: int
     token_count: int
 
-    def __init__(self, model_limit: int, token_count: int):
-        self.model_limit = model_limit
-        self.token_count = token_count
-
     def print(self) -> str:
         return (
             f"Token count of all messages ({self.token_count}) exceeds"
@@ -43,10 +35,6 @@ class ModelLimitOverflow(TruncatePromptError):
 class UserLimitOverflow(TruncatePromptError):
     user_limit: int
     token_count: int
-
-    def __init__(self, user_limit: int, token_count: int):
-        self.user_limit = user_limit
-        self.token_count = token_count
 
     def print(self) -> str:
         return (
@@ -81,7 +69,9 @@ def truncate_prompt(
         and model_limit is not None
         and user_limit > model_limit
     ):
-        return InconsistentLimitsError(user_limit, model_limit)
+        return InconsistentLimitsError(
+            user_limit=user_limit, model_limit=model_limit
+        )
 
     def _count_tokens_selected(indices: Set[int]) -> int:
         return count_tokens(select_by_indices(messages, indices))
@@ -97,7 +87,9 @@ def truncate_prompt(
         if token_count <= model_limit:
             return set()
 
-        return ModelLimitOverflow(model_limit, token_count)
+        return ModelLimitOverflow(
+            model_limit=model_limit, token_count=token_count
+        )
 
     token_count: int = 0
     kept_indices: Set[int] = {
@@ -106,7 +98,7 @@ def truncate_prompt(
 
     token_count = _count_tokens_selected(kept_indices)
     if token_count > user_limit:
-        return UserLimitOverflow(user_limit, token_count)
+        return UserLimitOverflow(user_limit=user_limit, token_count=token_count)
 
     for idx in reversed(range(0, n)):
         if idx in kept_indices:

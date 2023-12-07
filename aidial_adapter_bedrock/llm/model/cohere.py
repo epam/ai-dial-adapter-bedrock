@@ -7,7 +7,7 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
-    PseudoChatConf,
+    PseudoChat,
     RoleMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
@@ -102,7 +102,7 @@ async def response_to_stream(
     yield resp.content()
 
 
-cohere_chat_conf = PseudoChatConf(
+cohere_chat_conf = PseudoChat(
     prelude_template=None,
     annotate_first=False,
     add_invitation=False,
@@ -123,9 +123,9 @@ class CohereAdapter(PseudoChatModel):
         client: Bedrock,
         model_id: str,
         count_tokens: Callable[[str], int],
-        pseudo_history_conf: PseudoChatConf,
+        pseudo_chat: PseudoChat,
     ):
-        super().__init__(model_id, count_tokens, pseudo_history_conf)
+        super().__init__(model_id, count_tokens, pseudo_chat)
         self.client = client
 
     @override
@@ -149,9 +149,7 @@ class CohereAdapter(PseudoChatModel):
 
         usage = TokenUsage()
         stream = response_to_stream(response, usage)
-        stream = self.post_process_stream(
-            stream, params, self.pseudo_history_conf
-        )
+        stream = self.post_process_stream(stream, params, self.pseudo_chat)
 
         async for content in stream:
             consumer.append_content(content)

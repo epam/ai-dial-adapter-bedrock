@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulation.history import (
     is_important_message,
 )
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChat
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
@@ -93,21 +93,21 @@ class ChatModel(ABC):
 
 
 class PseudoChatModel(ChatModel, ABC):
-    pseudo_history_conf: PseudoChatConf
+    pseudo_chat: PseudoChat
     count_tokens: Callable[[str], int]
 
     def __init__(
         self,
         model: str,
         count_tokens: Callable[[str], int],
-        pseudo_history_conf: PseudoChatConf,
+        pseudo_chat: PseudoChat,
     ):
         super().__init__(model)
         self.count_tokens = count_tokens
-        self.pseudo_history_conf = pseudo_history_conf
+        self.pseudo_chat = pseudo_chat
 
     def _count_tokens(self, messages: List[BaseMessage]) -> int:
-        return self.count_tokens(self.pseudo_history_conf.display(messages)[0])
+        return self.count_tokens(self.pseudo_chat.display(messages)[0])
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
@@ -127,7 +127,7 @@ class PseudoChatModel(ChatModel, ABC):
 
         messages = omit_by_indices(messages, truncate_result)
 
-        text, stop_sequences = self.pseudo_history_conf.display(messages)
+        text, stop_sequences = self.pseudo_chat.display(messages)
 
         return ChatPrompt(
             text=text,
@@ -139,7 +139,7 @@ class PseudoChatModel(ChatModel, ABC):
     def post_process_stream(
         stream: AsyncIterator[str],
         params: ModelParameters,
-        pseudo_chat_conf: PseudoChatConf,
+        pseudo_chat_conf: PseudoChat,
     ) -> AsyncIterator[str]:
         # Removing leading spaces
         stream = stream_utils.lstrip(stream)
