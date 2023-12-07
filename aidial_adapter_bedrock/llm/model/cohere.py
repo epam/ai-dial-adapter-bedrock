@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
     PseudoChat,
-    RoleMapping,
+    RolePrefixes,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -104,9 +104,10 @@ async def response_to_stream(
 
 cohere_chat_conf = PseudoChat(
     prelude_template=None,
-    annotate_first=False,
+    add_role_prefix=lambda _, idx: idx > 0,
     add_invitation=False,
-    mapping=RoleMapping(
+    fallback_to_completion=False,
+    role_prefixes=RolePrefixes(
         system="User:",
         human="User:",
         ai="Chatbot:",
@@ -121,11 +122,10 @@ class CohereAdapter(PseudoChatModel):
     def __init__(
         self,
         client: Bedrock,
-        model_id: str,
+        model: str,
         count_tokens: Callable[[str], int],
-        pseudo_chat: PseudoChat,
     ):
-        super().__init__(model_id, count_tokens, pseudo_chat)
+        super().__init__(model, count_tokens, cohere_chat_conf)
         self.client = client
 
     @override

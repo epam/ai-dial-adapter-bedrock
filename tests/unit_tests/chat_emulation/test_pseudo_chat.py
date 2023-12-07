@@ -1,12 +1,11 @@
 from typing import List, Set
 
-from aidial_adapter_bedrock.llm.chat_emulation.history import (
-    is_important_message,
-)
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
+    PseudoChat,
+    RolePrefixes,
     default_conf,
-    noop_conf,
 )
+from aidial_adapter_bedrock.llm.chat_model import is_important_message
 from aidial_adapter_bedrock.llm.message import (
     AIMessage,
     BaseMessage,
@@ -15,8 +14,17 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
-    omit_by_indices,
     truncate_prompt,
+)
+from aidial_adapter_bedrock.utils.list import omit_by_indices
+
+noop_conf = PseudoChat(
+    prelude_template=None,
+    add_role_prefix=lambda *_: False,
+    add_invitation=False,
+    fallback_to_completion=False,
+    role_prefixes=RolePrefixes(system=None, human=None, ai=None),
+    separator="",
 )
 
 

@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Container, List, Optional, Set, TypeVar
+from typing import Callable, List, Optional, Set, TypeVar
 
 from pydantic import BaseModel
+
+from aidial_adapter_bedrock.utils.list import select_by_indices
 
 
 class TruncatePromptError(ABC, BaseModel):
@@ -44,16 +46,6 @@ class UserLimitOverflow(TruncatePromptError):
 
 
 T = TypeVar("T")
-
-
-def select_by_indices(lst: List[T], indices: Container[int]) -> List[T]:
-    return [elem for idx, elem in enumerate(lst) if idx in indices]
-
-
-def omit_by_indices(lst: List[T], indices: Container[int]) -> List[T]:
-    return [elem for idx, elem in enumerate(lst) if idx not in indices]
-
-
 Messages = List[T]
 
 

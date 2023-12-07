@@ -6,9 +6,6 @@ from pydantic import BaseModel
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.chat_emulation.history import (
-    is_important_message,
-)
 from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChat
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -19,9 +16,9 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
-    omit_by_indices,
     truncate_prompt,
 )
+from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -92,6 +89,12 @@ class ChatModel(ABC):
             consumer.set_discarded_messages(chat_prompt.discarded_messages)
 
 
+def is_important_message(messages: List[BaseMessage], index: int) -> bool:
+    return (
+        isinstance(messages[index], SystemMessage) or index == len(messages) - 1
+    )
+
+
 class PseudoChatModel(ChatModel, ABC):
     pseudo_chat: PseudoChat
     count_tokens: Callable[[str], int]
@@ -145,7 +148,7 @@ class PseudoChatModel(ChatModel, ABC):
         stream = stream_utils.lstrip(stream)
 
         # Model may occasionally starts its response with the role prefix
-        ai_role = pseudo_chat_conf.mapping["ai"]
+        ai_role = pseudo_chat_conf.role_prefixes["ai"]
         if ai_role is not None:
             stream = stream_utils.remove_prefix(stream, ai_role + " ")
 

@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, TypedDict
+from typing import Callable, List, Optional, Tuple, TypedDict
 
 from pydantic import BaseModel
 
@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.llm.message import (
 )
 
 
-class RoleMapping(TypedDict):
+class RolePrefixes(TypedDict):
     system: Optional[str]
     human: Optional[str]
     ai: Optional[str]
@@ -17,45 +17,46 @@ class RoleMapping(TypedDict):
 
 class PseudoChat(BaseModel):
     prelude_template: Optional[str]
-    annotate_first: bool
+    add_role_prefix: Callable[[BaseMessage, int], bool]
     add_invitation: bool
-    mapping: RoleMapping
+    fallback_to_completion: bool
+    role_prefixes: RolePrefixes
     separator: str
 
     @property
     def _prelude(self) -> Optional[str]:
         if self.prelude_template is None:
             return None
-        return self.prelude_template.format(**self.mapping)
+        return self.prelude_template.format(**self.role_prefixes)
 
     def _get_role(self, message: BaseMessage) -> Optional[str]:
         if isinstance(message, HumanMessage):
-            return self.mapping["human"]
+            return self.role_prefixes["human"]
         elif isinstance(message, AIMessage):
-            return self.mapping["ai"]
+            return self.role_prefixes["ai"]
         elif isinstance(message, BaseMessage):
-            return self.mapping["system"]
+            return self.role_prefixes["system"]
         else:
             raise ValueError(f"Unknown message type: {message.type}")
 
-    def _format_message(self, message: BaseMessage, is_first: bool) -> str:
+    def _format_message(self, message: BaseMessage, idx: int) -> str:
         role = self._get_role(message)
 
-        if role is None:
-            role_prefix = ""
-        elif is_first and not self.annotate_first:
+        if role is None or not self.add_role_prefix(message, idx):
             role_prefix = ""
         else:
             role_prefix = role + " "
 
-        separator = self.separator
-        if is_first:
-            separator = ""
+        separator = "" if idx == 0 else self.separator
 
         return (separator + role_prefix + message.content.lstrip()).rstrip()
 
     def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
-        if len(messages) == 1 and isinstance(messages[0], HumanMessage):
+        if (
+            len(messages) == 1
+            and isinstance(messages[0], HumanMessage)
+            and self.fallback_to_completion
+        ):
             return messages[0].content, []
 
         ret: List[str] = []
@@ -64,28 +65,18 @@ class PseudoChat(BaseModel):
             ret.append(self._prelude)
 
         for message in messages:
-            ret.append(self._format_message(message, len(ret) == 0))
+            ret.append(self._format_message(message, len(ret)))
 
         if self.add_invitation:
-            ret.append(
-                self._format_message(AIMessage(content=""), len(ret) == 0)
-            )
+            ret.append(self._format_message(AIMessage(content=""), len(ret)))
 
         stop_sequences: List[str] = []
-        human_role = self.mapping["human"]
+        human_role = self.role_prefixes["human"]
         if human_role is not None:
             stop_sequences = [self.separator + human_role]
 
         return "".join(ret), stop_sequences
 
-
-noop_conf = PseudoChat(
-    prelude_template=None,
-    annotate_first=False,
-    add_invitation=False,
-    mapping=RoleMapping(system=None, human=None, ai=None),
-    separator="",
-)
 
 default_conf = PseudoChat(
     prelude_template="""
@@ -95,9 +86,10 @@ The messages from you start with "{human}".
 Reply to the last message from the user taking into account the preceding dialog history.
 ====================
 """.strip(),
-    annotate_first=True,
+    add_role_prefix=lambda *_: True,
     add_invitation=True,
-    mapping=RoleMapping(
+    fallback_to_completion=True,
+    role_prefixes=RolePrefixes(
         system="Human:",
         human="Human:",
         ai="Assistant:",
