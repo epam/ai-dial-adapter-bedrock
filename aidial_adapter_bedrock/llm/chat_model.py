@@ -6,16 +6,21 @@ from pydantic import BaseModel
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import (
-    PseudoChatConf,
-    PseudoChatHistory,
+from aidial_adapter_bedrock.llm.chat_emulation.history import (
+    is_important_message,
 )
+from aidial_adapter_bedrock.llm.chat_emulation.pseudo_chat import PseudoChatConf
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     BaseMessage,
     SystemMessage,
     parse_message,
+)
+from aidial_adapter_bedrock.llm.truncate_prompt import (
+    TruncatePromptError,
+    omit_by_indices,
+    truncate_prompt,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -101,25 +106,33 @@ class PseudoChatModel(ChatModel, ABC):
         self.count_tokens = count_tokens
         self.pseudo_history_conf = pseudo_history_conf
 
+    def _count_tokens(self, messages: List[BaseMessage]) -> int:
+        return self.count_tokens(self.pseudo_history_conf.display(messages)[0])
+
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
-        history = PseudoChatHistory.create(
-            messages=messages, conf=self.pseudo_history_conf
+        truncate_result = truncate_prompt(
+            messages=messages,
+            count_tokens=self._count_tokens,
+            keep_message=is_important_message,
+            model_limit=None,
+            user_limit=max_prompt_tokens,
         )
-        if max_prompt_tokens is None:
-            return ChatPrompt(
-                text=history.format(), stop_sequences=history.stop_sequences
-            )
 
-        history, discarded_messages_count = history.trim(
-            lambda text: self.count_tokens(text), max_prompt_tokens
-        )
+        if isinstance(truncate_result, TruncatePromptError):
+            raise ValidationError(truncate_result.print())
+
+        discarded_messages: set[int] = truncate_result
+
+        messages = omit_by_indices(messages, truncate_result)
+
+        text, stop_sequences = self.pseudo_history_conf.display(messages)
 
         return ChatPrompt(
-            text=history.format(),
-            stop_sequences=history.stop_sequences,
-            discarded_messages=discarded_messages_count,
+            text=text,
+            stop_sequences=stop_sequences,
+            discarded_messages=len(discarded_messages),
         )
 
     @staticmethod
@@ -132,10 +145,9 @@ class PseudoChatModel(ChatModel, ABC):
         stream = stream_utils.lstrip(stream)
 
         # Model may occasionally starts its response with the role prefix
-        stream = stream_utils.remove_prefix(
-            stream,
-            pseudo_chat_conf.mapping["ai"] + " ",
-        )
+        ai_role = pseudo_chat_conf.mapping["ai"]
+        if ai_role is not None:
+            stream = stream_utils.remove_prefix(stream, ai_role + " ")
 
         # If the model doesn't support stop sequences, so do it manually
         if params.stop:

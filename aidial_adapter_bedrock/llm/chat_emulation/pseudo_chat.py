@@ -17,9 +17,9 @@ from aidial_adapter_bedrock.utils.list import exclude_indices
 
 
 class RoleMapping(TypedDict):
-    system: str
-    human: str
-    ai: str
+    system: Optional[str]
+    human: Optional[str]
+    ai: Optional[str]
 
 
 class PseudoChatConf(BaseModel):
@@ -30,24 +30,30 @@ class PseudoChatConf(BaseModel):
     separator: str
 
     @property
-    def prelude(self) -> Optional[str]:
+    def _prelude(self) -> Optional[str]:
         if self.prelude_template is None:
             return None
         return self.prelude_template.format(**self.mapping)
 
-    @property
-    def stop_sequences(self) -> List[str]:
-        return [self.separator + self.mapping["human"]]
-
-    def format_message(self, message: BaseMessage, is_first: bool) -> str:
-        role = self.mapping.get(message.type)
-
-        if role is None:
+    def _get_role(self, message: BaseMessage) -> Optional[str]:
+        if isinstance(message, HumanMessage):
+            return self.mapping["human"]
+        elif isinstance(message, AIMessage):
+            return self.mapping["ai"]
+        elif isinstance(message, BaseMessage):
+            return self.mapping["system"]
+        else:
             raise ValueError(f"Unknown message type: {message.type}")
 
-        role_prefix = role + " "
-        if is_first and not self.annotate_first:
+    def _format_message(self, message: BaseMessage, is_first: bool) -> str:
+        role = self._get_role(message)
+
+        if role is None:
             role_prefix = ""
+        elif is_first and not self.annotate_first:
+            role_prefix = ""
+        else:
+            role_prefix = role + " "
 
         separator = self.separator
         if is_first:
@@ -55,6 +61,38 @@ class PseudoChatConf(BaseModel):
 
         return (separator + role_prefix + message.content.lstrip()).rstrip()
 
+    def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
+        if len(messages) == 1 and isinstance(messages[0], HumanMessage):
+            return messages[0].content, []
+
+        ret: List[str] = []
+
+        if self._prelude is not None:
+            ret.append(self._prelude)
+
+        for message in messages:
+            ret.append(self._format_message(message, len(ret) == 0))
+
+        if self.add_invitation:
+            ret.append(
+                self._format_message(AIMessage(content=""), len(ret) == 0)
+            )
+
+        stop_sequences: List[str] = []
+        human_role = self.mapping["human"]
+        if human_role is not None:
+            stop_sequences = [self.separator + human_role]
+
+        return "".join(ret), stop_sequences
+
+
+noop_conf = PseudoChatConf(
+    prelude_template=None,
+    annotate_first=False,
+    add_invitation=False,
+    mapping=RoleMapping(system=None, human=None, ai=None),
+    separator="",
+)
 
 default_conf = PseudoChatConf(
     prelude_template="""
@@ -161,13 +199,13 @@ class PseudoChatHistory(History):
 
         formatted_messages: List[FormattedMessage] = []
 
-        if conf.prelude is not None:
-            formatted_messages.append(FormattedMessage(text=conf.prelude))
+        if conf._prelude is not None:
+            formatted_messages.append(FormattedMessage(text=conf._prelude))
 
         for idx, message in enumerate(messages):
             formatted_messages.append(
                 FormattedMessage(
-                    text=conf.format_message(
+                    text=conf._format_message(
                         message, len(formatted_messages) == 0
                     ),
                     source_message=message,
@@ -178,7 +216,7 @@ class PseudoChatHistory(History):
         if conf.add_invitation:
             formatted_messages.append(
                 FormattedMessage(
-                    text=conf.format_message(
+                    text=conf._format_message(
                         AIMessage(content=""), len(formatted_messages) == 0
                     )
                 )
@@ -186,6 +224,6 @@ class PseudoChatHistory(History):
 
         return cls(
             messages=formatted_messages,
-            stop_sequences=conf.stop_sequences,
+            stop_sequences=conf.display(messages)[1],
             pseudo_history_conf=conf,
         )

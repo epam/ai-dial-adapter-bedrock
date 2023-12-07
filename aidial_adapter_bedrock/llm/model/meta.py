@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 from typing_extensions import override
@@ -63,6 +63,28 @@ async def response_to_stream(
     resp = MetaResponse.parse_obj(response)
     usage.accumulate(resp.usage())
     yield resp.content()
+
+
+# Simplified version of https://github.com/huggingface/transformers/blob/c99f25476312521d4425335f970b198da42f832d/src/transformers/models/llama/tokenization_llama.py#L415
+def get_llama2_chat_prompt(
+    system_prompt: Optional[str],
+    chat_history: List[Tuple[str, str]],
+    message: str,
+) -> str:
+    texts = (
+        [f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n"]
+        if system_prompt
+        else []
+    )
+    # The first user input is _not_ stripped
+    do_strip = False
+    for user_input, response in chat_history:
+        user_input = user_input.strip() if do_strip else user_input
+        do_strip = True
+        texts.append(f"{user_input} [/INST] {response.strip()} </s><s>[INST] ")
+    message = message.strip() if do_strip else message
+    texts.append(f"{message} [/INST]")
+    return "".join(texts)
 
 
 class MetaAdapter(PseudoChatModel):
