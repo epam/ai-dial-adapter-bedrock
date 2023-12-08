@@ -27,7 +27,6 @@ COPY ./scripts/docker_entrypoint.sh /docker_entrypoint.sh
 RUN chmod +x /docker_entrypoint.sh
 
 ENV LOG_LEVEL=INFO
-ENV USE_DIAL_FILE_STORAGE=True
 EXPOSE 5000
 
 USER appuser
