@@ -104,10 +104,10 @@ class AI21Adapter(PseudoChatModel):
         self,
         client: Bedrock,
         model: str,
-        count_tokens: Callable[[str], int],
+        tokenize: Callable[[str], int],
         chat_emulator: ChatEmulator,
     ):
-        super().__init__(model, count_tokens, chat_emulator)
+        super().__init__(model, tokenize, chat_emulator)
         self.client = client
 
     async def _apredict(

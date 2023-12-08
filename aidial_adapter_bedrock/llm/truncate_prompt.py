@@ -51,7 +51,7 @@ Messages = List[T]
 
 def truncate_prompt(
     messages: Messages,
-    count_tokens: Callable[[Messages], int],
+    tokenize: Callable[[Messages], int],
     keep_message: Callable[[Messages, int], bool],
     model_limit: Optional[int],
     user_limit: Optional[int],
@@ -65,8 +65,8 @@ def truncate_prompt(
             user_limit=user_limit, model_limit=model_limit
         )
 
-    def _count_tokens_selected(indices: Set[int]) -> int:
-        return count_tokens(select_by_indices(messages, indices))
+    def _tokenize_selected(indices: Set[int]) -> int:
+        return tokenize(select_by_indices(messages, indices))
 
     n = len(messages)
     all_indices = set(range(0, n))
@@ -75,7 +75,7 @@ def truncate_prompt(
         if model_limit is None:
             return set()
 
-        token_count = _count_tokens_selected(all_indices)
+        token_count = _tokenize_selected(all_indices)
         if token_count <= model_limit:
             return set()
 
@@ -88,7 +88,7 @@ def truncate_prompt(
         idx for idx in range(0, n) if keep_message(messages, idx)
     }
 
-    token_count = _count_tokens_selected(kept_indices)
+    token_count = _tokenize_selected(kept_indices)
     if token_count > user_limit:
         return UserLimitOverflow(user_limit=user_limit, token_count=token_count)
 
@@ -96,7 +96,7 @@ def truncate_prompt(
         if idx in kept_indices:
             continue
 
-        new_token_count = _count_tokens_selected({*kept_indices, idx})
+        new_token_count = _tokenize_selected({*kept_indices, idx})
         if new_token_count > user_limit:
             break
 

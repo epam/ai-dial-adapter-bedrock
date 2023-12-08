@@ -36,7 +36,7 @@ def truncate_prompt_by_words(
 
     return truncate_prompt(
         messages=messages,
-        count_tokens=_count_words,
+        tokenize=_count_words,
         keep_message=is_important_message,
         model_limit=None,
         user_limit=word_limit,

@@ -101,10 +101,10 @@ class AmazonAdapter(PseudoChatModel):
         self,
         client: Bedrock,
         model_id: str,
-        count_tokens: Callable[[str], int],
+        tokenize: Callable[[str], int],
         chat_emulator: ChatEmulator,
     ):
-        super().__init__(model_id, count_tokens, chat_emulator)
+        super().__init__(model_id, tokenize, chat_emulator)
         self.client = client
 
     @override

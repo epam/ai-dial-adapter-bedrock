@@ -123,9 +123,9 @@ class CohereAdapter(PseudoChatModel):
         self,
         client: Bedrock,
         model: str,
-        count_tokens: Callable[[str], int],
+        tokenize: Callable[[str], int],
     ):
-        super().__init__(model, count_tokens, cohere_chat_conf)
+        super().__init__(model, tokenize, cohere_chat_conf)
         self.client = client
 
     @override

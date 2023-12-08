@@ -97,27 +97,27 @@ def is_important_message(messages: List[BaseMessage], index: int) -> bool:
 
 class PseudoChatModel(ChatModel, ABC):
     chat_emulator: ChatEmulator
-    count_tokens: Callable[[str], int]
+    tokenize: Callable[[str], int]
 
     def __init__(
         self,
         model: str,
-        count_tokens: Callable[[str], int],
+        tokenize: Callable[[str], int],
         chat_emulator: ChatEmulator,
     ):
         super().__init__(model)
-        self.count_tokens = count_tokens
+        self.tokenize = tokenize
         self.chat_emulator = chat_emulator
 
-    def _count_tokens(self, messages: List[BaseMessage]) -> int:
-        return self.count_tokens(self.chat_emulator.display(messages)[0])
+    def _tokenize(self, messages: List[BaseMessage]) -> int:
+        return self.tokenize(self.chat_emulator.display(messages)[0])
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> ChatPrompt:
         truncate_result = truncate_prompt(
             messages=messages,
-            count_tokens=self._count_tokens,
+            tokenize=self._tokenize,
             keep_message=is_important_message,
             model_limit=None,
             user_limit=max_prompt_tokens,
