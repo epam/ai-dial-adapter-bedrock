@@ -3,7 +3,11 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 from typing_extensions import override
 
-from aidial_adapter_bedrock.bedrock import Bedrock, InvocationMetrics
+from aidial_adapter_bedrock.bedrock import (
+    Bedrock,
+    InvocationMetrics,
+    ResponseWithInvocationMetricsMixin,
+)
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
@@ -19,7 +23,7 @@ class MetaResult(BaseModel):
     completionReason: Optional[str]
 
 
-class MetaResponse(BaseModel):
+class MetaResponse(ResponseWithInvocationMetricsMixin):
     generation: str
     prompt_token_count: Optional[int]
     generation_token_count: Optional[int]
@@ -36,13 +40,6 @@ class MetaResponse(BaseModel):
             prompt_tokens=self.prompt_token_count or 0,
             completion_tokens=self.generation_token_count or 0,
         )
-
-    def usage_by_metrics(self) -> TokenUsage:
-        metrics = self.invocation_metrics
-        if metrics is None:
-            return TokenUsage()
-
-        return metrics.to_usage()
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:

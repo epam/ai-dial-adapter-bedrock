@@ -1,5 +1,6 @@
 import json
-from typing import Any, AsyncIterator
+from abc import ABC
+from typing import Any, AsyncIterator, Optional
 
 import boto3
 from botocore.eventstream import EventStream
@@ -74,8 +75,18 @@ class InvocationMetrics(BaseModel):
     invocationLatency: int = Field(alias="invocationLatency")
     firstByteLatency: int = Field(alias="firstByteLatency")
 
-    def to_usage(self) -> TokenUsage:
+
+class ResponseWithInvocationMetricsMixin(ABC, BaseModel):
+    invocation_metrics: Optional[InvocationMetrics] = Field(
+        alias="amazon-bedrock-invocationMetrics"
+    )
+
+    def usage_by_metrics(self) -> TokenUsage:
+        metrics = self.invocation_metrics
+        if metrics is None:
+            return TokenUsage()
+
         return TokenUsage(
-            prompt_tokens=self.inputTokenCount,
-            completion_tokens=self.outputTokenCount,
+            prompt_tokens=metrics.inputTokenCount,
+            completion_tokens=metrics.outputTokenCount,
         )

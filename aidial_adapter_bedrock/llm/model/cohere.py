@@ -3,7 +3,11 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 from typing_extensions import override
 
-from aidial_adapter_bedrock.bedrock import Bedrock, InvocationMetrics
+from aidial_adapter_bedrock.bedrock import (
+    Bedrock,
+    InvocationMetrics,
+    ResponseWithInvocationMetricsMixin,
+)
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
@@ -36,7 +40,7 @@ class CohereGeneration(BaseModel):
     token_likelihoods: List[Likelihood] = Field(repr=False)
 
 
-class CohereResponse(BaseModel):
+class CohereResponse(ResponseWithInvocationMetricsMixin):
     id: str
     prompt: Optional[str]
     generations: List[CohereGeneration]
@@ -51,13 +55,6 @@ class CohereResponse(BaseModel):
     def tokens(self) -> List[str]:
         """Includes prompt and completion tokens"""
         return [lh.token for lh in self.generations[0].token_likelihoods]
-
-    def usage_by_metrics(self) -> TokenUsage:
-        metrics = self.invocation_metrics
-        if metrics is None:
-            return TokenUsage()
-
-        return metrics.to_usage()
 
     def usage_by_tokens(self) -> TokenUsage:
         special_tokens = 7
