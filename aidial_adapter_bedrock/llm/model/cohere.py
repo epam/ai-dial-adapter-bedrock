@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -33,13 +33,23 @@ class CohereGeneration(BaseModel):
     text: str
     likelihood: float
     finish_reason: str
-    token_likelihoods: List[Likelihood]
+    token_likelihoods: List[Likelihood] = Field(repr=False)
+
+
+class InvocationMetrics(BaseModel):
+    inputTokenCount: int = Field(alias="inputTokenCount")
+    outputTokenCount: int = Field(alias="outputTokenCount")
+    invocationLatency: int = Field(alias="invocationLatency")
+    firstByteLatency: int = Field(alias="firstByteLatency")
 
 
 class CohereResponse(BaseModel):
     id: str
     prompt: Optional[str]
     generations: List[CohereGeneration]
+    invocation_metrics: Optional[InvocationMetrics] = Field(
+        alias="amazon-bedrock-invocationMetrics"
+    )
 
     def content(self) -> str:
         return self.generations[0].text
@@ -50,14 +60,17 @@ class CohereResponse(BaseModel):
         return [lh.token for lh in self.generations[0].token_likelihoods]
 
     def usage(self) -> TokenUsage:
-        special_tokens = 2
+        special_tokens = 7
         total_tokens = len(self.tokens) - special_tokens
 
-        # The structure for the tokens:
+        # The structure for the response:
         # ["<BOS_TOKEN>", "User", ":", *<prompt>, "\n", "Chat", "bot", ":", "<EOP_TOKEN>", *<completion>]
+        # prompt_tokens = len(<prompt>)
+        # completion_tokens = len(["<EOP_TOKEN>"] + <completion>)
+
         separator = "<EOP_TOKEN>"
         if separator in self.tokens:
-            prompt_tokens = self.tokens.index(separator) + 1 - special_tokens
+            prompt_tokens = self.tokens.index(separator) - special_tokens
         else:
             log.error(f"Separator '{separator}' not found in tokens")
             prompt_tokens = total_tokens // 2
@@ -91,6 +104,24 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
+async def chunks_to_stream(
+    chunks: AsyncIterator[dict], usage: TokenUsage
+) -> AsyncIterator[str]:
+    async for chunk in chunks:
+        resp = CohereResponse.parse_obj(chunk)
+        metrics = resp.invocation_metrics
+        if metrics is not None:
+            usage.accumulate(
+                TokenUsage(
+                    prompt_tokens=metrics.inputTokenCount,
+                    completion_tokens=metrics.outputTokenCount,
+                )
+            )
+
+        log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
+        yield resp.generations[0].text
+
+
 async def response_to_stream(
     response: dict, usage: TokenUsage
 ) -> AsyncIterator[str]:
@@ -98,7 +129,6 @@ async def response_to_stream(
     usage.accumulate(resp.usage())
 
     log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
-
     yield resp.content()
 
 
@@ -145,10 +175,16 @@ class CohereAdapter(PseudoChatModel):
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))
-        response = await self.client.ainvoke_non_streaming(self.model, args)
 
         usage = TokenUsage()
-        stream = response_to_stream(response, usage)
+
+        if params.stream:
+            chunks = self.client.ainvoke_streaming(self.model, args)
+            stream = chunks_to_stream(chunks, usage)
+        else:
+            response = await self.client.ainvoke_non_streaming(self.model, args)
+            stream = response_to_stream(response, usage)
+
         stream = self.post_process_stream(stream, params, self.chat_emulator)
 
         async for content in stream:
