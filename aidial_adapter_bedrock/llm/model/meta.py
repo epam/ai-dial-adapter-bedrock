@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 from typing_extensions import override
@@ -6,11 +6,11 @@ from typing_extensions import override
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
+from aidial_adapter_bedrock.llm.model.llama_chat import llama_emulator
 
 
 class MetaResult(BaseModel):
@@ -65,43 +65,13 @@ async def response_to_stream(
     yield resp.content()
 
 
-# Simplified version of https://github.com/huggingface/transformers/blob/c99f25476312521d4425335f970b198da42f832d/src/transformers/models/llama/tokenization_llama.py#L415
-# See also for the reference: https://github.com/facebookresearch/llama/blob/556949fdfb72da27c2f4a40b7f0e4cf0b8153a28/llama/generation.py#L320C9-L320C9
-# See also: https://github.com/huggingface/transformers/blob/c99f25476312521d4425335f970b198da42f832d/src/transformers/models/llama/tokenization_llama.py#L415
-def get_llama2_chat_prompt(
-    system_message: Optional[str],
-    turns: List[Tuple[str, str]],
-    message: str,
-) -> str:
-    ret: List[str] = []
-
-    if system_message is not None and system_message.strip():
-        ret.append(f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n")
-
-    is_first_turn = True
-    for human, assistant in turns:
-        human = human if is_first_turn else human.strip()
-        is_first_turn = False
-
-        ret.append(f"{human} [/INST] {assistant.strip()} </s><s>[INST] ")
-
-    message = message.strip() if is_first_turn else message
-    ret.append(f"{message} [/INST]")
-
-    return "".join(ret)
-
-
 class MetaAdapter(PseudoChatModel):
     client: Bedrock
 
     def __init__(
-        self,
-        client: Bedrock,
-        model: str,
-        tokenize: Callable[[str], int],
-        chat_emulator: ChatEmulator,
+        self, client: Bedrock, model: str, tokenize: Callable[[str], int]
     ):
-        super().__init__(model, tokenize, chat_emulator)
+        super().__init__(model, tokenize, llama_emulator)
         self.client = client
 
     @override

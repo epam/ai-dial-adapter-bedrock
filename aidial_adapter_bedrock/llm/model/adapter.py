@@ -29,9 +29,7 @@ async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
                 client, model, default_tokenize, default_emulator
             )
         case "meta":
-            return MetaAdapter(
-                client, model, default_tokenize, default_emulator
-            )
+            return MetaAdapter(client, model, default_tokenize)
         case "cohere":
             return CohereAdapter(client, model, default_tokenize)
         case _:
