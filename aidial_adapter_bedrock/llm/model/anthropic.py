@@ -10,7 +10,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
     ChatEmulator,
-    RolePrefixes,
+    CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -64,7 +64,7 @@ async def response_to_stream(response: dict) -> AsyncIterator[str]:
 
 
 def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
-    def add_role_prefix(message: BaseMessage, idx: int) -> bool:
+    def add_cue(message: BaseMessage, idx: int) -> bool:
         if (
             idx == 0
             and isinstance(message, SystemMessage)
@@ -75,10 +75,10 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
     return ChatEmulator(
         prelude_template=None,
-        add_role_prefix=add_role_prefix,
-        add_invitation=True,
+        add_cue=add_cue,
+        add_invitation_cue=True,
         fallback_to_completion=False,
-        role_prefixes=RolePrefixes(
+        cues=CueMapping(
             system=anthropic.HUMAN_PROMPT.strip(),
             human=anthropic.HUMAN_PROMPT.strip(),
             ai=anthropic.AI_PROMPT.strip(),

@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.llm.message import (
 )
 
 
-class RolePrefixes(TypedDict):
+class CueMapping(TypedDict):
     system: Optional[str]
     human: Optional[str]
     ai: Optional[str]
@@ -17,39 +17,39 @@ class RolePrefixes(TypedDict):
 
 class ChatEmulator(BaseModel):
     prelude_template: Optional[str]
-    add_role_prefix: Callable[[BaseMessage, int], bool]
-    add_invitation: bool
+    add_cue: Callable[[BaseMessage, int], bool]
+    add_invitation_cue: bool
     fallback_to_completion: bool
-    role_prefixes: RolePrefixes
+    cues: CueMapping
     separator: str
 
     @property
     def _prelude(self) -> Optional[str]:
         if self.prelude_template is None:
             return None
-        return self.prelude_template.format(**self.role_prefixes)
+        return self.prelude_template.format(**self.cues)
 
-    def _get_role(self, message: BaseMessage) -> Optional[str]:
+    def _get_cue(self, message: BaseMessage) -> Optional[str]:
         if isinstance(message, HumanMessage):
-            return self.role_prefixes["human"]
+            return self.cues["human"]
         elif isinstance(message, AIMessage):
-            return self.role_prefixes["ai"]
+            return self.cues["ai"]
         elif isinstance(message, BaseMessage):
-            return self.role_prefixes["system"]
+            return self.cues["system"]
         else:
             raise ValueError(f"Unknown message type: {message.type}")
 
     def _format_message(self, message: BaseMessage, idx: int) -> str:
-        role = self._get_role(message)
+        cue = self._get_cue(message)
 
-        if role is None or not self.add_role_prefix(message, idx):
-            role_prefix = ""
+        if cue is None or not self.add_cue(message, idx):
+            cue_prefix = ""
         else:
-            role_prefix = role + " "
+            cue_prefix = cue + " "
 
         separator = "" if idx == 0 else self.separator
 
-        return (separator + role_prefix + message.content.lstrip()).rstrip()
+        return (separator + cue_prefix + message.content.lstrip()).rstrip()
 
     def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
         if (
@@ -67,11 +67,11 @@ class ChatEmulator(BaseModel):
         for message in messages:
             ret.append(self._format_message(message, len(ret)))
 
-        if self.add_invitation:
+        if self.add_invitation_cue:
             ret.append(self._format_message(AIMessage(content=""), len(ret)))
 
         stop_sequences: List[str] = []
-        human_role = self.role_prefixes["human"]
+        human_role = self.cues["human"]
         if human_role is not None:
             stop_sequences = [self.separator + human_role]
 
@@ -86,10 +86,10 @@ The messages from you start with "{human}".
 Reply to the last message from the user taking into account the preceding dialog history.
 ====================
 """.strip(),
-    add_role_prefix=lambda *_: True,
-    add_invitation=True,
+    add_cue=lambda *_: True,
+    add_invitation_cue=True,
     fallback_to_completion=True,
-    role_prefixes=RolePrefixes(
+    cues=CueMapping(
         system="Human:",
         human="Human:",
         ai="Assistant:",

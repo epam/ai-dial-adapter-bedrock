@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
     ChatEmulator,
-    RolePrefixes,
+    CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -104,10 +104,10 @@ async def response_to_stream(
 
 cohere_emulator = ChatEmulator(
     prelude_template=None,
-    add_role_prefix=lambda _, idx: idx > 0,
-    add_invitation=False,
+    add_cue=lambda _, idx: idx > 0,
+    add_invitation_cue=False,
     fallback_to_completion=False,
-    role_prefixes=RolePrefixes(
+    cues=CueMapping(
         system="User:",
         human="User:",
         ai="Chatbot:",

@@ -2,7 +2,7 @@ from typing import List
 
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
     ChatEmulator,
-    RolePrefixes,
+    CueMapping,
     default_emulator,
 )
 from aidial_adapter_bedrock.llm.message import (
@@ -14,10 +14,10 @@ from aidial_adapter_bedrock.llm.message import (
 
 noop_emulator = ChatEmulator(
     prelude_template=None,
-    add_role_prefix=lambda *_: False,
-    add_invitation=False,
+    add_cue=lambda *_: False,
+    add_invitation_cue=False,
     fallback_to_completion=False,
-    role_prefixes=RolePrefixes(system=None, human=None, ai=None),
+    cues=CueMapping(system=None, human=None, ai=None),
     separator="",
 )
 

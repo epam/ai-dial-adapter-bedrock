@@ -147,10 +147,10 @@ class PseudoChatModel(ChatModel, ABC):
         # Removing leading spaces
         stream = stream_utils.lstrip(stream)
 
-        # Model may occasionally starts its response with the role prefix
-        ai_role = emulator.role_prefixes["ai"]
-        if ai_role is not None:
-            stream = stream_utils.remove_prefix(stream, ai_role + " ")
+        # Model may occasionally start responding with its cue.
+        ai_cue = emulator.cues["ai"]
+        if ai_cue is not None:
+            stream = stream_utils.remove_prefix(stream, ai_cue + " ")
 
         # If the model doesn't support stop sequences, so do it manually
         if params.stop:
