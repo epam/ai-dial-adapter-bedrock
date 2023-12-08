@@ -1,5 +1,7 @@
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import default_conf
+from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+    default_emulator,
+)
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
@@ -30,13 +32,19 @@ async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
         case "anthropic":
             return AnthropicAdapter(client, model)
         case "ai21":
-            return AI21Adapter(client, model, default_tokenize, default_conf)
+            return AI21Adapter(
+                client, model, default_tokenize, default_emulator
+            )
         case "stability":
             return StabilityAdapter(client, model)
         case "amazon":
-            return AmazonAdapter(client, model, default_tokenize, default_conf)
+            return AmazonAdapter(
+                client, model, default_tokenize, default_emulator
+            )
         case "meta":
-            return MetaAdapter(client, model, default_tokenize, default_conf)
+            return MetaAdapter(
+                client, model, default_tokenize, default_emulator
+            )
         case "cohere":
             return CohereAdapter(client, model, default_tokenize)
         case _:

@@ -102,7 +102,7 @@ async def response_to_stream(
     yield resp.content()
 
 
-cohere_chat_conf = ChatEmulator(
+cohere_emulator = ChatEmulator(
     prelude_template=None,
     add_role_prefix=lambda _, idx: idx > 0,
     add_invitation=False,
@@ -125,7 +125,7 @@ class CohereAdapter(PseudoChatModel):
         model: str,
         tokenize: Callable[[str], int],
     ):
-        super().__init__(model, tokenize, cohere_chat_conf)
+        super().__init__(model, tokenize, cohere_emulator)
         self.client = client
 
     @override

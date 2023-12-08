@@ -5,7 +5,7 @@ from aidial_adapter_bedrock.llm.message import (
     HumanMessage,
     SystemMessage,
 )
-from aidial_adapter_bedrock.llm.model.anthropic import get_anthropic_conf
+from aidial_adapter_bedrock.llm.model.anthropic import get_anthropic_emulator
 
 
 @pytest.mark.parametrize("is_system_message_supported", [False, True])
@@ -17,7 +17,7 @@ def test_construction(is_system_message_supported: bool):
         HumanMessage(content="  human message2  "),
     ]
 
-    text, stop_sequences = get_anthropic_conf(
+    text, stop_sequences = get_anthropic_emulator(
         is_system_message_supported
     ).display(messages)
 

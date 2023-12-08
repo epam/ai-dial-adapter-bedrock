@@ -78,7 +78,7 @@ class ChatEmulator(BaseModel):
         return "".join(ret), stop_sequences
 
 
-default_conf = ChatEmulator(
+default_emulator = ChatEmulator(
     prelude_template="""
 You are a helpful assistant participating in a dialog with a user.
 The messages from the user start with "{ai}".

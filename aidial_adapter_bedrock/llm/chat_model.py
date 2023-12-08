@@ -142,13 +142,13 @@ class PseudoChatModel(ChatModel, ABC):
     def post_process_stream(
         stream: AsyncIterator[str],
         params: ModelParameters,
-        chat_emulator_conf: ChatEmulator,
+        emulator: ChatEmulator,
     ) -> AsyncIterator[str]:
         # Removing leading spaces
         stream = stream_utils.lstrip(stream)
 
         # Model may occasionally starts its response with the role prefix
-        ai_role = chat_emulator_conf.role_prefixes["ai"]
+        ai_role = emulator.role_prefixes["ai"]
         if ai_role is not None:
             stream = stream_utils.remove_prefix(stream, ai_role + " ")
 

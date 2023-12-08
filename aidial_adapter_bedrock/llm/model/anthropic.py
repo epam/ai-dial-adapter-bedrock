@@ -63,7 +63,7 @@ async def response_to_stream(response: dict) -> AsyncIterator[str]:
     yield response["completion"]
 
 
-def get_anthropic_conf(is_system_message_supported: bool) -> ChatEmulator:
+def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
     def add_role_prefix(message: BaseMessage, idx: int) -> bool:
         if (
             idx == 0
@@ -94,8 +94,8 @@ class AnthropicAdapter(PseudoChatModel):
         is_system_message_supported = (
             model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
         )
-        chat_conf = get_anthropic_conf(is_system_message_supported)
-        super().__init__(model, count_tokens, chat_conf)
+        chat_emulator = get_anthropic_emulator(is_system_message_supported)
+        super().__init__(model, count_tokens, chat_emulator)
         self.client = client
 
     async def _apredict(
