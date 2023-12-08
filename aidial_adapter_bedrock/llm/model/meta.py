@@ -66,25 +66,29 @@ async def response_to_stream(
 
 
 # Simplified version of https://github.com/huggingface/transformers/blob/c99f25476312521d4425335f970b198da42f832d/src/transformers/models/llama/tokenization_llama.py#L415
+# See also for the reference: https://github.com/facebookresearch/llama/blob/556949fdfb72da27c2f4a40b7f0e4cf0b8153a28/llama/generation.py#L320C9-L320C9
+# See also: https://github.com/huggingface/transformers/blob/c99f25476312521d4425335f970b198da42f832d/src/transformers/models/llama/tokenization_llama.py#L415
 def get_llama2_chat_prompt(
-    system_prompt: Optional[str],
-    chat_history: List[Tuple[str, str]],
+    system_message: Optional[str],
+    turns: List[Tuple[str, str]],
     message: str,
 ) -> str:
-    texts = (
-        [f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n"]
-        if system_prompt
-        else []
-    )
-    # The first user input is _not_ stripped
-    do_strip = False
-    for user_input, response in chat_history:
-        user_input = user_input.strip() if do_strip else user_input
-        do_strip = True
-        texts.append(f"{user_input} [/INST] {response.strip()} </s><s>[INST] ")
-    message = message.strip() if do_strip else message
-    texts.append(f"{message} [/INST]")
-    return "".join(texts)
+    ret: List[str] = []
+
+    if system_message is not None and system_message.strip():
+        ret.append(f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n")
+
+    is_first_turn = True
+    for human, assistant in turns:
+        human = human if is_first_turn else human.strip()
+        is_first_turn = False
+
+        ret.append(f"{human} [/INST] {assistant.strip()} </s><s>[INST] ")
+
+    message = message.strip() if is_first_turn else message
+    ret.append(f"{message} [/INST]")
+
+    return "".join(ret)
 
 
 class MetaAdapter(PseudoChatModel):

@@ -9,6 +9,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+    BasicChatEmulator,
     ChatEmulator,
     CueMapping,
 )
@@ -73,7 +74,7 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
             return False
         return True
 
-    return ChatEmulator(
+    return BasicChatEmulator(
         prelude_template=None,
         add_cue=add_cue,
         add_invitation_cue=True,

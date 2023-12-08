@@ -1,7 +1,7 @@
 from typing import List
 
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
-    ChatEmulator,
+    BasicChatEmulator,
     CueMapping,
     default_emulator,
 )
@@ -12,7 +12,7 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
 )
 
-noop_emulator = ChatEmulator(
+noop_emulator = BasicChatEmulator(
     prelude_template=None,
     add_cue=lambda *_: False,
     add_invitation_cue=False,

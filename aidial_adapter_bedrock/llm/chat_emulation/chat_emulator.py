@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Tuple, TypedDict
 
 from pydantic import BaseModel
@@ -9,13 +10,23 @@ from aidial_adapter_bedrock.llm.message import (
 )
 
 
+class ChatEmulator(ABC, BaseModel):
+    @abstractmethod
+    def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
+        """Returns the completion string and the list of stop sequences."""
+
+    @abstractmethod
+    def get_ai_cue(self) -> Optional[str]:
+        pass
+
+
 class CueMapping(TypedDict):
     system: Optional[str]
     human: Optional[str]
     ai: Optional[str]
 
 
-class ChatEmulator(BaseModel):
+class BasicChatEmulator(ChatEmulator):
     prelude_template: Optional[str]
     add_cue: Callable[[BaseMessage, int], bool]
     add_invitation_cue: bool
@@ -47,15 +58,16 @@ class ChatEmulator(BaseModel):
         else:
             cue_prefix = cue + " "
 
-        separator = "" if idx == 0 else self.separator
+        return (cue_prefix + message.content.lstrip()).rstrip()
 
-        return (separator + cue_prefix + message.content.lstrip()).rstrip()
+    def get_ai_cue(self) -> Optional[str]:
+        return self.cues["ai"]
 
     def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
         if (
-            len(messages) == 1
+            self.fallback_to_completion
+            and len(messages) == 1
             and isinstance(messages[0], HumanMessage)
-            and self.fallback_to_completion
         ):
             return messages[0].content, []
 
@@ -75,10 +87,10 @@ class ChatEmulator(BaseModel):
         if human_role is not None:
             stop_sequences = [self.separator + human_role]
 
-        return "".join(ret), stop_sequences
+        return self.separator.join(ret), stop_sequences
 
 
-default_emulator = ChatEmulator(
+default_emulator = BasicChatEmulator(
     prelude_template="""
 You are a helpful assistant participating in a dialog with a user.
 The messages from the user start with "{ai}".

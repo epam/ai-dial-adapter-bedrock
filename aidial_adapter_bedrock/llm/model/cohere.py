@@ -7,7 +7,7 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
-    ChatEmulator,
+    BasicChatEmulator,
     CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
@@ -102,7 +102,7 @@ async def response_to_stream(
     yield resp.content()
 
 
-cohere_emulator = ChatEmulator(
+cohere_emulator = BasicChatEmulator(
     prelude_template=None,
     add_cue=lambda _, idx: idx > 0,
     add_invitation_cue=False,

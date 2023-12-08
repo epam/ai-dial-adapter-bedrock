@@ -148,9 +148,10 @@ class PseudoChatModel(ChatModel, ABC):
         stream = stream_utils.lstrip(stream)
 
         # Model may occasionally start responding with its cue.
-        ai_cue = emulator.cues["ai"]
+        ai_cue = emulator.get_ai_cue()
         if ai_cue is not None:
-            stream = stream_utils.remove_prefix(stream, ai_cue + " ")
+            stream = stream_utils.remove_prefix(stream, ai_cue)
+            stream = stream_utils.lstrip(stream)
 
         # If the model doesn't support stop sequences, so do it manually
         if params.stop:
