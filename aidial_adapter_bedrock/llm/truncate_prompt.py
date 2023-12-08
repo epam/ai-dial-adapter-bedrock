@@ -18,8 +18,8 @@ class InconsistentLimitsError(TruncatePromptError):
 
     def print(self) -> str:
         return (
-            f"Maximum prompt tokens ({self.model_limit}) "
-            f"exceeds the model maximum prompt tokens ({self.user_limit})."
+            f"Maximum prompt tokens ({self.user_limit}) "
+            f"exceeds the model maximum prompt tokens ({self.model_limit})."
         )
 
 
