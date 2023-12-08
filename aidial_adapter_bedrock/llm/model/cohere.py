@@ -3,7 +3,7 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 from typing_extensions import override
 
-from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.bedrock import Bedrock, InvocationMetrics
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
@@ -36,13 +36,6 @@ class CohereGeneration(BaseModel):
     token_likelihoods: List[Likelihood] = Field(repr=False)
 
 
-class InvocationMetrics(BaseModel):
-    inputTokenCount: int = Field(alias="inputTokenCount")
-    outputTokenCount: int = Field(alias="outputTokenCount")
-    invocationLatency: int = Field(alias="invocationLatency")
-    firstByteLatency: int = Field(alias="firstByteLatency")
-
-
 class CohereResponse(BaseModel):
     id: str
     prompt: Optional[str]
@@ -59,7 +52,14 @@ class CohereResponse(BaseModel):
         """Includes prompt and completion tokens"""
         return [lh.token for lh in self.generations[0].token_likelihoods]
 
-    def usage(self) -> TokenUsage:
+    def usage_by_metrics(self) -> TokenUsage:
+        metrics = self.invocation_metrics
+        if metrics is None:
+            return TokenUsage()
+
+        return metrics.to_usage()
+
+    def usage_by_tokens(self) -> TokenUsage:
         special_tokens = 7
         total_tokens = len(self.tokens) - special_tokens
 
@@ -109,25 +109,16 @@ async def chunks_to_stream(
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         resp = CohereResponse.parse_obj(chunk)
-        metrics = resp.invocation_metrics
-        if metrics is not None:
-            usage.accumulate(
-                TokenUsage(
-                    prompt_tokens=metrics.inputTokenCount,
-                    completion_tokens=metrics.outputTokenCount,
-                )
-            )
-
+        usage.accumulate(resp.usage_by_metrics())
         log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
-        yield resp.generations[0].text
+        yield resp.content()
 
 
 async def response_to_stream(
     response: dict, usage: TokenUsage
 ) -> AsyncIterator[str]:
     resp = CohereResponse.parse_obj(response)
-    usage.accumulate(resp.usage())
-
+    usage.accumulate(resp.usage_by_tokens())
     log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
     yield resp.content()
 

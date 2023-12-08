@@ -4,7 +4,9 @@ from typing import Any, AsyncIterator
 import boto3
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
+from pydantic import BaseModel, Field
 
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -64,3 +66,16 @@ class Bedrock:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
                 log.debug(f"chunk: {chunk_dict}")
                 yield chunk_dict
+
+
+class InvocationMetrics(BaseModel):
+    inputTokenCount: int = Field(alias="inputTokenCount")
+    outputTokenCount: int = Field(alias="outputTokenCount")
+    invocationLatency: int = Field(alias="invocationLatency")
+    firstByteLatency: int = Field(alias="firstByteLatency")
+
+    def to_usage(self) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=self.inputTokenCount,
+            completion_tokens=self.outputTokenCount,
+        )

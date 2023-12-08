@@ -1,9 +1,9 @@
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing_extensions import override
 
-from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.bedrock import Bedrock, InvocationMetrics
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
@@ -21,18 +21,28 @@ class MetaResult(BaseModel):
 
 class MetaResponse(BaseModel):
     generation: str
-    prompt_token_count: int
-    generation_token_count: int
-    stop_reason: str
+    prompt_token_count: Optional[int]
+    generation_token_count: Optional[int]
+    stop_reason: Optional[str]
+    invocation_metrics: Optional[InvocationMetrics] = Field(
+        alias="amazon-bedrock-invocationMetrics"
+    )
 
     def content(self) -> str:
         return self.generation
 
     def usage(self) -> TokenUsage:
         return TokenUsage(
-            prompt_tokens=self.prompt_token_count,
-            completion_tokens=self.generation_token_count,
+            prompt_tokens=self.prompt_token_count or 0,
+            completion_tokens=self.generation_token_count or 0,
         )
+
+    def usage_by_metrics(self) -> TokenUsage:
+        metrics = self.invocation_metrics
+        if metrics is None:
+            return TokenUsage()
+
+        return metrics.to_usage()
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
@@ -55,6 +65,15 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
 
 def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
+
+
+async def chunks_to_stream(
+    chunks: AsyncIterator[dict], usage: TokenUsage
+) -> AsyncIterator[str]:
+    async for chunk in chunks:
+        resp = MetaResponse.parse_obj(chunk)
+        usage.accumulate(resp.usage_by_metrics())
+        yield resp.content()
 
 
 async def response_to_stream(
@@ -95,8 +114,13 @@ class MetaAdapter(PseudoChatModel):
 
         usage = TokenUsage()
 
-        response = await self.client.ainvoke_non_streaming(self.model, args)
-        stream = response_to_stream(response, usage)
+        if params.stream:
+            chunks = self.client.ainvoke_streaming(self.model, args)
+            stream = chunks_to_stream(chunks, usage)
+        else:
+            response = await self.client.ainvoke_non_streaming(self.model, args)
+            stream = response_to_stream(response, usage)
+
         stream = self.post_process_stream(stream, params, self.chat_emulator)
 
         async for content in stream:
