@@ -30,7 +30,7 @@ def truncate_prompt_by_words(
     )
 
 
-def test_no_trimming():
+def test_no_truncation():
     messages = [
         SystemMessage(content="text1"),
         HumanMessage(content="text2"),
@@ -44,7 +44,7 @@ def test_no_trimming():
     assert discarded_messages == set()
 
 
-def test_trimming():
+def test_truncation():
     messages = [
         SystemMessage(content="system1"),
         HumanMessage(content="remove1"),
@@ -61,7 +61,7 @@ def test_trimming():
     assert discarded_messages == {1, 3}
 
 
-def test_trimming_with_one_message_left():
+def test_truncation_with_one_message_left():
     messages = [
         AIMessage(content="reply"),
         HumanMessage(content="query"),
@@ -74,7 +74,7 @@ def test_trimming_with_one_message_left():
     assert isinstance(discarded_messages, set) and discarded_messages == {0}
 
 
-def test_trimming_with_one_message_accepted_after_second_check():
+def test_truncation_with_one_message_accepted_after_second_check():
     messages = [
         AIMessage(content="hello world"),
         HumanMessage(content="query"),
