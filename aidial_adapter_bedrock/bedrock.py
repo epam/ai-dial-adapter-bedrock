@@ -1,10 +1,13 @@
 import json
-from typing import Any, AsyncIterator
+from abc import ABC
+from typing import Any, AsyncIterator, Optional
 
 import boto3
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
+from pydantic import BaseModel, Field
 
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -64,3 +67,26 @@ class Bedrock:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
                 log.debug(f"chunk: {chunk_dict}")
                 yield chunk_dict
+
+
+class InvocationMetrics(BaseModel):
+    inputTokenCount: int
+    outputTokenCount: int
+    invocationLatency: int
+    firstByteLatency: int
+
+
+class ResponseWithInvocationMetricsMixin(ABC, BaseModel):
+    invocation_metrics: Optional[InvocationMetrics] = Field(
+        alias="amazon-bedrock-invocationMetrics"
+    )
+
+    def usage_by_metrics(self) -> TokenUsage:
+        metrics = self.invocation_metrics
+        if metrics is None:
+            return TokenUsage()
+
+        return TokenUsage(
+            prompt_tokens=metrics.inputTokenCount,
+            completion_tokens=metrics.outputTokenCount,
+        )
