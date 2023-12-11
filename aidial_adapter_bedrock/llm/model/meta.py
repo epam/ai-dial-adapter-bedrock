@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import (
@@ -15,12 +15,6 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
 from aidial_adapter_bedrock.llm.model.llama_chat import llama_emulator
-
-
-class MetaResult(BaseModel):
-    tokenCount: int
-    outputText: str
-    completionReason: Optional[str]
 
 
 class MetaResponse(ResponseWithInvocationMetricsMixin):

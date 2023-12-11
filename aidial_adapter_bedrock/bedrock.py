@@ -70,10 +70,10 @@ class Bedrock:
 
 
 class InvocationMetrics(BaseModel):
-    inputTokenCount: int = Field(alias="inputTokenCount")
-    outputTokenCount: int = Field(alias="outputTokenCount")
-    invocationLatency: int = Field(alias="invocationLatency")
-    firstByteLatency: int = Field(alias="firstByteLatency")
+    inputTokenCount: int
+    outputTokenCount: int
+    invocationLatency: int
+    firstByteLatency: int
 
 
 class ResponseWithInvocationMetricsMixin(ABC, BaseModel):

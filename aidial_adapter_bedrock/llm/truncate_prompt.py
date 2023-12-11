@@ -83,7 +83,6 @@ def truncate_prompt(
             model_limit=model_limit, token_count=token_count
         )
 
-    token_count: int = 0
     kept_indices: Set[int] = {
         idx for idx in range(0, n) if keep_message(messages, idx)
     }
@@ -101,6 +100,5 @@ def truncate_prompt(
             break
 
         kept_indices.add(idx)
-        token_count = new_token_count
 
     return all_indices - kept_indices

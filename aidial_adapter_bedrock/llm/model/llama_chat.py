@@ -90,8 +90,6 @@ def format_sequence(text: str, bos: bool, eos: bool) -> str:
 
 
 def create_chat_prompt(dialogue: Dialogue) -> str:
-    ret: List[str] = []
-
     system = dialogue.system
     if system is not None:
         dialogue.prepend_to_first_human_message(B_SYS + system + E_SYS)
