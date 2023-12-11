@@ -1,11 +1,9 @@
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from pydantic import Field
 from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
-    InvocationMetrics,
     ResponseWithInvocationMetricsMixin,
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -22,9 +20,6 @@ class MetaResponse(ResponseWithInvocationMetricsMixin):
     prompt_token_count: Optional[int]
     generation_token_count: Optional[int]
     stop_reason: Optional[str]
-    invocation_metrics: Optional[InvocationMetrics] = Field(
-        alias="amazon-bedrock-invocationMetrics"
-    )
 
     def content(self) -> str:
         return self.generation

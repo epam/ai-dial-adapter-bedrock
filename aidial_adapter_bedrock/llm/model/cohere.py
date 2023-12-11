@@ -5,7 +5,6 @@ from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
-    InvocationMetrics,
     ResponseWithInvocationMetricsMixin,
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -44,9 +43,6 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
     id: str
     prompt: Optional[str]
     generations: List[CohereGeneration]
-    invocation_metrics: Optional[InvocationMetrics] = Field(
-        alias="amazon-bedrock-invocationMetrics"
-    )
 
     def content(self) -> str:
         return self.generations[0].text
