@@ -45,6 +45,22 @@ class UserLimitOverflow(TruncatePromptError):
         )
 
 
+def partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
+    """Returns a function that maps an index to indices of its partition.
+    >>> [partition_indexer([2, 3])(i) for i in range(0, 5)]
+    [[0, 1], [0, 1], [2, 3, 4], [2, 3, 4], [2, 3, 4]]
+    """
+    mapping: dict[int, List[int]] = {}
+    offset = 0
+    for size in chunks:
+        chunk = list(range(offset, offset + size))
+        for idx in range(0, size):
+            mapping[offset + idx] = chunk
+        offset += size
+
+    return mapping.__getitem__
+
+
 T = TypeVar("T")
 Messages = List[T]
 
@@ -53,6 +69,7 @@ def truncate_prompt(
     messages: Messages,
     tokenize: Callable[[Messages], int],
     keep_message: Callable[[Messages, int], bool],
+    partition_messages: Callable[[Messages], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
 ) -> Set[int] | TruncatePromptError:
@@ -65,17 +82,11 @@ def truncate_prompt(
             user_limit=user_limit, model_limit=model_limit
         )
 
-    def _tokenize_selected(indices: Set[int]) -> int:
-        return tokenize(select_by_indices(messages, indices))
-
-    n = len(messages)
-    all_indices = set(range(0, n))
-
     if user_limit is None:
         if model_limit is None:
             return set()
 
-        token_count = _tokenize_selected(all_indices)
+        token_count = tokenize(messages)
         if token_count <= model_limit:
             return set()
 
@@ -83,8 +94,23 @@ def truncate_prompt(
             model_limit=model_limit, token_count=token_count
         )
 
+    partition_sizes = partition_messages(messages)
+    if sum(partition_sizes) != len(messages):
+        raise ValueError(
+            "Partition sizes must add up to the number of messages."
+        )
+
+    def _tokenize_selected(indices: Set[int]) -> int:
+        return tokenize(select_by_indices(messages, indices))
+
+    get_partition_indices = partition_indexer(partition_sizes)
+
+    n = len(messages)
     kept_indices: Set[int] = {
-        idx for idx in range(0, n) if keep_message(messages, idx)
+        j
+        for i in range(0, n)
+        for j in get_partition_indices(i)
+        if keep_message(messages, i)
     }
 
     token_count = _tokenize_selected(kept_indices)
@@ -95,10 +121,12 @@ def truncate_prompt(
         if idx in kept_indices:
             continue
 
-        new_token_count = _tokenize_selected({*kept_indices, idx})
+        chunk_indices = get_partition_indices(idx)
+        new_token_count = _tokenize_selected({*kept_indices, *chunk_indices})
         if new_token_count > user_limit:
             break
 
-        kept_indices.add(idx)
+        kept_indices.update(chunk_indices)
 
+    all_indices = set(range(0, n))
     return all_indices - kept_indices

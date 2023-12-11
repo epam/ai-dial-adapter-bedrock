@@ -8,12 +8,15 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     ChatEmulator,
     CueMapping,
 )
-from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
+from aidial_adapter_bedrock.llm.chat_model import (
+    PseudoChatModel,
+    default_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
@@ -96,7 +99,9 @@ class AnthropicAdapter(PseudoChatModel):
             model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
         )
         chat_emulator = get_anthropic_emulator(is_system_message_supported)
-        super().__init__(model, count_tokens, chat_emulator)
+        super().__init__(
+            model, count_tokens, chat_emulator, default_partitioner
+        )
         self.client = client
 
     async def _apredict(
