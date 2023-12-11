@@ -47,14 +47,14 @@ class UserLimitOverflow(TruncatePromptError):
 
 def partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
     """Returns a function that maps an index to indices of its partition.
-    >>> [partition_indexer([2, 3])(i) for i in range(0, 5)]
+    >>> [partition_indexer([2, 3])(i) for i in range(5)]
     [[0, 1], [0, 1], [2, 3, 4], [2, 3, 4], [2, 3, 4]]
     """
     mapping: dict[int, List[int]] = {}
     offset = 0
     for size in chunks:
         chunk = list(range(offset, offset + size))
-        for idx in range(0, size):
+        for idx in range(size):
             mapping[offset + idx] = chunk
         offset += size
 
@@ -108,7 +108,7 @@ def truncate_prompt(
     n = len(messages)
     kept_indices: Set[int] = {
         j
-        for i in range(0, n)
+        for i in range(n)
         for j in get_partition_indices(i)
         if keep_message(messages, i)
     }
@@ -117,7 +117,7 @@ def truncate_prompt(
     if token_count > user_limit:
         return UserLimitOverflow(user_limit=user_limit, token_count=token_count)
 
-    for idx in reversed(range(0, n)):
+    for idx in reversed(range(n)):
         if idx in kept_indices:
             continue
 
@@ -128,5 +128,5 @@ def truncate_prompt(
 
         kept_indices.update(chunk_indices)
 
-    all_indices = set(range(0, n))
+    all_indices = set(range(n))
     return all_indices - kept_indices
