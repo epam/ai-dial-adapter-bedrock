@@ -115,7 +115,7 @@ Here are the tools available:
 class Claude2_1_ToolsEmulator(ToolsEmulator):
     @property
     def tools_string(self) -> Optional[str]:
-        return self.tool_config and _format_tools(self.tool_config.tools)
+        return _format_tools(self.tool_config.tools)
 
     def transform_messages(
         self, messages: List[BaseMessage]

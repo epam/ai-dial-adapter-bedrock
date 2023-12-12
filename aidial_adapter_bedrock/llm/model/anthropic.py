@@ -1,7 +1,8 @@
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, List
 
 import anthropic
 from anthropic.tokenizer import count_tokens
+from typing_extensions import override
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -20,6 +21,8 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.tools.base import ToolConfig
+from aidial_adapter_bedrock.llm.tools.claude import Claude2_1_ToolsEmulator
 
 
 def compute_usage(prompt: str, completion: str) -> TokenUsage:
@@ -93,20 +96,33 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
 class AnthropicAdapter(PseudoChatModel):
     client: Bedrock
+    is_claude_v2_1: bool
 
     @classmethod
     def create(cls, client: Bedrock, model: str):
-        is_system_message_supported = (
-            model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+        is_claude_v2_1 = model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+        chat_emulator = get_anthropic_emulator(
+            is_system_message_supported=is_claude_v2_1
         )
-        chat_emulator = get_anthropic_emulator(is_system_message_supported)
         return cls(
             client=client,
             model=model,
             tokenize=count_tokens,
             chat_emulator=chat_emulator,
             partitioner=default_partitioner,
+            is_claude_v2_1=is_claude_v2_1,
         )
+
+    @override
+    def _handle_tools(
+        self, messages: List[BaseMessage], tool_config: ToolConfig
+    ) -> List[BaseMessage]:
+        if not self.is_claude_v2_1:
+            return Claude2_1_ToolsEmulator(
+                tool_config=tool_config
+            ).transform_messages(messages)
+
+        return super()._handle_tools(messages, tool_config)
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

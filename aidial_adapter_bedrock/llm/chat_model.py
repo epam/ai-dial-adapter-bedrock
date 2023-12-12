@@ -14,6 +14,7 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     parse_message,
 )
+from aidial_adapter_bedrock.llm.tools.base import ToolConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
@@ -63,6 +64,14 @@ class ChatModel(ABC, BaseModel):
 
         return messages
 
+    def _handle_tools(
+        self, messages: List[BaseMessage], tool_config: ToolConfig
+    ) -> List[BaseMessage]:
+        log.warning(
+            "The model doesn't support tools/functions, however they were specified in the request. Continuing without tools/functions."
+        )
+        return messages
+
     async def achat(
         self,
         consumer: Consumer,
@@ -71,6 +80,11 @@ class ChatModel(ABC, BaseModel):
     ):
         base_messages = list(map(parse_message, messages))
         base_messages = self._validate_and_cleanup_messages(base_messages)
+
+        if params.tool_config is not None:
+            base_messages = self._handle_tools(
+                base_messages, params.tool_config
+            )
 
         chat_prompt = self._prepare_prompt(
             base_messages, params.max_prompt_tokens
