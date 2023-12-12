@@ -6,8 +6,11 @@ from typing_extensions import override
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
-from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
+from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
+from aidial_adapter_bedrock.llm.chat_model import (
+    PseudoChatModel,
+    default_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
@@ -104,7 +107,7 @@ class AmazonAdapter(PseudoChatModel):
         tokenize: Callable[[str], int],
         chat_emulator: ChatEmulator,
     ):
-        super().__init__(model_id, tokenize, chat_emulator)
+        super().__init__(model_id, tokenize, chat_emulator, default_partitioner)
         self.client = client
 
     @override

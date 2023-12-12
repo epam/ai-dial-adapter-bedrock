@@ -12,7 +12,10 @@ from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
-from aidial_adapter_bedrock.llm.model.llama_chat import llama_emulator
+from aidial_adapter_bedrock.llm.model.llama_chat import (
+    llama_emulator,
+    llama_partitioner,
+)
 
 
 class MetaResponse(ResponseWithInvocationMetricsMixin):
@@ -76,7 +79,7 @@ class MetaAdapter(PseudoChatModel):
     def __init__(
         self, client: Bedrock, model: str, tokenize: Callable[[str], int]
     ):
-        super().__init__(model, tokenize, llama_emulator)
+        super().__init__(model, tokenize, llama_emulator, llama_partitioner)
         self.client = client
 
     @override

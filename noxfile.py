@@ -41,7 +41,7 @@ def run_tests(session: nox.Session, default_dir: str):
     else:
         test_files = [default_dir]
 
-    session.run("pytest", *test_files)
+    session.run("pytest", "aidial_adapter_bedrock", *test_files)
 
 
 @nox.session

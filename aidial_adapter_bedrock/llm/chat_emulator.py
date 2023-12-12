@@ -13,7 +13,7 @@ from aidial_adapter_bedrock.llm.message import (
 class ChatEmulator(ABC, BaseModel):
     @abstractmethod
     def display(self, messages: List[BaseMessage]) -> Tuple[str, List[str]]:
-        """Returns the completion string and the list of stop sequences."""
+        """Returns a prompt string and a list of stop sequences."""
 
     @abstractmethod
     def get_ai_cue(self) -> Optional[str]:

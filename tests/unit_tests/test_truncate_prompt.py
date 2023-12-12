@@ -1,6 +1,9 @@
 from typing import List, Optional, Set
 
-from aidial_adapter_bedrock.llm.chat_model import is_important_message
+from aidial_adapter_bedrock.llm.chat_model import (
+    default_keep_message,
+    default_partitioner,
+)
 from aidial_adapter_bedrock.llm.message import (
     AIMessage,
     BaseMessage,
@@ -24,7 +27,8 @@ def truncate_prompt_by_words(
     return truncate_prompt(
         messages=messages,
         tokenize=_tokenize_by_words,
-        keep_message=is_important_message,
+        keep_message=default_keep_message,
+        partition_messages=default_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,
     )
@@ -41,7 +45,7 @@ def test_no_truncation():
         messages=messages, user_limit=3
     )
 
-    assert discarded_messages == set()
+    assert isinstance(discarded_messages, set) and discarded_messages == set()
 
 
 def test_truncation():
@@ -57,7 +61,6 @@ def test_truncation():
         messages=messages, user_limit=3
     )
 
-    assert isinstance(discarded_messages, set)
     assert discarded_messages == {1, 3}
 
 
@@ -71,7 +74,7 @@ def test_truncation_with_one_message_left():
         messages=messages, user_limit=1
     )
 
-    assert isinstance(discarded_messages, set) and discarded_messages == {0}
+    assert discarded_messages == {0}
 
 
 def test_truncation_with_one_message_accepted_after_second_check():
@@ -84,7 +87,6 @@ def test_truncation_with_one_message_accepted_after_second_check():
         messages=messages, user_limit=1
     )
 
-    assert isinstance(discarded_messages, set)
     assert discarded_messages == {0}
 
 

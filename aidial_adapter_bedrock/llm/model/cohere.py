@@ -9,11 +9,14 @@ from aidial_adapter_bedrock.bedrock import (
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
 )
-from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
+from aidial_adapter_bedrock.llm.chat_model import (
+    PseudoChatModel,
+    default_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
@@ -139,7 +142,7 @@ class CohereAdapter(PseudoChatModel):
         model: str,
         tokenize: Callable[[str], int],
     ):
-        super().__init__(model, tokenize, cohere_emulator)
+        super().__init__(model, tokenize, cohere_emulator, default_partitioner)
         self.client = client
 
     @override

@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
+from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIMessage,
@@ -121,6 +121,18 @@ class LlamaChatEmulator(ChatEmulator):
 
     def get_ai_cue(self) -> Optional[str]:
         return None
+
+
+def llama_partitioner(messages: List[BaseMessage]) -> List[int]:
+    dialogue = validate_chat(messages)
+
+    ret: List[int] = []
+    if dialogue.system is not None:
+        ret.append(1)
+    ret.extend([2] * len(dialogue.turns))
+    ret.append(1)
+
+    return ret
 
 
 llama_emulator = LlamaChatEmulator()

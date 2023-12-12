@@ -1,6 +1,6 @@
 from typing import List
 
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import (
+from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
     default_emulator,

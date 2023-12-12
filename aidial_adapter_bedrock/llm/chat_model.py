@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.chat_emulation.chat_emulator import ChatEmulator
+from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
@@ -89,10 +89,13 @@ class ChatModel(ABC):
             consumer.set_discarded_messages(chat_prompt.discarded_messages)
 
 
-def is_important_message(messages: List[BaseMessage], index: int) -> bool:
-    return (
-        isinstance(messages[index], SystemMessage) or index == len(messages) - 1
-    )
+def default_keep_message(messages: List[BaseMessage], idx: int) -> bool:
+    """Keep system messages and the last message."""
+    return isinstance(messages[idx], SystemMessage) or idx == len(messages) - 1
+
+
+def default_partitioner(messages: List[BaseMessage]) -> List[int]:
+    return [1] * len(messages)
 
 
 class PseudoChatModel(ChatModel, ABC):
@@ -104,10 +107,12 @@ class PseudoChatModel(ChatModel, ABC):
         model: str,
         tokenize: Callable[[str], int],
         chat_emulator: ChatEmulator,
+        partitioner: Callable[[List[BaseMessage]], List[int]],
     ):
         super().__init__(model)
         self.tokenize = tokenize
         self.chat_emulator = chat_emulator
+        self.partitioner = partitioner
 
     def _tokenize(self, messages: List[BaseMessage]) -> int:
         return self.tokenize(self.chat_emulator.display(messages)[0])
@@ -118,7 +123,8 @@ class PseudoChatModel(ChatModel, ABC):
         truncate_result = truncate_prompt(
             messages=messages,
             tokenize=self._tokenize,
-            keep_message=is_important_message,
+            keep_message=default_keep_message,
+            partition_messages=self.partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,
         )
