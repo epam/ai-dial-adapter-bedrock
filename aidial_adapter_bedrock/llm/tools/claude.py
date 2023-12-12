@@ -3,7 +3,7 @@ from typing import List, Optional
 from aidial_sdk.chat_completion import Tool
 
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
-from aidial_adapter_bedrock.llm.tools_emulation.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 
 Arg = None | str | List[str | None]
 

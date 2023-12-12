@@ -3,7 +3,7 @@ from typing import List, Optional
 from aidial_sdk.chat_completion import Request
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.tools_emulation.base import ToolConfig
+from aidial_adapter_bedrock.llm.tools.base import ToolConfig
 
 
 class ModelParameters(BaseModel):
