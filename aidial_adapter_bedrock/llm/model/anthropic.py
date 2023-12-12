@@ -1,18 +1,24 @@
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict
 
+import anthropic
 from anthropic.tokenizer import count_tokens
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulation import claude_chat
-from aidial_adapter_bedrock.llm.chat_emulation.claude_chat import (
-    ClaudeChatHistory,
+from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.llm.chat_emulator import (
+    BasicChatEmulator,
+    ChatEmulator,
+    CueMapping,
 )
-from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
+from aidial_adapter_bedrock.llm.chat_model import (
+    PseudoChatModel,
+    default_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.message import BaseMessage
+from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 
 
@@ -61,31 +67,42 @@ async def response_to_stream(response: dict) -> AsyncIterator[str]:
     yield response["completion"]
 
 
-class AnthropicAdapter(ChatModel):
+def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
+    def add_cue(message: BaseMessage, idx: int) -> bool:
+        if (
+            idx == 0
+            and isinstance(message, SystemMessage)
+            and is_system_message_supported
+        ):
+            return False
+        return True
+
+    return BasicChatEmulator(
+        prelude_template=None,
+        add_cue=add_cue,
+        add_invitation_cue=True,
+        fallback_to_completion=False,
+        cues=CueMapping(
+            system=anthropic.HUMAN_PROMPT.strip(),
+            human=anthropic.HUMAN_PROMPT.strip(),
+            ai=anthropic.AI_PROMPT.strip(),
+        ),
+        separator="\n\n",
+    )
+
+
+class AnthropicAdapter(PseudoChatModel):
     client: Bedrock
 
     def __init__(self, client: Bedrock, model: str):
-        super().__init__(model)
+        is_system_message_supported = (
+            model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+        )
+        chat_emulator = get_anthropic_emulator(is_system_message_supported)
+        super().__init__(
+            model, count_tokens, chat_emulator, default_partitioner
+        )
         self.client = client
-
-    def _prepare_prompt(
-        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
-    ) -> ChatPrompt:
-        history = ClaudeChatHistory.create(messages)
-        if max_prompt_tokens is None:
-            return ChatPrompt(
-                text=history.format(), stop_sequences=claude_chat.STOP_SEQUENCES
-            )
-
-        history, discarded_messages_count = history.trim(
-            count_tokens, max_prompt_tokens
-        )
-
-        return ChatPrompt(
-            text=history.format(),
-            stop_sequences=claude_chat.STOP_SEQUENCES,
-            discarded_messages=discarded_messages_count,
-        )
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

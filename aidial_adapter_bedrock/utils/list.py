@@ -1,9 +1,11 @@
-from typing import List, Set, TypeVar
+from typing import Container, List, TypeVar
 
 T = TypeVar("T")
 
 
-def exclude_indices(input_list: List[T], indices: Set[int]) -> List[T]:
-    return [
-        item for index, item in enumerate(input_list) if index not in indices
-    ]
+def select_by_indices(lst: List[T], indices: Container[int]) -> List[T]:
+    return [elem for idx, elem in enumerate(lst) if idx in indices]
+
+
+def omit_by_indices(lst: List[T], indices: Container[int]) -> List[T]:
+    return [elem for idx, elem in enumerate(lst) if idx not in indices]

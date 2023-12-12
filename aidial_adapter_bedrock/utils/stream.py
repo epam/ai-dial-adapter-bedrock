@@ -77,4 +77,3 @@ async def ensure_not_empty(
 
     if all_chunks_are_empty:
         yield default
-        yield default
