@@ -3,6 +3,8 @@ from typing import List, Optional
 from aidial_sdk.chat_completion import Request
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.llm.tools_emulation.base import ToolConfig
+
 
 class ModelParameters(BaseModel):
     temperature: Optional[float] = None
@@ -12,6 +14,7 @@ class ModelParameters(BaseModel):
     max_tokens: Optional[int] = None
     max_prompt_tokens: Optional[int] = None
     stream: bool = False
+    tool_config: Optional[ToolConfig] = None
 
     @classmethod
     def create(cls, request: Request) -> "ModelParameters":
@@ -31,6 +34,7 @@ class ModelParameters(BaseModel):
             max_tokens=request.max_tokens,
             max_prompt_tokens=request.max_prompt_tokens,
             stream=request.stream,
+            tool_config=ToolConfig.from_request(request),
         )
 
     def add_stop_sequences(self, stop: List[str]) -> "ModelParameters":

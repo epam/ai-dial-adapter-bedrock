@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from aidial_sdk.chat_completion import Message, Role
+from aidial_sdk.chat_completion import AssistantMessage, Message, UserMessage
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
@@ -36,7 +36,7 @@ async def main():
         turn += 1
 
         content = chat_input()[:MAX_INPUT_CHARS]
-        messages.append(Message(role=Role.USER, content=content))
+        messages.append(UserMessage(role="user", content=content))
 
         response = CollectConsumer()
         await model.achat(response, params, messages)
@@ -44,7 +44,9 @@ async def main():
         print_info(response.usage.json(indent=2))
 
         print_ai(response.content.strip())
-        messages.append(Message(role=Role.ASSISTANT, content=response.content))
+        messages.append(
+            AssistantMessage(role="assistant", content=response.content)
+        )
 
 
 if __name__ == "__main__":

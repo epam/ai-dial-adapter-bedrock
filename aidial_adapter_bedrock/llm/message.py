@@ -1,6 +1,4 @@
-from abc import abstractmethod
-
-from aidial_sdk.chat_completion import Message, Role
+import aidial_sdk.chat_completion as sdk
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -9,40 +7,30 @@ from aidial_adapter_bedrock.llm.exceptions import ValidationError
 class BaseMessage(BaseModel):
     content: str
 
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        """Type of the message, used for serialization."""
-
 
 class SystemMessage(BaseMessage):
-    @property
-    def type(self) -> str:
-        return "system"
+    pass
 
 
 class HumanMessage(BaseMessage):
-    @property
-    def type(self) -> str:
-        return "human"
+    pass
 
 
 class AIMessage(BaseMessage):
-    @property
-    def type(self) -> str:
-        return "ai"
+    pass
 
 
-def parse_message(msg: Message) -> BaseMessage:
-    if msg.content is None:
-        raise ValidationError("Message content must be present")
-
-    match msg.role:
-        case Role.SYSTEM:
-            return SystemMessage(content=msg.content)
-        case Role.USER:
-            return HumanMessage(content=msg.content)
-        case Role.ASSISTANT:
-            return AIMessage(content=msg.content)
-        case Role.FUNCTION:
+def parse_message(msg: sdk.Message) -> BaseMessage:
+    match msg:
+        case sdk.SystemMessage(content=content):
+            return SystemMessage(content=content)
+        case sdk.UserMessage(content=content):
+            return HumanMessage(content=content)
+        case sdk.AssistantMessage(content=content):
+            return AIMessage(content=content)
+        case sdk.FunctionMessage():
             raise ValidationError("Function calls are not supported")
+        case sdk.ToolMessage():
+            raise ValidationError("Tool calls are not supported")
+        case _:
+            raise ValidationError("Unknown message type")
