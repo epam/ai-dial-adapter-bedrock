@@ -51,7 +51,7 @@ class ChoiceConsumer(Consumer):
         self.choice.add_attachment(**attachment.dict())
 
     def add_usage(self, usage: TokenUsage):
-        self.usage += usage
+        self.usage.accumulate(usage)
 
     def set_discarded_messages(self, discarded_messages: int):
         self.discarded_messages = discarded_messages
@@ -76,7 +76,7 @@ class CollectConsumer(Consumer):
         self.attachments.append(attachment)
 
     def add_usage(self, usage: TokenUsage):
-        self.usage += usage
+        self.usage.accumulate(usage)
 
     def set_discarded_messages(self, discarded_messages: int):
         self.discarded_messages = discarded_messages

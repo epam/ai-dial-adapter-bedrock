@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Tuple
 
 from pydantic import BaseModel
 
@@ -11,7 +11,7 @@ class ToolsEmulator(ABC, BaseModel):
     tool_config: ToolConfig
 
     @abstractmethod
-    def transform_messages(
+    def add_tool_declarations(
         self, messages: List[BaseMessage]
-    ) -> List[BaseMessage]:
+    ) -> Tuple[List[BaseMessage], List[str]]:
         pass

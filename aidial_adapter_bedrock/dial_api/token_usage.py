@@ -13,6 +13,3 @@ class TokenUsage(BaseModel):
         self.prompt_tokens += other.prompt_tokens
         self.completion_tokens += other.completion_tokens
         return self
-
-    def __add__(self, other: "TokenUsage") -> "TokenUsage":
-        return self.copy().accumulate(other)

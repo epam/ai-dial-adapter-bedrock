@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from aidial_sdk.chat_completion import Tool
 
@@ -46,12 +46,12 @@ def _format_parameters(parameters: dict) -> str | None:
             _tag_nl(
                 "parameter",
                 [
-                    _tag("name", param.name),
-                    _tag("type", param.type),
-                    _tag("description", param.description),
+                    _tag("name", name),
+                    _tag("type", body["type"]),
+                    _tag("description", body.get("description")),
                 ],
             )
-            for param in parameters
+            for name, body in parameters["properties"].items()
         ],
     )
 
@@ -117,13 +117,16 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     def tools_string(self) -> Optional[str]:
         return _format_tools(self.tool_config.tools)
 
-    def transform_messages(
+    def add_tool_declarations(
         self, messages: List[BaseMessage]
-    ) -> List[BaseMessage]:
+    ) -> Tuple[List[BaseMessage], List[str]]:
         if self.tools_string is None:
-            return messages
+            return messages, []
 
         system_message = _system_message_template.format(
             tools_string=self.tools_string
         )
-        return [SystemMessage(content=system_message), *messages]
+
+        return [SystemMessage(content=system_message), *messages], [
+            "</function_calls>"
+        ]

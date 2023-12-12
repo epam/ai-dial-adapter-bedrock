@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, List
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import anthropic
 from anthropic.tokenizer import count_tokens
@@ -114,15 +114,15 @@ class AnthropicAdapter(PseudoChatModel):
         )
 
     @override
-    def _handle_tools(
-        self, messages: List[BaseMessage], tool_config: ToolConfig
-    ) -> List[BaseMessage]:
-        if not self.is_claude_v2_1:
+    def _add_tool_declarations(
+        self, messages: List[BaseMessage], tool_config: Optional[ToolConfig]
+    ) -> Tuple[List[BaseMessage], List[str]]:
+        if self.is_claude_v2_1 and tool_config is not None:
             return Claude2_1_ToolsEmulator(
                 tool_config=tool_config
-            ).transform_messages(messages)
+            ).add_tool_declarations(messages)
 
-        return super()._handle_tools(messages, tool_config)
+        return super()._add_tool_declarations(messages, tool_config)
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Callable, List, Optional
+from typing import AsyncIterator, Callable, List, Optional, Tuple
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
@@ -64,13 +64,14 @@ class ChatModel(ABC, BaseModel):
 
         return messages
 
-    def _handle_tools(
-        self, messages: List[BaseMessage], tool_config: ToolConfig
-    ) -> List[BaseMessage]:
-        log.warning(
-            "The model doesn't support tools/functions, however they were specified in the request. Continuing without tools/functions."
-        )
-        return messages
+    def _add_tool_declarations(
+        self, messages: List[BaseMessage], tool_config: Optional[ToolConfig]
+    ) -> Tuple[List[BaseMessage], List[str]]:
+        if tool_config is not None:
+            log.warning(
+                "The model doesn't support tools/functions, however they were specified in the request. Continuing without tools/functions."
+            )
+        return messages, []
 
     async def achat(
         self,
@@ -81,15 +82,14 @@ class ChatModel(ABC, BaseModel):
         base_messages = list(map(parse_message, messages))
         base_messages = self._validate_and_cleanup_messages(base_messages)
 
-        if params.tool_config is not None:
-            base_messages = self._handle_tools(
-                base_messages, params.tool_config
-            )
+        base_messages, stop_sequences = self._add_tool_declarations(
+            base_messages, params.tool_config
+        )
+        params = params.add_stop_sequences(stop_sequences)
 
         chat_prompt = self._prepare_prompt(
             base_messages, params.max_prompt_tokens
         )
-
         params = params.add_stop_sequences(chat_prompt.stop_sequences)
 
         log.debug(
