@@ -1,6 +1,9 @@
-from typing import List, Optional, Tuple
+import json
+from collections import defaultdict
+from typing import Any, List, Optional, Tuple
 
-from aidial_sdk.chat_completion import Tool
+from aidial_sdk.chat_completion import FunctionCall, Tool
+from defusedxml import ElementTree
 
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
@@ -110,6 +113,67 @@ You may call them like this. Only invoke one function at a time and wait for the
 Here are the tools available:
 {tools_string}
 """
+
+
+def etree_to_dict(t) -> dict[str, Any]:
+    d = {t.tag: {}}
+    children = list(t)
+    if children:
+        dd = defaultdict(list)
+        for dc in map(etree_to_dict, children):
+            for k, v in dc.items():
+                dd[k].append(v)
+        d = {t.tag: {k: v[0] if len(v) == 1 else v for k, v in dd.items()}}
+    if t.attrib:
+        d[t.tag].update(("@" + k, v) for k, v in t.attrib.items())
+    if t.text and t.text.strip():
+        if children or t.attrib:
+            d[t.tag]["#text"] = t.text
+        else:
+            d[t.tag] = t.text
+    return d
+
+
+def parse_function_call(text: str) -> FunctionCall:
+    """
+    Parses function call string:
+    <function_calls>
+    <invoke>
+    <tool_name>get_lat_long</tool_name>
+    <parameters>
+    <place>London</place>
+    </parameters>
+    </invoke>
+    """
+    skip_n = len("<function_calls>")
+    start_index = text.find("<function_calls>")
+    if start_index == -1:
+        raise Exception(
+            "Unable to parse function call, missing 'function_calls' tag"
+        )
+
+    extracted_text = text[start_index + skip_n :]
+
+    xml = ElementTree.fromstring(extracted_text)
+    tool_name_element = xml.find("tool_name")
+    if tool_name_element is None:
+        raise Exception(
+            "Unable to parse function call, invalid XML or missing 'tool_name' tag"
+        )
+
+    tool_name = tool_name_element.text.strip()
+    parameters_xml = xml.find("parameters")
+    if parameters_xml is None:
+        raise Exception(
+            "Unable to parse function call, invalid XML or missing 'parameters' tag"
+        )
+
+    param_dict = etree_to_dict(parameters_xml)
+    arguments = param_dict["parameters"]
+
+    return FunctionCall(
+        name=tool_name, arguments=json.dumps(arguments, indent=2)
+    )
 
 
 class Claude2_1_ToolsEmulator(ToolsEmulator):

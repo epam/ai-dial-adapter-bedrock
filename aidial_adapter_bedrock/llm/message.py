@@ -27,7 +27,8 @@ def parse_message(msg: sdk.Message) -> BaseMessage:
         case sdk.UserMessage(content=content):
             return HumanMessage(content=content)
         case sdk.AssistantMessage(content=content):
-            return AIMessage(content=content)
+            # FIXME
+            return AIMessage(content=content or "")
         case sdk.FunctionMessage():
             raise ValidationError("Function calls are not supported")
         case sdk.ToolMessage():

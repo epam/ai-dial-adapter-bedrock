@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from aidial_sdk.chat_completion import Choice
+from aidial_sdk.chat_completion import Choice, FunctionCall
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.tools.claude import parse_function_call
 
 
 class Attachment(BaseModel):
@@ -45,7 +46,18 @@ class ChoiceConsumer(Consumer):
         self.discarded_messages = None
 
     def append_content(self, content: str):
-        self.choice.append_content(content)
+        # HACK: works only in non-streaming mode
+        call: Optional[FunctionCall] = None
+        try:
+            call = parse_function_call(content)
+        except Exception:
+            pass
+
+        if call is not None:
+            # FIXME: check the functions/tools mode
+            self.choice.add_function_call(call)
+        else:
+            self.choice.append_content(content)
 
     def add_attachment(self, attachment: Attachment):
         self.choice.add_attachment(**attachment.dict())
