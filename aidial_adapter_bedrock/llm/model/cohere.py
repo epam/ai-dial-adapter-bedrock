@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from typing_extensions import override
@@ -20,6 +20,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -136,14 +137,15 @@ cohere_emulator = BasicChatEmulator(
 class CohereAdapter(PseudoChatModel):
     client: Bedrock
 
-    def __init__(
-        self,
-        client: Bedrock,
-        model: str,
-        tokenize: Callable[[str], int],
-    ):
-        super().__init__(model, tokenize, cohere_emulator, default_partitioner)
-        self.client = client
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        return cls(
+            client=client,
+            model=model,
+            tokenize=default_tokenize,
+            chat_emulator=cohere_emulator,
+            partitioner=default_partitioner,
+        )
 
     @override
     def _validate_and_cleanup_messages(

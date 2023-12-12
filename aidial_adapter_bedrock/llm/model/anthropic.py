@@ -94,15 +94,19 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 class AnthropicAdapter(PseudoChatModel):
     client: Bedrock
 
-    def __init__(self, client: Bedrock, model: str):
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
         is_system_message_supported = (
             model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
         )
         chat_emulator = get_anthropic_emulator(is_system_message_supported)
-        super().__init__(
-            model, count_tokens, chat_emulator, default_partitioner
+        return cls(
+            client=client,
+            model=model,
+            tokenize=count_tokens,
+            chat_emulator=chat_emulator,
+            partitioner=default_partitioner,
         )
-        self.client = client
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

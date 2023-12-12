@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from pydantic import BaseModel
 from typing_extensions import override
@@ -6,7 +6,7 @@ from typing_extensions import override
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
+from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
     default_partitioner,
@@ -14,6 +14,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 
 
 class AmazonResult(BaseModel):
@@ -100,15 +101,15 @@ async def response_to_stream(
 class AmazonAdapter(PseudoChatModel):
     client: Bedrock
 
-    def __init__(
-        self,
-        client: Bedrock,
-        model_id: str,
-        tokenize: Callable[[str], int],
-        chat_emulator: ChatEmulator,
-    ):
-        super().__init__(model_id, tokenize, chat_emulator, default_partitioner)
-        self.client = client
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        return cls(
+            client=client,
+            model=model,
+            tokenize=default_tokenize,
+            chat_emulator=default_emulator,
+            partitioner=default_partitioner,
+        )
 
     @override
     def _validate_and_cleanup_messages(

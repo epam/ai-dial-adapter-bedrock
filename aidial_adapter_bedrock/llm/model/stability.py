@@ -104,17 +104,20 @@ class StabilityAdapter(ChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
-    def __init__(self, client: Bedrock, model: str):
-        super().__init__(model)
-        self.client = client
-        self.storage = None
-
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        storage: Optional[FileStorage] = None
         if DIAL_USE_FILE_STORAGE:
-            self.storage = FileStorage(
+            storage = FileStorage(
                 dial_url=DIAL_URL,
                 api_key=DIAL_API_KEY,
                 base_dir="stability",
             )
+        return cls(
+            model=model,
+            client=client,
+            storage=storage,
+        )
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

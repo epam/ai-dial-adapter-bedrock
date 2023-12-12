@@ -32,11 +32,11 @@ class ChatPrompt(BaseModel):
     discarded_messages: Optional[int] = None
 
 
-class ChatModel(ABC):
+class ChatModel(ABC, BaseModel):
     model: str
 
-    def __init__(self, model: str):
-        self.model = model
+    class Config:
+        arbitrary_types_allowed = True
 
     @abstractmethod
     def _prepare_prompt(
@@ -98,21 +98,11 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
     return [1] * len(messages)
 
 
-class PseudoChatModel(ChatModel, ABC):
+class PseudoChatModel(ChatModel):
     chat_emulator: ChatEmulator
     tokenize: Callable[[str], int]
-
-    def __init__(
-        self,
-        model: str,
-        tokenize: Callable[[str], int],
-        chat_emulator: ChatEmulator,
-        partitioner: Callable[[List[BaseMessage]], List[int]],
-    ):
-        super().__init__(model)
-        self.tokenize = tokenize
-        self.chat_emulator = chat_emulator
-        self.partitioner = partitioner
+    chat_emulator: ChatEmulator
+    partitioner: Callable[[List[BaseMessage]], List[int]]
 
     def _tokenize(self, messages: List[BaseMessage]) -> int:
         return self.tokenize(self.chat_emulator.display(messages)[0])

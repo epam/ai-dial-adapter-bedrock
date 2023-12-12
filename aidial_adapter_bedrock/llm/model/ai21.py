@@ -1,17 +1,18 @@
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
+from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
     default_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 
 
 class TextRange(BaseModel):
@@ -103,15 +104,15 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 class AI21Adapter(PseudoChatModel):
     client: Bedrock
 
-    def __init__(
-        self,
-        client: Bedrock,
-        model: str,
-        tokenize: Callable[[str], int],
-        chat_emulator: ChatEmulator,
-    ):
-        super().__init__(model, tokenize, chat_emulator, default_partitioner)
-        self.client = client
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        return cls(
+            client=client,
+            model=model,
+            tokenize=default_tokenize,
+            chat_emulator=default_emulator,
+            partitioner=default_partitioner,
+        )
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
