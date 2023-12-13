@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_partitioner,
 )
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize
+from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
 
 
 class MetaResponse(ResponseWithInvocationMetricsMixin):
@@ -84,6 +85,7 @@ class MetaAdapter(PseudoChatModel):
             model=model,
             tokenize=default_tokenize,
             chat_emulator=llama_emulator,
+            tools_emulator=default_tools_emulator,
             partitioner=llama_partitioner,
         )
 

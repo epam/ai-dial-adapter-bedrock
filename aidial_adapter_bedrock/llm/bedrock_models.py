@@ -10,7 +10,7 @@ class BedrockDeployment(str, Enum):
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
-    ANTHROPIC_CLAUDE_V2_1_200K = (
+    ANTHROPIC_CLAUDE_V2_1 = (
         "anthropic.claude-v2:1"  # "anthropic.claude-v2:1:200k"
     )
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Callable, List, Optional, Tuple
+from typing import AsyncIterator, Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
@@ -12,10 +12,10 @@ from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     BaseMessage,
     SystemMessage,
-    ToolMessage,
     parse_message,
 )
 from aidial_adapter_bedrock.llm.tools.base import ToolConfig
+from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
@@ -36,6 +36,7 @@ class ChatPrompt(BaseModel):
 
 class ChatModel(ABC, BaseModel):
     model: str
+    tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
     class Config:
         arbitrary_types_allowed = True
@@ -65,44 +66,23 @@ class ChatModel(ABC, BaseModel):
 
         return messages
 
-    def _convert_tool_messages_to_base_messages(
-        self,
-        tool_config: Optional[ToolConfig],
-        messages: List[BaseMessage | ToolMessage],
-    ) -> List[BaseMessage]:
-        ret: List[BaseMessage] = [
-            msg for msg in messages if not isinstance(msg, ToolMessage)
-        ]
-        if len(ret) != len(messages):
-            log.warning(
-                "The model doesn't support tools/functions, however messages related to tools/functions were provided in the request. Ignoring such messages."
-            )
-        return ret
-
-    def _add_tool_declarations(
-        self, tool_config: Optional[ToolConfig], messages: List[BaseMessage]
-    ) -> Tuple[List[BaseMessage], List[str]]:
-        if tool_config is not None:
-            log.warning(
-                "The model doesn't support tools/functions, however they were specified in the request. Continuing without tools/functions."
-            )
-        return messages, []
-
     async def achat(
         self,
         consumer: Consumer,
         params: ModelParameters,
         messages: List[Message],
     ):
+        tools_emulator = self.tools_emulator(params.tool_config)
+
         base_messages = list(map(parse_message, messages))
-        base_messages = self._convert_tool_messages_to_base_messages(
-            params.tool_config, base_messages
-        )
+        base_messages = tools_emulator.convert_to_base_messages(base_messages)
+
         base_messages = self._validate_and_cleanup_messages(base_messages)
 
-        base_messages, stop_sequences = self._add_tool_declarations(
-            params.tool_config, base_messages
-        )
+        (
+            base_messages,
+            stop_sequences,
+        ) = tools_emulator.add_tool_declarations(base_messages)
         params = params.add_stop_sequences(stop_sequences)
 
         chat_prompt = self._prepare_prompt(

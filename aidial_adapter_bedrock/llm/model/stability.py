@@ -15,6 +15,7 @@ from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
+from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
 from aidial_adapter_bedrock.utils.env import get_env
 
 
@@ -115,6 +116,7 @@ class StabilityAdapter(ChatModel):
             )
         return cls(
             model=model,
+            tools_emulator=default_tools_emulator,
             client=client,
             storage=storage,
         )

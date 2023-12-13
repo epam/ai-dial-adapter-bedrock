@@ -46,7 +46,7 @@ class ChoiceConsumer(Consumer):
         self.discarded_messages = None
 
     def append_content(self, content: str):
-        # HACK: works only in non-streaming mode
+        # FIXME: works only in non-streaming mode
         call: Optional[FunctionCall] = None
         try:
             call = parse_function_call(content)

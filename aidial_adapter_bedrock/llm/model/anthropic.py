@@ -1,8 +1,7 @@
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict
 
 import anthropic
 from anthropic.tokenizer import count_tokens
-from typing_extensions import override
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -19,14 +18,10 @@ from aidial_adapter_bedrock.llm.chat_model import (
     default_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.message import (
-    BaseMessage,
-    SystemMessage,
-    ToolMessage,
-)
+from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
-from aidial_adapter_bedrock.llm.tools.base import ToolConfig
-from aidial_adapter_bedrock.llm.tools.claude import Claude2_1_ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.claude import claude_v2_1_tools_emulator
+from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
 
 
 def compute_usage(prompt: str, completion: str) -> TokenUsage:
@@ -104,43 +99,26 @@ class AnthropicAdapter(PseudoChatModel):
 
     @classmethod
     def create(cls, client: Bedrock, model: str):
-        is_claude_v2_1 = model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+        is_claude_v2_1 = model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1
+
         chat_emulator = get_anthropic_emulator(
             is_system_message_supported=is_claude_v2_1
         )
+
+        tools_emulator = (
+            claude_v2_1_tools_emulator
+            if is_claude_v2_1
+            else default_tools_emulator
+        )
+
         return cls(
             client=client,
             model=model,
             tokenize=count_tokens,
             chat_emulator=chat_emulator,
+            tools_emulator=tools_emulator,
             partitioner=default_partitioner,
             is_claude_v2_1=is_claude_v2_1,
-        )
-
-    @override
-    def _add_tool_declarations(
-        self, tool_config: Optional[ToolConfig], messages: List[BaseMessage]
-    ) -> Tuple[List[BaseMessage], List[str]]:
-        if self.is_claude_v2_1 and tool_config is not None:
-            return Claude2_1_ToolsEmulator(
-                tool_config=tool_config
-            ).add_tool_declarations(messages)
-
-        return super()._add_tool_declarations(tool_config, messages)
-
-    @override
-    def _convert_tool_messages_to_base_messages(
-        self,
-        tool_config: Optional[ToolConfig],
-        messages: List[BaseMessage | ToolMessage],
-    ) -> List[BaseMessage]:
-        if self.is_claude_v2_1 and tool_config is not None:
-            return Claude2_1_ToolsEmulator(
-                tool_config=tool_config
-            ).convert_tool_messages_to_base_messages(messages)
-
-        return super()._convert_tool_messages_to_base_messages(
-            tool_config, messages
         )
 
     async def _apredict(
