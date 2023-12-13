@@ -44,8 +44,6 @@ chat_deployments = [
     BedrockDeployment.AMAZON_TITAN_TG1_LARGE,
     BedrockDeployment.AI21_J2_GRANDE_INSTRUCT,
     BedrockDeployment.AI21_J2_JUMBO_INSTRUCT,
-    BedrockDeployment.AI21_J2_MID,
-    BedrockDeployment.AI21_J2_ULTRA,
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
