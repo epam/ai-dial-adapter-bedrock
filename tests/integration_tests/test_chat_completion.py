@@ -163,7 +163,7 @@ def get_test_cases(
 
     # ai21 models do not support more than one stop word
     stop = ["world", "World"]
-    if "ai21" in deployment.value:
+    if "ai21" in deployment.model_id:
         stop = ["world"]
 
     ret.append(

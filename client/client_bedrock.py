@@ -23,7 +23,7 @@ async def main():
     params = ModelParameters()
 
     model = await get_bedrock_adapter(
-        model=deployment.get_deployment_id(),
+        model=deployment.model_id,
         region=location,
     )
 

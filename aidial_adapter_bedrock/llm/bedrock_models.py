@@ -1,13 +1,4 @@
-import re
 from enum import Enum
-from typing import Dict
-
-
-def _sanitize_deployment_name(id: str) -> str:
-    """Make the deployment name match a pattern which is expected by the core.
-    Replace non-compliant symbols with a dash.
-    """
-    return re.sub(r"[^-.@a-zA-Z0-9]", "-", id)
 
 
 class BedrockDeployment(str, Enum):
@@ -24,29 +15,16 @@ class BedrockDeployment(str, Enum):
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
-    def get_deployment_id(self) -> str:
-        return _sanitize_deployment_name(self.value)
+    @property
+    def deployment_id(self) -> str:
+        """Deployment id under which the model is served by the adapter."""
+        return self.value
+
+    @property
+    def model_id(self) -> str:
+        """Id of the model in the Bedrock service."""
+        return self.value
 
     @classmethod
     def from_deployment_id(cls, deployment_id: str) -> "BedrockDeployment":
-        model_id = _deployment_id_to_model_id.get(deployment_id)
-        if model_id is None:
-            raise ValueError(f"Unknown deployment: {deployment_id}")
-        return cls(model_id)
-
-
-def _build_reverse_mapping() -> Dict[str, str]:
-    mapping = {}
-    for deployment in BedrockDeployment:
-        deployment_id = deployment.get_deployment_id()
-        model_id = deployment.value
-        if deployment_id in mapping:
-            raise ValueError(
-                f"The same deployment id '{deployment_id}' corresponds "
-                f"to two model ids: '{model_id}' and '{mapping[deployment_id]}'"
-            )
-        mapping[deployment_id] = model_id
-    return mapping
-
-
-_deployment_id_to_model_id: Dict[str, str] = _build_reverse_mapping()
+        return cls(deployment_id)

@@ -60,7 +60,6 @@ def _format_parameters(parameters: dict) -> str | None:
     </parameter>
     </parameters>
     """
-
     return _tag_nl(
         "parameters",
         [

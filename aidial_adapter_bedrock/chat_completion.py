@@ -23,7 +23,7 @@ class BedrockChatCompletion(ChatCompletion):
         params = ModelParameters.create(request)
         model_id = BedrockDeployment.from_deployment_id(
             request.deployment_id
-        ).value
+        ).model_id
 
         model = await get_bedrock_adapter(
             region=self.region,

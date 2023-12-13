@@ -31,7 +31,7 @@ def healthcheck():
 async def models():
     return ModelsResponse(
         data=[
-            ModelObject(id=deployment.get_deployment_id())
+            ModelObject(id=deployment.deployment_id)
             for deployment in BedrockDeployment
         ]
     )
@@ -39,7 +39,7 @@ async def models():
 
 for deployment in BedrockDeployment:
     app.add_chat_completion(
-        deployment.get_deployment_id(),
+        deployment.deployment_id,
         BedrockChatCompletion(region=default_region),
     )
 
