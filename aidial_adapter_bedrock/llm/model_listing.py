@@ -8,7 +8,10 @@ class BedrockModelId(TypedDict):
     modelId: str
 
 
-def get_bedrock_models(region: str) -> List[BedrockModelId]:
+def get_all_bedrock_models(region: str) -> List[str]:
     session = boto3.Session()
     bedrock = session.client("bedrock", region)
-    return bedrock.list_foundation_models()["modelSummaries"]
+    models: List[BedrockModelId] = bedrock.list_foundation_models()[
+        "modelSummaries"
+    ]
+    return [model["modelId"] for model in models]

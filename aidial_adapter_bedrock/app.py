@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.model_listing import get_bedrock_models
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.env import get_env
 from aidial_adapter_bedrock.utils.log_config import LogConfig
@@ -30,14 +29,17 @@ def healthcheck():
 @app.get("/openai/models")
 @dial_exception_decorator
 async def models():
-    bedrock_models = get_bedrock_models(region=default_region)
-    models = [ModelObject(id=model["modelId"]) for model in bedrock_models]
-    return ModelsResponse(data=models)
+    return ModelsResponse(
+        data=[
+            ModelObject(id=deployment.get_deployment_id())
+            for deployment in BedrockDeployment
+        ]
+    )
 
 
 for deployment in BedrockDeployment:
     app.add_chat_completion(
-        deployment.get_model_id(),
+        deployment.get_deployment_id(),
         BedrockChatCompletion(region=default_region),
     )
 

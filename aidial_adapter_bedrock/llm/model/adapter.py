@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
 
-async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
+async def get_bedrock_adapter(region: str, model: str) -> ChatModel:
     client = await Bedrock.acreate(region)
     provider = Model.parse(model).provider
     match provider:
