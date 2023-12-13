@@ -125,4 +125,5 @@ class AI21Adapter(PseudoChatModel):
         resp = AI21Response.parse_obj(response)
 
         consumer.append_content(resp.content())
+        consumer.close_content()
         consumer.add_usage(resp.usage())

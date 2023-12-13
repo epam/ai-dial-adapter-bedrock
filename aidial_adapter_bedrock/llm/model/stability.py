@@ -141,6 +141,8 @@ class StabilityAdapter(ChatModel):
 
         resp = StabilityResponse.parse_obj(response)
         consumer.append_content(resp.content())
+        consumer.close_content()
+
         consumer.add_usage(resp.usage())
 
         for attachment in resp.attachments():

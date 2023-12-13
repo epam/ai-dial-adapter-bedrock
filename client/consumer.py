@@ -17,8 +17,10 @@ class CollectConsumer(Consumer):
         self.discarded_messages = None
 
     def append_content(self, content: str):
-        # TODO: support recognition of tools/function calls
         self.content += content
+
+    def close_content(self):
+        pass
 
     def add_attachment(self, attachment: Attachment):
         self.attachments.append(attachment)

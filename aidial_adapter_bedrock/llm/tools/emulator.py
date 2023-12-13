@@ -3,7 +3,12 @@ from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.message import BaseMessage, ToolMessage
+from aidial_adapter_bedrock.llm.message import (
+    AIFunctionCallMessage,
+    AIToolCallMessage,
+    BaseMessage,
+    ToolMessage,
+)
 from aidial_adapter_bedrock.llm.tools.base import ToolConfig
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -21,6 +26,12 @@ class ToolsEmulator(ABC, BaseModel):
     def convert_to_base_messages(
         self, messages: List[BaseMessage | ToolMessage]
     ) -> List[BaseMessage]:
+        pass
+
+    @abstractmethod
+    def recognize_call(
+        self, content: str | None
+    ) -> str | AIToolCallMessage | AIFunctionCallMessage | None:
         pass
 
 
@@ -46,6 +57,11 @@ class DefaultToolsEmulator(ToolsEmulator):
                 "The model doesn't support tools/functions, however messages related to tools/functions were provided in the request. Ignoring such messages."
             )
         return ret
+
+    def recognize_call(
+        self, content: str | None
+    ) -> str | AIToolCallMessage | AIFunctionCallMessage | None:
+        return content
 
 
 def default_tools_emulator(tool_config: Optional[ToolConfig]) -> ToolsEmulator:

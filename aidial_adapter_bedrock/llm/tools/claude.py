@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.base import ToolConfig, ToolsMode
+from aidial_adapter_bedrock.llm.tools.call_recognizer import CallRecognizer
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -198,7 +199,7 @@ def _print_function_call(call: FunctionCall) -> str:
     )
 
 
-def parse_function_call(text: str) -> FunctionCall:
+def _parse_function_call(text: str) -> FunctionCall:
     """
     Parses function call string:
     <function_calls>
@@ -240,6 +241,22 @@ def parse_function_call(text: str) -> FunctionCall:
     )
 
 
+def _parse_call(
+    config: Optional[ToolConfig], text: str
+) -> AIToolCallMessage | AIFunctionCallMessage | None:
+    if config is None:
+        return None
+
+    call = _parse_function_call(text)
+    match config.mode:
+        case ToolsMode.TOOLS:
+            return AIToolCallMessage(
+                calls=[ToolCall(id=call.name, type="function", function=call)]
+            )
+        case ToolsMode.FUNCTIONS:
+            return AIFunctionCallMessage(call=call)
+
+
 def _print_function_call_result(name: str, content: str) -> str:
     return (
         _tag_nl(
@@ -259,6 +276,11 @@ def _print_function_call_result(name: str, content: str) -> str:
 
 
 class Claude2_1_ToolsEmulator(ToolsEmulator):
+    call_recognizer: CallRecognizer
+
+    class Config:
+        arbitrary_types_allowed = True
+
     @property
     def _tool_declarations(self) -> Optional[str]:
         return self.tool_config and _format_tools(self.tool_config.tools)
@@ -331,8 +353,20 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
                 ), f"Received function call in '{mode.value}' mode"
                 return AIRegularMessage(content=_print_function_call(call))
 
+    def recognize_call(
+        self, content: str | None
+    ) -> str | AIToolCallMessage | AIFunctionCallMessage | None:
+        return self.call_recognizer.consume_chunk(content)
+
 
 def claude_v2_1_tools_emulator(
     tool_config: Optional[ToolConfig],
 ) -> ToolsEmulator:
-    return Claude2_1_ToolsEmulator(tool_config=tool_config)
+    return Claude2_1_ToolsEmulator(
+        tool_config=tool_config,
+        call_recognizer=CallRecognizer(
+            init_buffer=30,
+            start_tag="<function_calls>",
+            call_parser=lambda text: _parse_call(tool_config, text),
+        ),
+    )

@@ -139,5 +139,6 @@ class AnthropicAdapter(PseudoChatModel):
         async for content in stream:
             completion += content
             consumer.append_content(content)
+        consumer.close_content()
 
         consumer.add_usage(compute_usage(prompt, completion))

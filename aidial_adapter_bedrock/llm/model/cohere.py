@@ -180,5 +180,6 @@ class CohereAdapter(PseudoChatModel):
 
         async for content in stream:
             consumer.append_content(content)
+        consumer.close_content()
 
         consumer.add_usage(usage)
