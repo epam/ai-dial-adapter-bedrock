@@ -14,8 +14,8 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     parse_message,
 )
-from aidial_adapter_bedrock.llm.tools.base import ToolConfig
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,

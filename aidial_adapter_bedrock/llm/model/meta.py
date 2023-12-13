@@ -17,7 +17,9 @@ from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_partitioner,
 )
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize
-from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 
 
 class MetaResponse(ResponseWithInvocationMetricsMixin):

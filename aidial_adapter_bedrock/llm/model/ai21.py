@@ -13,7 +13,9 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize
-from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 
 
 class TextRange(BaseModel):

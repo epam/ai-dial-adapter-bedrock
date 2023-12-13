@@ -16,9 +16,9 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     ToolMessage,
 )
-from aidial_adapter_bedrock.llm.tools.base import ToolConfig, ToolsMode
 from aidial_adapter_bedrock.llm.tools.call_recognizer import CallRecognizer
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig, ToolsMode
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Arg = None | str | List[str | None]
@@ -42,16 +42,21 @@ def _tag_nl(name: str, arg: Arg) -> str | None:
 
 def _format_parameters(parameters: dict) -> str | None:
     """
-    Converts parameters to XML string:
+    Converts parameters to an XML string
+
+    >>> print(_format_parameters({"properties": {
+    ... "name1": {"type": "type1", "description": "desc1"},
+    ... "name2": {"type": "type2", "description": "desc2"}}}))
     <parameters>
     <parameter>
-    <name>latitude</name>
-    <type>string</type>
-    <description>The latitude coordinate as a string</description>
-    </parameter> <parameter>
-    <name>longitude</name>
-    <type>string</type>
-    <description>The longitude coordinate as a string</description>
+    <name>name1</name>
+    <type>type1</type>
+    <description>desc1</description>
+    </parameter>
+    <parameter>
+    <name>name2</name>
+    <type>type2</type>
+    <description>desc2</description>
     </parameter>
     </parameters>
     """

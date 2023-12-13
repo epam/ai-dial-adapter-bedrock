@@ -15,7 +15,9 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize
-from aidial_adapter_bedrock.llm.tools.emulator import default_tools_emulator
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 
 
 class AmazonResult(BaseModel):
