@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 
-import aidial_sdk.chat_completion as sdk
+from aidial_sdk.chat_completion import FunctionCall, Message, Role, ToolCall
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -29,11 +29,11 @@ class AIRegularMessage(BaseModel):
 
 
 class AIToolCallMessage(BaseModel):
-    calls: List[sdk.ToolCall]
+    calls: List[ToolCall]
 
 
 class AIFunctionCallMessage(BaseModel):
-    call: sdk.FunctionCall
+    call: FunctionCall
 
 
 BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]
@@ -47,8 +47,8 @@ ToolMessage = Union[
 
 def _parse_assistant_message(
     content: Optional[str],
-    function_call: Optional[sdk.FunctionCall],
-    tool_calls: Optional[List[sdk.ToolCall]],
+    function_call: Optional[FunctionCall],
+    tool_calls: Optional[List[ToolCall]],
 ) -> BaseMessage | ToolMessage:
     if content is not None and function_call is None and tool_calls is None:
         return AIRegularMessage(content=content)
@@ -67,19 +67,26 @@ def _parse_assistant_message(
     )
 
 
-def parse_message(msg: sdk.Message) -> BaseMessage | ToolMessage:
+def parse_message(msg: Message) -> BaseMessage | ToolMessage:
     match msg:
-        case sdk.SystemMessage(content=content):
+        case Message(role=Role.SYSTEM, content=content) if content is not None:
             return SystemMessage(content=content)
-        case sdk.UserMessage(content=content):
+        case Message(role=Role.USER, content=content) if content is not None:
             return HumanRegularMessage(content=content)
-        case sdk.AssistantMessage(
-            content=content, function_call=function_call, tool_calls=tool_calls
+        case Message(
+            role=Role.ASSISTANT,
+            content=content,
+            function_call=function_call,
+            tool_calls=tool_calls,
         ):
             return _parse_assistant_message(content, function_call, tool_calls)
-        case sdk.FunctionMessage(name=name, content=content):
+        case Message(
+            role=Role.FUNCTION, name=name, content=content
+        ) if content is not None and name is not None:
             return HumanFunctionResultMessage(name=name, content=content)
-        case sdk.ToolMessage(tool_call_id=id, content=content):
+        case Message(
+            role=Role.TOOL, tool_call_id=id, content=content
+        ) if content is not None and id is not None:
             return HumanToolResultMessage(id=id, content=content)
         case _:
-            raise ValidationError("Unknown message type")
+            raise ValidationError("Unknown message type or invalid message")
