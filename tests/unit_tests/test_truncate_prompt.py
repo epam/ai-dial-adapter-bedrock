@@ -5,9 +5,9 @@ from aidial_adapter_bedrock.llm.chat_model import (
     default_partitioner,
 )
 from aidial_adapter_bedrock.llm.message import (
-    AIMessage,
+    AIRegularMessage,
     BaseMessage,
-    HumanMessage,
+    HumanRegularMessage,
     SystemMessage,
 )
 from aidial_adapter_bedrock.llm.truncate_prompt import (
@@ -37,8 +37,8 @@ def truncate_prompt_by_words(
 def test_no_truncation():
     messages = [
         SystemMessage(content="text1"),
-        HumanMessage(content="text2"),
-        AIMessage(content="text3"),
+        HumanRegularMessage(content="text2"),
+        AIRegularMessage(content="text3"),
     ]
 
     discarded_messages = truncate_prompt_by_words(
@@ -51,10 +51,10 @@ def test_no_truncation():
 def test_truncation():
     messages = [
         SystemMessage(content="system1"),
-        HumanMessage(content="remove1"),
+        HumanRegularMessage(content="remove1"),
         SystemMessage(content="system2"),
-        HumanMessage(content="remove2"),
-        HumanMessage(content="query"),
+        HumanRegularMessage(content="remove2"),
+        HumanRegularMessage(content="query"),
     ]
 
     discarded_messages = truncate_prompt_by_words(
@@ -66,8 +66,8 @@ def test_truncation():
 
 def test_truncation_with_one_message_left():
     messages = [
-        AIMessage(content="reply"),
-        HumanMessage(content="query"),
+        AIRegularMessage(content="reply"),
+        HumanRegularMessage(content="query"),
     ]
 
     discarded_messages = truncate_prompt_by_words(
@@ -79,8 +79,8 @@ def test_truncation_with_one_message_left():
 
 def test_truncation_with_one_message_accepted_after_second_check():
     messages = [
-        AIMessage(content="hello world"),
-        HumanMessage(content="query"),
+        AIRegularMessage(content="hello world"),
+        HumanRegularMessage(content="query"),
     ]
 
     discarded_messages = truncate_prompt_by_words(
@@ -94,7 +94,7 @@ def test_prompt_is_too_big():
     messages = [
         SystemMessage(content="text1"),
         SystemMessage(content="text2"),
-        HumanMessage(content="text3"),
+        HumanRegularMessage(content="text3"),
     ]
 
     truncation_error = truncate_prompt_by_words(messages=messages, user_limit=2)
@@ -109,8 +109,8 @@ def test_prompt_is_too_big():
 def test_prompt_with_history_is_too_big():
     messages = [
         SystemMessage(content="text1"),
-        AIMessage(content="text2"),
-        HumanMessage(content="text3"),
+        AIRegularMessage(content="text2"),
+        HumanRegularMessage(content="text3"),
     ]
 
     truncation_error = truncate_prompt_by_words(messages=messages, user_limit=1)
@@ -123,7 +123,7 @@ def test_prompt_with_history_is_too_big():
 
 
 def test_inconsistent_limits():
-    messages: List[BaseMessage] = [AIMessage(content="text2")]
+    messages: List[BaseMessage] = [AIRegularMessage(content="text2")]
 
     truncation_error = truncate_prompt_by_words(
         messages=messages, user_limit=10, model_limit=5

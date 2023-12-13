@@ -43,7 +43,7 @@ telemetry = ["opentelemetry-api (==1.20.0)", "opentelemetry-distro (==0.41b0)", 
 type = "git"
 url = "https://github.com/epam/ai-dial-sdk"
 reference = "feat/support-tools"
-resolved_reference = "5dc69fdb330080924085f2e7e4270d8791c81ccc"
+resolved_reference = "eb45ba5d2d54578e18e84282b9d04338209366c7"
 
 [[package]]
 name = "aiohttp"

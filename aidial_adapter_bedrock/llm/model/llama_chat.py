@@ -13,9 +13,9 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
-    AIMessage,
+    AIRegularMessage,
     BaseMessage,
-    HumanMessage,
+    HumanRegularMessage,
     SystemMessage,
 )
 
@@ -55,8 +55,8 @@ def validate_chat(messages: List[BaseMessage]) -> Dialogue:
     ai = messages[1::2]
 
     is_valid_alternation = all(
-        isinstance(msg, HumanMessage) for msg in human
-    ) and all(isinstance(msg, AIMessage) for msg in ai)
+        isinstance(msg, HumanRegularMessage) for msg in human
+    ) and all(isinstance(msg, AIRegularMessage) for msg in ai)
 
     if not is_valid_alternation:
         raise ValidationError(
@@ -69,7 +69,7 @@ def validate_chat(messages: List[BaseMessage]) -> Dialogue:
         for human, assistant in zip(human, ai)
     ]
 
-    if messages and isinstance(messages[-1], HumanMessage):
+    if messages and isinstance(messages[-1], HumanRegularMessage):
         last_query = messages[-1]
     else:
         raise ValidationError("The last message must be from user")

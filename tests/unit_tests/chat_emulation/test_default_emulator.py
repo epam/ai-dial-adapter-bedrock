@@ -6,9 +6,9 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     default_emulator,
 )
 from aidial_adapter_bedrock.llm.message import (
-    AIMessage,
+    AIRegularMessage,
     BaseMessage,
-    HumanMessage,
+    HumanRegularMessage,
     SystemMessage,
 )
 
@@ -25,9 +25,9 @@ noop_emulator = BasicChatEmulator(
 def test_construction():
     messages = [
         SystemMessage(content=" system message1 "),
-        HumanMessage(content="  human message1  "),
-        AIMessage(content="     ai message1     "),
-        HumanMessage(content="  human message2  "),
+        HumanRegularMessage(content="  human message1  "),
+        AIRegularMessage(content="     ai message1     "),
+        HumanRegularMessage(content="  human message2  "),
     ]
 
     text, stop_sequences = default_emulator.display(messages)
@@ -48,7 +48,9 @@ def test_construction():
 
 
 def test_construction_with_single_user_message():
-    messages: List[BaseMessage] = [HumanMessage(content=" human message ")]
+    messages: List[BaseMessage] = [
+        HumanRegularMessage(content=" human message ")
+    ]
     text, stop_sequences = default_emulator.display(messages)
 
     assert stop_sequences == []
@@ -56,7 +58,7 @@ def test_construction_with_single_user_message():
 
 
 def test_construction_with_single_ai_message():
-    messages: List[BaseMessage] = [AIMessage(content=" ai message ")]
+    messages: List[BaseMessage] = [AIRegularMessage(content=" ai message ")]
     text, stop_sequences = default_emulator.display(messages)
 
     prelude = default_emulator._prelude
@@ -74,8 +76,8 @@ def test_construction_with_single_ai_message():
 def test_formatting():
     messages = [
         SystemMessage(content="text1"),
-        HumanMessage(content="text2"),
-        AIMessage(content="text3"),
+        HumanRegularMessage(content="text2"),
+        AIRegularMessage(content="text3"),
     ]
 
     text, stop_sequences = noop_emulator.display(messages)

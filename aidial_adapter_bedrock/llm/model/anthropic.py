@@ -19,7 +19,11 @@ from aidial_adapter_bedrock.llm.chat_model import (
     default_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
+from aidial_adapter_bedrock.llm.message import (
+    BaseMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.base import ToolConfig
 from aidial_adapter_bedrock.llm.tools.claude import Claude2_1_ToolsEmulator
@@ -115,14 +119,29 @@ class AnthropicAdapter(PseudoChatModel):
 
     @override
     def _add_tool_declarations(
-        self, messages: List[BaseMessage], tool_config: Optional[ToolConfig]
+        self, tool_config: Optional[ToolConfig], messages: List[BaseMessage]
     ) -> Tuple[List[BaseMessage], List[str]]:
         if self.is_claude_v2_1 and tool_config is not None:
             return Claude2_1_ToolsEmulator(
                 tool_config=tool_config
             ).add_tool_declarations(messages)
 
-        return super()._add_tool_declarations(messages, tool_config)
+        return super()._add_tool_declarations(tool_config, messages)
+
+    @override
+    def _convert_tool_messages_to_base_messages(
+        self,
+        tool_config: Optional[ToolConfig],
+        messages: List[BaseMessage | ToolMessage],
+    ) -> List[BaseMessage]:
+        if self.is_claude_v2_1 and tool_config is not None:
+            return Claude2_1_ToolsEmulator(
+                tool_config=tool_config
+            ).convert_tool_messages_to_base_messages(messages)
+
+        return super()._convert_tool_messages_to_base_messages(
+            tool_config, messages
+        )
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

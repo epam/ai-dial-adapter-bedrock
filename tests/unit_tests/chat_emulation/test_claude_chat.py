@@ -1,8 +1,8 @@
 import pytest
 
 from aidial_adapter_bedrock.llm.message import (
-    AIMessage,
-    HumanMessage,
+    AIRegularMessage,
+    HumanRegularMessage,
     SystemMessage,
 )
 from aidial_adapter_bedrock.llm.model.anthropic import get_anthropic_emulator
@@ -12,9 +12,9 @@ from aidial_adapter_bedrock.llm.model.anthropic import get_anthropic_emulator
 def test_construction(is_system_message_supported: bool):
     messages = [
         SystemMessage(content=" system message1 "),
-        HumanMessage(content="  human message1  "),
-        AIMessage(content="     ai message1     "),
-        HumanMessage(content="  human message2  "),
+        HumanRegularMessage(content="  human message1  "),
+        AIRegularMessage(content="     ai message1     "),
+        HumanRegularMessage(content="  human message2  "),
     ]
 
     text, stop_sequences = get_anthropic_emulator(

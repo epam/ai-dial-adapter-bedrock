@@ -12,6 +12,7 @@ from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     BaseMessage,
     SystemMessage,
+    ToolMessage,
     parse_message,
 )
 from aidial_adapter_bedrock.llm.tools.base import ToolConfig
@@ -64,8 +65,22 @@ class ChatModel(ABC, BaseModel):
 
         return messages
 
+    def _convert_tool_messages_to_base_messages(
+        self,
+        tool_config: Optional[ToolConfig],
+        messages: List[BaseMessage | ToolMessage],
+    ) -> List[BaseMessage]:
+        ret: List[BaseMessage] = [
+            msg for msg in messages if not isinstance(msg, ToolMessage)
+        ]
+        if len(ret) != len(messages):
+            log.warning(
+                "The model doesn't support tools/functions, however messages related to tools/functions were provided in the request. Ignoring such messages."
+            )
+        return ret
+
     def _add_tool_declarations(
-        self, messages: List[BaseMessage], tool_config: Optional[ToolConfig]
+        self, tool_config: Optional[ToolConfig], messages: List[BaseMessage]
     ) -> Tuple[List[BaseMessage], List[str]]:
         if tool_config is not None:
             log.warning(
@@ -80,10 +95,13 @@ class ChatModel(ABC, BaseModel):
         messages: List[Message],
     ):
         base_messages = list(map(parse_message, messages))
+        base_messages = self._convert_tool_messages_to_base_messages(
+            params.tool_config, base_messages
+        )
         base_messages = self._validate_and_cleanup_messages(base_messages)
 
         base_messages, stop_sequences = self._add_tool_declarations(
-            base_messages, params.tool_config
+            params.tool_config, base_messages
         )
         params = params.add_stop_sequences(stop_sequences)
 

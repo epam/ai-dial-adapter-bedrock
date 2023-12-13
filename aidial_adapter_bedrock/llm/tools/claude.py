@@ -1,12 +1,23 @@
 import json
 from collections import defaultdict
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from aidial_sdk.chat_completion import FunctionCall, Tool
+from aidial_sdk.chat_completion import FunctionCall, Tool, ToolCall
 from defusedxml import ElementTree
 
-from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
+from aidial_adapter_bedrock.llm.message import (
+    AIFunctionCallMessage,
+    AIRegularMessage,
+    AIToolCallMessage,
+    BaseMessage,
+    HumanFunctionResultMessage,
+    HumanRegularMessage,
+    HumanToolResultMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Arg = None | str | List[str | None]
 
@@ -134,6 +145,56 @@ def etree_to_dict(t) -> dict[str, Any]:
     return d
 
 
+def _print_function_parameters(parameters: dict) -> str:
+    return (
+        _tag_nl(
+            "parameters",
+            [_tag(name, value) for name, value in parameters.items()],
+        )
+        or ""
+    )
+
+
+def _print_tool_call(call: ToolCall) -> str:
+    return _print_function_call(call.function)
+
+
+def _print_tool_calls(calls: List[ToolCall]) -> str:
+    return (
+        _tag_nl(
+            "function_calls",
+            [_print_tool_call(call) for call in calls],
+        )
+        or ""
+    )
+
+
+def _print_function_call(call: FunctionCall) -> str:
+    """
+    Prints function call in the following format:
+    <function_calls>
+    <invoke>
+    <tool_name>get_lat_long</tool_name>
+    <parameters>
+    <place>London</place>
+    </parameters>
+    </invoke>
+    """
+    return (
+        _tag_nl(
+            "function_calls",
+            _tag_nl(
+                "invoke",
+                [
+                    _tag("tool_name", call.name),
+                    _print_function_parameters(json.loads(call.arguments)),
+                ],
+            ),
+        )
+        or ""
+    )
+
+
 def parse_function_call(text: str) -> FunctionCall:
     """
     Parses function call string:
@@ -176,6 +237,24 @@ def parse_function_call(text: str) -> FunctionCall:
     )
 
 
+def _print_function_call_result(name: str, content: str) -> str:
+    return (
+        _tag_nl(
+            "function_results",
+            [
+                _tag_nl(
+                    "result",
+                    [
+                        _tag("tool_name", name),
+                        _tag_nl("stdout", content),
+                    ],
+                )
+            ],
+        )
+        or ""
+    )
+
+
 class Claude2_1_ToolsEmulator(ToolsEmulator):
     @property
     def tools_string(self) -> Optional[str]:
@@ -194,3 +273,44 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
         return [SystemMessage(content=system_message), *messages], [
             "</function_calls>"
         ]
+
+    def convert_tool_messages_to_base_messages(
+        self, msg: List[BaseMessage | ToolMessage]
+    ) -> List[BaseMessage]:
+        id_to_name: Dict[str, str] = {}
+        return [
+            m
+            if isinstance(m, BaseMessage)
+            else self._convert_base_message(id_to_name, m)
+            for m in msg
+        ]
+
+    def _convert_base_message(
+        self, id_to_name: Dict[str, str], msg: ToolMessage
+    ) -> BaseMessage:
+        match msg:
+            case HumanToolResultMessage(id=id, content=content):
+                name = id_to_name.get(id)
+                if name is None:
+                    log.warning(
+                        f"Unable to find tool name for id '{id}', assuming '_unknown' name"
+                    )
+                    name = "unknown"
+
+                return HumanRegularMessage(
+                    content=_print_function_call_result(
+                        name=name, content=content
+                    )
+                )
+            case HumanFunctionResultMessage(name=name, content=content):
+                return HumanRegularMessage(
+                    content=_print_function_call_result(
+                        name=name, content=content
+                    )
+                )
+            case AIToolCallMessage(calls=calls):
+                for call in calls:
+                    id_to_name[call.id] = call.function.name
+                return AIRegularMessage(content=_print_tool_calls(calls))
+            case AIFunctionCallMessage(call=call):
+                return AIRegularMessage(content=_print_function_call(call))
