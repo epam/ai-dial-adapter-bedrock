@@ -122,6 +122,8 @@ You may call them like this. Only invoke one function at a time and wait for the
 </invoke>
 </function_calls>
 
+Avoid showing the function calls and respective results to the user.
+
 Here are the tools available:
 {tools_string}
 """

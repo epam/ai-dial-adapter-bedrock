@@ -31,7 +31,8 @@ class BedrockChatCompletion(ChatCompletion):
             choice_idx: int,
         ) -> None:
             with response.create_choice() as choice:
-                consumer = ChoiceConsumer(choice)
+                tools_emulator = model.tools_emulator(params.tool_config)
+                consumer = ChoiceConsumer(tools_emulator, choice)
                 await model.achat(consumer, params, request.messages)
                 usage.accumulate(consumer.usage)
                 discarded_messages_set.add(consumer.discarded_messages)

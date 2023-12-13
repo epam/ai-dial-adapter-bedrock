@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
-from aidial_sdk.chat_completion import Choice, FunctionCall
+from aidial_sdk.chat_completion import Choice, FunctionCall, ToolCall
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.tools.base import ToolsMode
 from aidial_adapter_bedrock.llm.tools.claude import parse_function_call
+from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 
 
 class Attachment(BaseModel):
@@ -39,53 +41,40 @@ class ChoiceConsumer(Consumer):
     usage: TokenUsage
     choice: Choice
     discarded_messages: Optional[int]
+    tools_emulator: ToolsEmulator
 
-    def __init__(self, choice: Choice):
+    def __init__(self, tools_emulator: ToolsEmulator, choice: Choice):
         self.choice = choice
         self.usage = TokenUsage()
         self.discarded_messages = None
+        self.tools_emulator = tools_emulator
 
     def append_content(self, content: str):
-        # FIXME: works only in non-streaming mode
+        tool_config = self.tools_emulator.tool_config
+        if tool_config is None:
+            self.choice.append_content(content)
+            return
+
+        # FIXME: support streaming mode
         call: Optional[FunctionCall] = None
         try:
             call = parse_function_call(content)
         except Exception:
             pass
 
-        if call is not None:
-            # FIXME: check the functions/tools mode
+        if call is None:
+            self.choice.append_content(content)
+            return
+
+        if tool_config.mode == ToolsMode.FUNCTIONS:
             self.choice.add_function_call(call)
         else:
-            self.choice.append_content(content)
+            self.choice.add_tool_calls(
+                [ToolCall(id=call.name, type="function", function=call)]
+            )
 
     def add_attachment(self, attachment: Attachment):
         self.choice.add_attachment(**attachment.dict())
-
-    def add_usage(self, usage: TokenUsage):
-        self.usage.accumulate(usage)
-
-    def set_discarded_messages(self, discarded_messages: int):
-        self.discarded_messages = discarded_messages
-
-
-class CollectConsumer(Consumer):
-    usage: TokenUsage
-    content: str
-    attachments: List[Attachment]
-    discarded_messages: Optional[int]
-
-    def __init__(self):
-        self.usage = TokenUsage()
-        self.content = ""
-        self.attachments = []
-        self.discarded_messages = None
-
-    def append_content(self, content: str):
-        self.content += content
-
-    def add_attachment(self, attachment: Attachment):
-        self.attachments.append(attachment)
 
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
