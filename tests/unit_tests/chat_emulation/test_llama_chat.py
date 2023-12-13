@@ -4,12 +4,7 @@ import pytest
 
 from aidial_adapter_bedrock.llm.chat_model import default_keep_message
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
-from aidial_adapter_bedrock.llm.message import (
-    AIRegularMessage,
-    BaseMessage,
-    HumanRegularMessage,
-    SystemMessage,
-)
+from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_emulator,
     llama_partitioner,
@@ -18,6 +13,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
 )
+from tests.utils.messages import ai, sys, user
 
 
 def truncate_prompt_by_words(
@@ -40,7 +36,7 @@ def truncate_prompt_by_words(
 
 def test_construction_single_message():
     messages: List[BaseMessage] = [
-        HumanRegularMessage(content="  human message1  "),
+        user("  human message1  "),
     ]
 
     text, stop_sequences = llama_emulator.display(messages)
@@ -51,9 +47,9 @@ def test_construction_single_message():
 
 def test_construction_many_without_system():
     messages = [
-        HumanRegularMessage(content="  human message1  "),
-        AIRegularMessage(content="     ai message1     "),
-        HumanRegularMessage(content="  human message2  "),
+        user("  human message1  "),
+        ai("     ai message1     "),
+        user("  human message2  "),
     ]
 
     text, stop_sequences = llama_emulator.display(messages)
@@ -70,10 +66,10 @@ def test_construction_many_without_system():
 
 def test_construction_many_with_system():
     messages = [
-        SystemMessage(content=" system message1 "),
-        HumanRegularMessage(content="  human message1  "),
-        AIRegularMessage(content="     ai message1     "),
-        HumanRegularMessage(content="  human message2  "),
+        sys(" system message1 "),
+        user("  human message1  "),
+        ai("     ai message1     "),
+        user("  human message2  "),
     ]
 
     text, stop_sequences = llama_emulator.display(messages)
@@ -90,9 +86,9 @@ def test_construction_many_with_system():
 
 def test_invalid_alternation():
     messages = [
-        AIRegularMessage(content="     ai message1     "),
-        HumanRegularMessage(content="  human message1  "),
-        HumanRegularMessage(content="  human message2  "),
+        ai("     ai message1     "),
+        user("  human message1  "),
+        user("  human message2  "),
     ]
 
     with pytest.raises(ValidationError) as exc_info:
@@ -106,10 +102,10 @@ def test_invalid_alternation():
 
 def test_invalid_last_message():
     messages = [
-        HumanRegularMessage(content="  human message1  "),
-        AIRegularMessage(content="     ai message1     "),
-        HumanRegularMessage(content="  human message2  "),
-        AIRegularMessage(content="     ai message2     "),
+        user("  human message1  "),
+        ai("     ai message1     "),
+        user("  human message2  "),
+        ai("     ai message2     "),
     ]
 
     with pytest.raises(ValidationError) as exc_info:
@@ -118,38 +114,44 @@ def test_invalid_last_message():
     assert exc_info.value.message == "The last message must be from user"
 
 
-multi_turn_dialogue = [
-    # System
-    SystemMessage(content="system"),
-    # Turn 1
-    HumanRegularMessage(content="hello"),
-    AIRegularMessage(content="hi"),
-    # Turn 2
-    HumanRegularMessage(content="ping"),
-    AIRegularMessage(content="pong"),
-    # Final prompt
-    HumanRegularMessage(content="improvise"),
+turns_sys = [
+    sys("system"),
+    user("hello"),
+    ai("hi"),
+    user("ping"),
+    ai("pong"),
+    user("improvise"),
 ]
+
+turns_no_sys = turns_sys[1:]
 
 
 @pytest.mark.parametrize(
-    "user_limit, expected",
+    "messages, user_limit, expected",
     [
         (
+            turns_sys,
             1,
             "Token count of the last message and all system messages (2) "
             "exceeds the maximum prompt tokens (1).",
         ),
-        (2, {1, 2, 3, 4}),
-        (3, {1, 2, 3, 4}),
-        (4, {1, 2}),
-        (5, {1, 2}),
-        (6, set()),
+        (turns_sys, 2, {1, 2, 3, 4}),
+        (turns_sys, 3, {1, 2, 3, 4}),
+        (turns_sys, 4, {1, 2}),
+        (turns_sys, 5, {1, 2}),
+        (turns_sys, 6, set()),
+        (turns_no_sys, 1, {0, 1, 2, 3}),
+        (turns_no_sys, 2, {0, 1, 2, 3}),
+        (turns_no_sys, 3, {0, 1}),
+        (turns_no_sys, 4, {0, 1}),
+        (turns_no_sys, 5, set()),
     ],
 )
-def test_multi_turn_dialogue(user_limit: int, expected: Set[int] | str):
+def test_multi_turn_dialogue(
+    messages: List[BaseMessage], user_limit: int, expected: Set[int] | str
+):
     discarded_messages = truncate_prompt_by_words(
-        messages=multi_turn_dialogue, user_limit=user_limit
+        messages=messages, user_limit=user_limit
     )
 
     if isinstance(expected, str):

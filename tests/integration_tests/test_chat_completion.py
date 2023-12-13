@@ -9,7 +9,7 @@ from langchain.schema import BaseMessage
 
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
-from tests.utils.llm import (
+from tests.utils.langchain import (
     ai,
     create_model,
     run_model,
