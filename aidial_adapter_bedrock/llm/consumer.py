@@ -66,11 +66,21 @@ class ChoiceConsumer(Consumer):
             return
 
         if isinstance(res, AIToolCallMessage):
-            self.choice.add_tool_calls(res.calls)
+            for idx, call in enumerate(res.calls):
+                self.choice.add_function_tool_call(
+                    call_index=idx,
+                    id=call.id,
+                    type="function",
+                    name=call.function.name,
+                    arguments=call.function.arguments,
+                )
             return
 
         if isinstance(res, AIFunctionCallMessage):
-            self.choice.add_function_call(res.call)
+            call = res.call
+            self.choice.add_function_call(
+                name=call.name, arguments=call.arguments
+            )
             return
 
         assert_never(res)
