@@ -31,7 +31,7 @@ class ToolConfig(BaseModel):
 
     @classmethod
     def from_request(cls, request: Request) -> Optional["ToolConfig"]:
-        if request.functions is not None:
+        if request.functions is not None and len(request.functions) > 0:
             fun_choice = request.function_call
             if fun_choice is None or fun_choice == "none":
                 return None
@@ -46,7 +46,7 @@ class ToolConfig(BaseModel):
                 choice=tool_choice,
             )
 
-        if request.tools is not None:
+        if request.tools is not None and len(request.tools) > 0:
             choice = request.tool_choice
             if choice is None or choice == "none":
                 return None
