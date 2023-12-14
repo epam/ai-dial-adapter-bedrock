@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Literal, Optional, Union
+from typing import List, Optional
 
 from aidial_sdk.chat_completion import (
     Function,
@@ -10,14 +10,12 @@ from aidial_sdk.chat_completion import (
 )
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.llm.exceptions import ValidationError
+
 
 class ToolsMode(str, Enum):
     TOOLS = "tools"
     FUNCTIONS = "functions"
-
-
-def _fun_choice_to_tool_choice(choice: FunctionChoice) -> ToolChoice:
-    return ToolChoice(type="function", function=choice)
 
 
 def _fun_to_tool(fun: Function) -> Tool:
@@ -27,33 +25,47 @@ def _fun_to_tool(fun: Function) -> Tool:
 class ToolConfig(BaseModel):
     mode: ToolsMode
     tools: List[Tool]
-    choice: Union[Literal["auto"], ToolChoice]
 
     @classmethod
     def from_request(cls, request: Request) -> Optional["ToolConfig"]:
+        mode: ToolsMode = ToolsMode.TOOLS
+        tools: List[Tool] = []
+        selected_function: Optional[str] = None
+
         if request.functions is not None and len(request.functions) > 0:
-            fun_choice = request.function_call
-            if fun_choice is None or fun_choice == "none":
+            choice = request.function_call
+            if choice == "none":
                 return None
-            tool_choice = (
-                "auto"
-                if fun_choice == "auto"
-                else _fun_choice_to_tool_choice(fun_choice)
-            )
-            return cls(
-                mode=ToolsMode.FUNCTIONS,
-                tools=[_fun_to_tool(fun) for fun in request.functions],
-                choice=tool_choice,
-            )
 
-        if request.tools is not None and len(request.tools) > 0:
+            if isinstance(choice, FunctionChoice):
+                selected_function = choice.name
+
+            mode = ToolsMode.FUNCTIONS
+            tools = [_fun_to_tool(fun) for fun in request.functions]
+
+        elif request.tools is not None and len(request.tools) > 0:
             choice = request.tool_choice
-            if choice is None or choice == "none":
+            if choice == "none":
                 return None
-            return cls(
-                mode=ToolsMode.TOOLS,
-                tools=request.tools,
-                choice=choice,
-            )
 
-        return None
+            if isinstance(choice, ToolChoice):
+                selected_function = choice.function.name
+
+            mode = ToolsMode.TOOLS
+            tools = request.tools
+        else:
+            return None
+
+        if selected_function is not None:
+            tools = [
+                tool
+                for tool in tools
+                if tool.function.name == selected_function
+            ]
+
+            if len(tools) == 0:
+                raise ValidationError(
+                    f"Unable to find tool with name '{selected_function}'"
+                )
+
+        return cls(mode=mode, tools=tools)

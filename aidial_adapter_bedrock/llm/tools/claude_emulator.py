@@ -87,8 +87,6 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
         if self._tool_declarations is None:
             return messages, []
 
-        # TODO: support toolchoice: auto, none, manual
-        # TODO: accumulate this into existing system message
         system_message = get_system_message(self._tool_declarations)
 
         return [SystemMessage(content=system_message), *messages], [
