@@ -89,6 +89,11 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
 
         system_message = get_system_message(self._tool_declarations)
 
+        # Concat with the user system message
+        if len(messages) > 0 and isinstance(messages[0], SystemMessage):
+            system_message += "\n" + messages[0].content
+            messages = messages[1:]
+
         return [SystemMessage(content=system_message), *messages], [
             FUNC_END_TAG
         ]
