@@ -5,6 +5,7 @@ from typing import TypedDict
 
 import aiohttp
 
+from aidial_adapter_bedrock.dial_api.auth import Auth
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -18,14 +19,11 @@ class FileMetadata(TypedDict):
 
 class FileStorage:
     base_url: str
-    api_key: str
+    auth: Auth
 
-    def __init__(self, dial_url: str, base_dir: str, api_key: str):
-        self.base_url = f"{dial_url}/v1/files/{base_dir}"
-        self.api_key = api_key
-
-    def auth_headers(self) -> dict[str, str]:
-        return {"api-key": self.api_key}
+    def __init__(self, dial_url: str, base_dir: str, auth: Auth):
+        self.base_url = f"{dial_url}/v1/files/images/{base_dir}"
+        self.auth = auth
 
     @staticmethod
     def to_form_data(
@@ -48,7 +46,7 @@ class FileStorage:
             async with session.post(
                 self.base_url,
                 data=data,
-                headers=self.auth_headers(),
+                headers=self.auth.headers,
             ) as response:
                 response.raise_for_status()
                 meta = await response.json()

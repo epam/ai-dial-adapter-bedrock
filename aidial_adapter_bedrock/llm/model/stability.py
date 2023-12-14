@@ -1,10 +1,11 @@
 import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.dial_api.auth import Auth
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -97,14 +98,15 @@ DIAL_USE_FILE_STORAGE = (
 
 if DIAL_USE_FILE_STORAGE:
     DIAL_URL = get_env("DIAL_URL")
-    DIAL_API_KEY = get_env("DIAL_API_KEY")
 
 
 class StabilityAdapter(ChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
-    def __init__(self, client: Bedrock, model: str):
+    def __init__(
+        self, client: Bedrock, model: str, get_auth: Callable[[], Auth]
+    ):
         super().__init__(model)
         self.client = client
         self.storage = None
@@ -112,8 +114,8 @@ class StabilityAdapter(ChatModel):
         if DIAL_USE_FILE_STORAGE:
             self.storage = FileStorage(
                 dial_url=DIAL_URL,
-                api_key=DIAL_API_KEY,
-                base_dir="stability",
+                auth=get_auth(),
+                base_dir="stable-diffusion",
             )
 
     def _prepare_prompt(
