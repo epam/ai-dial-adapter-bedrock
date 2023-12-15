@@ -97,7 +97,9 @@ DIAL_USE_FILE_STORAGE = (
 )
 
 if DIAL_USE_FILE_STORAGE:
-    DIAL_URL = get_env("DIAL_URL")
+    DIAL_URL = get_env(
+        "DIAL_URL", "DIAL_URL must be set to use the DIAL file storage"
+    )
 
 
 class StabilityAdapter(ChatModel):
@@ -115,7 +117,7 @@ class StabilityAdapter(ChatModel):
             self.storage = FileStorage(
                 dial_url=DIAL_URL,
                 auth=get_auth(),
-                base_dir="stable-diffusion",
+                base_dir="images/stable-diffusion",
             )
 
     def _prepare_prompt(

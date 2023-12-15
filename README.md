@@ -66,7 +66,6 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
 |DIAL_USE_FILE_STORAGE|False|Save model artifacts to DIAL File storage (particularly, Stability images are uploaded to the files storage and their base64 encodings are replaced with links to the storage)|
 |DIAL_URL||URL of the core DIAL server (required when DIAL_USE_FILE_STORAGE=True)|
-|DIAL_API_KEY||API Key for DIAL File storage (required when DIAL_USE_FILE_STORAGE=True)|
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |TEST_SERVER_URL|http://0.0.0.0:5001|Server URL used in the integration tests|
 

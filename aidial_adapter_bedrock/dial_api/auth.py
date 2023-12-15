@@ -1,43 +1,35 @@
-import os
-from abc import abstractmethod
-from typing import Optional
+from typing import Mapping, Optional
 
 from pydantic import BaseModel
 
 
 class Auth(BaseModel):
-    @property
-    @abstractmethod
-    def headers(self) -> dict[str, str]:
-        pass
-
-
-class ApiKey(Auth):
-    key: str
+    name: str
+    value: str
 
     @property
     def headers(self) -> dict[str, str]:
-        return {"api-key": self.key}
+        return {self.name: self.value}
+
+    @classmethod
+    def create_from_headers(
+        cls, name: str, headers: Mapping[str, str]
+    ) -> Optional["Auth"]:
+        value = headers.get(name)
+        if value is None:
+            return None
+        return cls(name=name, value=value)
 
 
-class AuthToken(Auth):
-    token: str
+def get_auth(headers: Mapping[str, str]) -> Auth:
+    auth = Auth.create_from_headers(
+        "authorization", headers
+    ) or Auth.create_from_headers("api-key", headers)
 
-    @property
-    def headers(self) -> dict[str, str]:
-        return {"authorization": self.token}
+    if auth is None:
+        raise Exception(
+            "No auth method found. Either authorization or "
+            "api-key header must be set in the request"
+        )
 
-
-def get_auth(jwt_token: Optional[str]) -> Auth:
-    if jwt_token is not None:
-        return AuthToken(token=jwt_token)
-
-    api_key_var = "DIAL_API_KEY"
-    api_key = os.environ.get(api_key_var)
-    if api_key is not None:
-        return ApiKey(key=api_key)
-
-    raise Exception(
-        "No auth method found. Either JWT token must be set in the request "
-        f"or {api_key_var} env variable is provided"
-    )
+    return auth

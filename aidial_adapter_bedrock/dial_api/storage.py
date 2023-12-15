@@ -22,7 +22,7 @@ class FileStorage:
     auth: Auth
 
     def __init__(self, dial_url: str, base_dir: str, auth: Auth):
-        self.base_url = f"{dial_url}/v1/files/images/{base_dir}"
+        self.base_url = f"{dial_url}/v1/files/{base_dir}"
         self.auth = auth
 
     @staticmethod
