@@ -67,7 +67,7 @@ def tag_nl(name: str, arg: Arg) -> str | None:
     if content is None:
         return None
     content = "\n" if content == "" else f"\n{content}\n"
-    return f"<{name}>{content}</{name}>" if content is not None else None
+    return f"<{name}>{content}</{name}>"
 
 
 def _xml_to_dict(t) -> dict[str, Any]:

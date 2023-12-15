@@ -151,7 +151,11 @@ def parse_call(
     match config.mode:
         case ToolsMode.TOOLS:
             return AIToolCallMessage(
-                calls=[ToolCall(id=call.name, type="function", function=call)]
+                calls=[
+                    ToolCall(
+                        index=0, id=call.name, type="function", function=call
+                    )
+                ]
             )
         case ToolsMode.FUNCTIONS:
             return AIFunctionCallMessage(call=call)

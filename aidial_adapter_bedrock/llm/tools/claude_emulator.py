@@ -40,10 +40,10 @@ def convert_to_base_message(
             ), f"Received tool result in '{mode.value}' mode"
             name = id_to_name.get(id)
             if name is None:
+                name = "_unknown_"
                 log.warning(
-                    f"Unable to find tool name for id '{id}', assuming '_unknown' name"
+                    f"Unable to find tool name for id '{id}', assuming '{name}' name"
                 )
-                name = "unknown"
 
             return HumanRegularMessage(
                 content=print_function_call_result(name=name, content=content)
