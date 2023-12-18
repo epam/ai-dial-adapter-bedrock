@@ -1,7 +1,8 @@
 import base64
 import hashlib
 import io
-from typing import Mapping, Optional, TypedDict
+import re
+from typing import List, Mapping, Optional, TypedDict
 
 import aiohttp
 
@@ -12,18 +13,25 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 class FileMetadata(TypedDict):
     name: str
+    parentPath: str
+    bucket: str
+    url: str
     type: str
-    path: str
+
     contentLength: int
     contentType: str
 
 
 class FileStorage:
-    base_url: str
+    dial_url: str
+    bucket_url: str
+    upload_url: str
     auth: Auth
 
-    def __init__(self, dial_url: str, base_dir: str, bucket: str, auth: Auth):
-        self.base_url = f"{dial_url}/v1/files/{bucket}/{base_dir}"
+    def __init__(self, dial_url: str, upload_dir: str, bucket: str, auth: Auth):
+        self.dial_url = dial_url
+        self.bucket_url = f"{self.dial_url}/v1/files/{bucket}"
+        self.upload_url = f"{self.bucket_url}/{upload_dir}"
         self.auth = auth
 
     @classmethod
@@ -42,7 +50,7 @@ class FileStorage:
                 return body["bucket"]
 
     @staticmethod
-    def to_form_data(
+    def _to_form_data(
         filename: str, content_type: str, content: bytes
     ) -> aiohttp.FormData:
         data = aiohttp.FormData()
@@ -55,33 +63,58 @@ class FileStorage:
         return data
 
     async def upload(
-        self, filename: str, content_type: str, content: bytes
+        self,
+        directories: List[str],
+        filename: str,
+        content_type: str,
+        content: bytes,
     ) -> FileMetadata:
         async with aiohttp.ClientSession() as session:
-            data = FileStorage.to_form_data(filename, content_type, content)
+            data = FileStorage._to_form_data(filename, content_type, content)
             async with session.put(
-                f"{self.base_url}/{filename}",
+                url="/".join([self.upload_url, *directories, filename]),
                 data=data,
                 headers=self.auth.headers,
             ) as response:
                 response.raise_for_status()
                 meta = await response.json()
                 log.debug(
-                    f"Uploaded file: path={self.base_url}, file={filename}, metadata={meta}"
+                    f"Uploaded file: path={self.upload_url}, file={filename}, metadata={meta}"
                 )
                 return meta
 
+    async def upload_file_as_base64(
+        self, data: str, content_type: str
+    ) -> FileMetadata:
+        path_segments = _compute_path_as_hash(data)
+        directories, filename = path_segments[:-1], path_segments[-1]
 
-def _hash_digest(string: str) -> str:
-    return hashlib.sha256(string.encode()).hexdigest()
+        ext = _get_extension(content_type)
+        filename = f"{filename}.{ext}" if ext is not None else filename
+
+        content: bytes = base64.b64decode(data)
+        return await self.upload(directories, filename, content_type, content)
 
 
-async def upload_file_as_base64(
-    storage: FileStorage, data: str, content_type: str
-) -> FileMetadata:
-    filename = _hash_digest(data)
-    content: bytes = base64.b64decode(data)
-    return await storage.upload(filename, content_type, content)
+def _compute_path_as_hash(file_content: str) -> List[str]:
+    hash = hashlib.sha256(file_content.encode()).hexdigest()
+    return _chunk_string([3, 3], hash)
+
+
+def _chunk_string(chunk_sizes: List[int], string: str) -> List[str]:
+    chunks = []
+    start = 0
+    for chunk_size in chunk_sizes:
+        chunks.append(string[start : start + chunk_size])
+        start += chunk_size
+    chunks.append(string[start:])
+    return [chunk for chunk in chunks if chunk != ""]
+
+
+def _get_extension(content_type: str) -> Optional[str]:
+    pattern = r"^image\/(jpeg|jpg|png|bmp)$"
+    match = re.match(pattern, content_type)
+    return match.group(1) if match is not None else None
 
 
 DIAL_USE_FILE_STORAGE = get_env_bool("DIAL_USE_FILE_STORAGE", False)

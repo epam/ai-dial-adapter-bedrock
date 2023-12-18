@@ -8,7 +8,6 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
-    upload_file_as_base64,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
@@ -78,13 +77,13 @@ async def save_to_storage(
         and attachment.type.startswith("image/")
         and attachment.data is not None
     ):
-        response = await upload_file_as_base64(
-            storage, attachment.data, attachment.type
+        response = await storage.upload_file_as_base64(
+            attachment.data, attachment.type
         )
         return Attachment(
             title=attachment.title,
             type=attachment.type,
-            url=response["path"] + "/" + response["name"],
+            url=response["url"],
         )
 
     return attachment
