@@ -38,7 +38,8 @@ class FileStorage:
                 f"{dial_url}/v1/bucket", headers=auth.headers
             ) as response:
                 response.raise_for_status()
-                return await response.text()
+                body = await response.json()
+                return body["bucket"]
 
     @staticmethod
     def to_form_data(
@@ -58,8 +59,8 @@ class FileStorage:
     ) -> FileMetadata:
         async with aiohttp.ClientSession() as session:
             data = FileStorage.to_form_data(filename, content_type, content)
-            async with session.post(
-                self.base_url,
+            async with session.put(
+                f"{self.base_url}/{filename}",
                 data=data,
                 headers=self.auth.headers,
             ) as response:
