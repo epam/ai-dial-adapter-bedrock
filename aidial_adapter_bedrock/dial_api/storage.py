@@ -1,8 +1,7 @@
 import base64
 import hashlib
 import io
-import re
-from typing import List, Mapping, Optional, TypedDict
+from typing import Mapping, Optional, TypedDict
 
 import aiohttp
 
@@ -24,30 +23,27 @@ class FileMetadata(TypedDict):
 
 class FileStorage:
     dial_url: str
-    bucket_url: str
-    upload_url: str
+    upload_dir: str
     auth: Auth
+    bucket: Optional[str]
 
-    def __init__(self, dial_url: str, upload_dir: str, bucket: str, auth: Auth):
+    def __init__(self, dial_url: str, upload_dir: str, auth: Auth):
         self.dial_url = dial_url
-        self.bucket_url = f"{self.dial_url}/v1/files/{bucket}"
-        self.upload_url = f"{self.bucket_url}/{upload_dir}"
+        self.upload_dir = upload_dir
         self.auth = auth
+        self.bucket = None
 
-    @classmethod
-    async def create(cls, dial_url: str, base_dir: str, auth: Auth):
-        bucket = await FileStorage._get_bucket(dial_url, auth)
-        return cls(dial_url, base_dir, bucket, auth)
-
-    @staticmethod
-    async def _get_bucket(dial_url: str, auth: Auth) -> str:
-        async with aiohttp.ClientSession() as session:
+    async def _get_bucket(self, session: aiohttp.ClientSession) -> str:
+        if self.bucket is None:
             async with session.get(
-                f"{dial_url}/v1/bucket", headers=auth.headers
+                f"{self.dial_url}/v1/bucket",
+                headers=self.auth.headers,
             ) as response:
                 response.raise_for_status()
                 body = await response.json()
-                return body["bucket"]
+                self.bucket = body["bucket"]
+
+        return self.bucket
 
     @staticmethod
     def _to_form_data(
@@ -63,58 +59,44 @@ class FileStorage:
         return data
 
     async def upload(
-        self,
-        directories: List[str],
-        filename: str,
-        content_type: str,
-        content: bytes,
+        self, filename: str, content_type: str, content: bytes
     ) -> FileMetadata:
         async with aiohttp.ClientSession() as session:
+            bucket = await self._get_bucket(session)
             data = FileStorage._to_form_data(filename, content_type, content)
+            ext = _get_extension(content_type) or ""
+            url = f"{self.dial_url}/v1/files/{bucket}/{self.upload_dir}/{filename}{ext}"
+
             async with session.put(
-                url="/".join([self.upload_url, *directories, filename]),
+                url=url,
                 data=data,
                 headers=self.auth.headers,
             ) as response:
                 response.raise_for_status()
                 meta = await response.json()
-                log.debug(
-                    f"Uploaded file: path={self.upload_url}, file={filename}, metadata={meta}"
-                )
+                log.debug(f"Uploaded file: url={url}, metadata={meta}")
                 return meta
 
     async def upload_file_as_base64(
         self, data: str, content_type: str
     ) -> FileMetadata:
-        path_segments = _compute_path_as_hash(data)
-        directories, filename = path_segments[:-1], path_segments[-1]
+        filename = _compute_hash_digest(data)
 
         ext = _get_extension(content_type)
         filename = f"{filename}.{ext}" if ext is not None else filename
 
         content: bytes = base64.b64decode(data)
-        return await self.upload(directories, filename, content_type, content)
+        return await self.upload(filename, content_type, content)
 
 
-def _compute_path_as_hash(file_content: str) -> List[str]:
-    hash = hashlib.sha256(file_content.encode()).hexdigest()
-    return _chunk_string([3, 3], hash)
-
-
-def _chunk_string(chunk_sizes: List[int], string: str) -> List[str]:
-    chunks = []
-    start = 0
-    for chunk_size in chunk_sizes:
-        chunks.append(string[start : start + chunk_size])
-        start += chunk_size
-    chunks.append(string[start:])
-    return [chunk for chunk in chunks if chunk != ""]
+def _compute_hash_digest(file_content: str) -> str:
+    return hashlib.sha256(file_content.encode()).hexdigest()
 
 
 def _get_extension(content_type: str) -> Optional[str]:
-    pattern = r"^image\/(jpeg|jpg|png|bmp)$"
-    match = re.match(pattern, content_type)
-    return match.group(1) if match is not None else None
+    if content_type.startswith("image/"):
+        return content_type[len("image/") :]
+    return None
 
 
 DIAL_USE_FILE_STORAGE = get_env_bool("DIAL_USE_FILE_STORAGE", False)
@@ -126,7 +108,7 @@ if DIAL_USE_FILE_STORAGE:
     )
 
 
-async def create_file_storage(
+def create_file_storage(
     base_dir: str, headers: Mapping[str, str]
 ) -> Optional[FileStorage]:
     if not DIAL_USE_FILE_STORAGE or DIAL_URL is None:
@@ -140,8 +122,4 @@ async def create_file_storage(
         )
         return None
 
-    return await FileStorage.create(
-        dial_url=DIAL_URL,
-        auth=auth,
-        base_dir=base_dir,
-    )
+    return FileStorage(dial_url=DIAL_URL, upload_dir=base_dir, auth=auth)
