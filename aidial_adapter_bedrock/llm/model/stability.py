@@ -1,23 +1,20 @@
-import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.dial_api.auth import Auth
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
-    upload_base64_file,
+    create_file_storage,
+    upload_file_as_base64,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
-from aidial_adapter_bedrock.utils.env import get_env
-from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 class StabilityStatus(str, Enum):
@@ -81,7 +78,7 @@ async def save_to_storage(
         and attachment.type.startswith("image/")
         and attachment.data is not None
     ):
-        response = await upload_base64_file(
+        response = await upload_file_as_base64(
             storage, attachment.data, attachment.type
         )
         return Attachment(
@@ -93,39 +90,25 @@ async def save_to_storage(
     return attachment
 
 
-DIAL_USE_FILE_STORAGE = (
-    os.getenv("DIAL_USE_FILE_STORAGE", "false").lower() == "true"
-)
-
-if DIAL_USE_FILE_STORAGE:
-    DIAL_URL = get_env(
-        "DIAL_URL", "DIAL_URL must be set to use the DIAL file storage"
-    )
-
-
 class StabilityAdapter(ChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
     def __init__(
-        self, client: Bedrock, model: str, file_api_auth: Optional[Auth]
+        self, client: Bedrock, model: str, storage: Optional[FileStorage]
     ):
         super().__init__(model)
         self.client = client
-        self.storage = None
+        self.storage = storage
 
-        if DIAL_USE_FILE_STORAGE:
-            if file_api_auth is None:
-                log.warning(
-                    "The request doesn't have required headers to use the DIAL file storage. "
-                    "Fallback to base64 encoding of images."
-                )
-            else:
-                self.storage = FileStorage(
-                    dial_url=DIAL_URL,
-                    auth=file_api_auth,
-                    base_dir="images/stable-diffusion",
-                )
+    @classmethod
+    async def create(
+        cls, client: Bedrock, model: str, headers: Mapping[str, str]
+    ):
+        storage: Optional[FileStorage] = await create_file_storage(
+            "images/stable-diffusion", headers
+        )
+        return cls(client, model, storage)
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

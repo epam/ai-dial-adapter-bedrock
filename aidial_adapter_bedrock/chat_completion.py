@@ -3,7 +3,6 @@ from typing import Optional, Set
 
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 
-from aidial_adapter_bedrock.dial_api.auth import Auth
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
@@ -24,7 +23,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await get_bedrock_adapter(
             region=self.region,
             model=request.deployment_id,
-            file_api_auth=Auth.from_headers("authorization", request.headers),
+            headers=request.headers,
         )
 
         async def generate_response(
