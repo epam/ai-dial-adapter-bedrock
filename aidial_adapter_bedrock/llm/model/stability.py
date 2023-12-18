@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.utils.env import get_env
+from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 class StabilityStatus(str, Enum):
@@ -107,18 +108,24 @@ class StabilityAdapter(ChatModel):
     storage: Optional[FileStorage]
 
     def __init__(
-        self, client: Bedrock, model: str, get_auth: Callable[[], Auth]
+        self, client: Bedrock, model: str, file_api_auth: Optional[Auth]
     ):
         super().__init__(model)
         self.client = client
         self.storage = None
 
         if DIAL_USE_FILE_STORAGE:
-            self.storage = FileStorage(
-                dial_url=DIAL_URL,
-                auth=get_auth(),
-                base_dir="images/stable-diffusion",
-            )
+            if file_api_auth is None:
+                log.warning(
+                    "The request doesn't have required headers to use the DIAL file storage. "
+                    "Fallback to base64 encoding of images."
+                )
+            else:
+                self.storage = FileStorage(
+                    dial_url=DIAL_URL,
+                    auth=file_api_auth,
+                    base_dir="images/stable-diffusion",
+                )
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

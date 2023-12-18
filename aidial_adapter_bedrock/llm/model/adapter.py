@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Optional
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.auth import Auth
@@ -14,7 +14,7 @@ from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 
 
 async def get_bedrock_adapter(
-    model: str, region: str, get_auth: Callable[[], Auth]
+    model: str, region: str, file_api_auth: Optional[Auth]
 ) -> ChatModel:
     client = await Bedrock.acreate(region)
     provider = Model.parse(model).provider
@@ -26,7 +26,7 @@ async def get_bedrock_adapter(
                 client, model, default_tokenize, default_emulator
             )
         case "stability":
-            return StabilityAdapter(client, model, get_auth)
+            return StabilityAdapter(client, model, file_api_auth)
         case "amazon":
             return AmazonAdapter(
                 client, model, default_tokenize, default_emulator

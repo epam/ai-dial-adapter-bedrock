@@ -3,7 +3,6 @@ from typing import List
 
 from aidial_sdk.chat_completion import Message, Role
 
-from aidial_adapter_bedrock.dial_api.auth import get_auth
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.consumer import CollectConsumer
@@ -26,7 +25,7 @@ async def main():
     model = await get_bedrock_adapter(
         model=deployment.get_model_id(),
         region=location,
-        get_auth=lambda: get_auth({}),
+        file_api_auth=None,
     )
 
     messages: List[Message] = []

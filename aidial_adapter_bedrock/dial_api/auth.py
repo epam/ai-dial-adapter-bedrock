@@ -19,17 +19,3 @@ class Auth(BaseModel):
         if value is None:
             return None
         return cls(name=name, value=value)
-
-
-def get_auth(headers: Mapping[str, str]) -> Auth:
-    auth = Auth.create_from_headers(
-        "authorization", headers
-    ) or Auth.create_from_headers("api-key", headers)
-
-    if auth is None:
-        raise Exception(
-            "No auth method found. Either authorization or "
-            "api-key header must be set in the request"
-        )
-
-    return auth
