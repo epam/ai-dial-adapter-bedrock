@@ -12,7 +12,7 @@ class Auth(BaseModel):
         return {self.name: self.value}
 
     @classmethod
-    def create_from_headers(
+    def from_headers(
         cls, name: str, headers: Mapping[str, str]
     ) -> Optional["Auth"]:
         value = headers.get(name)

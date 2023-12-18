@@ -24,9 +24,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await get_bedrock_adapter(
             region=self.region,
             model=request.deployment_id,
-            file_api_auth=Auth.create_from_headers(
-                "authorization", request.headers
-            ),
+            file_api_auth=Auth.from_headers("authorization", request.headers),
         )
 
         async def generate_response(
