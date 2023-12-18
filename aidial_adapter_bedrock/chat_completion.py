@@ -23,6 +23,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await get_bedrock_adapter(
             region=self.region,
             model=request.deployment_id,
+            headers=request.headers,
         )
 
         async def generate_response(

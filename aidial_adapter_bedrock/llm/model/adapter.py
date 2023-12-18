@@ -1,3 +1,5 @@
+from typing import Mapping
+
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
@@ -10,7 +12,9 @@ from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 
 
-async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
+async def get_bedrock_adapter(
+    model: str, region: str, headers: Mapping[str, str]
+) -> ChatModel:
     client = await Bedrock.acreate(region)
     provider = Model.parse(model).provider
     match provider:
@@ -21,7 +25,7 @@ async def get_bedrock_adapter(model: str, region: str) -> ChatModel:
                 client, model, default_tokenize, default_emulator
             )
         case "stability":
-            return StabilityAdapter(client, model)
+            return await StabilityAdapter.create(client, model, headers)
         case "amazon":
             return AmazonAdapter(
                 client, model, default_tokenize, default_emulator
