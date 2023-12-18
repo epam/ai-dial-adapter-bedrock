@@ -116,7 +116,7 @@ def create_file_storage(
 
     auth = Auth.from_headers("authorization", headers)
     if auth is None:
-        log.warning(
+        log.debug(
             "The request doesn't have required headers to use the DIAL file storage. "
             "Fallback to base64 encoding of images."
         )
