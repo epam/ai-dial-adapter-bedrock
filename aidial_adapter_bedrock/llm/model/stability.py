@@ -1,6 +1,5 @@
-import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,7 +7,7 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
-    upload_base64_file,
+    create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
@@ -18,7 +17,6 @@ from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
-from aidial_adapter_bedrock.utils.env import get_env
 
 
 class StabilityStatus(str, Enum):
@@ -82,46 +80,37 @@ async def save_to_storage(
         and attachment.type.startswith("image/")
         and attachment.data is not None
     ):
-        response = await upload_base64_file(
-            storage, attachment.data, attachment.type
+        response = await storage.upload_file_as_base64(
+            attachment.data, attachment.type
         )
         return Attachment(
             title=attachment.title,
             type=attachment.type,
-            url=response["path"] + "/" + response["name"],
+            url=response["url"],
         )
 
     return attachment
-
-
-DIAL_USE_FILE_STORAGE = (
-    os.getenv("DIAL_USE_FILE_STORAGE", "false").lower() == "true"
-)
-
-if DIAL_USE_FILE_STORAGE:
-    DIAL_URL = get_env("DIAL_URL")
-    DIAL_API_KEY = get_env("DIAL_API_KEY")
 
 
 class StabilityAdapter(ChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
+    def __init__(
+        self, client: Bedrock, model: str, storage: Optional[FileStorage]
+    ):
+        super().__init__(model=model, tools_emulator=default_tools_emulator)
+        self.client = client
+        self.storage = storage
+
     @classmethod
-    def create(cls, client: Bedrock, model: str):
-        storage: Optional[FileStorage] = None
-        if DIAL_USE_FILE_STORAGE:
-            storage = FileStorage(
-                dial_url=DIAL_URL,
-                api_key=DIAL_API_KEY,
-                base_dir="stability",
-            )
-        return cls(
-            model=model,
-            tools_emulator=default_tools_emulator,
-            client=client,
-            storage=storage,
+    async def create(
+        cls, client: Bedrock, model: str, headers: Mapping[str, str]
+    ):
+        storage: Optional[FileStorage] = create_file_storage(
+            "images/stable-diffusion", headers
         )
+        return cls(client, model, storage)
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

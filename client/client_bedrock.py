@@ -25,6 +25,7 @@ async def main():
     model = await get_bedrock_adapter(
         model=deployment.model_id,
         region=location,
+        headers={},
     )
 
     messages: List[Message] = []
