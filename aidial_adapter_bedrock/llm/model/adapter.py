@@ -21,7 +21,7 @@ async def get_bedrock_adapter(
         case "ai21":
             return AI21Adapter.create(client, model)
         case "stability":
-            return await StabilityAdapter.create(client, model, headers)
+            return StabilityAdapter.create(client, model, headers)
         case "amazon":
             return AmazonAdapter.create(client, model)
         case "meta":
