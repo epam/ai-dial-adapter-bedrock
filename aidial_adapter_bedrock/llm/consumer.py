@@ -66,11 +66,9 @@ class ChoiceConsumer(Consumer):
             return
 
         if isinstance(res, AIToolCallMessage):
-            for idx, call in enumerate(res.calls):
-                self.choice.add_function_tool_call(
-                    call_index=idx,
+            for call in res.calls:
+                self.choice.create_function_tool_call(
                     id=call.id,
-                    type="function",
                     name=call.function.name,
                     arguments=call.function.arguments,
                 )
@@ -78,7 +76,7 @@ class ChoiceConsumer(Consumer):
 
         if isinstance(res, AIFunctionCallMessage):
             call = res.call
-            self.choice.add_function_call(
+            self.choice.create_function_call(
                 name=call.name, arguments=call.arguments
             )
             return
