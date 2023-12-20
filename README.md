@@ -2,26 +2,7 @@
 
 The project implements [AI DIAL API](https://epam-rail.com/dial_api) for language models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
 
-Supported models:
-* Amazon Titan
-  - amazon.titan-tg1-large
-* AI21 J2
-  - ai21.j2-grande-instruct
-  - ai21.j2-jumbo-instruct
-  - ai21.j2-mid
-  - ai21.j2-ultra
-* Anthropic Claude
-  - anthropic.claude-instant-v1
-  - anthropic.claude-v1
-  - anthropic.claude-v2
-* Stable Diffusion
-  - stability.stable-diffusion-xl
-* Meta
-  - meta.llama2-13b-chat-v1
-  - meta.llama2-70b-chat-v1
-* Cohere
-  - cohere.command-text-v14
-  - cohere.command-light-text-v14
+Find the list of supported models in [the source code](./aidial_adapter_bedrock/llm/bedrock_models.py).
 
 ## Developer environment
 

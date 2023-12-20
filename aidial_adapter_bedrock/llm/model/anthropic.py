@@ -20,6 +20,12 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.tools.claude_emulator import (
+    claude_v2_1_tools_emulator,
+)
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 
 
 def compute_usage(prompt: str, completion: str) -> TokenUsage:
@@ -93,16 +99,31 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
 class AnthropicAdapter(PseudoChatModel):
     client: Bedrock
+    is_claude_v2_1: bool
 
-    def __init__(self, client: Bedrock, model: str):
-        is_system_message_supported = (
-            model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1_200K
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        is_claude_v2_1 = model == BedrockDeployment.ANTHROPIC_CLAUDE_V2_1
+
+        chat_emulator = get_anthropic_emulator(
+            is_system_message_supported=is_claude_v2_1
         )
-        chat_emulator = get_anthropic_emulator(is_system_message_supported)
-        super().__init__(
-            model, count_tokens, chat_emulator, default_partitioner
+
+        tools_emulator = (
+            claude_v2_1_tools_emulator
+            if is_claude_v2_1
+            else default_tools_emulator
         )
-        self.client = client
+
+        return cls(
+            client=client,
+            model=model,
+            tokenize=count_tokens,
+            chat_emulator=chat_emulator,
+            tools_emulator=tools_emulator,
+            partitioner=default_partitioner,
+            is_claude_v2_1=is_claude_v2_1,
+        )
 
     async def _apredict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
@@ -122,5 +143,6 @@ class AnthropicAdapter(PseudoChatModel):
         async for content in stream:
             completion += content
             consumer.append_content(content)
+        consumer.close_content()
 
         consumer.add_usage(compute_usage(prompt, completion))

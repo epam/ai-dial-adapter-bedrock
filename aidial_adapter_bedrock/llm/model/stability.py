@@ -14,6 +14,9 @@ from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 
 
 class StabilityStatus(str, Enum):
@@ -96,14 +99,12 @@ class StabilityAdapter(ChatModel):
     def __init__(
         self, client: Bedrock, model: str, storage: Optional[FileStorage]
     ):
-        super().__init__(model)
+        super().__init__(model=model, tools_emulator=default_tools_emulator)
         self.client = client
         self.storage = storage
 
     @classmethod
-    async def create(
-        cls, client: Bedrock, model: str, headers: Mapping[str, str]
-    ):
+    def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
         storage: Optional[FileStorage] = create_file_storage(
             "images/stable-diffusion", headers
         )
@@ -129,6 +130,8 @@ class StabilityAdapter(ChatModel):
 
         resp = StabilityResponse.parse_obj(response)
         consumer.append_content(resp.content())
+        consumer.close_content()
+
         consumer.add_usage(resp.usage())
 
         for attachment in resp.attachments():

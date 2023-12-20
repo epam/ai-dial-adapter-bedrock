@@ -1,7 +1,6 @@
 from typing import Mapping
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
@@ -9,7 +8,6 @@ from aidial_adapter_bedrock.llm.model.anthropic import AnthropicAdapter
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
-from aidial_adapter_bedrock.llm.tokenize import default_tokenize
 
 
 async def get_bedrock_adapter(
@@ -19,20 +17,16 @@ async def get_bedrock_adapter(
     provider = Model.parse(model).provider
     match provider:
         case "anthropic":
-            return AnthropicAdapter(client, model)
+            return AnthropicAdapter.create(client, model)
         case "ai21":
-            return AI21Adapter(
-                client, model, default_tokenize, default_emulator
-            )
+            return AI21Adapter.create(client, model)
         case "stability":
-            return await StabilityAdapter.create(client, model, headers)
+            return StabilityAdapter.create(client, model, headers)
         case "amazon":
-            return AmazonAdapter(
-                client, model, default_tokenize, default_emulator
-            )
+            return AmazonAdapter.create(client, model)
         case "meta":
-            return MetaAdapter(client, model, default_tokenize)
+            return MetaAdapter.create(client, model)
         case "cohere":
-            return CohereAdapter(client, model, default_tokenize)
+            return CohereAdapter.create(client, model)
         case _:
             raise ValueError(f"Unknown model provider: '{provider}'")

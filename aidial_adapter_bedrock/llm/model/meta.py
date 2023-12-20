@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from typing_extensions import override
 
@@ -15,6 +15,10 @@ from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
 from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_emulator,
     llama_partitioner,
+)
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
 )
 
 
@@ -76,11 +80,16 @@ async def response_to_stream(
 class MetaAdapter(PseudoChatModel):
     client: Bedrock
 
-    def __init__(
-        self, client: Bedrock, model: str, tokenize: Callable[[str], int]
-    ):
-        super().__init__(model, tokenize, llama_emulator, llama_partitioner)
-        self.client = client
+    @classmethod
+    def create(cls, client: Bedrock, model: str):
+        return cls(
+            client=client,
+            model=model,
+            tokenize=default_tokenize,
+            chat_emulator=llama_emulator,
+            tools_emulator=default_tools_emulator,
+            partitioner=llama_partitioner,
+        )
 
     @override
     def _validate_and_cleanup_messages(
@@ -114,5 +123,6 @@ class MetaAdapter(PseudoChatModel):
 
         async for content in stream:
             consumer.append_content(content)
+        consumer.close_content()
 
         consumer.add_usage(usage)

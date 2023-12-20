@@ -14,6 +14,8 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     parse_message,
 )
+from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
@@ -32,11 +34,12 @@ class ChatPrompt(BaseModel):
     discarded_messages: Optional[int] = None
 
 
-class ChatModel(ABC):
+class ChatModel(ABC, BaseModel):
     model: str
+    tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
-    def __init__(self, model: str):
-        self.model = model
+    class Config:
+        arbitrary_types_allowed = True
 
     @abstractmethod
     def _prepare_prompt(
@@ -69,13 +72,22 @@ class ChatModel(ABC):
         params: ModelParameters,
         messages: List[Message],
     ):
+        tools_emulator = self.tools_emulator(params.tool_config)
+
         base_messages = list(map(parse_message, messages))
+        base_messages = tools_emulator.convert_to_base_messages(base_messages)
+
         base_messages = self._validate_and_cleanup_messages(base_messages)
+
+        (
+            base_messages,
+            stop_sequences,
+        ) = tools_emulator.add_tool_declarations(base_messages)
+        params = params.add_stop_sequences(stop_sequences)
 
         chat_prompt = self._prepare_prompt(
             base_messages, params.max_prompt_tokens
         )
-
         params = params.add_stop_sequences(chat_prompt.stop_sequences)
 
         log.debug(
@@ -98,21 +110,11 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
     return [1] * len(messages)
 
 
-class PseudoChatModel(ChatModel, ABC):
+class PseudoChatModel(ChatModel):
     chat_emulator: ChatEmulator
     tokenize: Callable[[str], int]
-
-    def __init__(
-        self,
-        model: str,
-        tokenize: Callable[[str], int],
-        chat_emulator: ChatEmulator,
-        partitioner: Callable[[List[BaseMessage]], List[int]],
-    ):
-        super().__init__(model)
-        self.tokenize = tokenize
-        self.chat_emulator = chat_emulator
-        self.partitioner = partitioner
+    chat_emulator: ChatEmulator
+    partitioner: Callable[[List[BaseMessage]], List[int]]
 
     def _tokenize(self, messages: List[BaseMessage]) -> int:
         return self.tokenize(self.chat_emulator.display(messages)[0])

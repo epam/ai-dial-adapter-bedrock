@@ -5,6 +5,7 @@ from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
@@ -20,9 +21,13 @@ class BedrockChatCompletion(ChatCompletion):
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
         params = ModelParameters.create(request)
+        model_id = BedrockDeployment.from_deployment_id(
+            request.deployment_id
+        ).model_id
+
         model = await get_bedrock_adapter(
             region=self.region,
-            model=request.deployment_id,
+            model=model_id,
             headers=request.headers,
         )
 
@@ -32,7 +37,8 @@ class BedrockChatCompletion(ChatCompletion):
             choice_idx: int,
         ) -> None:
             with response.create_choice() as choice:
-                consumer = ChoiceConsumer(choice)
+                tools_emulator = model.tools_emulator(params.tool_config)
+                consumer = ChoiceConsumer(tools_emulator, choice)
                 await model.achat(consumer, params, request.messages)
                 usage.accumulate(consumer.usage)
                 discarded_messages_set.add(consumer.discarded_messages)

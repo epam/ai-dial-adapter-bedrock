@@ -9,7 +9,7 @@ from langchain.schema import BaseMessage
 
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
-from tests.utils.llm import (
+from tests.utils.langchain import (
     ai,
     create_model,
     run_model,
@@ -44,8 +44,6 @@ chat_deployments = [
     BedrockDeployment.AMAZON_TITAN_TG1_LARGE,
     BedrockDeployment.AI21_J2_GRANDE_INSTRUCT,
     BedrockDeployment.AI21_J2_JUMBO_INSTRUCT,
-    BedrockDeployment.AI21_J2_MID,
-    BedrockDeployment.AI21_J2_ULTRA,
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
@@ -165,7 +163,7 @@ def get_test_cases(
 
     # ai21 models do not support more than one stop word
     stop = ["world", "World"]
-    if "ai21" in deployment.value:
+    if "ai21" in deployment.model_id:
         stop = ["world"]
 
     ret.append(

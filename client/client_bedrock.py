@@ -5,11 +5,11 @@ from aidial_sdk.chat_completion import Message, Role
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.consumer import CollectConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.utils.env import get_env
 from aidial_adapter_bedrock.utils.printing import print_ai, print_info
 from client.conf import MAX_CHAT_TURN, MAX_INPUT_CHARS
+from client.consumer import CollectConsumer
 from client.utils.cli import select_enum
 from client.utils.init import init
 from client.utils.input import make_input
@@ -23,7 +23,7 @@ async def main():
     params = ModelParameters()
 
     model = await get_bedrock_adapter(
-        model=deployment.get_model_id(),
+        model=deployment.model_id,
         region=location,
         headers={},
     )

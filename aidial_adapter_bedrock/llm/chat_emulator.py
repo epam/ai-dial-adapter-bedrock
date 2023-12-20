@@ -4,9 +4,9 @@ from typing import Callable, List, Optional, Tuple, TypedDict
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.message import (
-    AIMessage,
+    AIRegularMessage,
     BaseMessage,
-    HumanMessage,
+    HumanRegularMessage,
 )
 
 
@@ -41,9 +41,9 @@ class BasicChatEmulator(ChatEmulator):
         return self.prelude_template.format(**self.cues)
 
     def _get_cue(self, message: BaseMessage) -> Optional[str]:
-        if isinstance(message, HumanMessage):
+        if isinstance(message, HumanRegularMessage):
             return self.cues["human"]
-        elif isinstance(message, AIMessage):
+        elif isinstance(message, AIRegularMessage):
             return self.cues["ai"]
         elif isinstance(message, BaseMessage):
             return self.cues["system"]
@@ -67,7 +67,7 @@ class BasicChatEmulator(ChatEmulator):
         if (
             self.fallback_to_completion
             and len(messages) == 1
-            and isinstance(messages[0], HumanMessage)
+            and isinstance(messages[0], HumanRegularMessage)
         ):
             return messages[0].content, []
 
@@ -80,7 +80,9 @@ class BasicChatEmulator(ChatEmulator):
             ret.append(self._format_message(message, len(ret)))
 
         if self.add_invitation_cue:
-            ret.append(self._format_message(AIMessage(content=""), len(ret)))
+            ret.append(
+                self._format_message(AIRegularMessage(content=""), len(ret))
+            )
 
         stop_sequences: List[str] = []
         human_role = self.cues["human"]
