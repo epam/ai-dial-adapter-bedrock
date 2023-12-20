@@ -17,6 +17,7 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.28.57"
 botocore = "1.31.57"
+aidial-sdk = "0.5.0"
 anthropic = "0.2.10"
 colorama = "0.4.4"
 fastapi = "0.103.1"
@@ -25,7 +26,6 @@ openai = "0.27.8"
 uvicorn = "0.23.2"
 pydantic = "1.10.12"
 defusedxml = "^0.7.1"
-aidial-sdk = {git = "https://github.com/epam/ai-dial-sdk.git", rev = "feat/support-tools"}
 
 [tool.poetry.group.test.dependencies]
 inquirer = "3.1.3"

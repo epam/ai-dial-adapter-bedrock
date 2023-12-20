@@ -21,29 +21,25 @@ aws = ["aws-requests-auth", "boto3", "sagemaker"]
 
 [[package]]
 name = "aidial-sdk"
-version = "0.4.0rc"
+version = "0.5.0"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
 python-versions = ">=3.8.1,<4.0"
-files = []
-develop = false
+files = [
+    {file = "aidial_sdk-0.5.0-py3-none-any.whl", hash = "sha256:db0cb45440d055a4361cdd35baf3b7db4d51c3c5b7c63a901ca920638937a26f"},
+    {file = "aidial_sdk-0.5.0.tar.gz", hash = "sha256:29df146c44953ed90cecb07fb58c2087c800c511fa6a1a515392ed4de3b44621"},
+]
 
 [package.dependencies]
-aiohttp = "^3.8.3"
+aiohttp = ">=3.8.3,<4.0.0"
 fastapi = ">=0.51,<1.0"
 pydantic = ">=1.10,<3"
-requests = "^2.19"
+requests = ">=2.19,<3.0"
 uvicorn = ">=0.19,<1.0"
-wrapt = "^1.14"
+wrapt = ">=1.14,<2.0"
 
 [package.extras]
 telemetry = ["opentelemetry-api (==1.20.0)", "opentelemetry-distro (==0.41b0)", "opentelemetry-exporter-otlp-proto-grpc (==1.20.0)", "opentelemetry-exporter-prometheus (==1.12.0rc1)", "opentelemetry-instrumentation (==0.41b0)", "opentelemetry-instrumentation-aiohttp-client (==0.41b0)", "opentelemetry-instrumentation-fastapi (==0.41b0)", "opentelemetry-instrumentation-logging (==0.41b0)", "opentelemetry-instrumentation-requests (==0.41b0)", "opentelemetry-instrumentation-system-metrics (==0.41b0)", "opentelemetry-instrumentation-urllib (==0.41b0)", "opentelemetry-sdk (==1.20.0)", "starlette-exporter (==0.16.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/epam/ai-dial-sdk.git"
-reference = "feat/support-tools"
-resolved_reference = "ee14da466edd1788cf5044f76796343a55102432"
 
 [[package]]
 name = "aiohttp"
@@ -2842,4 +2838,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "eddf47b277437b0364867348cfdeeb47c9fd4f6a7772a97fbcc777d011df3c2b"
+content-hash = "5f10a3b23cfb1ac2ee7a9a7a79a1986d262e1bd2e6fd14718947bade7742e7fc"
