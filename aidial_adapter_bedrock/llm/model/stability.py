@@ -96,19 +96,17 @@ class StabilityAdapter(ChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
-    def __init__(
-        self, client: Bedrock, model: str, storage: Optional[FileStorage]
-    ):
-        super().__init__(model=model, tools_emulator=default_tools_emulator)
-        self.client = client
-        self.storage = storage
-
     @classmethod
     def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
         storage: Optional[FileStorage] = create_file_storage(
             "images/stable-diffusion", headers
         )
-        return cls(client, model, storage)
+        return cls(
+            client=client,
+            model=model,
+            storage=storage,
+            tools_emulator=default_tools_emulator,
+        )
 
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
