@@ -50,7 +50,7 @@ class StabilityResponse(BaseModel):
         self._throw_if_error()
         return [
             Attachment(
-                title="image",
+                title="Image",
                 type="image/png",
                 data=self.artifacts[0].base64,  # type: ignore
             )
