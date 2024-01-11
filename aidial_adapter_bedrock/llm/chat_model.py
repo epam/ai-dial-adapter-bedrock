@@ -140,10 +140,14 @@ class PseudoChatModel(ChatModel):
 
         text, stop_sequences = self.chat_emulator.display(messages)
 
+        discarded_messages_count = (
+            None if max_prompt_tokens is None else len(discarded_messages)
+        )
+
         return ChatPrompt(
             text=text,
             stop_sequences=stop_sequences,
-            discarded_messages=len(discarded_messages),
+            discarded_messages=discarded_messages_count,
         )
 
     @staticmethod
