@@ -29,7 +29,9 @@ app = DIALApp(
     telemetry_config=TelemetryConfig(
         service_name="bedrock",
         tracing=TracingConfig(oltp_export=OTLP_EXPORT_ENABLED),
-    ),
+    )
+    if OTLP_EXPORT_ENABLED
+    else None,
 )
 
 
