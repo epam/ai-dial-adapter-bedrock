@@ -1,8 +1,9 @@
 import logging.config
+import os
 
-import fastapi
 from aidial_sdk import DIALApp
 from aidial_sdk import HTTPException as DialException
+from aidial_sdk.telemetry.types import TelemetryConfig, TracingConfig
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -16,14 +17,25 @@ from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 logging.config.dictConfig(LogConfig().dict())
 
-default_region = get_env("DEFAULT_REGION")
+DEFAULT_REGION = get_env("DEFAULT_REGION")
 
-app = DIALApp(description="AWS Bedrock adapter for DIAL API")
+OTLP_EXPORT_ENABLED: bool = (
+    os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") is not None
+)
 
-
-@app.get("/healthcheck")
-def healthcheck():
-    return fastapi.Response("OK")
+app = DIALApp(
+    description="AWS Bedrock adapter for DIAL API",
+    add_healthcheck=True,
+    telemetry_config=TelemetryConfig(
+        service_name="bedrock",
+        tracing=TracingConfig(
+            otlp_export=OTLP_EXPORT_ENABLED,
+            logging=True,
+        ),
+    )
+    if OTLP_EXPORT_ENABLED
+    else None,
+)
 
 
 @app.get("/openai/models")
@@ -40,7 +52,7 @@ async def models():
 for deployment in BedrockDeployment:
     app.add_chat_completion(
         deployment.deployment_id,
-        BedrockChatCompletion(region=default_region),
+        BedrockChatCompletion(region=DEFAULT_REGION),
     )
 
 
