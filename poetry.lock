@@ -21,13 +21,13 @@ aws = ["aws-requests-auth", "boto3", "sagemaker"]
 
 [[package]]
 name = "aidial-sdk"
-version = "0.5.1"
+version = "0.6.0"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
-    {file = "aidial_sdk-0.5.1-py3-none-any.whl", hash = "sha256:345e8f59593adf616be9b9bad6f46b98b0a6e7fcd7cc17932fabe8c266b3cfe4"},
-    {file = "aidial_sdk-0.5.1.tar.gz", hash = "sha256:5bb327882c90719b3054b52f1e211c00fb9667b2c2010aeb6bbd60f6f40ea1d4"},
+    {file = "aidial_sdk-0.6.0-py3-none-any.whl", hash = "sha256:4fc92778afcaeac381b45dad55dd6a45d75400723b9923c38e913a74a0424074"},
+    {file = "aidial_sdk-0.6.0.tar.gz", hash = "sha256:4c8e2b23967e3dea9ce84d6ed3a62940a31e62b50f17ae68a7be3efeb0eb1149"},
 ]
 
 [package.dependencies]
@@ -3341,4 +3341,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "16aa4fe91ee53b2208d3c722945088d083f377f3992a910c4a52dfb9d73e6faf"
+content-hash = "fd983416f859b6717ae2ad6a5dd65cc575ff34d2b9db047df8e185d82f848055"
