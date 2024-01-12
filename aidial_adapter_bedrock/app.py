@@ -23,7 +23,7 @@ OTLP_EXPORT_ENABLED: bool = (
     os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") is not None
 )
 
-SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "aidial-bedrock")
+SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "dial-bedrock")
 
 app = DIALApp(
     description="AWS Bedrock adapter for DIAL API",
