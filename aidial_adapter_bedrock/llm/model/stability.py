@@ -102,9 +102,7 @@ class StabilityAdapter(ChatModel):
 
     @classmethod
     def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage(
-            "images/stable-diffusion", headers
-        )
+        storage: Optional[FileStorage] = create_file_storage("images", headers)
         return cls(
             client=client,
             model=model,
