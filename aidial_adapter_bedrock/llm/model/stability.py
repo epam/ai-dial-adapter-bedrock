@@ -44,7 +44,11 @@ class StabilityResponse(BaseModel):
 
     def content(self) -> str:
         self._throw_if_error()
-        return ""
+        # NOTE: text-to-text models aren't expected to generate empty strings.
+        # So since we represent text-to-image model (Stability) as
+        # a text-to-text model (via chat completion interface),
+        # we need to return something.
+        return " "
 
     def attachments(self) -> list[Attachment]:
         self._throw_if_error()
