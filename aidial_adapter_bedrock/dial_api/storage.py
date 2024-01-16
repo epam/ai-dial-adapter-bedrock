@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import io
+import mimetypes
 from typing import Mapping, Optional, TypedDict
 
 import aiohttp
@@ -21,11 +22,16 @@ class FileMetadata(TypedDict):
     contentType: str
 
 
+class Bucket(TypedDict):
+    bucket: str
+    appdata: str
+
+
 class FileStorage:
     dial_url: str
     upload_dir: str
     auth: Auth
-    bucket: Optional[str]
+    bucket: Optional[Bucket]
 
     def __init__(self, dial_url: str, upload_dir: str, auth: Auth):
         self.dial_url = dial_url
@@ -33,15 +39,15 @@ class FileStorage:
         self.auth = auth
         self.bucket = None
 
-    async def _get_bucket(self, session: aiohttp.ClientSession) -> str:
+    async def _get_bucket(self, session: aiohttp.ClientSession) -> Bucket:
         if self.bucket is None:
             async with session.get(
                 f"{self.dial_url}/v1/bucket",
                 headers=self.auth.headers,
             ) as response:
                 response.raise_for_status()
-                body = await response.json()
-                self.bucket = body["bucket"]
+                self.bucket = await response.json()
+                log.debug(f"bucket: {self.bucket}")
 
         return self.bucket
 
@@ -63,9 +69,12 @@ class FileStorage:
     ) -> FileMetadata:
         async with aiohttp.ClientSession() as session:
             bucket = await self._get_bucket(session)
+
+            appdata = bucket["appdata"]
+            ext = mimetypes.guess_extension(content_type) or ""
+            url = f"{self.dial_url}/v1/files/{appdata}/{self.upload_dir}/{filename}{ext}"
+
             data = FileStorage._to_form_data(filename, content_type, content)
-            ext = _get_extension(content_type) or ""
-            url = f"{self.dial_url}/v1/files/{bucket}/{self.upload_dir}/{filename}{ext}"
 
             async with session.put(
                 url=url,
@@ -89,12 +98,6 @@ def _compute_hash_digest(file_content: str) -> str:
     return hashlib.sha256(file_content.encode()).hexdigest()
 
 
-def _get_extension(content_type: str) -> Optional[str]:
-    if content_type.startswith("image/"):
-        return "." + content_type[len("image/") :]
-    return None
-
-
 DIAL_USE_FILE_STORAGE = get_env_bool("DIAL_USE_FILE_STORAGE", False)
 
 DIAL_URL: Optional[str] = None
@@ -110,7 +113,7 @@ def create_file_storage(
     if not DIAL_USE_FILE_STORAGE or DIAL_URL is None:
         return None
 
-    auth = Auth.from_headers("authorization", headers)
+    auth = Auth.from_headers("api-key", headers)
     if auth is None:
         log.debug(
             "The request doesn't have required headers to use the DIAL file storage. "

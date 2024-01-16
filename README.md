@@ -51,7 +51,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |DEFAULT_REGION||AWS region e.g. "us-east-1"|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
-|DIAL_USE_FILE_STORAGE|False|Save model artifacts to DIAL File storage (particularly, Stability images are uploaded to the files storage and their base64 encodings are replaced with links to the storage). The creds for the file storage must be passed in `Authorization` header of the incoming request. The file storage won't be used if the header isn't set.|
+|DIAL_USE_FILE_STORAGE|False|Save model artifacts to DIAL File storage (particularly, Stability images are uploaded to the files storage and their base64 encodings are replaced with links to the storage). The creds for the file storage must be passed in `api-key` header of the incoming request. The file storage won't be used if the header isn't set.|
 |DIAL_URL||URL of the core DIAL server (required when DIAL_USE_FILE_STORAGE=True)|
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |TEST_SERVER_URL|http://0.0.0.0:5001|Server URL used in the integration tests|
