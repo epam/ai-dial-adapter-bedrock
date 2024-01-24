@@ -33,6 +33,40 @@ TOOL_ARITY_0 = Tool(
     ),
 )
 
+TOOL_ENUM_PARAM = Tool(
+    type="function",
+    function=Function(
+        name="func_enum_param",
+        description="tool with enum parameter",
+        parameters={
+            "type": "object",
+            "properties": {
+                "param1": {
+                    "type": "string",
+                    "enum": ["value1", "value2", "value3"],
+                }
+            },
+        },
+    ),
+)
+
+TOOL_ARRAY_PARAM = Tool(
+    type="function",
+    function=Function(
+        name="func_array_param",
+        description="tool with array parameter",
+        parameters={
+            "type": "object",
+            "properties": {
+                "param1": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                }
+            },
+        },
+    ),
+)
+
 
 FUNCTION_CALL = FunctionCall(
     name="name",
@@ -61,7 +95,9 @@ FUNCTION_CALL_STR = """
 
 def test_print_tool_decls():
     assert (
-        print_tool_declarations([TOOL_ARITY_2, TOOL_ARITY_0])
+        print_tool_declarations(
+            [TOOL_ARITY_2, TOOL_ARITY_0, TOOL_ENUM_PARAM, TOOL_ARRAY_PARAM]
+        )
         == """
 <tools>
 <tool_description>
@@ -83,6 +119,30 @@ def test_print_tool_decls():
 <tool_name>func_arity_0</tool_name>
 <description>desc</description>
 <parameters>
+</parameters>
+</tool_description>
+<tool_description>
+<tool_name>func_enum_param</tool_name>
+<description>tool with enum parameter</description>
+<parameters>
+<parameter>
+<name>param1</name>
+<type>string</type>
+<enum>value1, value2, value3</enum>
+</parameter>
+</parameters>
+</tool_description>
+<tool_description>
+<tool_name>func_array_param</tool_name>
+<description>tool with array parameter</description>
+<parameters>
+<parameter>
+<name>param1</name>
+<type>array</type>
+<items>
+<type>string</type>
+</items>
+</parameter>
 </parameters>
 </tool_description>
 </tools>

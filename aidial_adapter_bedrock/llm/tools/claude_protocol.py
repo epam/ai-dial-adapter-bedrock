@@ -42,6 +42,9 @@ Here are the tools available:
 class ToolParameterProperties(ExtraForbidModel):
     type: str
     description: Optional[str]
+    default: Optional[str] = None
+    items: Optional["ToolParameterProperties"] = None
+    enum: Optional[List[str]] = None
 
 
 class ToolParameters(BaseModel):
@@ -50,14 +53,27 @@ class ToolParameters(BaseModel):
     required: Optional[List[str]]
 
 
+def _print_tool_parameter_properties(
+    props: ToolParameterProperties,
+) -> list[str]:
+    return [
+        tag("type", props.type),
+        tag_nl(
+            "items",
+            _print_tool_parameter_properties(props.items)
+            if props.items
+            else None,
+        ),
+        tag("enum", ", ".join(props.enum) if props.enum else None),
+        tag("description", props.description),
+        tag("default", props.default),
+    ]
+
+
 def _print_tool_parameter(name: str, props: ToolParameterProperties) -> str:
     return tag_nl(
         "parameter",
-        [
-            tag("name", name),
-            tag("type", props.type),
-            tag("description", props.description),
-        ],
+        [tag("name", name)] + _print_tool_parameter_properties(props),
     )
 
 
