@@ -57,7 +57,7 @@ class ToolParameters(BaseModel):
 
 def _print_tool_parameter_properties(
     props: ToolParameterProperties,
-) -> list[str]:
+) -> list[str | None]:
     return [
         tag("type", props.type),
         tag_nl(
