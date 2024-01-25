@@ -45,6 +45,8 @@ class ToolParameterProperties(ExtraForbidModel):
     default: Optional[str] = None
     items: Optional["ToolParameterProperties"] = None
     enum: Optional[List[str]] = None
+    # The title is allowed according to the JSON Schema, but not used
+    title: Optional[str] = None
 
 
 class ToolParameters(BaseModel):
