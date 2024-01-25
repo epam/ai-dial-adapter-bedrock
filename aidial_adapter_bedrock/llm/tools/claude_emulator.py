@@ -112,7 +112,11 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     def recognize_call(
         self, content: str | None
     ) -> str | AIToolCallMessage | AIFunctionCallMessage | None:
-        return self.call_recognizer.consume_chunk(content)
+        return (
+            self.call_recognizer.consume_chunk(content)
+            if self.tool_config
+            else content
+        )
 
 
 def claude_v2_1_tools_emulator(
@@ -121,7 +125,6 @@ def claude_v2_1_tools_emulator(
     return Claude2_1_ToolsEmulator(
         tool_config=tool_config,
         call_recognizer=CallRecognizer(
-            init_buffer=30,
             start_tag=FUNC_START_TAG,
             call_parser=lambda text: parse_call(
                 tool_config, text + FUNC_END_TAG
