@@ -14,9 +14,7 @@ class CallRecognizer:
 
     acc: str
 
-    def __init__(
-        self, start_tag: str, call_parser: CallParser
-    ):
+    def __init__(self, start_tag: str, call_parser: CallParser):
         self.start_tag = start_tag
         self.call_parser = call_parser
 
