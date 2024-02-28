@@ -6,7 +6,6 @@ class BedrockDeployment(str, Enum):
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
-    ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
