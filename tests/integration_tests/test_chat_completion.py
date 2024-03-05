@@ -2,16 +2,15 @@ import re
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
-import openai
-import openai.error
 import pytest
-from langchain.schema import BaseMessage
+from langchain_core.messages import BaseMessage
+from openai import APIStatusError
 
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
 from tests.utils.langchain import (
     ai,
-    create_model,
+    create_chat_model,
     run_model,
     sanitize_test_name,
     sys,
@@ -193,7 +192,7 @@ def get_test_cases(
     ids=lambda test: test.get_id(),
 )
 async def test_chat_completion_langchain(server, test: TestCase):
-    model = create_model(
+    model = create_chat_model(
         TEST_SERVER_URL, test.deployment.value, test.streaming, test.max_tokens
     )
 
@@ -201,8 +200,8 @@ async def test_chat_completion_langchain(server, test: TestCase):
         with pytest.raises(Exception) as exc_info:
             await run_model(model, test.messages, test.streaming, test.stop)
 
-        assert isinstance(exc_info.value, openai.error.OpenAIError)
-        assert exc_info.value.http_status == 422
+        assert isinstance(exc_info.value, APIStatusError)
+        assert exc_info.value.status_code == 422
         assert re.search(str(test.test), str(exc_info.value))
     else:
         actual_output = await run_model(

@@ -1,10 +1,15 @@
 import re
 from typing import List, Optional
 
-from langchain.callbacks.base import Callbacks
-from langchain.chat_models import AzureChatOpenAI
-from langchain.chat_models.base import BaseChatModel
-from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.callbacks import Callbacks
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
+from langchain_openai import AzureChatOpenAI
 
 from tests.conftest import DEFAULT_API_VERSION
 from tests.utils.callback import CallbackWithNewLines
@@ -47,7 +52,7 @@ async def run_model(
     return llm_result.generations[0][-1].text
 
 
-def create_model(
+def create_chat_model(
     base_url: str,
     model_id: str,
     streaming: bool,
@@ -55,20 +60,15 @@ def create_model(
 ) -> BaseChatModel:
     callbacks: Callbacks = [CallbackWithNewLines()]
     return AzureChatOpenAI(
-        deployment_name=model_id,
+        azure_endpoint=base_url,
+        azure_deployment=model_id,
         callbacks=callbacks,
-        openai_api_base=base_url,
-        openai_api_version=DEFAULT_API_VERSION,
-        openai_api_key="dummy_openai_api_key",
-        model_kwargs={
-            "deployment_id": model_id,
-            "api_key": "dummy_api_key",
-        },
+        api_version=DEFAULT_API_VERSION,
+        api_key="dummy_key",
         verbose=True,
         streaming=streaming,
-        max_tokens=max_tokens,
-        temperature=0.0,
-        request_timeout=10,
-        client=None,
+        temperature=0,
         max_retries=0,
+        max_tokens=max_tokens,
+        request_timeout=10,  # type: ignore
     )
