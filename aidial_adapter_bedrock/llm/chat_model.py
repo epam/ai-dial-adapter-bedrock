@@ -31,7 +31,7 @@ def _is_empty_system_message(msg: BaseMessage) -> bool:
 class ChatPrompt(BaseModel):
     text: str
     stop_sequences: List[str]
-    discarded_messages: Optional[int] = None
+    discarded_messages: Optional[List[int]] = None
 
 
 class ChatModel(ABC, BaseModel):
@@ -140,14 +140,14 @@ class PseudoChatModel(ChatModel):
 
         text, stop_sequences = self.chat_emulator.display(messages)
 
-        discarded_messages_count = (
-            None if max_prompt_tokens is None else len(discarded_messages)
+        discarded_messages_list = (
+            None if max_prompt_tokens is None else list(discarded_messages)
         )
 
         return ChatPrompt(
             text=text,
             stop_sequences=stop_sequences,
-            discarded_messages=discarded_messages_count,
+            discarded_messages=discarded_messages_list,
         )
 
     @staticmethod

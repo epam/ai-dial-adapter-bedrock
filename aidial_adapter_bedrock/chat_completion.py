@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Set
+from typing import List, Optional
 
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 
@@ -31,35 +31,29 @@ class BedrockChatCompletion(ChatCompletion):
             headers=request.headers,
         )
 
+        discarded_messages: Optional[List[int]] = None
+
         async def generate_response(
             usage: TokenUsage,
-            discarded_messages_set: Set[Optional[int]],
             choice_idx: int,
         ) -> None:
+            nonlocal discarded_messages
+
             with response.create_choice() as choice:
                 tools_emulator = model.tools_emulator(params.tool_config)
                 consumer = ChoiceConsumer(tools_emulator, choice)
                 await model.achat(consumer, params, request.messages)
                 usage.accumulate(consumer.usage)
-                discarded_messages_set.add(consumer.discarded_messages)
+                discarded_messages = consumer.discarded_messages
 
         usage = TokenUsage()
-        discarded_messages_set: Set[Optional[int]] = set()
 
         await asyncio.gather(
-            *(
-                generate_response(usage, discarded_messages_set, idx)
-                for idx in range(request.n or 1)
-            )
+            *(generate_response(usage, idx) for idx in range(request.n or 1))
         )
 
         log.debug(f"usage: {usage}")
         response.set_usage(usage.prompt_tokens, usage.completion_tokens)
 
-        assert (
-            len(discarded_messages_set) == 1
-        ), "Discarded messages count must be the same for each choice."
-
-        discarded_messages = next(iter(discarded_messages_set))
         if discarded_messages is not None:
             response.set_discarded_messages(discarded_messages)
