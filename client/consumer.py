@@ -8,7 +8,7 @@ class CollectConsumer(Consumer):
     usage: TokenUsage
     content: str
     attachments: List[Attachment]
-    discarded_messages: Optional[int]
+    discarded_messages: Optional[List[int]]
 
     def __init__(self):
         self.usage = TokenUsage()
@@ -28,5 +28,5 @@ class CollectConsumer(Consumer):
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
 
-    def set_discarded_messages(self, discarded_messages: int):
+    def set_discarded_messages(self, discarded_messages: List[int]):
         self.discarded_messages = discarded_messages

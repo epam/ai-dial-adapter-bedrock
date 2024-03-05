@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, assert_never
+from typing import List, Optional, assert_never
 
 from aidial_sdk.chat_completion import Choice
 from pydantic import BaseModel
@@ -39,14 +39,14 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def set_discarded_messages(self, discarded_messages: int):
+    def set_discarded_messages(self, discarded_messages: List[int]):
         pass
 
 
 class ChoiceConsumer(Consumer):
     usage: TokenUsage
     choice: Choice
-    discarded_messages: Optional[int]
+    discarded_messages: Optional[List[int]]
     tools_emulator: ToolsEmulator
 
     def __init__(self, tools_emulator: ToolsEmulator, choice: Choice):
@@ -95,5 +95,5 @@ class ChoiceConsumer(Consumer):
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
 
-    def set_discarded_messages(self, discarded_messages: int):
+    def set_discarded_messages(self, discarded_messages: List[int]):
         self.discarded_messages = discarded_messages

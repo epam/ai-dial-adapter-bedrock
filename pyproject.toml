@@ -17,7 +17,7 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.28.57"
 botocore = "1.31.57"
-aidial-sdk = {version = "0.6.2", extras = ["telemetry"]}
+aidial-sdk = {version = "0.7.0", extras = ["telemetry"]}
 anthropic = "0.2.10"
 colorama = "0.4.4"
 fastapi = "0.109.2"

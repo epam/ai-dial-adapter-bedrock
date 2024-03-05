@@ -119,7 +119,7 @@ class StabilityAdapter(ChatModel):
         return ChatPrompt(
             text=messages[-1].content,
             stop_sequences=[],
-            discarded_messages=len(messages) - 1,
+            discarded_messages=list(range(len(messages) - 1)),
         )
 
     async def _apredict(
