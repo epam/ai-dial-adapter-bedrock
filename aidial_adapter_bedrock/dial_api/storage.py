@@ -7,7 +7,7 @@ from typing import Mapping, Optional, TypedDict
 import aiohttp
 
 from aidial_adapter_bedrock.dial_api.auth import Auth
-from aidial_adapter_bedrock.utils.env import get_env, get_env_bool
+from aidial_adapter_bedrock.utils.env import get_env
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -94,19 +94,15 @@ def _compute_hash_digest(file_content: str) -> str:
     return hashlib.sha256(file_content.encode()).hexdigest()
 
 
-DIAL_USE_FILE_STORAGE = get_env_bool("DIAL_USE_FILE_STORAGE", False)
-
-DIAL_URL: Optional[str] = None
-if DIAL_USE_FILE_STORAGE:
-    DIAL_URL = get_env(
-        "DIAL_URL", "DIAL_URL must be set to use the DIAL file storage"
-    )
+DIAL_URL = get_env(
+    "DIAL_URL", "DIAL_URL must be set to use the DIAL file storage"
+)
 
 
 def create_file_storage(
     base_dir: str, headers: Mapping[str, str]
 ) -> Optional[FileStorage]:
-    if not DIAL_USE_FILE_STORAGE or DIAL_URL is None:
+    if DIAL_URL is None:
         return None
 
     auth = Auth.from_headers("api-key", headers)
