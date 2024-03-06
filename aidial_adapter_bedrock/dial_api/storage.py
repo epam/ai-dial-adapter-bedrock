@@ -2,12 +2,12 @@ import base64
 import hashlib
 import io
 import mimetypes
+import os
 from typing import Mapping, Optional, TypedDict
 
 import aiohttp
 
 from aidial_adapter_bedrock.dial_api.auth import Auth
-from aidial_adapter_bedrock.utils.env import get_env
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -94,9 +94,7 @@ def _compute_hash_digest(file_content: str) -> str:
     return hashlib.sha256(file_content.encode()).hexdigest()
 
 
-DIAL_URL = get_env(
-    "DIAL_URL", "DIAL_URL must be set to use the DIAL file storage"
-)
+DIAL_URL = os.getenv("DIAL_URL")
 
 
 def create_file_storage(
