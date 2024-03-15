@@ -28,19 +28,30 @@ def _is_empty_system_message(msg: BaseMessage) -> bool:
     return isinstance(msg, SystemMessage) and msg.content.strip() == ""
 
 
-class ChatPrompt(BaseModel):
-    text: str
-    stop_sequences: List[str]
-    discarded_messages: Optional[List[int]] = None
-
-
-class ChatModel(ABC, BaseModel):
+class BaseChatModel(ABC, BaseModel):
     model: str
     tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
     class Config:
         arbitrary_types_allowed = True
 
+    @abstractmethod
+    async def achat(
+        self,
+        consumer: Consumer,
+        params: ModelParameters,
+        messages: List[Message],
+    ):
+        pass
+
+
+class ChatPrompt(BaseModel):
+    text: str
+    stop_sequences: List[str]
+    discarded_messages: Optional[List[int]] = None
+
+
+class ChatModel(BaseChatModel):
     @abstractmethod
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

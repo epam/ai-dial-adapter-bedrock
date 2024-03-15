@@ -85,7 +85,7 @@ async def save_to_storage(
         and attachment.data is not None
     ):
         response = await storage.upload_file_as_base64(
-            attachment.data, attachment.type
+            "images", attachment.data, attachment.type
         )
         return Attachment(
             title=attachment.title,
@@ -102,7 +102,7 @@ class StabilityAdapter(ChatModel):
 
     @classmethod
     def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage("images", headers)
+        storage: Optional[FileStorage] = create_file_storage(headers)
         return cls(
             client=client,
             model=model,

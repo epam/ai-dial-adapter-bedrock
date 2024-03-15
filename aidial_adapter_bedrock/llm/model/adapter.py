@@ -17,7 +17,7 @@ async def get_bedrock_adapter(
     provider = Model.parse(model).provider
     match provider:
         case "anthropic":
-            return AnthropicAdapter.create(client, model)
+            return await AnthropicAdapter.create(client, model)
         case "ai21":
             return AI21Adapter.create(client, model)
         case "stability":

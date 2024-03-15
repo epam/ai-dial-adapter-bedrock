@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from aidial_sdk.chat_completion import FinishReason
+
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 
@@ -19,7 +21,7 @@ class CollectConsumer(Consumer):
     def append_content(self, content: str):
         self.content += content
 
-    def close_content(self):
+    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
         pass
 
     def add_attachment(self, attachment: Attachment):

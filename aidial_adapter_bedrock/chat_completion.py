@@ -8,6 +8,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
+from aidial_adapter_bedrock.llm.model.anthropic import AnthropicChat
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -21,22 +22,23 @@ class BedrockChatCompletion(ChatCompletion):
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
         params = ModelParameters.create(request)
-        model_id = BedrockDeployment.from_deployment_id(
+        deployment_id = BedrockDeployment.from_deployment_id(
             request.deployment_id
-        ).model_id
-
-        model = await get_bedrock_adapter(
-            region=self.region,
-            model=model_id,
-            headers=request.headers,
         )
+        if deployment_id == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
+            model = AnthropicChat.create(
+                deployment_id.model_id, request.headers
+            )
+        else:
+            model = await get_bedrock_adapter(
+                region=self.region,
+                model=deployment_id.model_id,
+                headers=request.headers,
+            )
 
         discarded_messages: Optional[List[int]] = None
 
-        async def generate_response(
-            usage: TokenUsage,
-            choice_idx: int,
-        ) -> None:
+        async def generate_response(usage: TokenUsage) -> None:
             nonlocal discarded_messages
 
             with response.create_choice() as choice:
@@ -49,7 +51,7 @@ class BedrockChatCompletion(ChatCompletion):
         usage = TokenUsage()
 
         await asyncio.gather(
-            *(generate_response(usage, idx) for idx in range(request.n or 1))
+            *(generate_response(usage) for _ in range(request.n or 1))
         )
 
         log.debug(f"usage: {usage}")

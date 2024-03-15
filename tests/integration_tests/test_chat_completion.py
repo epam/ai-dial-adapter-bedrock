@@ -46,6 +46,7 @@ chat_deployments = [
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     # BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
+    BedrockDeployment.ANTHROPIC_CLAUDE_V3,
     BedrockDeployment.META_LLAMA2_70B_CHAT_V1,
     BedrockDeployment.COHERE_COMMAND_TEXT_V14,
 ]

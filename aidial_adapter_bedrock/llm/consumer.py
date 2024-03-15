@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, assert_never
 
-from aidial_sdk.chat_completion import Choice
+from aidial_sdk.chat_completion import Choice, FinishReason
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -27,7 +27,7 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def close_content(self):
+    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
         pass
 
     @abstractmethod
@@ -55,10 +55,13 @@ class ChoiceConsumer(Consumer):
         self.discarded_messages = None
         self.tools_emulator = tools_emulator
 
-    def _process_content(self, content: str | None):
+    def _process_content(
+        self, content: str | None, finish_reason: FinishReason | None = None
+    ):
         res = self.tools_emulator.recognize_call(content)
 
         if res is None:
+            self.choice.close(finish_reason)
             return
 
         if isinstance(res, str):
@@ -72,6 +75,7 @@ class ChoiceConsumer(Consumer):
                     name=call.function.name,
                     arguments=call.function.arguments,
                 )
+            self.choice.close(FinishReason.TOOL_CALLS)
             return
 
         if isinstance(res, AIFunctionCallMessage):
@@ -79,12 +83,13 @@ class ChoiceConsumer(Consumer):
             self.choice.create_function_call(
                 name=call.name, arguments=call.arguments
             )
+            self.choice.close(FinishReason.FUNCTION_CALL)
             return
 
         assert_never(res)
 
-    def close_content(self):
-        self._process_content(None)
+    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
+        self._process_content(None, finish_reason)
 
     def append_content(self, content: str):
         self._process_content(content)
@@ -97,3 +102,6 @@ class ChoiceConsumer(Consumer):
 
     def set_discarded_messages(self, discarded_messages: List[int]):
         self.discarded_messages = discarded_messages
+
+    def finish(self, finish_reason: FinishReason):
+        self.choice.close(finish_reason)
