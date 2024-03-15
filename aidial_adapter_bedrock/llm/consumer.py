@@ -61,7 +61,7 @@ class ChoiceConsumer(Consumer):
         res = self.tools_emulator.recognize_call(content)
 
         if res is None:
-            self.choice.close(finish_reason)
+            self.choice._last_finish_reason = finish_reason
             return
 
         if isinstance(res, str):
@@ -75,7 +75,6 @@ class ChoiceConsumer(Consumer):
                     name=call.function.name,
                     arguments=call.function.arguments,
                 )
-            self.choice.close(FinishReason.TOOL_CALLS)
             return
 
         if isinstance(res, AIFunctionCallMessage):
@@ -83,12 +82,11 @@ class ChoiceConsumer(Consumer):
             self.choice.create_function_call(
                 name=call.name, arguments=call.arguments
             )
-            self.choice.close(FinishReason.FUNCTION_CALL)
             return
 
         assert_never(res)
 
-    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
+    def close_content(self, finish_reason: FinishReason | None = None):
         self._process_content(None, finish_reason)
 
     def append_content(self, content: str):
