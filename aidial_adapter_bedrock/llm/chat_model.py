@@ -28,7 +28,7 @@ def _is_empty_system_message(msg: BaseMessage) -> bool:
     return isinstance(msg, SystemMessage) and msg.content.strip() == ""
 
 
-class BaseChatModel(ABC, BaseModel):
+class ChatModel(ABC, BaseModel):
     model: str
     tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
@@ -51,7 +51,7 @@ class ChatPrompt(BaseModel):
     discarded_messages: Optional[List[int]] = None
 
 
-class ChatModel(BaseChatModel):
+class CompletionChatModel(ChatModel):
     @abstractmethod
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
@@ -121,7 +121,7 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
     return [1] * len(messages)
 
 
-class PseudoChatModel(ChatModel):
+class PseudoChatModel(CompletionChatModel):
     chat_emulator: ChatEmulator
     tokenize: Callable[[str], int]
     chat_emulator: ChatEmulator

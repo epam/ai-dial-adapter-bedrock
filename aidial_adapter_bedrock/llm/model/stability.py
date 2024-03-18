@@ -10,7 +10,10 @@ from aidial_adapter_bedrock.dial_api.storage import (
     create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
+from aidial_adapter_bedrock.llm.chat_model import (
+    CompletionChatModel,
+    ChatPrompt,
+)
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -96,7 +99,7 @@ async def save_to_storage(
     return attachment
 
 
-class StabilityAdapter(ChatModel):
+class StabilityAdapter(CompletionChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 

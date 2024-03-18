@@ -30,7 +30,7 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    BaseChatModel,
+    ChatModel,
     PseudoChatModel,
     default_partitioner,
 )
@@ -47,6 +47,7 @@ from aidial_adapter_bedrock.llm.tools.claude_emulator import (
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 # NOTE: See https://docs.anthropic.com/claude/reference/complete_post
@@ -194,17 +195,7 @@ class UsageEventHandler(AsyncMessageStream):
             self.stop_reason = event.delta.stop_reason
 
 
-class CompletionParameters(TypedDict):
-    messages: List[MessageParam]
-    model: str
-    max_tokens: int
-    stop_sequences: Optional[List[str]]
-    system: Optional[str]
-    temperature: Optional[float]
-    top_p: Optional[float]
-
-
-class AnthropicChat(BaseChatModel):
+class AnthropicChat(ChatModel):
     storage: Optional[FileStorage]
 
     async def achat(
@@ -220,7 +211,9 @@ class AnthropicChat(BaseChatModel):
             "max_tokens": params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             "stop_sequences": params.stop or NOT_GIVEN,
             "system": prompt or NOT_GIVEN,
-            "temperature": params.temperature or NOT_GIVEN,
+            "temperature": params.temperature / 2
+            if params.temperature
+            else NOT_GIVEN,
             "top_p": params.top_p or NOT_GIVEN,
         }
         if params.stream:
@@ -237,6 +230,9 @@ class AnthropicChat(BaseChatModel):
         params: dict[str, Any],
     ):
         client = AsyncAnthropicBedrock()
+        log.debug(
+            f"Streaming request: messages={messages}, model={self.model}, params={params}"
+        )
         async with client.messages.stream(
             messages=messages,
             model=self.model,
@@ -261,6 +257,9 @@ class AnthropicChat(BaseChatModel):
         params: dict[str, Any],
     ):
         client = AsyncAnthropicBedrock()
+        log.debug(
+            f"Request: messages={messages}, model={self.model}, params={params}"
+        )
         message = await client.messages.create(
             messages=messages, model=self.model, **params
         )
