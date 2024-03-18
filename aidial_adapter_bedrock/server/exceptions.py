@@ -1,3 +1,4 @@
+import traceback
 from functools import wraps
 
 from aidial_sdk import HTTPException as DialException
@@ -50,6 +51,7 @@ def dial_exception_decorator(func):
         try:
             return await func(*args, **kwargs)
         except Exception as e:
+            traceback.print_exc()
             raise to_dial_exception(e)
 
     return wrapper
