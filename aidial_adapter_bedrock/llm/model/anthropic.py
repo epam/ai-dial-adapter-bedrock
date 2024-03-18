@@ -197,7 +197,7 @@ class UsageEventHandler(AsyncMessageStream):
 
 class AnthropicChat(ChatModel):
     storage: Optional[FileStorage]
-    client: AsyncAnthropic
+    client: AsyncAnthropicBedrock
 
     async def achat(
         self,
