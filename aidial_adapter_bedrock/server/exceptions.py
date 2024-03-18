@@ -1,4 +1,3 @@
-import traceback
 from functools import wraps
 
 from aidial_sdk import HTTPException as DialException

@@ -11,8 +11,8 @@ from aidial_adapter_bedrock.dial_api.storage import (
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
-    CompletionChatModel,
     ChatPrompt,
+    CompletionChatModel,
 )
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError

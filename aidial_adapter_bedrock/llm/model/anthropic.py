@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, TypedDict
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional
 
 import anthropic
 import httpx
