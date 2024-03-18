@@ -197,6 +197,7 @@ class UsageEventHandler(AsyncMessageStream):
 
 class AnthropicChat(ChatModel):
     storage: Optional[FileStorage]
+    client: AsyncAnthropic
 
     async def achat(
         self,
@@ -229,11 +230,10 @@ class AnthropicChat(ChatModel):
         messages: List[MessageParam],
         params: dict[str, Any],
     ):
-        client = AsyncAnthropicBedrock()
         log.debug(
             f"Streaming request: messages={messages}, model={self.model}, params={params}"
         )
-        async with client.messages.stream(
+        async with self.client.messages.stream(
             messages=messages,
             model=self.model,
             event_handler=UsageEventHandler,
@@ -256,11 +256,10 @@ class AnthropicChat(ChatModel):
         messages: List[MessageParam],
         params: dict[str, Any],
     ):
-        client = AsyncAnthropicBedrock()
         log.debug(
             f"Request: messages={messages}, model={self.model}, params={params}"
         )
-        message = await client.messages.create(
+        message = await self.client.messages.create(
             messages=messages, model=self.model, **params
         )
         prompt_tokens = 0
@@ -280,10 +279,11 @@ class AnthropicChat(ChatModel):
         )
 
     @classmethod
-    def create(cls, model: str, headers: Mapping[str, str]):
+    def create(cls, model: str, region: str, headers: Mapping[str, str]):
         storage: Optional[FileStorage] = create_file_storage(headers)
         return cls(
             model=model,
-            storage=storage,
             tools_emulator=default_tools_emulator,
+            storage=storage,
+            client=AsyncAnthropicBedrock(aws_region=region),
         )

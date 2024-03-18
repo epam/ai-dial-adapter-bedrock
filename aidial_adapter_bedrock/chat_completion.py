@@ -27,7 +27,9 @@ class BedrockChatCompletion(ChatCompletion):
         )
         if deployment_id == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
             model = AnthropicChat.create(
-                deployment_id.model_id, request.headers
+                model=deployment_id.model_id,
+                region=self.region,
+                headers=request.headers,
             )
         else:
             model = await get_bedrock_adapter(
