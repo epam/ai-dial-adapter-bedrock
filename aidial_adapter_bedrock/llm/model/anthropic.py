@@ -210,12 +210,12 @@ class AnthropicChat(ChatModel):
         )
         completion_params = {
             "max_tokens": params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
-            "stop_sequences": params.stop or NOT_GIVEN,
+            "stop_sequences": NOT_GIVEN if params.stop is None else params.stop,
             "system": prompt or NOT_GIVEN,
-            "temperature": params.temperature / 2
-            if params.temperature
-            else NOT_GIVEN,
-            "top_p": params.top_p or NOT_GIVEN,
+            "temperature": NOT_GIVEN
+            if params.temperature is None
+            else params.temperature / 2,
+            "top_p": NOT_GIVEN if params.top_p is None else params.top_p,
         }
         if params.stream:
             await self.invoke_streaming(
