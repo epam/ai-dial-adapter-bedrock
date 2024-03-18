@@ -35,6 +35,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     default_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.claude3.converters import (
     to_claude_messages,
@@ -205,6 +206,9 @@ class AnthropicChat(ChatModel):
         params: ModelParameters,
         messages: List[Message],
     ):
+        if len(messages) == 0:
+            raise ValidationError("List of messages must not be empty")
+
         prompt, claude_messages = await to_claude_messages(
             messages, self.storage
         )

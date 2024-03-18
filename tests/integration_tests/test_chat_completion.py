@@ -1,10 +1,11 @@
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, TypeVar
 
 import pytest
 from langchain_core.messages import BaseMessage
-from openai import APIStatusError
+from openai import APIStatusError, BadRequestError, UnprocessableEntityError
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
@@ -16,6 +17,14 @@ from tests.utils.langchain import (
     sys,
     user,
 )
+
+APIStatusErrorT = TypeVar("APIStatusErrorT", bound=APIStatusError)
+
+
+class ExpectedException(BaseModel):
+    type: type[APIStatusErrorT]
+    message: str
+    status_code: int
 
 
 @dataclass
@@ -29,7 +38,7 @@ class TestCase:
     stop: Optional[List[str]]
 
     messages: List[BaseMessage]
-    test: Callable[[str], bool] | Exception
+    test: Callable[[str], bool] | ExpectedException
 
     def get_id(self):
         max_tokens_str = str(self.max_tokens) if self.max_tokens else "inf"
@@ -121,7 +130,11 @@ def get_test_cases(
             max_tokens=1,
             stop=None,
             messages=[],
-            test=Exception("List of messages must not be empty"),
+            test=ExpectedException(
+                type=UnprocessableEntityError,
+                message="List of messages must not be empty",
+                status_code=422,
+            ),
         )
     )
 
@@ -133,7 +146,13 @@ def get_test_cases(
             max_tokens=1,
             stop=None,
             messages=[user("")],
-            test=lambda s: True,
+            test=ExpectedException(
+                type=BadRequestError,
+                message="all messages must have non-empty content except for the optional final assistant message",
+                status_code=400,
+            )
+            if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+            else lambda s: True,
         )
     )
 
@@ -145,7 +164,13 @@ def get_test_cases(
             max_tokens=1,
             stop=None,
             messages=[user(" ")],
-            test=lambda s: True,
+            test=ExpectedException(
+                type=BadRequestError,
+                message="text content blocks must contain non-whitespace text",
+                status_code=400,
+            )
+            if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+            else lambda s: True,
         )
     )
 
@@ -197,13 +222,13 @@ async def test_chat_completion_langchain(server, test: TestCase):
         TEST_SERVER_URL, test.deployment.value, test.streaming, test.max_tokens
     )
 
-    if isinstance(test.test, Exception):
-        with pytest.raises(Exception) as exc_info:
+    if isinstance(test.test, ExpectedException):
+        with pytest.raises(test.test.type) as exc_info:
             await run_model(model, test.messages, test.streaming, test.stop)
 
-        assert isinstance(exc_info.value, APIStatusError)
-        assert exc_info.value.status_code == 422
-        assert re.search(str(test.test), str(exc_info.value))
+        assert isinstance(exc_info.value, test.test.type)
+        assert exc_info.value.status_code == test.test.status_code
+        assert re.search(test.test.message, str(exc_info.value))
     else:
         actual_output = await run_model(
             model, test.messages, test.streaming, test.stop
