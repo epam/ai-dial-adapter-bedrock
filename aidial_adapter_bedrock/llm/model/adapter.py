@@ -15,10 +15,10 @@ from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
 
 async def get_bedrock_adapter(
-    deployment_id: BedrockDeployment, region: str, headers: Mapping[str, str]
+    deployment: BedrockDeployment, region: str, headers: Mapping[str, str]
 ) -> ChatModel:
-    model = deployment_id.model_id
-    if deployment_id == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
+    model = deployment.model_id
+    if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
         return AnthropicChat.create(model, region, headers)
 
     client = await Bedrock.acreate(region)
