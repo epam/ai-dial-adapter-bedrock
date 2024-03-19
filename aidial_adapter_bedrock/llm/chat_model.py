@@ -185,19 +185,3 @@ class PseudoChatModel(CompletionChatModel):
         stream = stream_utils.ensure_not_empty(stream, " ")
 
         return stream
-
-
-class Model(BaseModel):
-    provider: str
-    model: str
-
-    @classmethod
-    def parse(cls, model_id: str) -> "Model":
-        parts = model_id.split(".")
-        if len(parts) != 2:
-            raise Exception(
-                f"Invalid model id '{model_id}'. "
-                "The model id is expected to be in format 'provider.model'"
-            )
-        provider, model = parts
-        return cls(provider=provider, model=model)

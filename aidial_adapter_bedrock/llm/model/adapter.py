@@ -2,7 +2,7 @@ from typing import Mapping
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
-from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
+from aidial_adapter_bedrock.llm.chat_model import ChatModel
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.anthropic import (
@@ -18,23 +18,22 @@ async def get_bedrock_adapter(
     deployment: BedrockDeployment, region: str, headers: Mapping[str, str]
 ) -> ChatModel:
     model = deployment.model_id
-    if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
-        return AnthropicChat.create(model, region, headers)
-
-    client = await Bedrock.acreate(region)
-    provider = Model.parse(model).provider
-    match provider:
-        case "anthropic":
-            return await AnthropicAdapter.create(client, model)
-        case "ai21":
-            return AI21Adapter.create(client, model)
-        case "stability":
-            return StabilityAdapter.create(client, model, headers)
-        case "amazon":
-            return AmazonAdapter.create(client, model)
-        case "meta":
-            return MetaAdapter.create(client, model)
-        case "cohere":
-            return CohereAdapter.create(client, model)
-        case _:
-            raise ValueError(f"Unknown model provider: '{provider}'")
+    match deployment:
+        case BedrockDeployment.ANTHROPIC_CLAUDE_V3:
+            return AnthropicChat.create(model, region, headers)
+        case BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1 | BedrockDeployment.ANTHROPIC_CLAUDE_V1 | BedrockDeployment.ANTHROPIC_CLAUDE_V2 | BedrockDeployment.ANTHROPIC_CLAUDE_V2_1:
+            return await AnthropicAdapter.create(
+                await Bedrock.acreate(region), model
+            )
+        case BedrockDeployment.AI21_J2_JUMBO_INSTRUCT | BedrockDeployment.AI21_J2_GRANDE_INSTRUCT:
+            return AI21Adapter.create(await Bedrock.acreate(region), model)
+        case BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL:
+            return StabilityAdapter.create(
+                await Bedrock.acreate(region), model, headers
+            )
+        case BedrockDeployment.AMAZON_TITAN_TG1_LARGE:
+            return AmazonAdapter.create(await Bedrock.acreate(region), model)
+        case BedrockDeployment.META_LLAMA2_13B_CHAT_V1 | BedrockDeployment.META_LLAMA2_70B_CHAT_V1:
+            return MetaAdapter.create(await Bedrock.acreate(region), model)
+        case BedrockDeployment.COHERE_COMMAND_TEXT_V14 | BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14:
+            return CohereAdapter.create(await Bedrock.acreate(region), model)
