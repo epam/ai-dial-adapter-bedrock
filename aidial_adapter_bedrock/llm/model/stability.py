@@ -10,7 +10,10 @@ from aidial_adapter_bedrock.dial_api.storage import (
     create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatModel, ChatPrompt
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatPrompt,
+    CompletionChatModel,
+)
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -85,7 +88,7 @@ async def save_to_storage(
         and attachment.data is not None
     ):
         response = await storage.upload_file_as_base64(
-            attachment.data, attachment.type
+            "images", attachment.data, attachment.type
         )
         return Attachment(
             title=attachment.title,
@@ -96,13 +99,13 @@ async def save_to_storage(
     return attachment
 
 
-class StabilityAdapter(ChatModel):
+class StabilityAdapter(CompletionChatModel):
     client: Bedrock
     storage: Optional[FileStorage]
 
     @classmethod
     def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage("images", headers)
+        storage: Optional[FileStorage] = create_file_storage(headers)
         return cls(
             client=client,
             model=model,

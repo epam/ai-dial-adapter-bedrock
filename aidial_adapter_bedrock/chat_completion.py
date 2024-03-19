@@ -21,22 +21,16 @@ class BedrockChatCompletion(ChatCompletion):
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
         params = ModelParameters.create(request)
-        model_id = BedrockDeployment.from_deployment_id(
-            request.deployment_id
-        ).model_id
-
+        deployment = BedrockDeployment.from_deployment_id(request.deployment_id)
         model = await get_bedrock_adapter(
             region=self.region,
-            model=model_id,
+            deployment=deployment,
             headers=request.headers,
         )
 
         discarded_messages: Optional[List[int]] = None
 
-        async def generate_response(
-            usage: TokenUsage,
-            choice_idx: int,
-        ) -> None:
+        async def generate_response(usage: TokenUsage) -> None:
             nonlocal discarded_messages
 
             with response.create_choice() as choice:
@@ -49,7 +43,7 @@ class BedrockChatCompletion(ChatCompletion):
         usage = TokenUsage()
 
         await asyncio.gather(
-            *(generate_response(usage, idx) for idx in range(request.n or 1))
+            *(generate_response(usage) for _ in range(request.n or 1))
         )
 
         log.debug(f"usage: {usage}")

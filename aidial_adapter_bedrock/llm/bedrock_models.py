@@ -9,6 +9,7 @@ class BedrockDeployment(str, Enum):
     ANTHROPIC_CLAUDE_V1 = "anthropic.claude-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
+    ANTHROPIC_CLAUDE_V3 = "anthropic.claude-3-sonnet-20240229-v1:0"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     META_LLAMA2_13B_CHAT_V1 = "meta.llama2-13b-chat-v1"
     META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"

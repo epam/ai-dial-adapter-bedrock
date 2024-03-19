@@ -28,12 +28,6 @@ def _is_empty_system_message(msg: BaseMessage) -> bool:
     return isinstance(msg, SystemMessage) and msg.content.strip() == ""
 
 
-class ChatPrompt(BaseModel):
-    text: str
-    stop_sequences: List[str]
-    discarded_messages: Optional[List[int]] = None
-
-
 class ChatModel(ABC, BaseModel):
     model: str
     tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
@@ -41,6 +35,23 @@ class ChatModel(ABC, BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    @abstractmethod
+    async def achat(
+        self,
+        consumer: Consumer,
+        params: ModelParameters,
+        messages: List[Message],
+    ):
+        pass
+
+
+class ChatPrompt(BaseModel):
+    text: str
+    stop_sequences: List[str]
+    discarded_messages: Optional[List[int]] = None
+
+
+class CompletionChatModel(ChatModel):
     @abstractmethod
     def _prepare_prompt(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
@@ -110,7 +121,7 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
     return [1] * len(messages)
 
 
-class PseudoChatModel(ChatModel):
+class PseudoChatModel(CompletionChatModel):
     chat_emulator: ChatEmulator
     tokenize: Callable[[str], int]
     chat_emulator: ChatEmulator
@@ -174,19 +185,3 @@ class PseudoChatModel(ChatModel):
         stream = stream_utils.ensure_not_empty(stream, " ")
 
         return stream
-
-
-class Model(BaseModel):
-    provider: str
-    model: str
-
-    @classmethod
-    def parse(cls, model_id: str) -> "Model":
-        parts = model_id.split(".")
-        if len(parts) != 2:
-            raise Exception(
-                f"Invalid model id '{model_id}'. "
-                "The model id is expected to be in format 'provider.model'"
-            )
-        provider, model = parts
-        return cls(provider=provider, model=model)

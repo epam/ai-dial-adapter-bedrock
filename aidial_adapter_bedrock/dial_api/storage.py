@@ -3,6 +3,7 @@ import hashlib
 import io
 import mimetypes
 from typing import Mapping, Optional, TypedDict
+from urllib.parse import urljoin
 
 import aiohttp
 
@@ -25,13 +26,11 @@ class Bucket(TypedDict):
 
 class FileStorage:
     dial_url: str
-    upload_dir: str
     auth: Auth
     bucket: Optional[Bucket]
 
-    def __init__(self, dial_url: str, upload_dir: str, auth: Auth):
+    def __init__(self, dial_url: str, auth: Auth):
         self.dial_url = dial_url
-        self.upload_dir = upload_dir
         self.auth = auth
         self.bucket = None
 
@@ -68,7 +67,7 @@ class FileStorage:
 
             appdata = bucket["appdata"]
             ext = mimetypes.guess_extension(content_type) or ""
-            url = f"{self.dial_url}/v1/files/{appdata}/{self.upload_dir}/{filename}{ext}"
+            url = f"{self.dial_url}/v1/files/{appdata}/{filename}{ext}"
 
             data = FileStorage._to_form_data(filename, content_type, content)
 
@@ -83,11 +82,35 @@ class FileStorage:
                 return meta
 
     async def upload_file_as_base64(
-        self, data: str, content_type: str
+        self, upload_dir: str, data: str, content_type: str
     ) -> FileMetadata:
-        filename = _compute_hash_digest(data)
+        filename = f"{upload_dir}/{_compute_hash_digest(data)}"
         content: bytes = base64.b64decode(data)
         return await self.upload(filename, content_type, content)
+
+    async def download_file_as_base64(self, dial_path: str) -> str:
+        url = urljoin(f"{self.dial_url}/v1/", dial_path)
+        headers: Mapping[str, str] = {}
+        if url.lower().startswith(self.dial_url.lower()):
+            headers = self.auth.headers
+
+        return await download_file_as_base64(url, headers)
+
+
+async def _download_file(
+    url: str, headers: Optional[Mapping[str, str]]
+) -> bytes:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.read()
+
+
+async def download_file_as_base64(
+    url: str, headers: Optional[Mapping[str, str]] = None
+) -> str:
+    data = await _download_file(url, headers)
+    return base64.b64encode(data).decode("ascii")
 
 
 def _compute_hash_digest(file_content: str) -> str:
@@ -103,9 +126,7 @@ if DIAL_USE_FILE_STORAGE:
     )
 
 
-def create_file_storage(
-    base_dir: str, headers: Mapping[str, str]
-) -> Optional[FileStorage]:
+def create_file_storage(headers: Mapping[str, str]) -> Optional[FileStorage]:
     if not DIAL_USE_FILE_STORAGE or DIAL_URL is None:
         return None
 
@@ -117,4 +138,4 @@ def create_file_storage(
         )
         return None
 
-    return FileStorage(dial_url=DIAL_URL, upload_dir=base_dir, auth=auth)
+    return FileStorage(dial_url=DIAL_URL, auth=auth)
