@@ -1,13 +1,11 @@
 from typing import (
     Any,
     AsyncIterator,
-    Callable,
     Dict,
     List,
     Mapping,
     Optional,
     TypedDict,
-    TypeVar,
     Union,
 )
 
@@ -192,19 +190,6 @@ class ChatParams(TypedDict):
     system: Union[str, NotGiven]
     temperature: Union[float, NotGiven]
     top_p: Union[float, NotGiven]
-
-
-_T = TypeVar("_T")
-
-
-def _optional_param(
-    value: Optional[_T], modifier: Callable[[_T], _T] = lambda x: x
-) -> Union[_T, NotGiven]:
-    return NOT_GIVEN if value is None else modifier(value)
-
-
-def _value_or_default(value: Optional[_T], default: _T) -> _T:
-    return default if value is None else value
 
 
 class UsageEventHandler(AsyncMessageStream):

@@ -102,6 +102,3 @@ class ChoiceConsumer(Consumer):
 
     def set_discarded_messages(self, discarded_messages: List[int]):
         self.discarded_messages = discarded_messages
-
-    def finish(self, finish_reason: FinishReason):
-        self.choice.close(finish_reason)
