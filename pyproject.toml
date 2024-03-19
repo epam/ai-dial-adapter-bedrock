@@ -46,7 +46,7 @@ flake8 = "6.0.0"
 [tool.poetry.group.dev.dependencies]
 nox = "^2023.4.22"
 langchain-openai = "0.0.8"
-langchain-core = "0.1.29"
+langchain-core = "0.1.30"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
