@@ -1,6 +1,5 @@
 import mimetypes
 from typing import Iterable, List, Literal, Optional, Tuple, Union
-from urllib.parse import urlparse
 
 from aidial_sdk.chat_completion import Attachment, FinishReason, Message, Role
 from anthropic.types import ImageBlockParam, MessageParam, TextBlockParam
@@ -11,6 +10,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
     download_file_as_base64,
 )
 
+ClaudeFinishReason = Literal["end_turn", "max_tokens", "stop_sequence"]
 ImageMediaType = Literal["image/png", "image/jpeg", "image/gif", "image/webp"]
 IMAGE_MEDIA_TYPES: Iterable[ImageMediaType] = {
     "image/png",
@@ -40,11 +40,8 @@ def _create_image_block(
 
 
 async def _download_data(url: str, file_storage: Optional[FileStorage]) -> str:
-    if urlparse(url).scheme:
-        return await download_file_as_base64(url)
-
     if not file_storage:
-        raise ValueError(f"DIAL storage is not configured for {url}")
+        return await download_file_as_base64(url)
 
     return await file_storage.download_file_as_base64(url)
 
@@ -125,13 +122,16 @@ async def to_claude_messages(
     return system_prompt, claude_messages
 
 
-def to_dial_finish_reason(finish_reason: Optional[str]) -> FinishReason:
+def to_dial_finish_reason(
+    finish_reason: Optional[ClaudeFinishReason],
+) -> FinishReason:
+    if finish_reason is None:
+        return FinishReason.STOP
+
     match finish_reason:
         case "end_turn":
             return FinishReason.STOP
         case "max_tokens":
             return FinishReason.LENGTH
         case "stop_sequence":
-            return FinishReason.STOP
-        case _:
             return FinishReason.STOP

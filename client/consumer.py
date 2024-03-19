@@ -21,7 +21,7 @@ class CollectConsumer(Consumer):
     def append_content(self, content: str):
         self.content += content
 
-    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
+    def close_content(self, finish_reason: FinishReason | None = None):
         pass
 
     def add_attachment(self, attachment: Attachment):

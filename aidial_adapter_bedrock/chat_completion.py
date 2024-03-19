@@ -8,7 +8,6 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
-from aidial_adapter_bedrock.llm.model.anthropic import AnthropicChat
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -25,18 +24,11 @@ class BedrockChatCompletion(ChatCompletion):
         deployment_id = BedrockDeployment.from_deployment_id(
             request.deployment_id
         )
-        if deployment_id == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
-            model = AnthropicChat.create(
-                model=deployment_id.model_id,
-                region=self.region,
-                headers=request.headers,
-            )
-        else:
-            model = await get_bedrock_adapter(
-                region=self.region,
-                model=deployment_id.model_id,
-                headers=request.headers,
-            )
+        model = await get_bedrock_adapter(
+            region=self.region,
+            deployment_id=deployment_id,
+            headers=request.headers,
+        )
 
         discarded_messages: Optional[List[int]] = None
 

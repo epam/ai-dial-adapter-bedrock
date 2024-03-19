@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional, TypeVar
+from typing import Callable, List, Optional
 
 import pytest
 from langchain_core.messages import BaseMessage
@@ -18,11 +18,9 @@ from tests.utils.langchain import (
     user,
 )
 
-APIStatusErrorT = TypeVar("APIStatusErrorT", bound=APIStatusError)
-
 
 class ExpectedException(BaseModel):
-    type: type[APIStatusErrorT]
+    type: type[APIStatusError]
     message: str
     status_code: int
 

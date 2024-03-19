@@ -1,18 +1,26 @@
 from typing import Mapping
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.chat_model import CompletionChatModel, Model
+from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.llm.chat_model import ChatModel, Model
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
-from aidial_adapter_bedrock.llm.model.anthropic import AnthropicAdapter
+from aidial_adapter_bedrock.llm.model.anthropic import (
+    AnthropicAdapter,
+    AnthropicChat,
+)
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
 
 async def get_bedrock_adapter(
-    model: str, region: str, headers: Mapping[str, str]
-) -> CompletionChatModel:
+    deployment_id: BedrockDeployment, region: str, headers: Mapping[str, str]
+) -> ChatModel:
+    model = deployment_id.model_id
+    if deployment_id == BedrockDeployment.ANTHROPIC_CLAUDE_V3:
+        return AnthropicChat.create(model, region, headers)
+
     client = await Bedrock.acreate(region)
     provider = Model.parse(model).provider
     match provider:

@@ -27,7 +27,7 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def close_content(self, finish_reason: FinishReason = FinishReason.STOP):
+    def close_content(self, finish_reason: FinishReason | None = None):
         pass
 
     @abstractmethod
@@ -61,6 +61,8 @@ class ChoiceConsumer(Consumer):
         res = self.tools_emulator.recognize_call(content)
 
         if res is None:
+            # Choice.close(finish_reason: Optional[FinishReason]) can be called only once
+            # Currently, there's no other way to explicitly set the finish reason
             self.choice._last_finish_reason = finish_reason
             return
 

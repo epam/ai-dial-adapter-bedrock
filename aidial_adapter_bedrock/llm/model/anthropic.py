@@ -1,9 +1,19 @@
-from typing import Any, AsyncIterator, Dict, List, Mapping, Optional
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
 import anthropic
-import httpx
 from aidial_sdk.chat_completion import Message
-from anthropic import NOT_GIVEN, AsyncAnthropic
+from anthropic import NOT_GIVEN, NotGiven
 from anthropic._tokenizers import async_get_tokenizer
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import AsyncMessageStream
@@ -38,6 +48,7 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.claude3.converters import (
+    ClaudeFinishReason,
     to_claude_messages,
     to_dial_finish_reason,
 )
@@ -175,18 +186,31 @@ class AnthropicAdapter(PseudoChatModel):
         )
 
 
+class ChatParams(TypedDict):
+    max_tokens: int
+    stop_sequences: Union[List[str], NotGiven]
+    system: Union[str, NotGiven]
+    temperature: Union[float, NotGiven]
+    top_p: Union[float, NotGiven]
+
+
+_T = TypeVar("_T")
+
+
+def _optional_param(
+    value: Optional[_T], modifier: Callable[[_T], _T] = lambda x: x
+) -> Union[_T, NotGiven]:
+    return NOT_GIVEN if value is None else modifier(value)
+
+
+def _value_or_default(value: Optional[_T], default: _T) -> _T:
+    return default if value is None else value
+
+
 class UsageEventHandler(AsyncMessageStream):
-    def __init__(
-        self,
-        *,
-        cast_to: type[MessageStreamEvent],
-        response: httpx.Response,
-        client: AsyncAnthropic,
-    ):
-        super().__init__(cast_to=cast_to, response=response, client=client)
-        self.prompt_tokens = 0
-        self.completion_tokens = 0
-        self.stop_reason: str | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    stop_reason: Optional[ClaudeFinishReason] = None
 
     async def on_stream_event(self, event: MessageStreamEvent):
         if isinstance(event, MessageStartEvent):
@@ -212,27 +236,31 @@ class AnthropicChat(ChatModel):
         prompt, claude_messages = await to_claude_messages(
             messages, self.storage
         )
-        completion_params = {
-            "max_tokens": params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
-            "stop_sequences": NOT_GIVEN if params.stop is None else params.stop,
-            "system": prompt or NOT_GIVEN,
-            "temperature": NOT_GIVEN
+        completion_params = ChatParams(
+            max_tokens=DEFAULT_MAX_TOKENS_ANTHROPIC
+            if params.max_prompt_tokens is None
+            else params.max_prompt_tokens,
+            stop_sequences=params.stop,
+            system=prompt or NOT_GIVEN,
+            temperature=NOT_GIVEN
             if params.temperature is None
             else params.temperature / 2,
-            "top_p": NOT_GIVEN if params.top_p is None else params.top_p,
-        }
+            top_p=NOT_GIVEN if params.top_p is None else params.top_p,
+        )
         if params.stream:
             await self.invoke_streaming(
                 consumer, claude_messages, completion_params
             )
         else:
-            await self.invoke(consumer, claude_messages, completion_params)
+            await self.invoke_non_streaming(
+                consumer, claude_messages, completion_params
+            )
 
     async def invoke_streaming(
         self,
         consumer: Consumer,
         messages: List[MessageParam],
-        params: dict[str, Any],
+        params: ChatParams,
     ):
         log.debug(
             f"Streaming request: messages={messages}, model={self.model}, params={params}"
@@ -254,17 +282,17 @@ class AnthropicChat(ChatModel):
                 )
             )
 
-    async def invoke(
+    async def invoke_non_streaming(
         self,
         consumer: Consumer,
         messages: List[MessageParam],
-        params: dict[str, Any],
+        params: ChatParams,
     ):
         log.debug(
             f"Request: messages={messages}, model={self.model}, params={params}"
         )
         message = await self.client.messages.create(
-            messages=messages, model=self.model, **params
+            messages=messages, model=self.model, **params, stream=False
         )
         prompt_tokens = 0
         completion_tokens = 0

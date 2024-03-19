@@ -90,7 +90,9 @@ class FileStorage:
 
     async def download_file_as_base64(self, dial_path: str) -> str:
         url = urljoin(f"{self.dial_url}/v1/", dial_path)
-        headers = self.auth.headers
+        headers: Mapping[str, str] = {}
+        if url.lower().startswith(self.dial_url.lower()):
+            headers = self.auth.headers
 
         return await download_file_as_base64(url, headers)
 
