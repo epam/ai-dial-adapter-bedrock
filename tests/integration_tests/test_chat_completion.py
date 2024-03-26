@@ -144,13 +144,15 @@ def get_test_cases(
             max_tokens=1,
             stop=None,
             messages=[user("")],
-            test=ExpectedException(
-                type=BadRequestError,
-                message="all messages must have non-empty content except for the optional final assistant message",
-                status_code=400,
-            )
-            if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
-            else lambda s: True,
+            test=(
+                ExpectedException(
+                    type=BadRequestError,
+                    message="all messages must have non-empty content except for the optional final assistant message",
+                    status_code=400,
+                )
+                if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+                else lambda s: True
+            ),
         )
     )
 
@@ -162,13 +164,15 @@ def get_test_cases(
             max_tokens=1,
             stop=None,
             messages=[user(" ")],
-            test=ExpectedException(
-                type=BadRequestError,
-                message="text content blocks must contain non-whitespace text",
-                status_code=400,
-            )
-            if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
-            else lambda s: True,
+            test=(
+                ExpectedException(
+                    type=BadRequestError,
+                    message="text content blocks must contain non-whitespace text",
+                    status_code=400,
+                )
+                if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+                else lambda s: True
+            ),
         )
     )
 

@@ -2,7 +2,8 @@
 # E501 line is too long
 # W503 line break before binary operator
 # E203 whitespace before ':'
-ignore = E501, W503, E203
+# E704 multiple statements on one line (def)
+ignore = E501, W503, E203, E704
 exclude =
     .venv,
     .nox,
