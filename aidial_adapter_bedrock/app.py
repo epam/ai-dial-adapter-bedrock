@@ -11,16 +11,16 @@ from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.utils.env import get_env
+from aidial_adapter_bedrock.utils.env import get_aws_default_region
 from aidial_adapter_bedrock.utils.log_config import LogConfig
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 logging.config.dictConfig(LogConfig().dict())
 
-DEFAULT_REGION = get_env("DEFAULT_REGION")
+AWS_DEFAULT_REGION = get_aws_default_region()
 
 OTLP_EXPORT_ENABLED: bool = (
-    os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") is not None
+    os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") is not None
 )
 
 app = DIALApp(
@@ -53,7 +53,7 @@ async def models():
 for deployment in BedrockDeployment:
     app.add_chat_completion(
         deployment.deployment_id,
-        BedrockChatCompletion(region=DEFAULT_REGION),
+        BedrockChatCompletion(region=AWS_DEFAULT_REGION),
     )
 
 
