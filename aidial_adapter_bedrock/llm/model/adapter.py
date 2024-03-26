@@ -21,11 +21,19 @@ async def get_bedrock_adapter(
     match deployment:
         case BedrockDeployment.ANTHROPIC_CLAUDE_V3:
             return AnthropicChat.create(model, region, headers)
-        case BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1 | BedrockDeployment.ANTHROPIC_CLAUDE_V1 | BedrockDeployment.ANTHROPIC_CLAUDE_V2 | BedrockDeployment.ANTHROPIC_CLAUDE_V2_1:
+        case (
+            BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
+            | BedrockDeployment.ANTHROPIC_CLAUDE_V1
+            | BedrockDeployment.ANTHROPIC_CLAUDE_V2
+            | BedrockDeployment.ANTHROPIC_CLAUDE_V2_1
+        ):
             return await AnthropicAdapter.create(
                 await Bedrock.acreate(region), model
             )
-        case BedrockDeployment.AI21_J2_JUMBO_INSTRUCT | BedrockDeployment.AI21_J2_GRANDE_INSTRUCT:
+        case (
+            BedrockDeployment.AI21_J2_JUMBO_INSTRUCT
+            | BedrockDeployment.AI21_J2_GRANDE_INSTRUCT
+        ):
             return AI21Adapter.create(await Bedrock.acreate(region), model)
         case BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL:
             return StabilityAdapter.create(
@@ -33,7 +41,13 @@ async def get_bedrock_adapter(
             )
         case BedrockDeployment.AMAZON_TITAN_TG1_LARGE:
             return AmazonAdapter.create(await Bedrock.acreate(region), model)
-        case BedrockDeployment.META_LLAMA2_13B_CHAT_V1 | BedrockDeployment.META_LLAMA2_70B_CHAT_V1:
+        case (
+            BedrockDeployment.META_LLAMA2_13B_CHAT_V1
+            | BedrockDeployment.META_LLAMA2_70B_CHAT_V1
+        ):
             return MetaAdapter.create(await Bedrock.acreate(region), model)
-        case BedrockDeployment.COHERE_COMMAND_TEXT_V14 | BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14:
+        case (
+            BedrockDeployment.COHERE_COMMAND_TEXT_V14
+            | BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
+        ):
             return CohereAdapter.create(await Bedrock.acreate(region), model)

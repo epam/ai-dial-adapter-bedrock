@@ -222,14 +222,18 @@ class AnthropicChat(ChatModel):
             messages, self.storage
         )
         completion_params = ChatParams(
-            max_tokens=DEFAULT_MAX_TOKENS_ANTHROPIC
-            if params.max_prompt_tokens is None
-            else params.max_prompt_tokens,
+            max_tokens=(
+                DEFAULT_MAX_TOKENS_ANTHROPIC
+                if params.max_prompt_tokens is None
+                else params.max_prompt_tokens
+            ),
             stop_sequences=params.stop,
             system=prompt or NOT_GIVEN,
-            temperature=NOT_GIVEN
-            if params.temperature is None
-            else params.temperature / 2,
+            temperature=(
+                NOT_GIVEN
+                if params.temperature is None
+                else params.temperature / 2
+            ),
             top_p=NOT_GIVEN if params.top_p is None else params.top_p,
         )
         if params.stream:

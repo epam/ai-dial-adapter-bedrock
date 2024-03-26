@@ -7,18 +7,15 @@ Arg = None | str | List[str | None]
 
 
 @overload
-def _arg_to_str(arg: List[str | None]) -> str:
-    ...
+def _arg_to_str(arg: List[str | None]) -> str: ...
 
 
 @overload
-def _arg_to_str(arg: None) -> None:
-    ...
+def _arg_to_str(arg: None) -> None: ...
 
 
 @overload
-def _arg_to_str(arg: str) -> str:
-    ...
+def _arg_to_str(arg: str) -> str: ...
 
 
 def _arg_to_str(arg: Arg) -> str | None:
@@ -28,18 +25,15 @@ def _arg_to_str(arg: Arg) -> str | None:
 
 
 @overload
-def tag(name: str, arg: List[str | None]) -> str:
-    ...
+def tag(name: str, arg: List[str | None]) -> str: ...
 
 
 @overload
-def tag(name: str, arg: None) -> None:
-    ...
+def tag(name: str, arg: None) -> None: ...
 
 
 @overload
-def tag(name: str, arg: str) -> str:
-    ...
+def tag(name: str, arg: str) -> str: ...
 
 
 def tag(name: str, arg: Arg) -> str | None:
@@ -48,18 +42,15 @@ def tag(name: str, arg: Arg) -> str | None:
 
 
 @overload
-def tag_nl(name: str, arg: List[str | None]) -> str:
-    ...
+def tag_nl(name: str, arg: List[str | None]) -> str: ...
 
 
 @overload
-def tag_nl(name: str, arg: None) -> None:
-    ...
+def tag_nl(name: str, arg: None) -> None: ...
 
 
 @overload
-def tag_nl(name: str, arg: str) -> str:
-    ...
+def tag_nl(name: str, arg: str) -> str: ...
 
 
 def tag_nl(name: str, arg: Arg) -> str | None:
