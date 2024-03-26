@@ -18,16 +18,15 @@ def get_env_bool(name: str, default: bool = False) -> bool:
 
 
 def get_aws_default_region() -> str:
-    region = os.getenv("AWS_DEFAULT_REGION")
-
-    if region is None:
-        region = os.getenv("DEFAULT_REGION")
-        if region is None:
-            raise ValueError("AWS_DEFAULT_REGION env variable is not set")
-
-        log.warn(
-            "DEFAULT_REGION is deprecated, use AWS_DEFAULT_REGION instead",
+    region = os.getenv("DEFAULT_REGION")
+    if region is not None:
+        log.warning(
+            "DEFAULT_REGION env variable is deprecated. Use AWS_DEFAULT_REGION instead."
         )
         return region
 
-    return region
+    region = os.getenv("AWS_DEFAULT_REGION")
+    if region is not None:
+        return region
+
+    raise ValueError("AWS_DEFAULT_REGION env variable is not set")
