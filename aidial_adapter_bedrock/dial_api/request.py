@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from aidial_sdk.chat_completion import Request
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
@@ -17,7 +17,7 @@ class ModelParameters(BaseModel):
     tool_config: Optional[ToolConfig] = None
 
     @classmethod
-    def create(cls, request: Request) -> "ModelParameters":
+    def create(cls, request: ChatCompletionRequest) -> "ModelParameters":
         stop: List[str] = []
         if request.stop is not None:
             stop = (

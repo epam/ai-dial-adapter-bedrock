@@ -115,14 +115,12 @@ class StabilityAdapter(TextCompletionAdapter):
             tools_emulator=default_tools_emulator,
         )
 
-    async def tokenize_prompt(
+    async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
         raise NotImplementedError
 
-    async def tokenize_completion(
-        self, params: ModelParameters, string: str
-    ) -> int:
+    async def count_completion_tokens(self, string: str) -> int:
         raise NotImplementedError
 
     def truncate_and_linearize_messages(

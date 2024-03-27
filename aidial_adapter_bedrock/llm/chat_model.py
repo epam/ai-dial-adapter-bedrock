@@ -44,15 +44,13 @@ class ChatCompletionAdapter(ABC, BaseModel):
         pass
 
     @abstractmethod
-    async def tokenize_prompt(
+    async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
         pass
 
     @abstractmethod
-    async def tokenize_completion(
-        self, params: ModelParameters, string: str
-    ) -> int:
+    async def count_completion_tokens(self, string: str) -> int:
         pass
 
     @abstractmethod
@@ -167,15 +165,13 @@ class PseudoChatModel(TextCompletionAdapter):
     chat_emulator: ChatEmulator
     partitioner: Callable[[List[BaseMessage]], List[int]]
 
-    async def tokenize_prompt(
+    async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
         base_messages = self.get_base_messages(params, messages)
         return self.tokenize_messages(base_messages)
 
-    async def tokenize_completion(
-        self, params: ModelParameters, string: str
-    ) -> int:
+    async def count_completion_tokens(self, string: str) -> int:
         return self.tokenize_string(string)
 
     def tokenize_messages(self, messages: List[BaseMessage]) -> int:
