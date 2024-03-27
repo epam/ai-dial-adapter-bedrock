@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Mapping, Optional
 
+from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -113,6 +114,16 @@ class StabilityAdapter(TextCompletionAdapter):
             storage=storage,
             tools_emulator=default_tools_emulator,
         )
+
+    async def tokenize_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> int:
+        raise NotImplementedError
+
+    async def tokenize_completion(
+        self, params: ModelParameters, string: str
+    ) -> int:
+        raise NotImplementedError
 
     def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]

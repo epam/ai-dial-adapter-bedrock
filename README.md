@@ -6,23 +6,26 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 The following models support `SERVER_URL/openai/deployment/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
 
-|Model|Modality|`/tokenize`|`/truncate_prompt`| tools/functions support|
+|Model|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|
 |---|---|---|---|---|
-|amazon.titan-tg1-large|text-to-text||||
-|ai21.j2-grande-instruct|text-to-text||||
-|ai21.j2-jumbo-instruct|text-to-text||||
-|anthropic.claude-instant-v1|text-to-text||||
-|anthropic.claude-v1|text-to-text|||❌|
-|anthropic.claude-v2|text-to-text|||❌|
-|anthropic.claude-v2:1|text-to-text|||✅|
-|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-tot-text||||
-|stability.stable-diffusion-xl|text-to-image||||
-|meta.llama2-13b-chat-v1|text-to-text||||
-|meta.llama2-70b-chat-v1|text-to-text||||
-|cohere.command-text-v14|text-to-text||||
-|cohere.command-light-text-v14|text-to-text||||
+|amazon.titan-tg1-large|text-to-text|✅|✅|❌|
+|ai21.j2-grande-instruct|text-to-text|✅|✅|❌|
+|ai21.j2-jumbo-instruct|text-to-text|✅|✅|❌|
+|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|
+|anthropic.claude-v1|text-to-text|✅|✅|❌|
+|anthropic.claude-v2|text-to-text|✅|✅|❌|
+|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
+|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-tot-text|❌|❌|❌|
+|stability.stable-diffusion-xl|text-to-image|❌|❌|❌|
+|meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|
+|meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|
+|cohere.command-text-v14|text-to-text|✅|✅|❌|
+|cohere.command-light-text-v14|text-to-text|✅|✅|❌|
 
 The models that support `/truncate_prompt` do also support `max_prompt_tokens` request parameter.
+
+Precise tokenization is supported only for `anthropic.claude-v1/v2/v2:1` models.
+The other models use an approximate tokenization algorithm. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
 
 ## Developer environment
 
