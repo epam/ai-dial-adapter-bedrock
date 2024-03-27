@@ -4,7 +4,7 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 ## Supported models
 
-The following models support `SERVER_URL/openai/deployment/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
+The following models support `SERVER_URL/openai/deployments/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
 
 |Model|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|

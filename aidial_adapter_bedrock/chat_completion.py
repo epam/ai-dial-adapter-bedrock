@@ -1,6 +1,7 @@
 import asyncio
 from typing import List, Optional, assert_never
 
+from aidial_sdk import HTTPException as DialException
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
@@ -30,6 +31,7 @@ from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
+from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 
 
 class BedrockChatCompletion(ChatCompletion):
@@ -81,6 +83,11 @@ class BedrockChatCompletion(ChatCompletion):
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
         model = await self.get_model(request)
 
+        if not is_implemented(
+            model.count_completion_tokens
+        ) or not is_implemented(model.count_prompt_tokens):
+            raise DialException(status_code=404, message="Not found")
+
         outputs: List[TokenizeOutput] = []
         for input in request.inputs:
             match input:
@@ -123,6 +130,10 @@ class BedrockChatCompletion(ChatCompletion):
         self, request: TruncatePromptRequest
     ) -> TruncatePromptResponse:
         model = await self.get_model(request)
+
+        if not is_implemented(model.truncate_prompt):
+            raise DialException(status_code=404, message="Not found")
+
         outputs: List[TruncatePromptResult] = []
         for input in request.inputs:
             outputs.append(await self.truncate_prompt_request(model, input))

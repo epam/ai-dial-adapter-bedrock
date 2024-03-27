@@ -21,6 +21,7 @@ from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
+from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
 
 class StabilityStatus(str, Enum):
@@ -115,13 +116,13 @@ class StabilityAdapter(TextCompletionAdapter):
             tools_emulator=default_tools_emulator,
         )
 
+    @not_implemented
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
-    ) -> int:
-        raise NotImplementedError
+    ) -> int: ...
 
-    async def count_completion_tokens(self, string: str) -> int:
-        raise NotImplementedError
+    @not_implemented
+    async def count_completion_tokens(self, string: str) -> int: ...
 
     def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
