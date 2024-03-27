@@ -29,8 +29,6 @@ def _is_empty_system_message(msg: BaseMessage) -> bool:
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
-    # TODO: Move to concrete classes
-    model: str
     tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
     class Config:
@@ -71,6 +69,7 @@ class TextCompletionPrompt(BaseModel):
 
 
 class TextCompletionAdapter(ChatCompletionAdapter):
+
     @abstractmethod
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

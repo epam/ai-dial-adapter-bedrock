@@ -78,6 +78,7 @@ async def response_to_stream(
 
 
 class MetaAdapter(PseudoChatModel):
+    model: str
     client: Bedrock
 
     @classmethod

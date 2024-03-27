@@ -100,6 +100,7 @@ async def save_to_storage(
 
 
 class StabilityAdapter(TextCompletionAdapter):
+    model: str
     client: Bedrock
     storage: Optional[FileStorage]
 

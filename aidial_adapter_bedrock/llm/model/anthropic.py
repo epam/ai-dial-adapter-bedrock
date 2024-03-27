@@ -123,6 +123,7 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
 
 class AnthropicAdapter(PseudoChatModel):
+    model: str
     client: Bedrock
     tokenizer: Tokenizer
     is_claude_v2_1: bool
@@ -206,6 +207,7 @@ class UsageEventHandler(AsyncMessageStream):
 
 
 class AnthropicChat(ChatCompletionAdapter):
+    model: str
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 

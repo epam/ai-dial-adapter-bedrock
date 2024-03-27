@@ -102,6 +102,7 @@ async def response_to_stream(
 
 
 class AmazonAdapter(PseudoChatModel):
+    model: str
     client: Bedrock
 
     @classmethod

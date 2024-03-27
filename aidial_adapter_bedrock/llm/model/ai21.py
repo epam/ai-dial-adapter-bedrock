@@ -105,6 +105,7 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class AI21Adapter(PseudoChatModel):
+    model: str
     client: Bedrock
 
     @classmethod

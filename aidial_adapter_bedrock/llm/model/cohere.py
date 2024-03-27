@@ -138,6 +138,7 @@ cohere_emulator = BasicChatEmulator(
 
 
 class CohereAdapter(PseudoChatModel):
+    model: str
     client: Bedrock
 
     @classmethod
