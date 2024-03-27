@@ -38,7 +38,7 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    ChatModel,
+    ChatCompletionAdapter,
     PseudoChatModel,
     default_partitioner,
 )
@@ -145,7 +145,7 @@ class AnthropicAdapter(PseudoChatModel):
         return cls(
             client=client,
             model=model,
-            tokenize=lambda text: len(tokenizer.encode(text).ids),
+            tokenize_string=lambda text: len(tokenizer.encode(text).ids),
             chat_emulator=chat_emulator,
             tools_emulator=tools_emulator,
             partitioner=default_partitioner,
@@ -153,7 +153,7 @@ class AnthropicAdapter(PseudoChatModel):
             tokenizer=tokenizer,
         )
 
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))
@@ -205,11 +205,26 @@ class UsageEventHandler(AsyncMessageStream):
             self.stop_reason = event.delta.stop_reason
 
 
-class AnthropicChat(ChatModel):
+class AnthropicChat(ChatCompletionAdapter):
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
-    async def achat(
+    async def tokenize_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> int:
+        raise NotImplementedError
+
+    async def tokenize_completion(
+        self, params: ModelParameters, string: str
+    ) -> int:
+        raise NotImplementedError
+
+    async def truncate_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> List[int]:
+        raise NotImplementedError
+
+    async def chat(
         self,
         consumer: Consumer,
         params: ModelParameters,

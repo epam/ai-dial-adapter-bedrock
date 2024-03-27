@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_emulator,
     llama_partitioner,
 )
-from aidial_adapter_bedrock.llm.tokenize import default_tokenize
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
@@ -85,17 +85,17 @@ class MetaAdapter(PseudoChatModel):
         return cls(
             client=client,
             model=model,
-            tokenize=default_tokenize,
+            tokenize_string=default_tokenize_string,
             chat_emulator=llama_emulator,
             tools_emulator=default_tools_emulator,
             partitioner=llama_partitioner,
         )
 
     @override
-    def _validate_and_cleanup_messages(
+    def validate_base_messages(
         self, messages: List[BaseMessage]
     ) -> List[BaseMessage]:
-        messages = super()._validate_and_cleanup_messages(messages)
+        messages = super().validate_base_messages(messages)
 
         # Llama behaves strangely on empty prompt:
         # it generate empty string, but claims to used up all available completion tokens.
@@ -105,7 +105,7 @@ class MetaAdapter(PseudoChatModel):
 
         return messages
 
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))

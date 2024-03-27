@@ -2,7 +2,27 @@
 
 The project implements [AI DIAL API](https://epam-rail.com/dial_api) for language models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
 
-Find the list of supported models in [the source code](./aidial_adapter_bedrock/llm/bedrock_models.py).
+## Supported models
+
+The following models support `SERVER_URL/openai/deployment/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
+
+|Model|Modality|`/tokenize`|`/truncate_prompt`| tools/functions support|
+|---|---|---|---|---|
+|amazon.titan-tg1-large|text-to-text||||
+|ai21.j2-grande-instruct|text-to-text||||
+|ai21.j2-jumbo-instruct|text-to-text||||
+|anthropic.claude-instant-v1|text-to-text||||
+|anthropic.claude-v1|text-to-text|||❌|
+|anthropic.claude-v2|text-to-text|||❌|
+|anthropic.claude-v2:1|text-to-text|||✅|
+|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-tot-text||||
+|stability.stable-diffusion-xl|text-to-image||||
+|meta.llama2-13b-chat-v1|text-to-text||||
+|meta.llama2-70b-chat-v1|text-to-text||||
+|cohere.command-text-v14|text-to-text||||
+|cohere.command-light-text-v14|text-to-text||||
+
+The models that support `/truncate_prompt` do also support `max_prompt_tokens` request parameter.
 
 ## Developer environment
 

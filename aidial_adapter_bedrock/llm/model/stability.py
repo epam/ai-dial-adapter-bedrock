@@ -11,8 +11,8 @@ from aidial_adapter_bedrock.dial_api.storage import (
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
-    ChatPrompt,
-    CompletionChatModel,
+    TextCompletionAdapter,
+    TextCompletionPrompt,
 )
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -99,7 +99,7 @@ async def save_to_storage(
     return attachment
 
 
-class StabilityAdapter(CompletionChatModel):
+class StabilityAdapter(TextCompletionAdapter):
     client: Bedrock
     storage: Optional[FileStorage]
 
@@ -113,19 +113,19 @@ class StabilityAdapter(CompletionChatModel):
             tools_emulator=default_tools_emulator,
         )
 
-    def _prepare_prompt(
+    def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
-    ) -> ChatPrompt:
+    ) -> TextCompletionPrompt:
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        return ChatPrompt(
+        return TextCompletionPrompt(
             text=messages[-1].content,
             stop_sequences=[],
             discarded_messages=list(range(len(messages) - 1)),
         )
 
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt)
