@@ -22,50 +22,65 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 )
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
 
 def _is_empty_system_message(msg: BaseMessage) -> bool:
     return isinstance(msg, SystemMessage) and msg.content.strip() == ""
 
 
-class ChatModel(ABC, BaseModel):
-    model: str
+class ChatCompletionAdapter(ABC, BaseModel):
     tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
 
     class Config:
         arbitrary_types_allowed = True
 
     @abstractmethod
-    async def achat(
+    async def chat(
         self,
         consumer: Consumer,
         params: ModelParameters,
         messages: List[Message],
-    ):
+    ) -> None:
         pass
 
+    @not_implemented
+    async def count_prompt_tokens(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> int: ...
 
-class ChatPrompt(BaseModel):
+    @not_implemented
+    async def count_completion_tokens(self, string: str) -> int: ...
+
+    @not_implemented
+    async def truncate_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> List[int]: ...
+
+
+class TextCompletionPrompt(BaseModel):
     text: str
     stop_sequences: List[str]
     discarded_messages: Optional[List[int]] = None
 
 
-class CompletionChatModel(ChatModel):
-    @abstractmethod
-    def _prepare_prompt(
-        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
-    ) -> ChatPrompt:
-        pass
+class TextCompletionAdapter(ChatCompletionAdapter):
 
     @abstractmethod
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ) -> None:
         pass
 
-    def _validate_and_cleanup_messages(
-        self, messages: List[BaseMessage]
+    @abstractmethod
+    def truncate_and_linearize_messages(
+        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
+    ) -> TextCompletionPrompt:
+        pass
+
+    def validate_base_messages(
+        self,
+        messages: List[BaseMessage],
     ) -> List[BaseMessage]:
         # Skipping empty system messages
         messages = [
@@ -77,39 +92,60 @@ class CompletionChatModel(ChatModel):
 
         return messages
 
-    async def achat(
+    def get_base_messages(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> List[BaseMessage]:
+        parsed_messages = list(map(parse_message, messages))
+        base_messages = self.tools_emulator(
+            params.tool_config
+        ).convert_to_base_messages(parsed_messages)
+        return self.validate_base_messages(base_messages)
+
+    def get_text_completion_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> TextCompletionPrompt:
+        tools_emulator = self.tools_emulator(params.tool_config)
+
+        base_messages = self.get_base_messages(params, messages)
+
+        (base_messages, tool_stop_sequences) = (
+            tools_emulator.add_tool_declarations(base_messages)
+        )
+
+        prompt = self.truncate_and_linearize_messages(
+            base_messages, params.max_prompt_tokens
+        )
+
+        prompt.stop_sequences.extend(tool_stop_sequences)
+        prompt.stop_sequences.extend(params.stop)
+
+        return prompt
+
+    async def chat(
         self,
         consumer: Consumer,
         params: ModelParameters,
         messages: List[Message],
-    ):
-        tools_emulator = self.tools_emulator(params.tool_config)
+    ) -> None:
 
-        base_messages = list(map(parse_message, messages))
-        base_messages = tools_emulator.convert_to_base_messages(base_messages)
+        prompt = self.get_text_completion_prompt(params, messages)
+        params.stop = prompt.stop_sequences
 
-        base_messages = self._validate_and_cleanup_messages(base_messages)
-
-        (
-            base_messages,
-            stop_sequences,
-        ) = tools_emulator.add_tool_declarations(base_messages)
-        params = params.add_stop_sequences(stop_sequences)
-
-        chat_prompt = self._prepare_prompt(
-            base_messages, params.max_prompt_tokens
-        )
-        params = params.add_stop_sequences(chat_prompt.stop_sequences)
+        if prompt.discarded_messages is not None:
+            consumer.set_discarded_messages(prompt.discarded_messages)
 
         log.debug(
             f"model parameters:\n{params.json(indent=2, exclude_none=True)}"
         )
-        log.debug(f"prompt:\n{chat_prompt.text}")
+        log.debug(f"prompt:\n{prompt.text}")
 
-        await self._apredict(consumer, params, chat_prompt.text)
+        await self.predict(consumer, params, prompt.text)
 
-        if chat_prompt.discarded_messages is not None:
-            consumer.set_discarded_messages(chat_prompt.discarded_messages)
+    async def truncate_prompt(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> List[int]:
+        prompt = self.get_text_completion_prompt(params, messages)
+        return prompt.discarded_messages or []
 
 
 def default_keep_message(messages: List[BaseMessage], idx: int) -> bool:
@@ -121,21 +157,30 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
     return [1] * len(messages)
 
 
-class PseudoChatModel(CompletionChatModel):
+class PseudoChatModel(TextCompletionAdapter):
     chat_emulator: ChatEmulator
-    tokenize: Callable[[str], int]
+    tokenize_string: Callable[[str], int]
     chat_emulator: ChatEmulator
     partitioner: Callable[[List[BaseMessage]], List[int]]
 
-    def _tokenize(self, messages: List[BaseMessage]) -> int:
-        return self.tokenize(self.chat_emulator.display(messages)[0])
+    async def count_prompt_tokens(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> int:
+        base_messages = self.get_base_messages(params, messages)
+        return self.tokenize_messages(base_messages)
 
-    def _prepare_prompt(
+    async def count_completion_tokens(self, string: str) -> int:
+        return self.tokenize_string(string)
+
+    def tokenize_messages(self, messages: List[BaseMessage]) -> int:
+        return self.tokenize_string(self.chat_emulator.display(messages)[0])
+
+    def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
-    ) -> ChatPrompt:
+    ) -> TextCompletionPrompt:
         truncate_result = truncate_prompt(
             messages=messages,
-            tokenize=self._tokenize,
+            tokenize_messages=self.tokenize_messages,
             keep_message=default_keep_message,
             partition_messages=self.partitioner,
             model_limit=None,
@@ -155,7 +200,7 @@ class PseudoChatModel(CompletionChatModel):
             None if max_prompt_tokens is None else list(discarded_messages)
         )
 
-        return ChatPrompt(
+        return TextCompletionPrompt(
             text=text,
             stop_sequences=stop_sequences,
             discarded_messages=discarded_messages_list,
@@ -176,7 +221,7 @@ class PseudoChatModel(CompletionChatModel):
             stream = stream_utils.remove_prefix(stream, ai_cue)
             stream = stream_utils.lstrip(stream)
 
-        # If the model doesn't support stop sequences, so do it manually
+        # The model may not support stop sequences, so do it manually
         if params.stop:
             stream = stream_utils.stop_at(stream, params.stop)
 
