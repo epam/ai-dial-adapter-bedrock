@@ -22,6 +22,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 )
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
 
 def _is_empty_system_message(msg: BaseMessage) -> bool:
@@ -43,21 +44,18 @@ class ChatCompletionAdapter(ABC, BaseModel):
     ) -> None:
         pass
 
-    @abstractmethod
+    @not_implemented
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
-    ) -> int:
-        pass
+    ) -> int: ...
 
-    @abstractmethod
-    async def count_completion_tokens(self, string: str) -> int:
-        pass
+    @not_implemented
+    async def count_completion_tokens(self, string: str) -> int: ...
 
-    @abstractmethod
+    @not_implemented
     async def truncate_prompt(
         self, params: ModelParameters, messages: List[Message]
-    ) -> List[int]:
-        pass
+    ) -> List[int]: ...
 
 
 class TextCompletionPrompt(BaseModel):

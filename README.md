@@ -4,7 +4,7 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 ## Supported models
 
-The following models support `SERVER_URL/openai/deployments/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
+The following models support `POST SERVER_URL/openai/deployments/MODEL_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
 
 |Model|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|
@@ -16,7 +16,7 @@ The following models support `SERVER_URL/openai/deployments/MODEL_NAME/chat/comp
 |anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
 |anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-tot-text|❌|❌|❌|❌|
-|stability.stable-diffusion-xl|text-to-image|❌|❌|❌|❌|
+|stability.stable-diffusion-xl|text-to-image|❌|✅|❌|❌|
 |meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|❌|
 |meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
 |cohere.command-text-v14|text-to-text|✅|✅|❌|❌|
