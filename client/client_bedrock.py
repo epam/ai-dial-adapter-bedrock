@@ -40,7 +40,7 @@ async def main():
         messages.append(Message(role=Role.USER, content=content))
 
         response = CollectConsumer()
-        await model.achat(response, params, messages)
+        await model.chat(response, params, messages)
 
         print_info(response.usage.json(indent=2))
 

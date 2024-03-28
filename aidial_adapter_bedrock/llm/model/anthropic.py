@@ -38,7 +38,7 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    ChatModel,
+    ChatCompletionAdapter,
     PseudoChatModel,
     default_partitioner,
 )
@@ -123,6 +123,7 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
 
 class AnthropicAdapter(PseudoChatModel):
+    model: str
     client: Bedrock
     tokenizer: Tokenizer
     is_claude_v2_1: bool
@@ -145,7 +146,7 @@ class AnthropicAdapter(PseudoChatModel):
         return cls(
             client=client,
             model=model,
-            tokenize=lambda text: len(tokenizer.encode(text).ids),
+            tokenize_string=lambda text: len(tokenizer.encode(text).ids),
             chat_emulator=chat_emulator,
             tools_emulator=tools_emulator,
             partitioner=default_partitioner,
@@ -153,7 +154,7 @@ class AnthropicAdapter(PseudoChatModel):
             tokenizer=tokenizer,
         )
 
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))
@@ -205,11 +206,12 @@ class UsageEventHandler(AsyncMessageStream):
             self.stop_reason = event.delta.stop_reason
 
 
-class AnthropicChat(ChatModel):
+class AnthropicChat(ChatCompletionAdapter):
+    model: str
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
-    async def achat(
+    async def chat(
         self,
         consumer: Consumer,
         params: ModelParameters,

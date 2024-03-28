@@ -12,7 +12,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
-from aidial_adapter_bedrock.llm.tokenize import default_tokenize
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
@@ -105,6 +105,7 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class AI21Adapter(PseudoChatModel):
+    model: str
     client: Bedrock
 
     @classmethod
@@ -112,13 +113,13 @@ class AI21Adapter(PseudoChatModel):
         return cls(
             client=client,
             model=model,
-            tokenize=default_tokenize,
+            tokenize_string=default_tokenize_string,
             tools_emulator=default_tools_emulator,
             chat_emulator=default_emulator,
             partitioner=default_partitioner,
         )
 
-    async def _apredict(
+    async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))

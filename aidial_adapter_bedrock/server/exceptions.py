@@ -45,6 +45,9 @@ def to_dial_exception(e: Exception) -> DialException:
             param=None,
         )
 
+    if isinstance(e, DialException):
+        return e
+
     return DialException(
         status_code=500,
         type="internal_server_error",
