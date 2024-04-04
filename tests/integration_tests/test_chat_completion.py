@@ -53,7 +53,7 @@ chat_deployments = [
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     # BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
-    BedrockDeployment.ANTHROPIC_CLAUDE_V3,
+    BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
     BedrockDeployment.META_LLAMA2_70B_CHAT_V1,
     BedrockDeployment.COHERE_COMMAND_TEXT_V14,
 ]
@@ -136,6 +136,11 @@ def get_test_cases(
         )
     )
 
+    is_claude3 = deployment in [
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+    ]
+
     ret.append(
         TestCase(
             name="empty user message",
@@ -150,7 +155,7 @@ def get_test_cases(
                     message="all messages must have non-empty content except for the optional final assistant message",
                     status_code=400,
                 )
-                if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+                if is_claude3
                 else lambda s: True
             ),
         )
@@ -170,7 +175,7 @@ def get_test_cases(
                     message="text content blocks must contain non-whitespace text",
                     status_code=400,
                 )
-                if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_V3
+                if is_claude3
                 else lambda s: True
             ),
         )
