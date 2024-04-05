@@ -14,7 +14,8 @@ test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
     (BedrockDeployment.ANTHROPIC_CLAUDE_V1, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V2, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V3, False, False),
+    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
+    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, False, False),
     (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
     (BedrockDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
     (BedrockDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
@@ -23,7 +24,7 @@ test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
 ]
 
 
-def endpoint_test_helper(
+def feature_test_helper(
     url: str, is_supported: bool, headers: dict, payload: dict
 ) -> None:
     response = requests.post(url, json=payload, headers=headers)
@@ -37,7 +38,7 @@ def endpoint_test_helper(
 @pytest.mark.parametrize(
     "deployment, tokenize_supported, truncate_supported", test_cases
 )
-def test_model_endpoints_tokenization_truncation(
+def test_model_features(
     server,
     deployment: BedrockDeployment,
     tokenize_supported: bool,
@@ -49,7 +50,7 @@ def test_model_endpoints_tokenization_truncation(
     BASE_URL = f"{TEST_SERVER_URL}/openai/deployments/{deployment.value}"
 
     tokenize_url = f"{BASE_URL}/tokenize"
-    endpoint_test_helper(tokenize_url, tokenize_supported, headers, payload)
+    feature_test_helper(tokenize_url, tokenize_supported, headers, payload)
 
     truncate_url = f"{BASE_URL}/truncate_prompt"
-    endpoint_test_helper(truncate_url, truncate_supported, headers, payload)
+    feature_test_helper(truncate_url, truncate_supported, headers, payload)

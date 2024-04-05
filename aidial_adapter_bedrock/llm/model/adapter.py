@@ -19,7 +19,10 @@ async def get_bedrock_adapter(
 ) -> ChatCompletionAdapter:
     model = deployment.model_id
     match deployment:
-        case BedrockDeployment.ANTHROPIC_CLAUDE_V3:
+        case (
+            BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
+        ):
             return AnthropicChat.create(model, region, headers)
         case (
             BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
