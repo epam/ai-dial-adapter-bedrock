@@ -103,9 +103,13 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     ) -> List[BaseMessage]:
         id_to_name: Dict[str, str] = {}
         return [
-            message
-            if isinstance(message, BaseMessage)
-            else convert_to_base_message(self.tool_config, id_to_name, message)
+            (
+                message
+                if isinstance(message, BaseMessage)
+                else convert_to_base_message(
+                    self.tool_config, id_to_name, message
+                )
+            )
             for message in messages
         ]
 

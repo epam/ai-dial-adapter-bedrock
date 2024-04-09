@@ -1,7 +1,7 @@
 from typing import Any
 
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.schema import LLMResult
+from langchain_core.callbacks import StreamingStdOutCallbackHandler
+from langchain_core.outputs import LLMResult
 from typing_extensions import override
 
 from aidial_adapter_bedrock.utils.printing import print_ai

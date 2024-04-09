@@ -1,6 +1,7 @@
 from functools import wraps
 
 from aidial_sdk import HTTPException as DialException
+from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -34,6 +35,18 @@ def to_dial_exception(e: Exception) -> DialException:
             code="invalid_argument",
             param=None,
         )
+
+    if isinstance(e, APIStatusError):
+        return DialException(
+            status_code=e.status_code,
+            type="invalid_request_error",
+            message=e.message,
+            code=None,
+            param=None,
+        )
+
+    if isinstance(e, DialException):
+        return e
 
     return DialException(
         status_code=500,

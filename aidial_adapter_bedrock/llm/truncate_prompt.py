@@ -29,8 +29,8 @@ class ModelLimitOverflow(TruncatePromptError):
 
     def print(self) -> str:
         return (
-            f"Token count of all messages ({self.token_count}) exceeds"
-            f" the model maximum prompt tokens ({self.model_limit})."
+            f"Token count of all messages ({self.token_count}) "
+            f"exceeds the model maximum prompt tokens ({self.model_limit})."
         )
 
 
@@ -40,8 +40,8 @@ class UserLimitOverflow(TruncatePromptError):
 
     def print(self) -> str:
         return (
-            "Token count of the last message and all system messages "
-            f"({self.token_count}) exceeds the maximum prompt tokens ({self.user_limit})."
+            f"Token count of the last message and all system messages ({self.token_count}) "
+            f"exceeds the maximum prompt tokens ({self.user_limit})."
         )
 
 
@@ -67,7 +67,7 @@ Messages = List[T]
 
 def truncate_prompt(
     messages: Messages,
-    tokenize: Callable[[Messages], int],
+    tokenize_messages: Callable[[Messages], int],
     keep_message: Callable[[Messages, int], bool],
     partition_messages: Callable[[Messages], List[int]],
     model_limit: Optional[int],
@@ -86,7 +86,7 @@ def truncate_prompt(
         if model_limit is None:
             return set()
 
-        token_count = tokenize(messages)
+        token_count = tokenize_messages(messages)
         if token_count <= model_limit:
             return set()
 
@@ -101,7 +101,7 @@ def truncate_prompt(
         )
 
     def _tokenize_selected(indices: Set[int]) -> int:
-        return tokenize(select_by_indices(messages, indices))
+        return tokenize_messages(select_by_indices(messages, indices))
 
     get_partition_indices = partition_indexer(partition_sizes)
 

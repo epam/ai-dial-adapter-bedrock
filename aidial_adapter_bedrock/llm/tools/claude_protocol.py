@@ -62,9 +62,11 @@ def _print_tool_parameter_properties(
         tag("type", props.type),
         tag_nl(
             "items",
-            _print_tool_parameter_properties(props.items)
-            if props.items
-            else None,
+            (
+                _print_tool_parameter_properties(props.items)
+                if props.items
+                else None
+            ),
         ),
         tag("enum", ", ".join(props.enum) if props.enum else None),
         tag("description", props.description),

@@ -4,10 +4,10 @@ from typing import List, Optional
 from aidial_sdk.chat_completion import (
     Function,
     FunctionChoice,
-    Request,
     Tool,
     ToolChoice,
 )
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -27,7 +27,9 @@ class ToolConfig(BaseModel):
     tools: List[Tool]
 
     @classmethod
-    def from_request(cls, request: Request) -> Optional["ToolConfig"]:
+    def from_request(
+        cls, request: ChatCompletionRequest
+    ) -> Optional["ToolConfig"]:
         mode: ToolsMode = ToolsMode.TOOLS
         tools: List[Tool] = []
         selected_function: Optional[str] = None

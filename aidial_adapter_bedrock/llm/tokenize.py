@@ -1,4 +1,4 @@
-def default_tokenize(string: str) -> int:
+def default_tokenize_string(string: str) -> int:
     """
     The number of bytes is a proxy for the number of tokens for
     models which do not provide any means to count tokens.

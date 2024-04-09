@@ -6,7 +6,7 @@ from aidial_sdk.chat_completion import Message, Role
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
-from aidial_adapter_bedrock.utils.env import get_env
+from aidial_adapter_bedrock.utils.env import get_aws_default_region
 from aidial_adapter_bedrock.utils.printing import print_ai, print_info
 from client.conf import MAX_CHAT_TURN, MAX_INPUT_CHARS
 from client.consumer import CollectConsumer
@@ -16,14 +16,14 @@ from client.utils.input import make_input
 
 
 async def main():
-    location = get_env("DEFAULT_REGION")
+    location = get_aws_default_region()
 
     deployment = select_enum("Select the deployment", BedrockDeployment)
 
     params = ModelParameters()
 
     model = await get_bedrock_adapter(
-        model=deployment.model_id,
+        deployment=deployment,
         region=location,
         headers={},
     )
@@ -40,7 +40,7 @@ async def main():
         messages.append(Message(role=Role.USER, content=content))
 
         response = CollectConsumer()
-        await model.achat(response, params, messages)
+        await model.chat(response, params, messages)
 
         print_info(response.usage.json(indent=2))
 
