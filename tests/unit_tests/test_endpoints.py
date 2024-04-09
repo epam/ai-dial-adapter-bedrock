@@ -11,7 +11,6 @@ test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
     (BedrockDeployment.AI21_J2_GRANDE_INSTRUCT, True, True),
     (BedrockDeployment.AI21_J2_JUMBO_INSTRUCT, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V1, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V2, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
