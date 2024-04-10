@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, assert_never
 
-from aidial_sdk.chat_completion import Choice
+from aidial_sdk.chat_completion import Choice, FinishReason
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -27,7 +27,7 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def close_content(self):
+    def close_content(self, finish_reason: FinishReason | None = None):
         pass
 
     @abstractmethod
@@ -55,10 +55,15 @@ class ChoiceConsumer(Consumer):
         self.discarded_messages = None
         self.tools_emulator = tools_emulator
 
-    def _process_content(self, content: str | None):
+    def _process_content(
+        self, content: str | None, finish_reason: FinishReason | None = None
+    ):
         res = self.tools_emulator.recognize_call(content)
 
         if res is None:
+            # Choice.close(finish_reason: Optional[FinishReason]) can be called only once
+            # Currently, there's no other way to explicitly set the finish reason
+            self.choice._last_finish_reason = finish_reason
             return
 
         if isinstance(res, str):
@@ -83,8 +88,8 @@ class ChoiceConsumer(Consumer):
 
         assert_never(res)
 
-    def close_content(self):
-        self._process_content(None)
+    def close_content(self, finish_reason: FinishReason | None = None):
+        self._process_content(None, finish_reason)
 
     def append_content(self, content: str):
         self._process_content(content)

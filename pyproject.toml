@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aidial-adapter-bedrock"
-version = "0.7.0rc"
+version = "0.9.0rc"
 description = "DIAL adapter for AWS Bedrock"
 authors = ["EPAM RAIL <SpecialEPM-DIALDevTeam@epam.com>"]
 homepage = "https://epam-rail.com"
@@ -18,7 +18,7 @@ python = "^3.11,<4.0"
 boto3 = "1.28.57"
 botocore = "1.31.57"
 aidial-sdk = {version = "0.7.0", extras = ["telemetry"]}
-anthropic = "0.2.10"
+anthropic = {version = "0.19.2", extras = ["bedrock"]}
 colorama = "0.4.4"
 fastapi = "0.109.2"
 flask = "2.3.2"
@@ -38,7 +38,7 @@ pytest-dotenv = "^0.5.2"
 
 [tool.poetry.group.lint.dependencies]
 pyright = "1.1.324"
-black = "23.3.0"
+black = "24.3.0"
 isort = "5.12.0"
 autoflake = "2.2.0"
 flake8 = "6.0.0"
@@ -46,7 +46,7 @@ flake8 = "6.0.0"
 [tool.poetry.group.dev.dependencies]
 nox = "^2023.4.22"
 langchain-openai = "0.0.8"
-langchain-core = "0.1.29"
+langchain-core = "0.1.35"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"

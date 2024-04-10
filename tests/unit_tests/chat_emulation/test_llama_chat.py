@@ -26,7 +26,7 @@ def truncate_prompt_by_words(
 
     return truncate_prompt(
         messages=messages,
-        tokenize=_tokenize_by_words,
+        tokenize_messages=_tokenize_by_words,
         keep_message=default_keep_message,
         partition_messages=llama_partitioner,
         model_limit=model_limit,
