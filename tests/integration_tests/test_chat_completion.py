@@ -51,7 +51,6 @@ chat_deployments = [
     BedrockDeployment.AI21_J2_GRANDE_INSTRUCT,
     BedrockDeployment.AI21_J2_JUMBO_INSTRUCT,
     BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
-    # BedrockDeployment.ANTHROPIC_CLAUDE_V1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
     BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
     BedrockDeployment.META_LLAMA2_70B_CHAT_V1,

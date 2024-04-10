@@ -26,7 +26,6 @@ async def get_bedrock_adapter(
             return AnthropicChat.create(model, region, headers)
         case (
             BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
-            | BedrockDeployment.ANTHROPIC_CLAUDE_V1
             | BedrockDeployment.ANTHROPIC_CLAUDE_V2
             | BedrockDeployment.ANTHROPIC_CLAUDE_V2_1
         ):
