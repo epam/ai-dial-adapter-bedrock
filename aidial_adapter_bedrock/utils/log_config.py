@@ -1,8 +1,11 @@
 import logging
 import os
+import re
+import sys
+from logging import Filter, LogRecord
 
 from aidial_sdk import logger as aidial_logger
-from pydantic import BaseModel
+from uvicorn.logging import DefaultFormatter
 
 # By default (in prod) we don't want to print debug messages,
 # because they typically contain prompts.
@@ -12,35 +15,43 @@ AIDIAL_LOG_LEVEL = os.getenv("AIDIAL_LOG_LEVEL", "WARNING")
 aidial_logger.setLevel(AIDIAL_LOG_LEVEL)
 
 
-class LogConfig(BaseModel):
-    """Logging configuration to be set for the server"""
+class HealthCheckFilter(Filter):
+    def filter(self, record: LogRecord):
+        return not re.search(r"(\s+)/health(\s+)", record.getMessage())
 
-    version = 1
-    disable_existing_loggers = False
-    formatters = {
-        "default": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(levelprefix)s | %(asctime)s | %(process)d | %(name)s | %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-            "use_colors": True,
-        },
-    }
-    handlers = {
-        "default": {
-            "formatter": "default",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-        },
-    }
-    loggers = {
-        "app": {"handlers": ["default"], "level": LOG_LEVEL},
-        "bedrock": {"handlers": ["default"], "level": LOG_LEVEL},
-        "uvicorn": {
-            "handlers": ["default"],
-            "level": LOG_LEVEL,
-            "propagate": False,
-        },
-    }
+
+def configure_loggers():
+    # Making the uvicorn logger delegate logging to the root logger
+    uvicorn_logger = logging.getLogger("uvicorn")
+    uvicorn_logger.handlers = []
+    uvicorn_logger.propagate = True
+
+    # Filter out health check requests from uvicorn logs
+    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+    # Setting up log levels
+    for name in ["app", "bedrock", "uvicorn", "__main__"]:
+        logging.getLogger(name).setLevel(LOG_LEVEL)
+
+    # Configuring the root logger
+    root = logging.getLogger()
+
+    root_has_stderr_handler = any(
+        isinstance(handler, logging.StreamHandler)
+        and handler.stream == sys.stderr
+        for handler in root.handlers
+    )
+
+    if not root_has_stderr_handler:
+        formatter = DefaultFormatter(
+            fmt="%(levelprefix)s | %(asctime)s | %(process)d | %(name)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            use_colors=True,
+        )
+
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
 
 
 # Loggers in order from high-level to low-level

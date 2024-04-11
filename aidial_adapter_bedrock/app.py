@@ -1,9 +1,6 @@
-import logging.config
-import os
-
 from aidial_sdk import DIALApp
 from aidial_sdk import HTTPException as DialException
-from aidial_sdk.telemetry.types import TelemetryConfig, TracingConfig
+from aidial_sdk.telemetry.types import TelemetryConfig
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -12,31 +9,21 @@ from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
-from aidial_adapter_bedrock.utils.log_config import LogConfig
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
-
-logging.config.dictConfig(LogConfig().dict())
+from aidial_adapter_bedrock.utils.log_config import configure_loggers
 
 AWS_DEFAULT_REGION = get_aws_default_region()
 
-OTLP_EXPORT_ENABLED: bool = (
-    os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") is not None
-)
-
 app = DIALApp(
     description="AWS Bedrock adapter for DIAL API",
+    telemetry_config=TelemetryConfig(),
     add_healthcheck=True,
-    telemetry_config=(
-        TelemetryConfig(
-            tracing=TracingConfig(
-                otlp_export=OTLP_EXPORT_ENABLED,
-                logging=True,
-            ),
-        )
-        if OTLP_EXPORT_ENABLED
-        else None
-    ),
 )
+
+# NOTE: configuring logger after the DIAL telemetry is initialized,
+# because it may have configured the root logger on its own via
+# logging=True configuration.
+configure_loggers()
 
 
 @app.get("/openai/models")
