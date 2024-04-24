@@ -138,6 +138,7 @@ def get_test_cases(
     is_claude3 = deployment in [
         BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
         BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ]
 
     ret.append(
