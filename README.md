@@ -16,7 +16,7 @@ The following models support `POST SERVER_URL/openai/deployments/MODEL_NAME/chat
 |anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
 |anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-tot-text|❌|❌|❌|❌|
-|stability.stable-diffusion-xl|text-to-image|❌|✅|❌|❌|
+|stability.stable-diffusion-xl-v1|text-to-image|❌|✅|❌|❌|
 |meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|❌|
 |meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
 |cohere.command-text-v14|text-to-text|✅|✅|❌|❌|

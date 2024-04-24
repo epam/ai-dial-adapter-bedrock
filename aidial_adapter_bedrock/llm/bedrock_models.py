@@ -11,6 +11,7 @@ class BedrockDeployment(str, Enum):
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
+    STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
     META_LLAMA2_13B_CHAT_V1 = "meta.llama2-13b-chat-v1"
     META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
@@ -24,6 +25,11 @@ class BedrockDeployment(str, Enum):
     @property
     def model_id(self) -> str:
         """Id of the model in the Bedrock service."""
+
+        # Redirect Stability model without version to the earliest non-deprecated version (V1)
+        if self == BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL:
+            return BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1.model_id
+
         return self.value
 
     @classmethod
