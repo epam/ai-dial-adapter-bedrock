@@ -15,6 +15,7 @@ test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
     (BedrockDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
     (BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, False, False),
+    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS, False, False),
     (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
     (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, False, True),
     (BedrockDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
