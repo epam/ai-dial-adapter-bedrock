@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Mapping, assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
@@ -38,7 +38,10 @@ async def get_bedrock_adapter(
             | BedrockDeployment.AI21_J2_GRANDE_INSTRUCT
         ):
             return AI21Adapter.create(await Bedrock.acreate(region), model)
-        case BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL:
+        case (
+            BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL
+            | BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
+        ):
             return StabilityAdapter.create(
                 await Bedrock.acreate(region), model, headers
             )
@@ -54,3 +57,5 @@ async def get_bedrock_adapter(
             | BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
         ):
             return CohereAdapter.create(await Bedrock.acreate(region), model)
+        case _:
+            assert_never(deployment)
