@@ -226,8 +226,8 @@ class AnthropicChat(ChatCompletionAdapter):
         completion_params = ChatParams(
             max_tokens=(
                 DEFAULT_MAX_TOKENS_ANTHROPIC
-                if params.max_prompt_tokens is None
-                else params.max_prompt_tokens
+                if params.max_tokens is None
+                else params.max_tokens
             ),
             stop_sequences=params.stop,
             system=prompt or NOT_GIVEN,
