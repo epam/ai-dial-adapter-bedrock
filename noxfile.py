@@ -33,15 +33,9 @@ def format(session: nox.Session):
     format_with_args(session, SRC)
 
 
-def run_tests(session: nox.Session, default_dir: str):
+def run_tests(session: nox.Session, *args):
     session.run("poetry", "install", external=True)
-
-    if session.posargs:
-        test_files = session.posargs
-    else:
-        test_files = [default_dir]
-
-    session.run("pytest", "aidial_adapter_bedrock", *test_files)
+    session.run("pytest", "aidial_adapter_bedrock", *args)
 
 
 @nox.session
@@ -51,4 +45,4 @@ def test(session: nox.Session):
 
 @nox.session
 def integration_tests(session: nox.Session):
-    run_tests(session, "tests/integration_tests/")
+    run_tests(session, "-n=auto", "tests/integration_tests/")
