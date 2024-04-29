@@ -1,6 +1,12 @@
 from typing import List, Optional, Union
 
-from aidial_sdk.chat_completion import FunctionCall, Message, Role, ToolCall
+from aidial_sdk.chat_completion import (
+    CustomContent,
+    FunctionCall,
+    Message,
+    Role,
+    ToolCall,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
@@ -12,6 +18,7 @@ class SystemMessage(BaseModel):
 
 class HumanRegularMessage(BaseModel):
     content: str
+    custom_content: Optional[CustomContent] = None
 
 
 class HumanToolResultMessage(BaseModel):
@@ -26,6 +33,7 @@ class HumanFunctionResultMessage(BaseModel):
 
 class AIRegularMessage(BaseModel):
     content: str
+    custom_content: Optional[CustomContent] = None
 
 
 class AIToolCallMessage(BaseModel):
@@ -37,6 +45,7 @@ class AIFunctionCallMessage(BaseModel):
 
 
 BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]
+
 ToolMessage = Union[
     HumanToolResultMessage,
     HumanFunctionResultMessage,
@@ -49,9 +58,10 @@ def _parse_assistant_message(
     content: Optional[str],
     function_call: Optional[FunctionCall],
     tool_calls: Optional[List[ToolCall]],
+    custom_content: Optional[CustomContent],
 ) -> BaseMessage | ToolMessage:
     if content is not None and function_call is None and tool_calls is None:
-        return AIRegularMessage(content=content)
+        return AIRegularMessage(content=content, custom_content=custom_content)
 
     if content is None and function_call is not None and tool_calls is None:
         return AIFunctionCallMessage(call=function_call)
@@ -67,19 +77,26 @@ def _parse_assistant_message(
     )
 
 
-def parse_message(msg: Message) -> BaseMessage | ToolMessage:
+def parse_dial_message(msg: Message) -> BaseMessage | ToolMessage:
     match msg:
         case Message(role=Role.SYSTEM, content=content) if content is not None:
             return SystemMessage(content=content)
-        case Message(role=Role.USER, content=content) if content is not None:
-            return HumanRegularMessage(content=content)
+        case Message(
+            role=Role.USER, content=content, custom_content=custom_content
+        ) if content is not None:
+            return HumanRegularMessage(
+                content=content, custom_content=custom_content
+            )
         case Message(
             role=Role.ASSISTANT,
             content=content,
             function_call=function_call,
             tool_calls=tool_calls,
+            custom_content=custom_content,
         ):
-            return _parse_assistant_message(content, function_call, tool_calls)
+            return _parse_assistant_message(
+                content, function_call, tool_calls, custom_content
+            )
         case Message(
             role=Role.FUNCTION, name=name, content=content
         ) if content is not None and name is not None:

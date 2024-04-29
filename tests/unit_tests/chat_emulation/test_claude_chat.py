@@ -1,6 +1,8 @@
 import pytest
 
-from aidial_adapter_bedrock.llm.model.anthropic import get_anthropic_emulator
+from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
+    get_anthropic_emulator,
+)
 from tests.utils.messages import ai, sys, user
 
 

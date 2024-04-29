@@ -1,4 +1,9 @@
-from typing import Dict, List, Optional, Tuple
+"""
+Legacy tools support for Claude models:
+https://docs.anthropic.com/claude/docs/legacy-tool-use
+"""
+
+from typing import Dict, List, Optional
 
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
@@ -48,6 +53,7 @@ def convert_to_base_message(
             return HumanRegularMessage(
                 content=print_function_call_result(name=name, content=content)
             )
+
         case HumanFunctionResultMessage(name=name, content=content):
             assert (
                 mode is None or mode == ToolsMode.FUNCTIONS
@@ -55,6 +61,7 @@ def convert_to_base_message(
             return HumanRegularMessage(
                 content=print_function_call_result(name=name, content=content)
             )
+
         case AIToolCallMessage(calls=calls):
             assert (
                 mode is None or mode == ToolsMode.TOOLS
@@ -83,9 +90,9 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
 
     def add_tool_declarations(
         self, messages: List[BaseMessage]
-    ) -> Tuple[List[BaseMessage], List[str]]:
+    ) -> List[BaseMessage]:
         if self._tool_declarations is None:
-            return messages, []
+            return messages
 
         system_message = get_system_message(self._tool_declarations)
 
@@ -94,9 +101,10 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
             system_message += "\n" + messages[0].content
             messages = messages[1:]
 
-        return [SystemMessage(content=system_message), *messages], [
-            FUNC_END_TAG
-        ]
+        return [SystemMessage(content=system_message), *messages]
+
+    def get_stop_sequences(self) -> List[str]:
+        return [] if self._tool_declarations is None else [FUNC_END_TAG]
 
     def convert_to_base_messages(
         self, messages: List[BaseMessage | ToolMessage]
@@ -123,7 +131,7 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
         )
 
 
-def claude_v2_1_tools_emulator(
+def legacy_tools_emulator(
     tool_config: Optional[ToolConfig],
 ) -> ToolsEmulator:
     return Claude2_1_ToolsEmulator(
