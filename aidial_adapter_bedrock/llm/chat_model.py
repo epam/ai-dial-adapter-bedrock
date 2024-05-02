@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Callable, List, Optional
 
-from aidial_sdk.chat_completion import Message
+from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
@@ -9,11 +9,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.exceptions import ValidationError
-from aidial_adapter_bedrock.llm.message import (
-    BaseMessage,
-    SystemMessage,
-    parse_message,
-)
+from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
@@ -25,8 +21,12 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
 
-def _is_empty_system_message(msg: BaseMessage) -> bool:
-    return isinstance(msg, SystemMessage) and msg.content.strip() == ""
+def _is_empty_system_message(msg: Message) -> bool:
+    return (
+        msg.role == Role.SYSTEM
+        and msg.content is not None
+        and msg.content.strip() == ""
+    )
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
@@ -78,10 +78,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
     ) -> TextCompletionPrompt:
         pass
 
-    def validate_base_messages(
-        self,
-        messages: List[BaseMessage],
-    ) -> List[BaseMessage]:
+    def preprocess_messages(self, messages: List[Message]) -> List[Message]:
         # Skipping empty system messages
         messages = [
             msg for msg in messages if not _is_empty_system_message(msg)
@@ -92,25 +89,14 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         return messages
 
-    def get_base_messages(
-        self, params: ModelParameters, messages: List[Message]
-    ) -> List[BaseMessage]:
-        parsed_messages = list(map(parse_message, messages))
-        base_messages = self.tools_emulator(
-            params.tool_config
-        ).convert_to_base_messages(parsed_messages)
-        return self.validate_base_messages(base_messages)
-
     def get_text_completion_prompt(
         self, params: ModelParameters, messages: List[Message]
     ) -> TextCompletionPrompt:
+
+        messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-
-        base_messages = self.get_base_messages(params, messages)
-
-        (base_messages, tool_stop_sequences) = (
-            tools_emulator.add_tool_declarations(base_messages)
-        )
+        base_messages = tools_emulator.parse_dial_messages(messages)
+        tool_stop_sequences = tools_emulator.get_stop_sequences()
 
         prompt = self.truncate_and_linearize_messages(
             base_messages, params.max_prompt_tokens
@@ -166,7 +152,9 @@ class PseudoChatModel(TextCompletionAdapter):
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
-        base_messages = self.get_base_messages(params, messages)
+        messages = self.preprocess_messages(messages)
+        tools_emulator = self.tools_emulator(params.tool_config)
+        base_messages = tools_emulator.parse_dial_messages(messages)
         return self.tokenize_messages(base_messages)
 
     async def count_completion_tokens(self, string: str) -> int:

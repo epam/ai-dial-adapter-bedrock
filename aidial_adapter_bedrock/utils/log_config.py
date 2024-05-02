@@ -21,10 +21,10 @@ class HealthCheckFilter(Filter):
 
 
 def configure_loggers():
-    # Making the uvicorn logger delegate logging to the root logger
-    uvicorn_logger = logging.getLogger("uvicorn")
-    uvicorn_logger.handlers = []
-    uvicorn_logger.propagate = True
+    # Making the uvicorn and dial_sdk loggers delegate its logging to the root logger
+    for logger in [logging.getLogger("uvicorn"), aidial_logger]:
+        logger.handlers = []
+        logger.propagate = True
 
     # Filter out health check requests from uvicorn logs
     logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())

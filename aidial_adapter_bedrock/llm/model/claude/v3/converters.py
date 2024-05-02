@@ -1,13 +1,19 @@
 import mimetypes
-from typing import Iterable, List, Literal, Optional, Tuple, Union
+from typing import Iterable, List, Literal, Optional, Tuple, assert_never
 
-from aidial_sdk.chat_completion import Attachment, FinishReason, Message, Role
+from aidial_sdk.chat_completion import Attachment, FinishReason
 from anthropic.types import ImageBlockParam, MessageParam, TextBlockParam
 from anthropic.types.image_block_param import Source
 
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     download_file_as_base64,
+)
+from aidial_adapter_bedrock.llm.message import (
+    AIRegularMessage,
+    BaseMessage,
+    HumanRegularMessage,
+    SystemMessage,
 )
 
 ClaudeFinishReason = Literal["end_turn", "max_tokens", "stop_sequence"]
@@ -46,14 +52,22 @@ async def _download_data(url: str, file_storage: Optional[FileStorage]) -> str:
     return await file_storage.download_file_as_base64(url)
 
 
-def _to_claude_role(role: Role) -> Literal["user", "assistant"]:
-    match role:
-        case Role.USER:
-            return "user"
-        case Role.ASSISTANT:
-            return "assistant"
+def _to_claude_role(
+    message: BaseMessage,
+) -> Tuple[
+    Literal["user", "assistant"], AIRegularMessage | HumanRegularMessage
+]:
+    match message:
+        case HumanRegularMessage():
+            return "user", message
+        case AIRegularMessage():
+            return "assistant", message
+        case SystemMessage():
+            raise ValueError(
+                "System message is only allowed as the first message"
+            )
         case _:
-            raise ValueError(f"Unsupported role: {role}")
+            assert_never(message)
 
 
 async def _to_claude_image(
@@ -80,42 +94,33 @@ async def _to_claude_image(
 
 
 async def _to_claude_content(
-    message: Message, file_storage: Optional[FileStorage]
-) -> Union[str, List[Union[TextBlockParam, ImageBlockParam]]]:
-    if message.custom_content and message.custom_content.attachments:
-        content: List[Union[TextBlockParam, ImageBlockParam]] = []
-        for attachment in message.custom_content.attachments:
+    message: AIRegularMessage | HumanRegularMessage,
+    file_storage: Optional[FileStorage],
+) -> List[TextBlockParam | ImageBlockParam]:
+    content: List[TextBlockParam | ImageBlockParam] = []
+
+    if message.custom_content:
+        for attachment in message.custom_content.attachments or []:
             content.append(await _to_claude_image(attachment, file_storage))
 
-        if message.content:
-            content.append(TextBlockParam(text=message.content, type="text"))
-
-        return content
-
-    return message.content or ""
+    content.append(TextBlockParam(text=message.content, type="text"))
+    return content
 
 
 async def to_claude_messages(
-    messages: List[Message], file_storage: Optional[FileStorage]
+    messages: List[BaseMessage], file_storage: Optional[FileStorage]
 ) -> Tuple[Optional[str], List[MessageParam]]:
     if not messages:
         return None, []
 
     system_prompt: str | None = None
-    first_message_index = 0
-    if messages[0].role == Role.SYSTEM:
+    if isinstance(messages[0], SystemMessage):
         system_prompt = messages[0].content
-        first_message_index = 1
+        messages = messages[1:]
 
     claude_messages: List[MessageParam] = []
-    for i in range(first_message_index, len(messages)):
-        message = messages[i]
-        if message.role == Role.SYSTEM:
-            raise ValueError(
-                "System message is only allowed as the first message"
-            )
-
-        role = _to_claude_role(message.role)
+    for message in messages:
+        role, message = _to_claude_role(message)
         content = await _to_claude_content(message, file_storage)
         claude_messages.append(MessageParam(role=role, content=content))
 
@@ -135,3 +140,5 @@ def to_dial_finish_reason(
             return FinishReason.LENGTH
         case "stop_sequence":
             return FinishReason.STOP
+        case _:
+            assert_never(finish_reason)
