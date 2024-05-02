@@ -3,7 +3,7 @@ from typing import List, Tuple
 import pytest
 import requests
 
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
 
 test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [

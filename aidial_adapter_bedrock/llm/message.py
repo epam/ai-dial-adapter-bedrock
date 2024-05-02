@@ -9,7 +9,7 @@ from aidial_sdk.chat_completion import (
 )
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class SystemMessage(BaseModel):

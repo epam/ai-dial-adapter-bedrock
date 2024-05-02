@@ -23,12 +23,12 @@ from aidial_sdk.deployment.truncate_prompt import (
 )
 from typing_extensions import override
 
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
-from aidial_adapter_bedrock.llm.exceptions import UserError, ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log

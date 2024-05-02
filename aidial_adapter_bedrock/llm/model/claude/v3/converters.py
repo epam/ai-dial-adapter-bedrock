@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     download_file_as_base64,
 )
-from aidial_adapter_bedrock.llm.exceptions import UserError, ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
     BaseMessage,

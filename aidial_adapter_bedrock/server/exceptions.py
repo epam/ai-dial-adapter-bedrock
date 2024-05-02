@@ -4,7 +4,7 @@ from aidial_sdk import HTTPException as DialException
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
-from aidial_adapter_bedrock.llm.exceptions import UserError, ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 

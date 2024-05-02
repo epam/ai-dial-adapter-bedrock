@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
 from tests.utils.openai import (
     ChatCompletionResult,

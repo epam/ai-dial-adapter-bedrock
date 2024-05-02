@@ -3,7 +3,7 @@ from typing import List
 import requests
 from openai import AzureOpenAI
 
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from tests.conftest import DEFAULT_API_VERSION, TEST_SERVER_URL
 
 

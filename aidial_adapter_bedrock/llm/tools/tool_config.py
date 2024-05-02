@@ -10,7 +10,7 @@ from aidial_sdk.chat_completion import (
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class ToolsMode(str, Enum):

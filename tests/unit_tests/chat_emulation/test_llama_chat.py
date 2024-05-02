@@ -3,7 +3,7 @@ from typing import List, Optional, Set
 import pytest
 
 from aidial_adapter_bedrock.llm.chat_model import default_keep_message
-from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.llama_chat import (
     llama_emulator,

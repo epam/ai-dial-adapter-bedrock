@@ -2,8 +2,8 @@ from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
 from aidial_adapter_bedrock.utils.log_config import configure_loggers
