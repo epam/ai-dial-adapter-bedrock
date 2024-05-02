@@ -1,5 +1,5 @@
 import mimetypes
-from typing import Iterable, List, Literal, Optional, Tuple, Union
+from typing import Iterable, List, Literal, Optional, Tuple, Union, cast
 
 from aidial_sdk.chat_completion import Attachment, FinishReason, Message, Role
 from anthropic.types import ImageBlockParam, MessageParam, TextBlockParam
@@ -9,6 +9,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     download_file_as_base64,
 )
+from aidial_adapter_bedrock.llm.exceptions import UserError, ValidationError
 
 ClaudeFinishReason = Literal["end_turn", "max_tokens", "stop_sequence"]
 ImageMediaType = Literal["image/png", "image/jpeg", "image/gif", "image/webp"]
@@ -19,11 +20,16 @@ IMAGE_MEDIA_TYPES: Iterable[ImageMediaType] = {
     "image/webp",
 }
 
+FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
+
 
 def _validate_media_type(media_type: str) -> ImageMediaType:
     if media_type not in IMAGE_MEDIA_TYPES:
-        raise ValueError(f"Unsupported media type: {media_type}")
-    return media_type  # type: ignore
+        raise UserError(
+            f"Unsupported media type: {media_type}",
+            get_usage_message(FILE_EXTENSIONS),
+        )
+    return cast(ImageMediaType, media_type)
 
 
 def _create_image_block(
@@ -53,7 +59,7 @@ def _to_claude_role(role: Role) -> Literal["user", "assistant"]:
         case Role.ASSISTANT:
             return "assistant"
         case _:
-            raise ValueError(f"Unsupported role: {role}")
+            raise ValidationError(f"Unsupported role: {role.value}")
 
 
 async def _to_claude_image(
@@ -61,7 +67,9 @@ async def _to_claude_image(
 ) -> ImageBlockParam:
     if attachment.data:
         if not attachment.type:
-            raise ValueError("Attachment type is required for provided data")
+            raise ValidationError(
+                "Attachment type is required for provided data"
+            )
         return _create_image_block(
             _validate_media_type(attachment.type), attachment.data
         )
@@ -69,14 +77,14 @@ async def _to_claude_image(
     if attachment.url:
         media_type = attachment.type or mimetypes.guess_type(attachment.url)[0]
         if not media_type:
-            raise ValueError(
+            raise ValidationError(
                 f"Cannot guess attachment type for {attachment.url}"
             )
 
         data = await _download_data(attachment.url, file_storage)
         return _create_image_block(_validate_media_type(media_type), data)
 
-    raise ValueError("Attachment data or URL is required")
+    raise ValidationError("Attachment data or URL is required")
 
 
 async def _to_claude_content(
@@ -111,7 +119,7 @@ async def to_claude_messages(
     for i in range(first_message_index, len(messages)):
         message = messages[i]
         if message.role == Role.SYSTEM:
-            raise ValueError(
+            raise ValidationError(
                 "System message is only allowed as the first message"
             )
 
@@ -135,3 +143,16 @@ def to_dial_finish_reason(
             return FinishReason.LENGTH
         case "stop_sequence":
             return FinishReason.STOP
+
+
+def get_usage_message(supported_exts: List[str]) -> str:
+    return f"""
+The application answers queries about attached images.
+Attach images and ask questions about them in the same message.
+
+Supported image types: {', '.join(supported_exts)}.
+
+Examples of queries:
+- "Describe this picture" for one image,
+- "What are in these images? Is there any difference between them?" for multiple images.
+""".strip()

@@ -28,6 +28,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
+from aidial_adapter_bedrock.llm.exceptions import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
@@ -40,7 +41,7 @@ class BedrockChatCompletion(ChatCompletion):
     def __init__(self, region: str):
         self.region = region
 
-    async def get_model(
+    async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
         deployment = BedrockDeployment.from_deployment_id(request.deployment_id)
@@ -52,7 +53,7 @@ class BedrockChatCompletion(ChatCompletion):
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
-        model = await self.get_model(request)
+        model = await self._get_model(request)
         params = ModelParameters.create(request)
 
         discarded_messages: Optional[List[int]] = None
@@ -63,7 +64,14 @@ class BedrockChatCompletion(ChatCompletion):
             with response.create_choice() as choice:
                 tools_emulator = model.tools_emulator(params.tool_config)
                 consumer = ChoiceConsumer(tools_emulator, choice)
-                await model.chat(consumer, params, request.messages)
+
+                try:
+                    await model.chat(consumer, params, request.messages)
+                except UserError as e:
+                    await e.report_usage(choice)
+                    await response.aflush()
+                    raise e
+
                 usage.accumulate(consumer.usage)
                 discarded_messages = consumer.discarded_messages
 
@@ -80,8 +88,9 @@ class BedrockChatCompletion(ChatCompletion):
             response.set_discarded_messages(discarded_messages)
 
     @override
+    @dial_exception_decorator
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
-        model = await self.get_model(request)
+        model = await self._get_model(request)
 
         if not is_implemented(
             model.count_completion_tokens
@@ -93,17 +102,17 @@ class BedrockChatCompletion(ChatCompletion):
             match input:
                 case TokenizeInputRequest():
                     outputs.append(
-                        await self.tokenize_request(model, input.value)
+                        await self._tokenize_request(model, input.value)
                     )
                 case TokenizeInputString():
                     outputs.append(
-                        await self.tokenize_string(model, input.value)
+                        await self._tokenize_string(model, input.value)
                     )
                 case _:
                     assert_never(input.type)
         return TokenizeResponse(outputs=outputs)
 
-    async def tokenize_string(
+    async def _tokenize_string(
         self, model: ChatCompletionAdapter, value: str
     ) -> TokenizeOutput:
         try:
@@ -112,7 +121,7 @@ class BedrockChatCompletion(ChatCompletion):
         except Exception as e:
             return TokenizeError(error=str(e))
 
-    async def tokenize_request(
+    async def _tokenize_request(
         self, model: ChatCompletionAdapter, request: ChatCompletionRequest
     ) -> TokenizeOutput:
         params = ModelParameters.create(request)
@@ -126,27 +135,28 @@ class BedrockChatCompletion(ChatCompletion):
             return TokenizeError(error=str(e))
 
     @override
+    @dial_exception_decorator
     async def truncate_prompt(
         self, request: TruncatePromptRequest
     ) -> TruncatePromptResponse:
-        model = await self.get_model(request)
+        model = await self._get_model(request)
 
         if not is_implemented(model.truncate_prompt):
             raise DialException(status_code=404, message="Not found")
 
         outputs: List[TruncatePromptResult] = []
         for input in request.inputs:
-            outputs.append(await self.truncate_prompt_request(model, input))
+            outputs.append(await self._truncate_prompt_request(model, input))
         return TruncatePromptResponse(outputs=outputs)
 
-    async def truncate_prompt_request(
+    async def _truncate_prompt_request(
         self, model: ChatCompletionAdapter, request: ChatCompletionRequest
     ) -> TruncatePromptResult:
         try:
             params = ModelParameters.create(request)
 
             if params.max_prompt_tokens is None:
-                raise ValueError("max_prompt_tokens is required")
+                raise ValidationError("max_prompt_tokens is required")
 
             discarded_messages = await model.truncate_prompt(
                 params, request.messages
