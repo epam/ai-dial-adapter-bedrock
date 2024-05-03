@@ -146,7 +146,10 @@ chat_deployments = [
     BedrockDeployment.ANTHROPIC_CLAUDE_V2,
     BedrockDeployment.ANTHROPIC_CLAUDE_V2_1,
     BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    BedrockDeployment.META_LLAMA2_13B_CHAT_V1,
     BedrockDeployment.META_LLAMA2_70B_CHAT_V1,
+    BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1,
+    BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1,
     BedrockDeployment.COHERE_COMMAND_TEXT_V14,
 ]
 
@@ -154,6 +157,21 @@ chat_deployments = [
 def supports_tools(deployment: BedrockDeployment) -> bool:
     return deployment in [
         BedrockDeployment.ANTHROPIC_CLAUDE_V2_1,
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+    ]
+
+
+def is_llama3(deployment: BedrockDeployment) -> bool:
+    return deployment in [
+        BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1,
+        BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1,
+    ]
+
+
+def is_claude3(deployment: BedrockDeployment) -> bool:
+    return deployment in [
         BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
         BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
@@ -243,12 +261,6 @@ def get_test_cases(
         ),
     )
 
-    is_claude3 = deployment in [
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-    ]
-
     test_case(
         name="empty user message",
         max_tokens=1,
@@ -261,7 +273,7 @@ def get_test_cases(
                     status_code=400,
                 )
             )
-            if is_claude3
+            if is_claude3(deployment)
             else expected_success
         ),
     )
@@ -278,7 +290,7 @@ def get_test_cases(
                     status_code=400,
                 )
             )
-            if is_claude3
+            if is_claude3(deployment)
             else expected_success
         ),
     )
@@ -302,6 +314,23 @@ def get_test_cases(
         messages=[user('Reply with "John"')],
         expected=lambda s: "John" not in s.content.lower(),
     )
+
+    if is_llama3(deployment):
+        test_case(
+            name="out of turn",
+            messages=[ai("hello"), user("what's 7+5?")],
+            expected=lambda s: "12" in s.content.lower(),
+        )
+
+        test_case(
+            name="many system",
+            messages=[
+                sys("act as a helpful assistant"),
+                sys("act as a calculator"),
+                user("2+5=?"),
+            ],
+            expected=lambda s: "7" in s.content.lower(),
+        )
 
     if supports_tools(deployment):
         query = "What's the temperature in Glasgow in celsius?"

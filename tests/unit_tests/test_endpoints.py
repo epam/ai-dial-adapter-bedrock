@@ -20,6 +20,8 @@ test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
     (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, False, True),
     (BedrockDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
     (BedrockDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
+    (BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),
+    (BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1, True, True),
     (BedrockDeployment.COHERE_COMMAND_TEXT_V14, True, True),
     (BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14, True, True),
 ]

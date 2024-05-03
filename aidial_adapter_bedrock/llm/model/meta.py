@@ -12,10 +12,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import PseudoChatModel
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_META
-from aidial_adapter_bedrock.llm.model.llama_chat import (
-    llama_emulator,
-    llama_partitioner,
-)
+from aidial_adapter_bedrock.llm.model.llama.conf import LlamaConf
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
@@ -82,14 +79,14 @@ class MetaAdapter(PseudoChatModel):
     client: Bedrock
 
     @classmethod
-    def create(cls, client: Bedrock, model: str):
+    def create(cls, client: Bedrock, model: str, conf: LlamaConf):
         return cls(
             client=client,
             model=model,
             tokenize_string=default_tokenize_string,
-            chat_emulator=llama_emulator,
             tools_emulator=default_tools_emulator,
-            partitioner=llama_partitioner,
+            chat_emulator=conf.chat_emulator,
+            partitioner=conf.chat_partitioner,
         )
 
     @override
