@@ -19,7 +19,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     ClaudeFinishReason,
     to_claude_messages,

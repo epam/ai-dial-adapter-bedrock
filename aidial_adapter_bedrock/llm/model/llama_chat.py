@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
-from aidial_adapter_bedrock.llm.exceptions import ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
     BaseMessage,

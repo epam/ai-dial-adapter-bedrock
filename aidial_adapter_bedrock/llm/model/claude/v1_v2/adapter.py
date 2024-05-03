@@ -6,9 +6,9 @@ from tokenizers import Tokenizer
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     ChatEmulator,

@@ -1,7 +1,7 @@
 from typing import Mapping, assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.llm.bedrock_models import BedrockDeployment
+from aidial_adapter_bedrock.deployments import BedrockDeployment
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
