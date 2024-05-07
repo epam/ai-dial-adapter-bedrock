@@ -8,20 +8,20 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|---|---|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|✅|✅|❌|❌|
-|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|✅|✅|❌|❌|
-|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|✅|✅|❌|❌|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |Anthropic|Claude 2 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 2 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 2 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|✅|❌|❌|
-|Meta|Llama 2 Chat 13B|meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
+|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
+|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
+|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 2 Chat 13B|meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|❌|
+|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|✅|❌|❌|
+|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|✅|✅|❌|❌|
+|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|✅|✅|❌|❌|
+|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|✅|✅|❌|❌|
 |Cohere|Command|cohere.command-text-v14|text-to-text|✅|✅|❌|❌|
 |Cohere|Command Light|cohere.command-light-text-v14|text-to-text|✅|✅|❌|❌|
 
