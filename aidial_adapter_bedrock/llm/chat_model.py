@@ -120,10 +120,8 @@ class TextCompletionAdapter(ChatCompletionAdapter):
         if prompt.discarded_messages is not None:
             consumer.set_discarded_messages(prompt.discarded_messages)
 
-        log.debug(
-            f"model parameters:\n{params.json(indent=2, exclude_none=True)}"
-        )
-        log.debug(f"prompt:\n{prompt.text}")
+        log.debug(f"model parameters: {params.json(exclude_none=True)}")
+        log.debug(f"prompt: {prompt.text!r}")
 
         await self.predict(consumer, params, prompt.text)
 

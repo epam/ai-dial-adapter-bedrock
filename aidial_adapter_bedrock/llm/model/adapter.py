@@ -12,6 +12,8 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
+from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
+from aidial_adapter_bedrock.llm.model.llama.v3 import llama3_config
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
@@ -53,7 +55,16 @@ async def get_bedrock_adapter(
             BedrockDeployment.META_LLAMA2_13B_CHAT_V1
             | BedrockDeployment.META_LLAMA2_70B_CHAT_V1
         ):
-            return MetaAdapter.create(await Bedrock.acreate(region), model)
+            return MetaAdapter.create(
+                await Bedrock.acreate(region), model, llama2_config
+            )
+        case (
+            BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1
+            | BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1
+        ):
+            return MetaAdapter.create(
+                await Bedrock.acreate(region), model, llama3_config
+            )
         case (
             BedrockDeployment.COHERE_COMMAND_TEXT_V14
             | BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14

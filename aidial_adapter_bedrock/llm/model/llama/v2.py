@@ -18,6 +18,7 @@ from aidial_adapter_bedrock.llm.message import (
     HumanRegularMessage,
     SystemMessage,
 )
+from aidial_adapter_bedrock.llm.model.llama.conf import LlamaConf
 
 B_INST, E_INST = "[INST]", "[/INST]"
 B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
@@ -123,7 +124,7 @@ class LlamaChatEmulator(ChatEmulator):
         return None
 
 
-def llama_partitioner(messages: List[BaseMessage]) -> List[int]:
+def llama2_chat_partitioner(messages: List[BaseMessage]) -> List[int]:
     dialogue = validate_chat(messages)
 
     ret: List[int] = []
@@ -135,4 +136,7 @@ def llama_partitioner(messages: List[BaseMessage]) -> List[int]:
     return ret
 
 
-llama_emulator = LlamaChatEmulator()
+llama2_config = LlamaConf(
+    chat_partitioner=llama2_chat_partitioner,
+    chat_emulator=LlamaChatEmulator(),
+)

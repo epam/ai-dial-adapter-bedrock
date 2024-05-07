@@ -15,6 +15,8 @@ class BedrockDeployment(str, Enum):
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
     META_LLAMA2_13B_CHAT_V1 = "meta.llama2-13b-chat-v1"
     META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"
+    META_LLAMA3_8B_INSTRUCT_V1 = "meta.llama3-8b-instruct-v1:0"
+    META_LLAMA3_70B_INSTRUCT_V1 = "meta.llama3-70b-instruct-v1:0"
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 

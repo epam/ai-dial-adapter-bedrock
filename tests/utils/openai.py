@@ -159,5 +159,5 @@ def get_client(base_url: str, model_id: str) -> AsyncAzureOpenAI:
         api_version=DEFAULT_API_VERSION,
         api_key="dummy_key",
         max_retries=0,
-        timeout=10,
+        timeout=30,
     )

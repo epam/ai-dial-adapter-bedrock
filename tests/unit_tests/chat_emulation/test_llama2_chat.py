@@ -5,15 +5,15 @@ import pytest
 from aidial_adapter_bedrock.llm.chat_model import default_keep_message
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
-from aidial_adapter_bedrock.llm.model.llama_chat import (
-    llama_emulator,
-    llama_partitioner,
-)
+from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
 )
 from tests.utils.messages import ai, sys, user
+
+llama2_chat_emulator = llama2_config.chat_emulator
+llama2_chat_partitioner = llama2_config.chat_partitioner
 
 
 def truncate_prompt_by_words(
@@ -28,7 +28,7 @@ def truncate_prompt_by_words(
         messages=messages,
         tokenize_messages=_tokenize_by_words,
         keep_message=default_keep_message,
-        partition_messages=llama_partitioner,
+        partition_messages=llama2_chat_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,
     )
@@ -39,7 +39,7 @@ def test_construction_single_message():
         user("  human message1  "),
     ]
 
-    text, stop_sequences = llama_emulator.display(messages)
+    text, stop_sequences = llama2_chat_emulator.display(messages)
 
     assert stop_sequences == []
     assert text == "<s>[INST] human message1 [/INST]"
@@ -52,7 +52,7 @@ def test_construction_many_without_system():
         user("  human message2  "),
     ]
 
-    text, stop_sequences = llama_emulator.display(messages)
+    text, stop_sequences = llama2_chat_emulator.display(messages)
 
     assert stop_sequences == []
     assert text == "".join(
@@ -72,7 +72,7 @@ def test_construction_many_with_system():
         user("  human message2  "),
     ]
 
-    text, stop_sequences = llama_emulator.display(messages)
+    text, stop_sequences = llama2_chat_emulator.display(messages)
 
     assert stop_sequences == []
     assert text == "".join(
@@ -92,7 +92,7 @@ def test_invalid_alternation():
     ]
 
     with pytest.raises(ValidationError) as exc_info:
-        llama_emulator.display(messages)
+        llama2_chat_emulator.display(messages)
 
     assert exc_info.value.message == (
         "The model only supports initial optional system message and"
@@ -109,7 +109,7 @@ def test_invalid_last_message():
     ]
 
     with pytest.raises(ValidationError) as exc_info:
-        llama_emulator.display(messages)
+        llama2_chat_emulator.display(messages)
 
     assert exc_info.value.message == "The last message must be from user"
 
