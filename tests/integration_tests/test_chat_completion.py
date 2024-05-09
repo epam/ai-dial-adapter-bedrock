@@ -16,7 +16,10 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import BedrockDeployment
 from tests.conftest import TEST_SERVER_URL
+from tests.utils.json import match_objects
 from tests.utils.openai import (
+    GET_WEATHER_FUNCTION,
+    GET_WEATHER_TOOL,
     ChatCompletionResult,
     ai,
     ai_function,
@@ -24,7 +27,6 @@ from tests.utils.openai import (
     chat_completion,
     function_request,
     function_response,
-    function_to_tool,
     get_client,
     sanitize_test_name,
     sys,
@@ -33,51 +35,12 @@ from tests.utils.openai import (
     user,
 )
 
-get_weather_function: Function = {
-    "name": "get_current_weather",
-    "description": "Get the current weather",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "location": {
-                "type": "string",
-                "description": "The city and state, e.g. San Francisco, CA",
-            },
-            "format": {
-                "type": "string",
-                "enum": ["celsius", "fahrenheit"],
-                "description": "The temperature unit to use. Infer this from the users location.",
-            },
-        },
-        "required": ["location", "format"],
-    },
-}
-
-
-def match_objects(expected: Any, actual: Any) -> None:
-    if isinstance(expected, dict):
-        assert list(sorted(expected.keys())) == list(sorted(actual.keys()))
-        for k, v in expected.items():
-            match_objects(v, actual[k])
-    elif isinstance(expected, tuple):
-        assert len(expected) == len(actual)
-        for i in range(len(expected)):
-            match_objects(expected[i], actual[i])
-    elif isinstance(expected, list):
-        assert len(expected) == len(actual)
-        for i in range(len(expected)):
-            match_objects(expected[i], actual[i])
-    elif callable(expected):
-        assert expected(actual)
-    else:
-        assert expected == actual
-
 
 def is_valid_function_call(
-    call: FunctionCall | None, function: Function, expected_args: Any
+    call: FunctionCall | None, expected_name: str, expected_args: Any
 ) -> bool:
     assert call is not None
-    assert call.name == function["name"]
+    assert call.name == expected_name
     obj = json.loads(call.arguments)
     match_objects(expected_args, obj)
     return True
@@ -85,7 +48,8 @@ def is_valid_function_call(
 
 def is_valid_tool_calls(
     calls: List[ChatCompletionMessageToolCall] | None,
-    function: Function,
+    expected_id: str,
+    expected_name: str,
     expected_args: Any,
 ) -> bool:
     assert calls is not None
@@ -93,8 +57,8 @@ def is_valid_tool_calls(
     call = calls[0]
 
     function_call = call.function
-    assert call.id == function["name"]
-    assert function_call.name == function["name"]
+    assert call.id == expected_id
+    assert function_call.name == expected_name
 
     obj = json.loads(function_call.arguments)
     match_objects(expected_args, obj)
@@ -126,15 +90,18 @@ class TestCase:
     max_tokens: int | None
     stop: List[str] | None
 
+    n: int | None
+
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
 
     def get_id(self):
         max_tokens_str = f"maxt={self.max_tokens}" if self.max_tokens else ""
         stop_sequence_str = f"stop={self.stop}" if self.stop else ""
+        n_str = f"n={self.n}" if self.n else ""
         return sanitize_test_name(
             f"{self.deployment.value} {self.streaming} {max_tokens_str} "
-            f"{stop_sequence_str} {self.name}"
+            f"{stop_sequence_str} {n_str} {self.name}"
         )
 
 
@@ -198,6 +165,7 @@ def get_test_cases(
         expected: (
             Callable[[ChatCompletionResult], bool] | ExpectedException
         ) = expected_success,
+        n: int | None = None,
         max_tokens: int | None = None,
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
@@ -212,6 +180,7 @@ def get_test_cases(
                 expected,
                 max_tokens,
                 stop,
+                n,
                 functions,
                 tools,
             )
@@ -342,15 +311,15 @@ def get_test_cases(
 
         function_args = {"location": "Glasgow", "format": "celsius"}
 
-        name = get_weather_function["name"]
+        name = GET_WEATHER_FUNCTION["name"]
 
         # Functions
         test_case(
             name="weather function",
             messages=[user(query)],
-            functions=[get_weather_function],
+            functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: is_valid_function_call(
-                s.function_call, get_weather_function, function_args_checker
+                s.function_call, name, function_args_checker
             ),
         )
 
@@ -360,27 +329,28 @@ def get_test_cases(
         test_case(
             name="weather function followup",
             messages=[user(query), function_req, function_resp],
-            functions=[get_weather_function],
+            functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: "15" in s.content.lower(),
         )
 
         # Tools
+        tool_call_id = f"{name}_1"
         test_case(
             name="weather tool",
             messages=[user(query)],
-            tools=[function_to_tool(get_weather_function)],
+            tools=[GET_WEATHER_TOOL],
             expected=lambda s: is_valid_tool_calls(
-                s.tool_calls, get_weather_function, function_args_checker
+                s.tool_calls, tool_call_id, name, function_args_checker
             ),
         )
 
-        tool_req = ai_tools([tool_request(name, function_args)])
-        tool_resp = tool_response(name, "15 celsius")
+        tool_req = ai_tools([tool_request(tool_call_id, name, function_args)])
+        tool_resp = tool_response(tool_call_id, "15 celsius")
 
         test_case(
             name="weather tool followup",
             messages=[user(query), tool_req, tool_resp],
-            tools=[function_to_tool(get_weather_function)],
+            tools=[GET_WEATHER_TOOL],
             expected=lambda s: "15" in s.content.lower(),
         )
 
@@ -408,6 +378,7 @@ async def test_chat_completion_openai(server, test: TestCase):
             test.streaming,
             test.stop,
             test.max_tokens,
+            test.n,
             test.functions,
             test.tools,
         )

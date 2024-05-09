@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, Callable, List, Optional
 
 from aidial_sdk.utils.streaming import merge_chunks
 from openai import AsyncAzureOpenAI, AsyncStream
@@ -60,9 +60,11 @@ def function_request(name: str, args: Any) -> ToolFunction:
     return {"name": name, "arguments": json.dumps(args)}
 
 
-def tool_request(name: str, args: Any) -> ChatCompletionMessageToolCallParam:
+def tool_request(
+    id: str, name: str, args: Any
+) -> ChatCompletionMessageToolCallParam:
     return {
-        "id": name,
+        "id": id,
         "type": "function",
         "function": function_request(name, args),
     }
@@ -74,8 +76,8 @@ def function_response(
     return {"role": "function", "name": name, "content": content}
 
 
-def tool_response(name: str, content: str) -> ChatCompletionToolMessageParam:
-    return {"role": "tool", "tool_call_id": name, "content": content}
+def tool_response(id: str, content: str) -> ChatCompletionToolMessageParam:
+    return {"role": "tool", "tool_call_id": id, "content": content}
 
 
 def function_to_tool(function: FunctionDefinition) -> ChatCompletionToolParam:
@@ -99,6 +101,12 @@ class ChatCompletionResult(BaseModel):
         return self.message.content or ""
 
     @property
+    def contents(self) -> List[str]:
+        return [
+            choice.message.content or "" for choice in self.response.choices
+        ]
+
+    @property
     def usage(self) -> CompletionUsage | None:
         return self.response.usage
 
@@ -117,6 +125,7 @@ async def chat_completion(
     stream: bool,
     stop: Optional[List[str]],
     max_tokens: Optional[int],
+    n: Optional[int],
     functions: List[Function] | None,
     tools: List[ChatCompletionToolParam] | None,
 ) -> ChatCompletionResult:
@@ -128,6 +137,7 @@ async def chat_completion(
             stop=stop,
             max_tokens=max_tokens,
             temperature=0.0,
+            n=n,
             function_call="auto" if functions is not None else NOT_GIVEN,
             functions=functions or NOT_GIVEN,
             tool_choice="auto" if tools is not None else NOT_GIVEN,
@@ -161,3 +171,41 @@ def get_client(base_url: str, model_id: str) -> AsyncAzureOpenAI:
         max_retries=0,
         timeout=30,
     )
+
+
+def for_all_choices(
+    predicate: Callable[[str], bool], n: int = 1
+) -> Callable[[ChatCompletionResult], bool]:
+    def f(resp: ChatCompletionResult) -> bool:
+        contents = resp.contents
+        assert (
+            len(contents) == n
+        ), f"Expected {n} candidates, got {len(contents)}"
+        return all(predicate(content) for content in contents)
+
+    return f
+
+
+GET_WEATHER_FUNCTION: Function = {
+    "name": "get_current_weather",
+    "description": "Get the current weather",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA",
+            },
+            "format": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"],
+                "description": "The temperature unit to use. Infer this from the users location.",
+            },
+        },
+        "required": ["location", "format"],
+    },
+}
+
+GET_WEATHER_TOOL: ChatCompletionToolParam = function_to_tool(
+    GET_WEATHER_FUNCTION
+)
