@@ -7,7 +7,7 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
-from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -45,5 +45,5 @@ class DefaultToolsEmulator(ToolsEmulator):
         return content
 
 
-def default_tools_emulator(tool_config: Optional[ToolConfig]) -> ToolsEmulator:
+def default_tools_emulator(tool_config: Optional[ToolsConfig]) -> ToolsEmulator:
     return DefaultToolsEmulator(tool_config=tool_config)

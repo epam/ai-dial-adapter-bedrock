@@ -1,6 +1,6 @@
 import json
 
-from aidial_sdk.chat_completion import Function, FunctionCall, Tool
+from aidial_sdk.chat_completion import Function, FunctionCall
 
 from aidial_adapter_bedrock.llm.tools.claude_protocol import (
     _parse_function_call,
@@ -9,62 +9,50 @@ from aidial_adapter_bedrock.llm.tools.claude_protocol import (
 )
 from aidial_adapter_bedrock.utils.xml import parse_xml
 
-TOOL_ARITY_2 = Tool(
-    type="function",
-    function=Function(
-        name="func_arity_2",
-        description="desc",
-        parameters={
-            "type": "object",
-            "properties": {
-                "param1": {"type": "type1", "description": "desc1"},
-                "param2": {"type": "type2"},
-            },
+TOOL_ARITY_2 = Function(
+    name="func_arity_2",
+    description="desc",
+    parameters={
+        "type": "object",
+        "properties": {
+            "param1": {"type": "type1", "description": "desc1"},
+            "param2": {"type": "type2"},
         },
-    ),
+    },
 )
 
-TOOL_ARITY_0 = Tool(
-    type="function",
-    function=Function(
-        name="func_arity_0",
-        description="desc",
-        parameters={"type": "object", "properties": {}},
-    ),
+TOOL_ARITY_0 = Function(
+    name="func_arity_0",
+    description="desc",
+    parameters={"type": "object", "properties": {}},
 )
 
-TOOL_ENUM_PARAM = Tool(
-    type="function",
-    function=Function(
-        name="func_enum_param",
-        description="tool with enum parameter",
-        parameters={
-            "type": "object",
-            "properties": {
-                "param1": {
-                    "type": "string",
-                    "enum": ["value1", "value2", "value3"],
-                }
-            },
+TOOL_ENUM_PARAM = Function(
+    name="func_enum_param",
+    description="tool with enum parameter",
+    parameters={
+        "type": "object",
+        "properties": {
+            "param1": {
+                "type": "string",
+                "enum": ["value1", "value2", "value3"],
+            }
         },
-    ),
+    },
 )
 
-TOOL_ARRAY_PARAM = Tool(
-    type="function",
-    function=Function(
-        name="func_array_param",
-        description="tool with array parameter",
-        parameters={
-            "type": "object",
-            "properties": {
-                "param1": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                }
-            },
+TOOL_ARRAY_PARAM = Function(
+    name="func_array_param",
+    description="tool with array parameter",
+    parameters={
+        "type": "object",
+        "properties": {
+            "param1": {
+                "type": "array",
+                "items": {"type": "string"},
+            }
         },
-    ),
+    },
 )
 
 

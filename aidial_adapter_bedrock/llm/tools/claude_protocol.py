@@ -1,14 +1,14 @@
 import json
 from typing import Dict, List, Literal, Optional
 
-from aidial_sdk.chat_completion import FunctionCall, Tool, ToolCall
+from aidial_sdk.chat_completion import Function, FunctionCall, ToolCall
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
     AIToolCallMessage,
 )
-from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig, ToolsMode
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.utils.pydnatic import ExtraForbidModel
 from aidial_adapter_bedrock.utils.xml import parse_xml, tag, tag_nl
 
@@ -91,21 +91,23 @@ def _print_tool_parameters(parameters: ToolParameters) -> str:
     )
 
 
-def _print_tool_declaration(tool: Tool) -> str:
+def _print_tool_declaration(function: Function) -> str:
     return tag_nl(
         "tool_description",
         [
-            tag("tool_name", tool.function.name),
-            tag("description", tool.function.description),
+            tag("tool_name", function.name),
+            tag("description", function.description),
             _print_tool_parameters(
-                ToolParameters.parse_obj(tool.function.parameters)
+                ToolParameters.parse_obj(function.parameters)
             ),
         ],
     )
 
 
-def print_tool_declarations(tools: List[Tool]) -> str:
-    return tag_nl("tools", [_print_tool_declaration(tool) for tool in tools])
+def print_tool_declarations(functions: List[Function]) -> str:
+    return tag_nl(
+        "tools", [_print_tool_declaration(function) for function in functions]
+    )
 
 
 def _print_function_call_parameters(parameters: dict) -> str:
@@ -146,13 +148,12 @@ def _parse_function_call(text: str) -> FunctionCall:
     start_index = text.find(FUNC_START_TAG)
     if start_index == -1:
         raise Exception(
-            f"Unable to parse function call, missing '{FUNC_TAG_NAME}' tag"
+            f"Unable to parse function call, missing {FUNC_TAG_NAME!r} tag"
         )
 
     try:
         dict = parse_xml(text[start_index:])
         invocation = dict[FUNC_TAG_NAME]["invoke"]
-
         tool_name = invocation["tool_name"]
         parameters = invocation["parameters"]
     except Exception:
@@ -162,23 +163,18 @@ def _parse_function_call(text: str) -> FunctionCall:
 
 
 def parse_call(
-    config: Optional[ToolConfig], text: str
+    config: Optional[ToolsConfig], text: str
 ) -> AIToolCallMessage | AIFunctionCallMessage | None:
     if config is None:
         return None
 
     call = _parse_function_call(text)
-    match config.mode:
-        case ToolsMode.TOOLS:
-            return AIToolCallMessage(
-                calls=[
-                    ToolCall(
-                        index=0, id=call.name, type="function", function=call
-                    )
-                ]
-            )
-        case ToolsMode.FUNCTIONS:
-            return AIFunctionCallMessage(call=call)
+    if config.is_tool:
+        id = config.create_fresh_tool_call_id(call.name)
+        tool_call = ToolCall(index=0, id=id, type="function", function=call)
+        return AIToolCallMessage(calls=[tool_call])
+    else:
+        return AIFunctionCallMessage(call=call)
 
 
 def print_function_call_result(name: str, content: str) -> str:

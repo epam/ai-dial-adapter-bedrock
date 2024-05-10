@@ -3,8 +3,9 @@ Legacy tools support for Claude models:
 https://docs.anthropic.com/claude/docs/legacy-tool-use
 """
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
     AIRegularMessage,
@@ -28,51 +29,33 @@ from aidial_adapter_bedrock.llm.tools.claude_protocol import (
     print_tool_declarations,
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
-from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig, ToolsMode
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 
 
 def convert_to_base_message(
-    tool_config: Optional[ToolConfig],
-    id_to_name: Dict[str, str],
-    msg: ToolMessage,
+    tool_config: Optional[ToolsConfig], msg: ToolMessage
 ) -> BaseMessage:
-    mode: Optional[ToolsMode] = tool_config and tool_config.mode
+
     match msg:
         case HumanToolResultMessage(id=id, content=content):
-            assert (
-                mode is None or mode == ToolsMode.TOOLS
-            ), f"Received tool result in '{mode.value}' mode"
-            name = id_to_name.get(id)
-            if name is None:
-                name = "_unknown_"
-                log.warning(
-                    f"Unable to find tool name for id '{id}', assuming '{name}' name"
+            if tool_config is None:
+                raise ValidationError(
+                    "Tool message is used, but tools are not declared"
                 )
-
+            name = tool_config.get_tool_name(id)
             return HumanRegularMessage(
                 content=print_function_call_result(name=name, content=content)
             )
 
         case HumanFunctionResultMessage(name=name, content=content):
-            assert (
-                mode is None or mode == ToolsMode.FUNCTIONS
-            ), f"Received function result in '{mode.value}' mode"
             return HumanRegularMessage(
                 content=print_function_call_result(name=name, content=content)
             )
 
         case AIToolCallMessage(calls=calls):
-            assert (
-                mode is None or mode == ToolsMode.TOOLS
-            ), f"Received tool call in '{mode.value}' mode"
-            for call in calls:
-                id_to_name[call.id] = call.function.name
             return AIRegularMessage(content=print_tool_calls(calls))
+
         case AIFunctionCallMessage(call=call):
-            assert (
-                mode is None or mode == ToolsMode.FUNCTIONS
-            ), f"Received function call in '{mode.value}' mode"
             return AIRegularMessage(content=print_function_call(call))
 
 
@@ -85,7 +68,7 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     @property
     def _tool_declarations(self) -> Optional[str]:
         return self.tool_config and print_tool_declarations(
-            self.tool_config.tools
+            self.tool_config.functions
         )
 
     def add_tool_declarations(
@@ -109,14 +92,11 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     def convert_to_base_messages(
         self, messages: List[BaseMessage | ToolMessage]
     ) -> List[BaseMessage]:
-        id_to_name: Dict[str, str] = {}
         return [
             (
                 message
                 if isinstance(message, BaseMessage)
-                else convert_to_base_message(
-                    self.tool_config, id_to_name, message
-                )
+                else convert_to_base_message(self.tool_config, message)
             )
             for message in messages
         ]
@@ -132,7 +112,7 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
 
 
 def legacy_tools_emulator(
-    tool_config: Optional[ToolConfig],
+    tool_config: Optional[ToolsConfig],
 ) -> ToolsEmulator:
     return Claude2_1_ToolsEmulator(
         tool_config=tool_config,
