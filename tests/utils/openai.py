@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, AsyncGenerator, Callable, List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 
 from aidial_sdk.utils.streaming import merge_chunks
 from openai import AsyncAzureOpenAI, AsyncStream
@@ -171,19 +171,6 @@ def get_client(base_url: str, model_id: str) -> AsyncAzureOpenAI:
         max_retries=0,
         timeout=30,
     )
-
-
-def for_all_choices(
-    predicate: Callable[[str], bool], n: int = 1
-) -> Callable[[ChatCompletionResult], bool]:
-    def f(resp: ChatCompletionResult) -> bool:
-        contents = resp.contents
-        assert (
-            len(contents) == n
-        ), f"Expected {n} candidates, got {len(contents)}"
-        return all(predicate(content) for content in contents)
-
-    return f
 
 
 GET_WEATHER_FUNCTION: Function = {
