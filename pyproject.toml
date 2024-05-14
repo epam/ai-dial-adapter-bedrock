@@ -44,6 +44,10 @@ nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
+# muting warnings coming from opentelemetry package
+filterwarnings = [
+    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies"
+]
 
 [tool.pyright]
 typeCheckingMode = "basic"

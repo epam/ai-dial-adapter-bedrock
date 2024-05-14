@@ -11,11 +11,11 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
     parse_dial_message,
 )
-from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 
 
 class ToolsEmulator(ABC, BaseModel):
-    tool_config: Optional[ToolConfig]
+    tool_config: Optional[ToolsConfig]
 
     @abstractmethod
     def add_tool_declarations(

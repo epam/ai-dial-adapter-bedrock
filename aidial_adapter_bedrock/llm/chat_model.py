@@ -11,7 +11,7 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
-from aidial_adapter_bedrock.llm.tools.tool_config import ToolConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
     truncate_prompt,
@@ -30,7 +30,7 @@ def _is_empty_system_message(msg: Message) -> bool:
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
-    tools_emulator: Callable[[Optional[ToolConfig]], ToolsEmulator]
+    tools_emulator: Callable[[Optional[ToolsConfig]], ToolsEmulator]
 
     class Config:
         arbitrary_types_allowed = True
