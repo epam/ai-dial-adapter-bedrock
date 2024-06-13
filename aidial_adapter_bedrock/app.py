@@ -2,7 +2,7 @@ from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
-from aidial_adapter_bedrock.deployments import BedrockDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
@@ -28,12 +28,12 @@ async def models():
     return ModelsResponse(
         data=[
             ModelObject(id=deployment.deployment_id)
-            for deployment in BedrockDeployment
+            for deployment in ChatCompletionDeployment
         ]
     )
 
 
-for deployment in BedrockDeployment:
+for deployment in ChatCompletionDeployment:
     app.add_chat_completion(
         deployment.deployment_id,
         BedrockChatCompletion(region=AWS_DEFAULT_REGION),

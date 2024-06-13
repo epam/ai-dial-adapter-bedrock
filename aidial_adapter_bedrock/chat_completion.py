@@ -23,7 +23,7 @@ from aidial_sdk.deployment.truncate_prompt import (
 )
 from typing_extensions import override
 
-from aidial_adapter_bedrock.deployments import BedrockDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
@@ -44,7 +44,9 @@ class BedrockChatCompletion(ChatCompletion):
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
-        deployment = BedrockDeployment.from_deployment_id(request.deployment_id)
+        deployment = ChatCompletionDeployment.from_deployment_id(
+            request.deployment_id
+        )
         return await get_bedrock_adapter(
             region=self.region,
             deployment=deployment,

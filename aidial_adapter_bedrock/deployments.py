@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class BedrockDeployment(str, Enum):
+class ChatCompletionDeployment(str, Enum):
     AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
@@ -30,11 +30,15 @@ class BedrockDeployment(str, Enum):
         """Id of the model in the Bedrock service."""
 
         # Redirect Stability model without version to the earliest non-deprecated version (V1)
-        if self == BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL:
-            return BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1.model_id
+        if self == ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL:
+            return (
+                ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1.model_id
+            )
 
         return self.value
 
     @classmethod
-    def from_deployment_id(cls, deployment_id: str) -> "BedrockDeployment":
+    def from_deployment_id(
+        cls, deployment_id: str
+    ) -> "ChatCompletionDeployment":
         return cls(deployment_id)
