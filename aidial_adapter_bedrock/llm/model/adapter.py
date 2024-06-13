@@ -1,7 +1,16 @@
 from typing import Mapping, assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.deployments import (
+    ChatCompletionDeployment,
+    EmbeddingsDeployment,
+)
+from aidial_adapter_bedrock.embeddings.amazon_titan_text import (
+    AmazonTitanTextEmbeddings,
+)
+from aidial_adapter_bedrock.embeddings.embeddings_adapter import (
+    EmbeddingsAdapter,
+)
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
@@ -72,5 +81,18 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
         ):
             return CohereAdapter.create(await Bedrock.acreate(region), model)
+        case _:
+            assert_never(deployment)
+
+
+async def get_embeddings_model(
+    deployment: EmbeddingsDeployment, region: str
+) -> EmbeddingsAdapter:
+    model = deployment.model_id
+    match deployment:
+        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_2:
+            return AmazonTitanTextEmbeddings.create(
+                await Bedrock.acreate(region), model
+            )
         case _:
             assert_never(deployment)

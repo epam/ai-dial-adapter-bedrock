@@ -42,3 +42,17 @@ class ChatCompletionDeployment(str, Enum):
         cls, deployment_id: str
     ) -> "ChatCompletionDeployment":
         return cls(deployment_id)
+
+
+class EmbeddingsDeployment(str, Enum):
+    AMAZON_TITAN_EMBED_TEXT_2 = "amazon.titan-embed-text-v2:0"
+
+    @property
+    def deployment_id(self) -> str:
+        """Deployment id under which the model is served by the adapter."""
+        return self.value
+
+    @property
+    def model_id(self) -> str:
+        """Id of the model in the Bedrock service."""
+        return self.value

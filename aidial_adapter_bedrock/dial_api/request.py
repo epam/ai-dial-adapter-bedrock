@@ -1,4 +1,5 @@
-from typing import List, Optional
+from enum import Enum
+from typing import List, Literal, Optional
 
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ from aidial_adapter_bedrock.llm.tools.tools_config import (
     ToolsConfig,
     validate_messages,
 )
+from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 
 
 class ModelParameters(BaseModel):
@@ -44,3 +46,20 @@ class ModelParameters(BaseModel):
 
     def add_stop_sequences(self, stop: List[str]) -> "ModelParameters":
         return self.copy(update={"stop": [*self.stop, *stop]})
+
+
+class EmbeddingsType(str, Enum):
+    SYMMETRIC = "symmetric"
+    DOCUMENT = "document"
+    QUERY = "query"
+
+
+class EmbeddingsRequest(ExtraAllowModel):
+    input: str | List[str]
+    user: Optional[str] = None
+    encoding_format: Literal["float", "base64"] = "float"
+    dimensions: Optional[int] = None
+
+    @staticmethod
+    def example() -> "EmbeddingsRequest":
+        return EmbeddingsRequest(input=["fish", "ball"])

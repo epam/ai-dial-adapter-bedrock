@@ -45,7 +45,7 @@ class Bedrock:
         body: StreamingBody = response["body"]
         body_dict = json.loads(await make_async(lambda: body.read()))
 
-        log.debug(f"response['body']: {body_dict}")
+        log.debug(f"response['body']: {json.dumps(body_dict)}")
 
         return body_dict
 
@@ -65,7 +65,7 @@ class Bedrock:
             chunk = event.get("chunk")
             if chunk:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
-                log.debug(f"chunk: {chunk_dict}")
+                log.debug(f"chunk: {json.dumps(chunk_dict)}")
                 yield chunk_dict
 
 
