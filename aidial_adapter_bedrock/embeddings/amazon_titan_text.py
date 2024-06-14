@@ -1,4 +1,11 @@
-from typing import Iterable, List, Literal, Optional, Self, Tuple
+"""
+Amazing Titan Text Embeddings Adapter
+
+See official cookbook for usage instructions:
+https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/embeddings/v2/Titan-V2-Embeddings.ipynb
+"""
+
+from typing import Iterable, List, Optional, Self, Tuple
 
 from pydantic import BaseModel
 
@@ -17,13 +24,17 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 def validate_parameters(
-    encoding_format: Literal["float", "base64"],
+    request: EmbeddingsRequest,
     embedding_type: EmbeddingsType,
     embedding_instruction: Optional[str],
     supported_embedding_types: List[EmbeddingsType],
+    supports_dimensions: bool,
 ) -> None:
-    if encoding_format == "base64":
+    if request.encoding_format == "base64":
         raise ValidationError("Base64 encoding format is not supported")
+
+    if request.dimensions is not None and not supports_dimensions:
+        raise ValidationError("Dimensions parameter isn't supported")
 
     if embedding_instruction is not None:
         raise ValidationError("Instruction prompt is not supported")
@@ -67,10 +78,15 @@ class AmazonResponse(BaseModel):
 class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock
+    supports_dimensions: bool
 
     @classmethod
-    def create(cls, client: Bedrock, model: str) -> Self:
-        return cls(client=client, model=model)
+    def create(
+        cls, client: Bedrock, model: str, supports_dimensions: bool
+    ) -> Self:
+        return cls(
+            client=client, model=model, supports_dimensions=supports_dimensions
+        )
 
     async def embeddings(
         self,
@@ -81,10 +97,11 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
         request = EmbeddingsRequest.parse_obj(request_body)
 
         validate_parameters(
-            request.encoding_format,
+            request,
             embedding_type,
             embedding_instruction,
             [EmbeddingsType.SYMMETRIC],
+            self.supports_dimensions,
         )
 
         embeddings: List[List[float]] = []
