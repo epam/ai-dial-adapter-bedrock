@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.deployments import BedrockDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.conftest import TEST_SERVER_URL
 from tests.utils.json import match_objects
 from tests.utils.openai import (
@@ -80,7 +80,7 @@ class TestCase:
     __test__ = False
 
     name: str
-    deployment: BedrockDeployment
+    deployment: ChatCompletionDeployment
     streaming: bool
 
     messages: List[ChatCompletionMessageParam]
@@ -106,47 +106,47 @@ class TestCase:
 
 
 chat_deployments = [
-    BedrockDeployment.AMAZON_TITAN_TG1_LARGE,
-    BedrockDeployment.AI21_J2_GRANDE_INSTRUCT,
-    BedrockDeployment.AI21_J2_JUMBO_INSTRUCT,
-    BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
-    BedrockDeployment.ANTHROPIC_CLAUDE_V2,
-    BedrockDeployment.ANTHROPIC_CLAUDE_V2_1,
-    BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-    BedrockDeployment.META_LLAMA2_13B_CHAT_V1,
-    BedrockDeployment.META_LLAMA2_70B_CHAT_V1,
-    BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1,
-    BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1,
-    BedrockDeployment.COHERE_COMMAND_TEXT_V14,
+    ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE,
+    ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
+    ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1,
+    ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
+    ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
+    ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
+    ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
 ]
 
 
-def supports_tools(deployment: BedrockDeployment) -> bool:
+def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
-        BedrockDeployment.ANTHROPIC_CLAUDE_V2_1,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ]
 
 
-def is_llama3(deployment: BedrockDeployment) -> bool:
+def is_llama3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
-        BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1,
-        BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
     ]
 
 
-def is_claude3(deployment: BedrockDeployment) -> bool:
+def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ]
 
 
 def get_test_cases(
-    deployment: BedrockDeployment, streaming: bool
+    deployment: ChatCompletionDeployment, streaming: bool
 ) -> List[TestCase]:
     test_cases: List[TestCase] = []
 
@@ -209,7 +209,7 @@ def get_test_cases(
     )
 
     query = 'Reply with "Hello"'
-    if deployment == BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
+    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     test_case(

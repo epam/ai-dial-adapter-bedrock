@@ -29,6 +29,12 @@ The models that support `/truncate_prompt` do also support `max_prompt_tokens` r
 
 Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
 
+The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embeddings` endpoint:
+
+|Model|Deployment name|Modality|
+|---|---|---|
+|Amazon Titan Text Embeddings V2|amazon.titan-embed-text-v2:0|text-to-embedding|
+
 ## Developer environment
 
 This project uses [Python>=3.11](https://www.python.org/downloads/) and [Poetry>=1.6.1](https://python-poetry.org/) as a dependency manager.

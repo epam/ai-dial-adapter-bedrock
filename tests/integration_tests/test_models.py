@@ -3,7 +3,7 @@ from typing import List
 import requests
 from openai import AzureOpenAI
 
-from aidial_adapter_bedrock.deployments import BedrockDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.conftest import DEFAULT_API_VERSION, TEST_SERVER_URL
 
 
@@ -25,7 +25,7 @@ def models_request_openai() -> List[str]:
 
 
 def assert_models_subset(actual_models: List[str]):
-    expected_models = [option.value for option in BedrockDeployment]
+    expected_models = [option.value for option in ChatCompletionDeployment]
 
     assert set(expected_models).issubset(
         set(actual_models)

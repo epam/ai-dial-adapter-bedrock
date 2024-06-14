@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.llm.message import (
     AIToolCallMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
-from aidial_adapter_bedrock.utils.pydnatic import ExtraForbidModel
+from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 from aidial_adapter_bedrock.utils.xml import parse_xml, tag, tag_nl
 
 FUNC_TAG_NAME = "function_calls"

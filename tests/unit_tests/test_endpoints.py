@@ -3,27 +3,27 @@ from typing import List, Tuple
 import pytest
 import requests
 
-from aidial_adapter_bedrock.deployments import BedrockDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.conftest import TEST_SERVER_URL
 
-test_cases: List[Tuple[BedrockDeployment, bool, bool]] = [
-    (BedrockDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
-    (BedrockDeployment.AI21_J2_GRANDE_INSTRUCT, True, True),
-    (BedrockDeployment.AI21_J2_JUMBO_INSTRUCT, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_INSTANT_V1, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V2, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, False, False),
-    (BedrockDeployment.ANTHROPIC_CLAUDE_V3_OPUS, False, False),
-    (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
-    (BedrockDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, False, True),
-    (BedrockDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
-    (BedrockDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
-    (BedrockDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),
-    (BedrockDeployment.META_LLAMA3_70B_INSTRUCT_V1, True, True),
-    (BedrockDeployment.COHERE_COMMAND_TEXT_V14, True, True),
-    (BedrockDeployment.COHERE_COMMAND_LIGHT_TEXT_V14, True, True),
+test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
+    (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
+    (ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT, True, True),
+    (ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, False, False),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS, False, False),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, False, True),
+    (ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1, True, True),
+    (ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14, True, True),
+    (ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14, True, True),
 ]
 
 
@@ -43,7 +43,7 @@ def feature_test_helper(
 )
 def test_model_features(
     server,
-    deployment: BedrockDeployment,
+    deployment: ChatCompletionDeployment,
     tokenize_supported: bool,
     truncate_supported: bool,
 ):
