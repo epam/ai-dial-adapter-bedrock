@@ -67,16 +67,16 @@ async def embeddings(
         alias="X-DIAL-Instruction", default=None
     ),
     deployment: EmbeddingsDeployment = Path(...),
-    query: dict = Body(..., example=EmbeddingsRequest.example()),
+    request: dict = Body(..., examples=[EmbeddingsRequest.example()]),
 ):
-    log.debug(f"query: {json.dumps(query)}")
+    log.debug(f"request: {json.dumps(request)}")
 
     model = await get_embeddings_model(
         deployment=deployment, region=AWS_DEFAULT_REGION
     )
 
     response = await model.embeddings(
-        query, embeddings_instruction, embeddings_type
+        request, embeddings_instruction, embeddings_type
     )
 
     return make_embeddings_response(deployment, response)
