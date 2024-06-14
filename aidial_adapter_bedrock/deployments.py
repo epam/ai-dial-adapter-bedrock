@@ -45,7 +45,8 @@ class ChatCompletionDeployment(str, Enum):
 
 
 class EmbeddingsDeployment(str, Enum):
-    AMAZON_TITAN_EMBED_TEXT_2 = "amazon.titan-embed-text-v2:0"
+    AMAZON_TITAN_EMBED_TEXT_V1 = "amazon.titan-embed-text-v1"
+    AMAZON_TITAN_EMBED_TEXT_V2 = "amazon.titan-embed-text-v2:0"
 
     @property
     def deployment_id(self) -> str:

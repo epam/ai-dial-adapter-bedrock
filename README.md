@@ -33,6 +33,7 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 
 |Model|Deployment name|Modality|
 |---|---|---|
+|Titan Embeddings G1 – Text v1.2|amazon.titan-embed-text-v1|text-to-embedding|
 |Amazon Titan Text Embeddings V2|amazon.titan-embed-text-v2:0|text-to-embedding|
 
 ## Developer environment
