@@ -5,6 +5,9 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
+from aidial_adapter_bedrock.embeddings.amazon_titan_image import (
+    AmazonTitanImageEmbeddings,
+)
 from aidial_adapter_bedrock.embeddings.amazon_titan_text import (
     AmazonTitanTextEmbeddings,
 )
@@ -97,6 +100,10 @@ async def get_embeddings_model(
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2:
             return AmazonTitanTextEmbeddings.create(
                 await Bedrock.acreate(region), model, supports_dimensions=True
+            )
+        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1:
+            return AmazonTitanImageEmbeddings.create(
+                await Bedrock.acreate(region), model
             )
         case _:
             assert_never(deployment)

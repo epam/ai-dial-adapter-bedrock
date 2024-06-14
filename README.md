@@ -8,9 +8,9 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|---|---|
-|Anthropic|Claude 2 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 2 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 2 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
@@ -33,8 +33,9 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 
 |Model|Deployment name|Modality|
 |---|---|---|
-|Titan Embeddings G1 – Text v1.2|amazon.titan-embed-text-v1|text-to-embedding|
+|Titan Multimodal Embeddings Generation 1 (G1)|amazon.titan-embed-image-v1|image/text-to-embedding|
 |Amazon Titan Text Embeddings V2|amazon.titan-embed-text-v2:0|text-to-embedding|
+|Titan Embeddings G1 – Text v1.2|amazon.titan-embed-text-v1|text-to-embedding|
 
 ## Developer environment
 

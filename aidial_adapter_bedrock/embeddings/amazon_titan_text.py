@@ -18,36 +18,11 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.embeddings.embeddings_adapter import (
     EmbeddingsAdapter,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.embeddings.validation import (
+    validate_embeddings_request,
+)
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-
-
-def validate_parameters(
-    request: EmbeddingsRequest,
-    embedding_type: EmbeddingsType,
-    embedding_instruction: Optional[str],
-    supported_embedding_types: List[EmbeddingsType],
-    supports_dimensions: bool,
-) -> None:
-    if request.encoding_format == "base64":
-        raise ValidationError("Base64 encoding format is not supported")
-
-    if request.dimensions is not None and not supports_dimensions:
-        raise ValidationError("Dimensions parameter isn't supported")
-
-    if embedding_instruction is not None:
-        raise ValidationError("Instruction prompt is not supported")
-
-    assert (
-        len(supported_embedding_types) != 0
-    ), "The embedding model doesn't support any embedding types"
-
-    if embedding_type not in supported_embedding_types:
-        allowed = ", ".join([e.value for e in supported_embedding_types])
-        raise ValidationError(
-            f"Embedding types other than {allowed} are not supported"
-        )
 
 
 def create_requests(request: EmbeddingsRequest) -> Iterable[dict]:
@@ -96,7 +71,7 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
     ) -> Tuple[List[List[float]], TokenUsage]:
         request = EmbeddingsRequest.parse_obj(request_body)
 
-        validate_parameters(
+        validate_embeddings_request(
             request,
             embedding_type,
             embedding_instruction,
