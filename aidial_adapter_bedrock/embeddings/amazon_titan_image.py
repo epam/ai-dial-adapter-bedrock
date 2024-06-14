@@ -5,7 +5,6 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-import base64
 from typing import List, Optional, Self, Tuple
 
 from pydantic import BaseModel
@@ -29,14 +28,6 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 class EmbeddingsRequestWithImage(EmbeddingsRequest):
     inputImage: str | None
-
-
-def is_base64(string) -> bool:
-    try:
-        base64.b64decode(string, validate=True)
-        return True
-    except Exception:
-        return False
 
 
 async def create_request(request: EmbeddingsRequestWithImage) -> dict:
