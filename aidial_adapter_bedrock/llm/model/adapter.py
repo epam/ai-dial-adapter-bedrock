@@ -90,11 +90,11 @@ async def get_embeddings_model(
 ) -> EmbeddingsAdapter:
     model = deployment.model_id
     match deployment:
-        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_1:
+        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(
                 await Bedrock.acreate(region), model, supports_dimensions=False
             )
-        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_2:
+        case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2:
             return AmazonTitanTextEmbeddings.create(
                 await Bedrock.acreate(region), model, supports_dimensions=True
             )
