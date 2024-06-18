@@ -1,14 +1,18 @@
-from typing import List, Mapping, Optional, TypedDict, Union
+from typing import List, Mapping, Optional, TypedDict, Union, assert_never
 
 from aidial_sdk.chat_completion import Message
-from anthropic import NOT_GIVEN, NotGiven
+from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
-from anthropic.lib.streaming import AsyncMessageStream
+from anthropic.lib.streaming import AsyncMessageStream, TextEvent
 from anthropic.types import (
+    ContentBlockStopEvent,
     MessageDeltaEvent,
     MessageParam,
     MessageStartEvent,
     MessageStreamEvent,
+    TextBlock,
+    ToolParam,
+    ToolUseBlock,
 )
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -20,15 +24,15 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.llm.message import parse_dial_message
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     ClaudeFinishReason,
     to_claude_messages,
+    to_claude_tool_config,
     to_dial_finish_reason,
+    to_dial_tool_call,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
-from aidial_adapter_bedrock.llm.tools.claude_emulator import (
-    legacy_tools_emulator,
-)
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -51,6 +55,7 @@ class ChatParams(TypedDict):
     system: Union[str, NotGiven]
     temperature: Union[float, NotGiven]
     top_p: Union[float, NotGiven]
+    tools: Union[List[ToolParam], NotGiven]
 
 
 class Adapter(ChatCompletionAdapter):
@@ -67,17 +72,15 @@ class Adapter(ChatCompletionAdapter):
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        tools_emulator = self.tools_emulator(params.tool_config)
-        base_messages = tools_emulator.parse_dial_messages(messages)
-        tool_stop_sequences = tools_emulator.get_stop_sequences()
+        parsed_messages = [parse_dial_message(m) for m in messages]
 
         prompt, claude_messages = await to_claude_messages(
-            base_messages, self.storage
+            parsed_messages, self.storage
         )
 
         completion_params = ChatParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
-            stop_sequences=[*params.stop, *tool_stop_sequences],
+            stop_sequences=[*params.stop],
             system=prompt or NOT_GIVEN,
             temperature=(
                 NOT_GIVEN
@@ -85,6 +88,14 @@ class Adapter(ChatCompletionAdapter):
                 else params.temperature / 2
             ),
             top_p=params.top_p or NOT_GIVEN,
+            tools=(
+                [
+                    to_claude_tool_config(tool_function)
+                    for tool_function in params.tool_config.functions
+                ]
+                if params.tool_config is not None
+                else NOT_GIVEN
+            ),
         )
 
         if params.stream:
@@ -108,17 +119,34 @@ class Adapter(ChatCompletionAdapter):
         async with self.client.messages.stream(
             messages=messages,
             model=self.model,
-            event_handler=UsageEventHandler,
             **params,
         ) as stream:
-            async for text in stream.text_stream:
-                consumer.append_content(text)
-            consumer.close_content(to_dial_finish_reason(stream.stop_reason))
+            prompt_tokens = 0
+            completion_tokens = 0
+            stop_reason = None
+            async for event in stream:
+                if isinstance(event, MessageStartEvent):
+                    prompt_tokens += event.message.usage.input_tokens
+                elif isinstance(event, TextEvent):
+                    consumer.append_content(event.text)
+                elif isinstance(event, MessageDeltaEvent):
+                    completion_tokens += event.usage.output_tokens
+                elif isinstance(event, ContentBlockStopEvent):
+                    if isinstance(event.content_block, ToolUseBlock):
+                        consumer.create_function_tool_call(
+                            to_dial_tool_call(event.content_block)
+                        )
+
+                elif isinstance(event, MessageStopEvent):
+                    completion_tokens += event.message.usage.output_tokens
+                    stop_reason = event.message.stop_reason
+
+            consumer.close_content(to_dial_finish_reason(stop_reason))
 
             consumer.add_usage(
                 TokenUsage(
-                    prompt_tokens=stream.prompt_tokens,
-                    completion_tokens=stream.completion_tokens,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
                 )
             )
 
@@ -134,19 +162,19 @@ class Adapter(ChatCompletionAdapter):
         message = await self.client.messages.create(
             messages=messages, model=self.model, **params, stream=False
         )
-        prompt_tokens = 0
-        completion_tokens = 0
         for content in message.content:
-            usage = message.usage
-            prompt_tokens = usage.input_tokens
-            completion_tokens += usage.output_tokens
-            consumer.append_content(content.text)
+            if isinstance(content, TextBlock):
+                consumer.append_content(content.text)
+            elif isinstance(content, ToolUseBlock):
+                consumer.create_function_tool_call(to_dial_tool_call(content))
+            else:
+                assert_never(content)
         consumer.close_content(to_dial_finish_reason(message.stop_reason))
 
         consumer.add_usage(
             TokenUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
+                prompt_tokens=message.usage.input_tokens,
+                completion_tokens=message.usage.output_tokens,
             )
         )
 
@@ -155,7 +183,6 @@ class Adapter(ChatCompletionAdapter):
         storage: Optional[FileStorage] = create_file_storage(headers)
         return cls(
             model=model,
-            tools_emulator=legacy_tools_emulator,
             storage=storage,
             client=AsyncAnthropicBedrock(aws_region=region),
         )

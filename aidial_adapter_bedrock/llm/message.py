@@ -66,15 +66,10 @@ def _parse_assistant_message(
     if content is None and function_call is not None and tool_calls is None:
         return AIFunctionCallMessage(call=function_call)
 
-    if content is None and function_call is None and tool_calls is not None:
+    if function_call is None and tool_calls is not None:
         return AIToolCallMessage(calls=tool_calls)
 
-    raise ValidationError(
-        "Assistant message must have one and only one of the following fields not-none: "
-        f"content (is none: {content is None}), "
-        f"function_call (is none: {function_call is None}), "
-        f"tool_calls (is none: {tool_calls is None})"
-    )
+    raise ValidationError("Unknown type of assistant message")
 
 
 def parse_dial_message(msg: Message) -> BaseMessage | ToolMessage:
