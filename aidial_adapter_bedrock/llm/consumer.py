@@ -4,8 +4,8 @@ from typing import List, Optional, assert_never
 from aidial_sdk.chat_completion import (
     Choice,
     FinishReason,
-    ToolCall,
     FunctionCall,
+    ToolCall,
 )
 from pydantic import BaseModel
 

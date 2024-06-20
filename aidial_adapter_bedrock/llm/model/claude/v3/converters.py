@@ -32,7 +32,6 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     ToolMessage,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3 import tools
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import ToolsMode
 
 ClaudeFinishReason = Literal[
@@ -219,7 +218,9 @@ def to_dial_finish_reason(
                 case ToolsMode.FUNCTION_EMULATION:
                     return FinishReason.FUNCTION_CALL
                 case _:
-                    assert_never(tools_mode)
+                    raise Exception(
+                        f"Invalid tools mode {tools_mode} during tool use!"
+                    )
         case _:
             assert_never(finish_reason)
 

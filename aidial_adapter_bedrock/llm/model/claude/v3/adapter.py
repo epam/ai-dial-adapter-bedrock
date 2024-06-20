@@ -33,6 +33,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
     ToolsMode,
+    emulate_function_message,
     process_tools_block,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
@@ -77,10 +78,6 @@ class Adapter(ChatCompletionAdapter):
 
         parsed_messages = [parse_dial_message(m) for m in messages]
 
-        prompt, claude_messages = await to_claude_messages(
-            parsed_messages, self.storage
-        )
-
         tools = NOT_GIVEN
         tools_mode = None
         if params.tool_config is not None:
@@ -93,6 +90,14 @@ class Adapter(ChatCompletionAdapter):
                 if params.tool_config.is_tool
                 else ToolsMode.FUNCTION_EMULATION
             )
+        if tools_mode == ToolsMode.FUNCTION_EMULATION:
+            parsed_messages = [
+                emulate_function_message(m) for m in parsed_messages
+            ]
+
+        prompt, claude_messages = await to_claude_messages(
+            parsed_messages, self.storage
+        )
 
         completion_params = ChatParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,

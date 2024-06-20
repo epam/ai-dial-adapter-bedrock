@@ -63,7 +63,7 @@ def _parse_assistant_message(
     if content is not None and function_call is None and tool_calls is None:
         return AIRegularMessage(content=content, custom_content=custom_content)
 
-    if content is None and function_call is not None and tool_calls is None:
+    if function_call is not None and tool_calls is None:
         return AIFunctionCallMessage(call=function_call)
 
     if function_call is None and tool_calls is not None:
