@@ -6,7 +6,6 @@ from aidial_sdk.chat_completion import (
     Attachment,
     FinishReason,
     Function,
-    FunctionCall,
     ToolCall,
 )
 from anthropic.types import (
@@ -15,7 +14,6 @@ from anthropic.types import (
     TextBlockParam,
     ToolParam,
     ToolResultBlockParam,
-    ToolUseBlock,
     ToolUseBlockParam,
 )
 from anthropic.types.image_block_param import Source
@@ -34,6 +32,8 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     ToolMessage,
 )
+from aidial_adapter_bedrock.llm.model.claude.v3 import tools
+from aidial_adapter_bedrock.llm.model.claude.v3.tools import ToolsMode
 
 ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
@@ -200,6 +200,7 @@ async def to_claude_messages(
 
 def to_dial_finish_reason(
     finish_reason: Optional[ClaudeFinishReason],
+    tools_mode: ToolsMode | None,
 ) -> FinishReason:
     if finish_reason is None:
         return FinishReason.STOP
@@ -212,7 +213,13 @@ def to_dial_finish_reason(
         case "stop_sequence":
             return FinishReason.STOP
         case "tool_use":
-            return FinishReason.TOOL_CALLS
+            match tools_mode:
+                case ToolsMode.NATIVE_TOOLS:
+                    return FinishReason.TOOL_CALLS
+                case ToolsMode.FUNCTION_EMULATION:
+                    return FinishReason.FUNCTION_CALL
+                case _:
+                    assert_never(tools_mode)
         case _:
             assert_never(finish_reason)
 
@@ -222,18 +229,6 @@ def to_claude_tool_config(function_call: Function) -> ToolParam:
         input_schema=function_call.parameters,
         name=function_call.name,
         description=function_call.description or "",
-    )
-
-
-def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
-    return ToolCall(
-        index=None,
-        id=block.id,
-        type="function",
-        function=FunctionCall(
-            name=block.name,
-            arguments=json.dumps(block.input),
-        ),
     )
 
 

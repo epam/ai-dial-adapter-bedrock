@@ -30,7 +30,10 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
-    to_dial_tool_call,
+)
+from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
+    ToolsMode,
+    process_tools_block,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -78,6 +81,19 @@ class Adapter(ChatCompletionAdapter):
             parsed_messages, self.storage
         )
 
+        tools = NOT_GIVEN
+        tools_mode = None
+        if params.tool_config is not None:
+            tools = [
+                to_claude_tool_config(tool_function)
+                for tool_function in params.tool_config.functions
+            ]
+            tools_mode = (
+                ToolsMode.NATIVE_TOOLS
+                if params.tool_config.is_tool
+                else ToolsMode.FUNCTION_EMULATION
+            )
+
         completion_params = ChatParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=[*params.stop],
@@ -88,23 +104,16 @@ class Adapter(ChatCompletionAdapter):
                 else params.temperature / 2
             ),
             top_p=params.top_p or NOT_GIVEN,
-            tools=(
-                [
-                    to_claude_tool_config(tool_function)
-                    for tool_function in params.tool_config.functions
-                ]
-                if params.tool_config is not None
-                else NOT_GIVEN
-            ),
+            tools=tools,
         )
 
         if params.stream:
             await self.invoke_streaming(
-                consumer, claude_messages, completion_params
+                consumer, claude_messages, completion_params, tools_mode
             )
         else:
             await self.invoke_non_streaming(
-                consumer, claude_messages, completion_params
+                consumer, claude_messages, completion_params, tools_mode
             )
 
     async def invoke_streaming(
@@ -112,6 +121,7 @@ class Adapter(ChatCompletionAdapter):
         consumer: Consumer,
         messages: List[MessageParam],
         params: ChatParams,
+        tools_mode: ToolsMode | None,
     ):
         log.debug(
             f"Streaming request: messages={messages}, model={self.model}, params={params}"
@@ -131,17 +141,19 @@ class Adapter(ChatCompletionAdapter):
                     consumer.append_content(event.text)
                 elif isinstance(event, MessageDeltaEvent):
                     completion_tokens += event.usage.output_tokens
-                elif isinstance(event, ContentBlockStopEvent):
-                    if isinstance(event.content_block, ToolUseBlock):
-                        consumer.create_function_tool_call(
-                            to_dial_tool_call(event.content_block)
-                        )
-
+                elif isinstance(event, ContentBlockStopEvent) and isinstance(
+                    event.content_block, ToolUseBlock
+                ):
+                    process_tools_block(
+                        consumer, event.content_block, tools_mode
+                    )
                 elif isinstance(event, MessageStopEvent):
                     completion_tokens += event.message.usage.output_tokens
                     stop_reason = event.message.stop_reason
 
-            consumer.close_content(to_dial_finish_reason(stop_reason))
+            consumer.close_content(
+                to_dial_finish_reason(stop_reason, tools_mode)
+            )
 
             consumer.add_usage(
                 TokenUsage(
@@ -155,6 +167,7 @@ class Adapter(ChatCompletionAdapter):
         consumer: Consumer,
         messages: List[MessageParam],
         params: ChatParams,
+        tools_mode: ToolsMode | None,
     ):
         log.debug(
             f"Request: messages={messages}, model={self.model}, params={params}"
@@ -166,10 +179,12 @@ class Adapter(ChatCompletionAdapter):
             if isinstance(content, TextBlock):
                 consumer.append_content(content.text)
             elif isinstance(content, ToolUseBlock):
-                consumer.create_function_tool_call(to_dial_tool_call(content))
+                process_tools_block(consumer, content, tools_mode)
             else:
                 assert_never(content)
-        consumer.close_content(to_dial_finish_reason(message.stop_reason))
+        consumer.close_content(
+            to_dial_finish_reason(message.stop_reason, tools_mode)
+        )
 
         consumer.add_usage(
             TokenUsage(

@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, assert_never
 
-from aidial_sdk.chat_completion import Choice, FinishReason, ToolCall
+from aidial_sdk.chat_completion import (
+    Choice,
+    FinishReason,
+    ToolCall,
+    FunctionCall,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -44,6 +49,10 @@ class Consumer(ABC):
 
     @abstractmethod
     def create_function_tool_call(self, tool_call: ToolCall):
+        pass
+
+    @abstractmethod
+    def create_function_call(self, function_call: FunctionCall):
         pass
 
 
@@ -117,4 +126,9 @@ class ChoiceConsumer(Consumer):
             id=tool_call.id,
             name=tool_call.function.name,
             arguments=tool_call.function.arguments,
+        )
+
+    def create_function_call(self, function_call: FunctionCall):
+        self.choice.create_function_call(
+            name=function_call.name, arguments=function_call.arguments
         )
