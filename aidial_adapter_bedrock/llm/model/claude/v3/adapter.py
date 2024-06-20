@@ -101,7 +101,7 @@ class Adapter(ChatCompletionAdapter):
 
         completion_params = ChatParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
-            stop_sequences=[*params.stop],
+            stop_sequences=params.stop,
             system=prompt or NOT_GIVEN,
             temperature=(
                 NOT_GIVEN

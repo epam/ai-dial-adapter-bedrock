@@ -102,7 +102,7 @@ async def _to_claude_image(
     raise ValidationError("Attachment data or URL is required")
 
 
-async def _basic_message_to_claude_content(
+async def _to_claude_message(
     message: AIRegularMessage | HumanRegularMessage,
     file_storage: Optional[FileStorage],
 ) -> List[TextBlockParam | ImageBlockParam]:
@@ -116,7 +116,7 @@ async def _basic_message_to_claude_content(
     return content
 
 
-def _tool_call_to_claude_content(call: ToolCall) -> ToolUseBlockParam:
+def _to_claude_tool_call(call: ToolCall) -> ToolUseBlockParam:
     return ToolUseBlockParam(
         id=call.id,
         name=call.function.name,
@@ -125,7 +125,7 @@ def _tool_call_to_claude_content(call: ToolCall) -> ToolUseBlockParam:
     )
 
 
-def _tool_result_to_claude_content(
+def _to_claude_tool_result(
     message: HumanToolResultMessage,
 ) -> ToolResultBlockParam:
     return ToolResultBlockParam(
@@ -154,18 +154,14 @@ async def to_claude_messages(
                 claude_messages.append(
                     MessageParam(
                         role="user",
-                        content=await _basic_message_to_claude_content(
-                            message, file_storage
-                        ),
+                        content=await _to_claude_message(message, file_storage),
                     )
                 )
             case AIRegularMessage():
                 claude_messages.append(
                     MessageParam(
                         role="assistant",
-                        content=await _basic_message_to_claude_content(
-                            message, file_storage
-                        ),
+                        content=await _to_claude_message(message, file_storage),
                     )
                 )
             case AIToolCallMessage():
@@ -173,8 +169,7 @@ async def to_claude_messages(
                     MessageParam(
                         role="assistant",
                         content=[
-                            _tool_call_to_claude_content(call)
-                            for call in message.calls
+                            _to_claude_tool_call(call) for call in message.calls
                         ],
                     )
                 )
@@ -182,7 +177,7 @@ async def to_claude_messages(
                 claude_messages.append(
                     MessageParam(
                         role="user",
-                        content=[_tool_result_to_claude_content(message)],
+                        content=[_to_claude_tool_result(message)],
                     )
                 )
             case SystemMessage():

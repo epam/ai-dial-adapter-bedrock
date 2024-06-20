@@ -62,16 +62,13 @@ class ChoiceConsumer(Consumer):
     discarded_messages: Optional[List[int]]
     tools_emulator: Optional[ToolsEmulator]
 
-    def __init__(
-        self,
-        choice: Choice,
-    ):
+    def __init__(self, choice: Choice):
         self.choice = choice
         self.usage = TokenUsage()
         self.discarded_messages = None
         self.tools_emulator = None
 
-    def add_emulator(self, tools_emulator: ToolsEmulator):
+    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
         self.tools_emulator = tools_emulator
 
     def _process_content(

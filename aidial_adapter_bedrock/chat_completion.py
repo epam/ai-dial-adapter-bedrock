@@ -69,7 +69,7 @@ class BedrockChatCompletion(ChatCompletion):
             with response.create_choice() as choice:
                 consumer = ChoiceConsumer(choice=choice)
                 if isinstance(model, TextCompletionAdapter):
-                    consumer.add_emulator(
+                    consumer.set_tools_emulator(
                         model.tools_emulator(params.tool_config)
                     )
 
