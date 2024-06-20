@@ -191,7 +191,7 @@ async def to_claude_messages(
                 )
             case _:
                 raise ValidationError(
-                    f"Unknown type of of message! {type(message)}"
+                    f"Not supported type of message! {type(message)}"
                 )
 
     return system_prompt, claude_messages
