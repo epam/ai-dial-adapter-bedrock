@@ -38,10 +38,12 @@ class AIRegularMessage(BaseModel):
 
 class AIToolCallMessage(BaseModel):
     calls: List[ToolCall]
+    content: Optional[str] = None
 
 
 class AIFunctionCallMessage(BaseModel):
     call: FunctionCall
+    content: Optional[str] = None
 
 
 BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]
@@ -64,10 +66,10 @@ def _parse_assistant_message(
         return AIRegularMessage(content=content, custom_content=custom_content)
 
     if function_call is not None and tool_calls is None:
-        return AIFunctionCallMessage(call=function_call)
+        return AIFunctionCallMessage(call=function_call, content=content)
 
     if function_call is None and tool_calls is not None:
-        return AIToolCallMessage(calls=tool_calls)
+        return AIToolCallMessage(calls=tool_calls, content=content)
 
     raise ValidationError("Unknown type of assistant message")
 

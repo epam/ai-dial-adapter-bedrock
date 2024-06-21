@@ -167,12 +167,16 @@ async def to_claude_messages(
                     )
                 )
             case AIToolCallMessage():
+                content = [_to_claude_tool_call(call) for call in message.calls]
+                if message.content is not None:
+                    content.insert(
+                        0, TextBlockParam(text=message.content, type="text")
+                    )
+
                 claude_messages.append(
                     MessageParam(
                         role="assistant",
-                        content=[
-                            _to_claude_tool_call(call) for call in message.calls
-                        ],
+                        content=content,
                     )
                 )
             case HumanToolResultMessage():

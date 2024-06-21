@@ -70,6 +70,7 @@ def convert_function_message(
         return HumanToolResultMessage(id=message.name, content=message.content)
     elif isinstance(message, AIFunctionCallMessage):
         return AIToolCallMessage(
+            content=message.content,
             calls=[
                 ToolCall(
                     index=None,
@@ -77,7 +78,7 @@ def convert_function_message(
                     type="function",
                     function=message.call,
                 )
-            ]
+            ],
         )
     else:
         assert_never(message)
