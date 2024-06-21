@@ -11,6 +11,7 @@ from aidial_adapter_bedrock.llm.message import (
     AIToolCallMessage,
     BaseMessage,
     HumanFunctionResultMessage,
+    HumanRegularMessage,
     HumanToolResultMessage,
     ToolMessage,
 )
@@ -49,36 +50,56 @@ def process_tools_block(
             raise Exception(f"Unknown {tools_mode} during tool use!")
 
 
-def convert_function_message(
-    message: BaseMessage | ToolMessage,
-) -> BaseMessage | ToolMessage:
+def process_with_tools(
+    message: BaseMessage | ToolMessage, tools_mode: ToolsMode | None
+) -> BaseMessage | HumanToolResultMessage | AIToolCallMessage:
     """
-    If users uses functions instead of tools,
-    for model we still need to convert function calls and result messages into tool calls
-
-    For tool id we just use function name
+    1. Validates, that no Functions or Tools messages are used without config
+    2. Validates, that client don't use Functions messages with tools config
+    3. Validates, that client don't use Tools messages with functions config
+    4. Convert Functions messages to Tools messages (Claude supports only Tools).
+        For tool id we just use function name
     """
-    if isinstance(message, BaseMessage):
+    if tools_mode is None:
+        if not isinstance(message, BaseMessage):
+            raise ValidationError(
+                "You cannot use messages with functions or tools without config. Please change your messages."
+            )
         return message
-    elif isinstance(message, HumanToolResultMessage) or isinstance(
-        message, AIToolCallMessage
-    ):
-        raise ValidationError(
-            "Tool messages are not allowed while using functions."
-        )
-    elif isinstance(message, HumanFunctionResultMessage):
-        return HumanToolResultMessage(id=message.name, content=message.content)
-    elif isinstance(message, AIFunctionCallMessage):
-        return AIToolCallMessage(
-            content=message.content,
-            calls=[
-                ToolCall(
-                    index=None,
-                    id=message.call.name,
-                    type="function",
-                    function=message.call,
+    elif tools_mode == ToolsMode.TOOLS:
+        if isinstance(message, HumanFunctionResultMessage) or isinstance(
+            message, AIFunctionCallMessage
+        ):
+            raise ValidationError(
+                "You cannot use function messages with tools config."
+            )
+        return message
+    elif tools_mode == ToolsMode.FUNCTIONS:
+        match message:
+            case HumanRegularMessage():
+                return message
+            case HumanToolResultMessage() | AIToolCallMessage():
+                raise ValidationError(
+                    "You cannot use tools messages with functions config."
                 )
-            ],
-        )
+            case AIFunctionCallMessage():
+                return AIToolCallMessage(
+                    content=message.content,
+                    calls=[
+                        ToolCall(
+                            index=None,
+                            id=message.call.name,
+                            type="function",
+                            function=message.call,
+                        )
+                    ],
+                )
+            case HumanFunctionResultMessage():
+                return HumanToolResultMessage(
+                    id=message.name, content=message.content
+                )
+            case _:
+                raise ValueError(f"Unknown message type {type(message)}")
+
     else:
-        assert_never(message)
+        assert_never(tools_mode)

@@ -38,8 +38,8 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_dial_finish_reason,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
-    convert_function_message,
     process_tools_block,
+    process_with_tools,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
@@ -82,8 +82,6 @@ class Adapter(ChatCompletionAdapter):
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        parsed_messages = [parse_dial_message(m) for m in messages]
-
         tools = NOT_GIVEN
         tools_mode = None
         if params.tool_config is not None:
@@ -92,10 +90,11 @@ class Adapter(ChatCompletionAdapter):
                 for tool_function in params.tool_config.functions
             ]
             tools_mode = params.tool_config.tools_mode
-        if tools_mode == ToolsMode.FUNCTIONS:
-            parsed_messages = [
-                convert_function_message(m) for m in parsed_messages
-            ]
+
+        parsed_messages = [
+            process_with_tools(parse_dial_message(m), tools_mode)
+            for m in messages
+        ]
 
         prompt, claude_messages = await to_claude_messages(
             parsed_messages, self.storage

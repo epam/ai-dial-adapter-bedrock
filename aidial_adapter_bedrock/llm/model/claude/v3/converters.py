@@ -32,7 +32,6 @@ from aidial_adapter_bedrock.llm.message import (
     HumanRegularMessage,
     HumanToolResultMessage,
     SystemMessage,
-    ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 
@@ -138,7 +137,7 @@ def _to_claude_tool_result(
 
 
 async def to_claude_messages(
-    messages: List[BaseMessage | ToolMessage],
+    messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
     file_storage: Optional[FileStorage],
 ) -> Tuple[Optional[str], List[MessageParam]]:
     if not messages:
