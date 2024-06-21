@@ -164,7 +164,9 @@ class Adapter(ChatCompletionAdapter):
                     ):
                         pass
                     case _:
-                        assert_never(event)
+                        raise ValueError(
+                            f"Unsupported event type! {type(event)}"
+                        )
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
