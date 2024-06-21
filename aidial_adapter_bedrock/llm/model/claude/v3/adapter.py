@@ -5,10 +5,12 @@ from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
-    TextEvent,
     InputJsonEvent,
+    TextEvent,
 )
 from anthropic.types import (
+    ContentBlockDeltaEvent,
+    ContentBlockStartEvent,
     ContentBlockStopEvent,
     MessageDeltaEvent,
     MessageParam,
@@ -17,8 +19,6 @@ from anthropic.types import (
     TextBlock,
     ToolParam,
     ToolUseBlock,
-    ContentBlockStartEvent,
-    ContentBlockDeltaEvent,
 )
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
