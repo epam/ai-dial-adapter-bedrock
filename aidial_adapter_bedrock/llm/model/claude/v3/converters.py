@@ -24,11 +24,9 @@ from aidial_adapter_bedrock.dial_api.storage import (
 )
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
-    AIFunctionCallMessage,
     AIRegularMessage,
     AIToolCallMessage,
     BaseMessage,
-    HumanFunctionResultMessage,
     HumanRegularMessage,
     HumanToolResultMessage,
     SystemMessage,
