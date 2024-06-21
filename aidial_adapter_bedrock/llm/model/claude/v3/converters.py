@@ -26,9 +26,11 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
     AIToolCallMessage,
+    AIFunctionCallMessage,
     BaseMessage,
     HumanRegularMessage,
     HumanToolResultMessage,
+    HumanFunctionResultMessage,
     SystemMessage,
     ToolMessage,
 )
@@ -184,10 +186,12 @@ async def to_claude_messages(
                 raise ValueError(
                     "System message is only allowed as the first message"
                 )
-            case _:
-                raise ValidationError(
-                    f"Not supported type of message! {type(message)}"
+            case AIFunctionCallMessage() | HumanFunctionResultMessage():
+                raise ValueError(
+                    "Function messages should be converted to tool messages before sending to Claude!"
                 )
+            case _:
+                assert_never(message)
 
     return system_prompt, claude_messages
 

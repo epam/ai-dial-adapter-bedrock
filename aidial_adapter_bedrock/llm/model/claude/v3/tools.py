@@ -49,7 +49,7 @@ def process_tools_block(
             raise Exception(f"Unknown {tools_mode} during tool use!")
 
 
-def emulate_function_message(
+def convert_function_message(
     message: BaseMessage | ToolMessage,
 ) -> BaseMessage | ToolMessage:
     """
