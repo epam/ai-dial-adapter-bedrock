@@ -191,10 +191,6 @@ async def to_claude_messages(
                 raise ValueError(
                     "System message is only allowed as the first message"
                 )
-            case AIFunctionCallMessage() | HumanFunctionResultMessage():
-                raise ValueError(
-                    "Function messages should be converted to tool messages before sending to Claude!"
-                )
             case _:
                 assert_never(message)
 
