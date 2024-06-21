@@ -212,10 +212,13 @@ def to_dial_finish_reason(
                     return FinishReason.TOOL_CALLS
                 case ToolsMode.FUNCTIONS:
                     return FinishReason.FUNCTION_CALL
-                case _:
-                    raise Exception(
-                        f"Invalid tools mode {tools_mode} during tool use!"
+                case None:
+                    raise ValidationError(
+                        "A model has called a tool, but no tools were given to the model in the first place."
                     )
+                case _:
+                    raise Exception(f"Unknown {tools_mode} during tool use!")
+
         case _:
             assert_never(finish_reason)
 

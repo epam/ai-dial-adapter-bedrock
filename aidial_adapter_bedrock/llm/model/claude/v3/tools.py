@@ -41,8 +41,12 @@ def process_tools_block(
             consumer.create_function_tool_call(to_dial_tool_call(block))
         case ToolsMode.FUNCTIONS:
             consumer.create_function_call(to_dial_function_call(block))
+        case None:
+            raise ValidationError(
+                "A model has called a tool, but no tools were given to the model in the first place."
+            )
         case _:
-            raise Exception(f"Invalid tools mode {tools_mode} during tool use!")
+            raise Exception(f"Unknown {tools_mode} during tool use!")
 
 
 def emulate_function_message(
