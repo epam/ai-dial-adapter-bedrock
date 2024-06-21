@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, assert_never
 
-from aidial_sdk.chat_completion import Choice, FinishReason
+from aidial_sdk.chat_completion import (
+    Choice,
+    FinishReason,
+    FunctionCall,
+    ToolCall,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -42,23 +47,37 @@ class Consumer(ABC):
     def set_discarded_messages(self, discarded_messages: List[int]):
         pass
 
+    @abstractmethod
+    def create_function_tool_call(self, tool_call: ToolCall):
+        pass
+
+    @abstractmethod
+    def create_function_call(self, function_call: FunctionCall):
+        pass
+
 
 class ChoiceConsumer(Consumer):
     usage: TokenUsage
     choice: Choice
     discarded_messages: Optional[List[int]]
-    tools_emulator: ToolsEmulator
+    tools_emulator: Optional[ToolsEmulator]
 
-    def __init__(self, tools_emulator: ToolsEmulator, choice: Choice):
+    def __init__(self, choice: Choice):
         self.choice = choice
         self.usage = TokenUsage()
         self.discarded_messages = None
+        self.tools_emulator = None
+
+    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
         self.tools_emulator = tools_emulator
 
     def _process_content(
         self, content: str | None, finish_reason: FinishReason | None = None
     ):
-        res = self.tools_emulator.recognize_call(content)
+        if self.tools_emulator is not None:
+            res = self.tools_emulator.recognize_call(content)
+        else:
+            res = content
 
         if res is None:
             # Choice.close(finish_reason: Optional[FinishReason]) can be called only once
@@ -72,11 +91,7 @@ class ChoiceConsumer(Consumer):
 
         if isinstance(res, AIToolCallMessage):
             for call in res.calls:
-                self.choice.create_function_tool_call(
-                    id=call.id,
-                    name=call.function.name,
-                    arguments=call.function.arguments,
-                )
+                self.create_function_tool_call(call)
             return
 
         if isinstance(res, AIFunctionCallMessage):
@@ -102,3 +117,15 @@ class ChoiceConsumer(Consumer):
 
     def set_discarded_messages(self, discarded_messages: List[int]):
         self.discarded_messages = discarded_messages
+
+    def create_function_tool_call(self, tool_call: ToolCall):
+        self.choice.create_function_tool_call(
+            id=tool_call.id,
+            name=tool_call.function.name,
+            arguments=tool_call.function.arguments,
+        )
+
+    def create_function_call(self, function_call: FunctionCall):
+        self.choice.create_function_call(
+            name=function_call.name, arguments=function_call.arguments
+        )

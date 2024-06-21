@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
     AIToolCallMessage,
 )
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig, ToolsMode
 from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 from aidial_adapter_bedrock.utils.xml import parse_xml, tag, tag_nl
 
@@ -169,7 +169,7 @@ def parse_call(
         return None
 
     call = _parse_function_call(text)
-    if config.is_tool:
+    if config.tools_mode == ToolsMode.TOOLS:
         id = config.create_fresh_tool_call_id(call.name)
         tool_call = ToolCall(index=0, id=id, type="function", function=call)
         return AIToolCallMessage(calls=[tool_call])

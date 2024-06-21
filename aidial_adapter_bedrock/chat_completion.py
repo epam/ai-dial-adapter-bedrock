@@ -26,7 +26,10 @@ from typing_extensions import override
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatCompletionAdapter,
+    TextCompletionAdapter,
+)
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
@@ -64,8 +67,11 @@ class BedrockChatCompletion(ChatCompletion):
             nonlocal discarded_messages
 
             with response.create_choice() as choice:
-                tools_emulator = model.tools_emulator(params.tool_config)
-                consumer = ChoiceConsumer(tools_emulator, choice)
+                consumer = ChoiceConsumer(choice=choice)
+                if isinstance(model, TextCompletionAdapter):
+                    consumer.set_tools_emulator(
+                        model.tools_emulator(params.tool_config)
+                    )
 
                 try:
                     await model.chat(consumer, params, request.messages)
