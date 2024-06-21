@@ -30,8 +30,6 @@ def _is_empty_system_message(msg: Message) -> bool:
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
-    tools_emulator: Callable[[Optional[ToolsConfig]], ToolsEmulator]
-
     class Config:
         arbitrary_types_allowed = True
 
@@ -65,6 +63,7 @@ class TextCompletionPrompt(BaseModel):
 
 
 class TextCompletionAdapter(ChatCompletionAdapter):
+    tools_emulator: Callable[[Optional[ToolsConfig]], ToolsEmulator]
 
     @abstractmethod
     async def predict(
