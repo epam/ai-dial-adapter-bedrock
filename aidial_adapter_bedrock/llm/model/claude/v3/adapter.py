@@ -3,7 +3,11 @@ from typing import List, Mapping, Optional, TypedDict, Union, assert_never
 from aidial_sdk.chat_completion import Message
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
-from anthropic.lib.streaming import AsyncMessageStream, TextEvent
+from anthropic.lib.streaming import (
+    AsyncMessageStream,
+    TextEvent,
+    InputJsonEvent,
+)
 from anthropic.types import (
     ContentBlockStopEvent,
     MessageDeltaEvent,
@@ -13,6 +17,8 @@ from anthropic.types import (
     TextBlock,
     ToolParam,
     ToolUseBlock,
+    ContentBlockStartEvent,
+    ContentBlockDeltaEvent,
 )
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -136,22 +142,29 @@ class Adapter(ChatCompletionAdapter):
             completion_tokens = 0
             stop_reason = None
             async for event in stream:
-
-                if isinstance(event, MessageStartEvent):
-                    prompt_tokens += event.message.usage.input_tokens
-                elif isinstance(event, TextEvent):
-                    consumer.append_content(event.text)
-                elif isinstance(event, MessageDeltaEvent):
-                    completion_tokens += event.usage.output_tokens
-                elif isinstance(event, ContentBlockStopEvent) and isinstance(
-                    event.content_block, ToolUseBlock
-                ):
-                    process_tools_block(
-                        consumer, event.content_block, tools_mode
-                    )
-                elif isinstance(event, MessageStopEvent):
-                    completion_tokens += event.message.usage.output_tokens
-                    stop_reason = event.message.stop_reason
+                match event:
+                    case MessageStartEvent():
+                        prompt_tokens += event.message.usage.input_tokens
+                    case TextEvent():
+                        consumer.append_content(event.text)
+                    case MessageDeltaEvent():
+                        completion_tokens += event.usage.output_tokens
+                    case ContentBlockStopEvent():
+                        if isinstance(event.content_block, ToolUseBlock):
+                            process_tools_block(
+                                consumer, event.content_block, tools_mode
+                            )
+                    case MessageStopEvent():
+                        completion_tokens += event.message.usage.output_tokens
+                        stop_reason = event.message.stop_reason
+                    case (
+                        InputJsonEvent()
+                        | ContentBlockStartEvent()
+                        | ContentBlockDeltaEvent()
+                    ):
+                        pass
+                    case _:
+                        assert_never(event)
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
