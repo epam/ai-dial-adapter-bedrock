@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, List, Literal, Self, Tuple, assert_never
 
 from aidial_sdk.chat_completion import (
@@ -11,6 +12,14 @@ from aidial_sdk.chat_completion.request import AzureChatCompletionRequest
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.errors import ValidationError
+
+
+class ToolsMode(Enum):
+    TOOLS = "TOOLS"
+    """
+    Functions are deprecated instrument, that came before tools
+    """
+    FUNCTIONS = "FUNCTIONS"
 
 
 class ToolsConfig(BaseModel):
@@ -33,12 +42,15 @@ class ToolsConfig(BaseModel):
     """
 
     @property
-    def is_tool(self) -> bool:
-        return self.tool_ids is not None
+    def tools_mode(self) -> ToolsMode:
+        if self.tool_ids is not None:
+            return ToolsMode.TOOLS
+        else:
+            return ToolsMode.FUNCTIONS
 
     def not_supported(self) -> None:
         if self.functions:
-            if self.is_tool:
+            if self.tools_mode == ToolsMode.TOOLS:
                 raise ValidationError("The tools aren't supported")
             else:
                 raise ValidationError("The functions aren't supported")

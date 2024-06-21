@@ -32,11 +32,11 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_dial_finish_reason,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
-    ToolsMode,
     emulate_function_message,
     process_tools_block,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -85,12 +85,8 @@ class Adapter(ChatCompletionAdapter):
                 to_claude_tool_config(tool_function)
                 for tool_function in params.tool_config.functions
             ]
-            tools_mode = (
-                ToolsMode.NATIVE_TOOLS
-                if params.tool_config.is_tool
-                else ToolsMode.FUNCTION_EMULATION
-            )
-        if tools_mode == ToolsMode.FUNCTION_EMULATION:
+            tools_mode = params.tool_config.tools_mode
+        if tools_mode == ToolsMode.FUNCTIONS:
             parsed_messages = [
                 emulate_function_message(m) for m in parsed_messages
             ]

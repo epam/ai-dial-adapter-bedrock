@@ -32,7 +32,7 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
     ToolMessage,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.tools import ToolsMode
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 
 ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
@@ -208,9 +208,9 @@ def to_dial_finish_reason(
             return FinishReason.STOP
         case "tool_use":
             match tools_mode:
-                case ToolsMode.NATIVE_TOOLS:
+                case ToolsMode.TOOLS:
                     return FinishReason.TOOL_CALLS
-                case ToolsMode.FUNCTION_EMULATION:
+                case ToolsMode.FUNCTIONS:
                     return FinishReason.FUNCTION_CALL
                 case _:
                     raise Exception(

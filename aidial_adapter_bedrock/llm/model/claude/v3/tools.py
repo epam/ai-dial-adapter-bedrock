@@ -1,5 +1,4 @@
 import json
-from enum import Enum
 from typing import assert_never
 
 from aidial_sdk.chat_completion import FunctionCall, ToolCall
@@ -15,6 +14,7 @@ from aidial_adapter_bedrock.llm.message import (
     HumanToolResultMessage,
     ToolMessage,
 )
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 
 
 def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
@@ -33,23 +33,13 @@ def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
     return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
-class ToolsMode(Enum):
-    NATIVE_TOOLS = "NATIVE_TOOLS"
-    """
-    Claude V3 API Supports only tools.
-    But our API supports also deprecated "functions" which are pretty same as tools,
-    so we can emulate them.
-    """
-    FUNCTION_EMULATION = "FUNCTION_EMULATION"
-
-
 def process_tools_block(
     consumer: Consumer, block: ToolUseBlock, tools_mode: ToolsMode | None
 ):
     match tools_mode:
-        case ToolsMode.NATIVE_TOOLS:
+        case ToolsMode.TOOLS:
             consumer.create_function_tool_call(to_dial_tool_call(block))
-        case ToolsMode.FUNCTION_EMULATION:
+        case ToolsMode.FUNCTIONS:
             consumer.create_function_call(to_dial_function_call(block))
         case _:
             raise Exception(f"Invalid tools mode {tools_mode} during tool use!")
