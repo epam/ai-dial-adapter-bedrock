@@ -8,6 +8,7 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|---|---|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|

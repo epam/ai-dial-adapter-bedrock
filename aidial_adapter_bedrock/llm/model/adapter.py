@@ -39,6 +39,7 @@ async def get_bedrock_adapter(
     match deployment:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
         ):

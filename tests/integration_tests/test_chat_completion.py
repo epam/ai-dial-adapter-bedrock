@@ -113,6 +113,7 @@ chat_deployments = [
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
     ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
@@ -125,6 +126,7 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ]
