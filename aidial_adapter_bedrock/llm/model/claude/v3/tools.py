@@ -54,9 +54,9 @@ def emulate_function_message(
 ) -> BaseMessage | ToolMessage:
     """
     If users uses functions instead of tools,
-    for model we still need to convert function call\result messages into tool calls
+    for model we still need to convert function calls and result messages into tool calls
 
-    For tool ids we just use function name
+    For tool id we just use function name
     """
     if isinstance(message, BaseMessage):
         return message
