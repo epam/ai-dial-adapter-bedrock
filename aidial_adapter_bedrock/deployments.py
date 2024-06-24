@@ -9,6 +9,7 @@ class ChatCompletionDeployment(str, Enum):
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
+    ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"

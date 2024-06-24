@@ -14,6 +14,7 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET, False, False),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET, False, False),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, False, False),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS, False, False),
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
