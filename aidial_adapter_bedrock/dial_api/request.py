@@ -55,6 +55,7 @@ class EmbeddingsType(str, Enum):
 
 
 class EmbeddingsRequest(ExtraAllowModel):
+    model: Optional[str] = None
     input: str | List[str]
     user: Optional[str] = None
     encoding_format: Literal["float", "base64"] = "float"
