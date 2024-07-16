@@ -19,6 +19,8 @@ FROM python:3.11-alpine as server
 RUN apk update && apk upgrade --no-cache libcrypto3 libssl3
 # fix CVE-2023-52425
 RUN apk upgrade --no-cache libexpat
+# fix CVE-2024-6345
+RUN pip install "setuptools==70.0.0"
 
 WORKDIR /app
 
