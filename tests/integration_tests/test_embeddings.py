@@ -94,7 +94,6 @@ def get_test_case(
     )
 
     if dimensions and not spec.supports_dimensions:
-        # One error coming from adapter, another from the model itself
         expected = Exception("Dimensions parameter is not supported")
     elif embedding_instr:
         expected = Exception("Instruction prompt is not supported")
