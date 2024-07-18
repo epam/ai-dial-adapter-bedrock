@@ -90,7 +90,9 @@ async def get_bedrock_adapter(
 
 
 async def get_embeddings_model(
-    deployment: EmbeddingsDeployment, region: str
+    deployment: EmbeddingsDeployment,
+    region: str,
+    headers: Mapping[str, str],
 ) -> EmbeddingsAdapter:
     model = deployment.model_id
     match deployment:
@@ -104,7 +106,7 @@ async def get_embeddings_model(
             )
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1:
             return AmazonTitanImageEmbeddings.create(
-                await Bedrock.acreate(region), model
+                await Bedrock.acreate(region), model, headers
             )
         case _:
             assert_never(deployment)

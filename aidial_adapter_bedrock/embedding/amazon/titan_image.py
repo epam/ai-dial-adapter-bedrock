@@ -5,7 +5,7 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-from typing import AsyncIterator, List, Self
+from typing import AsyncIterator, List, Mapping, Self
 
 from aidial_sdk.chat_completion.request import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -15,7 +15,12 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
+from aidial_adapter_bedrock.dial_api.storage import (
+    FileStorage,
+    create_file_storage,
+)
 from aidial_adapter_bedrock.embedding.amazon.base import call_embedding_model
+from aidial_adapter_bedrock.embedding.attachments import download_base64_data
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
@@ -45,16 +50,24 @@ def create_titan_request(
     )
 
 
-async def get_base64_image_from_attachment(attachment: Attachment) -> str: ...
+async def download_image(
+    attachment: Attachment, storage: FileStorage | None
+) -> str:
+    _content_type, data = await download_base64_data(
+        attachment, storage, ["image/png"]
+    )
+    return data
 
 
-def get_inputs(request: EmbeddingsRequest) -> AsyncIterator[AmazonRequest]:
+def get_requests(
+    request: EmbeddingsRequest, storage: FileStorage | None
+) -> AsyncIterator[AmazonRequest]:
     async def on_text(text: str):
         return AmazonRequest(inputText=text)
 
     async def on_attachment(attachment: Attachment):
         return AmazonRequest(
-            inputImage=await get_base64_image_from_attachment(attachment)
+            inputImage=await download_image(attachment, storage)
         )
 
     async def on_text_or_attachment(text: str | Attachment):
@@ -74,18 +87,14 @@ def get_inputs(request: EmbeddingsRequest) -> AsyncIterator[AmazonRequest]:
             if isinstance(inputs[0], str) and isinstance(inputs[1], Attachment):
                 yield AmazonRequest(
                     inputText=inputs[0],
-                    inputImage=await get_base64_image_from_attachment(
-                        inputs[1]
-                    ),
+                    inputImage=await download_image(inputs[1], storage),
                 )
             elif isinstance(inputs[0], Attachment) and isinstance(
                 inputs[1], str
             ):
                 yield AmazonRequest(
                     inputText=inputs[1],
-                    inputImage=await get_base64_image_from_attachment(
-                        inputs[0]
-                    ),
+                    inputImage=await download_image(inputs[0], storage),
                 )
             else:
                 raise ValidationError(
@@ -112,10 +121,14 @@ class AmazonResponse(BaseModel):
 class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock
+    storage: FileStorage | None
 
     @classmethod
-    def create(cls, client: Bedrock, model: str) -> Self:
-        return cls(client=client, model=model)
+    def create(
+        cls, client: Bedrock, model: str, headers: Mapping[str, str]
+    ) -> Self:
+        storage: FileStorage | None = create_file_storage(headers)
+        return cls(client=client, model=model, storage=storage)
 
     async def embeddings(
         self, request: EmbeddingsRequest
@@ -127,7 +140,7 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         token_count = 0
 
         # NOTE: Amazon Titan doesn't support batched inputs
-        async for text_input in get_inputs(request):
+        async for text_input in get_requests(request, self.storage):
             sub_request = create_titan_request(text_input, request.dimensions)
             embedding, tokens = await call_embedding_model(
                 self.client, self.model, sub_request
