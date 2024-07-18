@@ -134,7 +134,9 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         self, request: EmbeddingsRequest
     ) -> EmbeddingsResponse:
 
-        validate_embeddings_request(request, supports_dimensions=True)
+        # The model in fact does not support dimensions,
+        # but the documentation claims it does
+        validate_embeddings_request(request, supports_dimensions=False)
 
         vectors: List[List[float] | str] = []
         token_count = 0
