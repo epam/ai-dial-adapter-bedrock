@@ -2,39 +2,44 @@
 
 [[package]]
 name = "aidial-sdk"
-version = "0.8.0"
+version = "0.10.0rc"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
-python-versions = "<4.0,>=3.8.1"
-files = [
-    {file = "aidial_sdk-0.8.0-py3-none-any.whl", hash = "sha256:8c13858746975e17082e8c59480812771c2d75a2b3dd432c21297739a40b916f"},
-    {file = "aidial_sdk-0.8.0.tar.gz", hash = "sha256:9ad1f3f6fbcb9b55e76b00b22fda52ca4b1ac9c5f60b2a035dd9ef2eb8593c9c"},
-]
+python-versions = ">=3.8.1,<4.0"
+files = []
+develop = false
 
 [package.dependencies]
-aiohttp = ">=3.8.3,<4.0.0"
+aiohttp = "^3.8.3"
 fastapi = ">=0.51,<1.0"
-opentelemetry-api = {version = "1.20.0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-distro = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-exporter-otlp-proto-grpc = {version = "1.20.0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-exporter-prometheus = {version = "1.12.0rc1", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-aiohttp-client = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-fastapi = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-httpx = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-logging = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-requests = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-system-metrics = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-urllib = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-sdk = {version = "1.20.0", optional = true, markers = "extra == \"telemetry\""}
-prometheus-client = {version = "0.17.1", optional = true, markers = "extra == \"telemetry\""}
+httpx = "^0.25.0"
+opentelemetry-api = {version = "1.20.0", optional = true}
+opentelemetry-distro = {version = "0.41b0", optional = true}
+opentelemetry-exporter-otlp-proto-grpc = {version = "1.20.0", optional = true}
+opentelemetry-exporter-prometheus = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-aiohttp-client = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-fastapi = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-httpx = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-logging = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-requests = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-system-metrics = {version = "0.41b0", optional = true}
+opentelemetry-instrumentation-urllib = {version = "0.41b0", optional = true}
+opentelemetry-sdk = {version = "1.20.0", optional = true}
+prometheus-client = {version = "0.17.1", optional = true}
 pydantic = ">=1.10,<3"
-requests = ">=2.19,<3.0"
+requests = "^2.19"
 uvicorn = ">=0.19,<1.0"
-wrapt = ">=1.14,<2.0"
+wrapt = "^1.14"
 
 [package.extras]
-telemetry = ["opentelemetry-api (==1.20.0)", "opentelemetry-distro (==0.41b0)", "opentelemetry-exporter-otlp-proto-grpc (==1.20.0)", "opentelemetry-exporter-prometheus (==1.12.0rc1)", "opentelemetry-instrumentation (==0.41b0)", "opentelemetry-instrumentation-aiohttp-client (==0.41b0)", "opentelemetry-instrumentation-fastapi (==0.41b0)", "opentelemetry-instrumentation-httpx (==0.41b0)", "opentelemetry-instrumentation-logging (==0.41b0)", "opentelemetry-instrumentation-requests (==0.41b0)", "opentelemetry-instrumentation-system-metrics (==0.41b0)", "opentelemetry-instrumentation-urllib (==0.41b0)", "opentelemetry-sdk (==1.20.0)", "prometheus-client (==0.17.1)"]
+telemetry = ["opentelemetry-api (==1.20.0)", "opentelemetry-distro (==0.41b0)", "opentelemetry-exporter-otlp-proto-grpc (==1.20.0)", "opentelemetry-exporter-prometheus (==0.41b0)", "opentelemetry-instrumentation (==0.41b0)", "opentelemetry-instrumentation-aiohttp-client (==0.41b0)", "opentelemetry-instrumentation-fastapi (==0.41b0)", "opentelemetry-instrumentation-httpx (==0.41b0)", "opentelemetry-instrumentation-logging (==0.41b0)", "opentelemetry-instrumentation-requests (==0.41b0)", "opentelemetry-instrumentation-system-metrics (==0.41b0)", "opentelemetry-instrumentation-urllib (==0.41b0)", "opentelemetry-sdk (==1.20.0)", "prometheus-client (==0.17.1)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/epam/ai-dial-sdk.git"
+reference = "HEAD"
+resolved_reference = "e31592627c1b8e28c9a4d03946d0ef8cd405fc6d"
 
 [[package]]
 name = "aiohttp"
@@ -1264,18 +1269,18 @@ test = ["pytest-grpc"]
 
 [[package]]
 name = "opentelemetry-exporter-prometheus"
-version = "1.12.0rc1"
+version = "0.41b0"
 description = "Prometheus Metric Exporter for OpenTelemetry"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 files = [
-    {file = "opentelemetry-exporter-prometheus-1.12.0rc1.tar.gz", hash = "sha256:f10c6c243d69d5b63f755885b36a4ce8ef2cdf3e737c4e6bf00f32e87668f0a9"},
-    {file = "opentelemetry_exporter_prometheus-1.12.0rc1-py3-none-any.whl", hash = "sha256:1f0c8f93d62e1575313966ceb8abf11e9a46e1839fda9ee4269b06d40494280f"},
+    {file = "opentelemetry_exporter_prometheus-0.41b0-py3-none-any.whl", hash = "sha256:ca996f3bc15b0cbf3abd798e786095a202650202a5c0edd9e34bb9186a247b79"},
+    {file = "opentelemetry_exporter_prometheus-0.41b0.tar.gz", hash = "sha256:0cc58d5d10040e69090637803b97e120f558467037c88988742c80a627e7f1ed"},
 ]
 
 [package.dependencies]
-opentelemetry-api = ">=1.10.0"
-opentelemetry-sdk = ">=1.10.0"
+opentelemetry-api = ">=1.12,<2.0"
+opentelemetry-sdk = ">=1.12,<2.0"
 prometheus-client = ">=0.5.0,<1.0.0"
 
 [[package]]
@@ -1845,7 +1850,6 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
-    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -1882,13 +1886,13 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.32.0"
+version = "2.32.2"
 description = "Python HTTP for Humans."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "requests-2.32.0-py3-none-any.whl", hash = "sha256:f2c3881dddb70d056c5bd7600a4fae312b2a300e39be6a118d30b90bd27262b5"},
-    {file = "requests-2.32.0.tar.gz", hash = "sha256:fa5490319474c82ef1d2c9bc459d3652e3ae4ef4c4ebdd18a21145a47ca4b6b8"},
+    {file = "requests-2.32.2-py3-none-any.whl", hash = "sha256:fc06670dd0ed212426dfeb94fc1b983d917c4f9847c863f313c9dfaaffb7c23c"},
+    {file = "requests-2.32.2.tar.gz", hash = "sha256:dd951ff5ecf3e3b3aa26b40703ba77495dab41da839ae72ef3c8e5d8e2433289"},
 ]
 
 [package.dependencies]
@@ -2356,4 +2360,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "8d72a6b7220926dab5b2e36179e9447e0d8b9b359918557acf0722ec9feb0cf3"
+content-hash = "b446250b074bc3de81907256829a5e16ded61b3990a02d4abfacdef69b19dfef"
