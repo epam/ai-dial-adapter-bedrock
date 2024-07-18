@@ -5,13 +5,13 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.embeddings.amazon_titan_image import (
+from aidial_adapter_bedrock.embedding.amazon.titan_image import (
     AmazonTitanImageEmbeddings,
 )
-from aidial_adapter_bedrock.embeddings.amazon_titan_text import (
+from aidial_adapter_bedrock.embedding.amazon.titan_text import (
     AmazonTitanTextEmbeddings,
 )
-from aidial_adapter_bedrock.embeddings.embeddings_adapter import (
+from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
