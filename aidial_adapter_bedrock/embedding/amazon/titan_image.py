@@ -79,9 +79,7 @@ def get_requests(
         else:
             return await on_attachment(text)
 
-    async def on_mixed(
-        inputs: List[str | Attachment],
-    ) -> AmazonRequest:
+    async def on_mixed(inputs: List[str | Attachment]) -> AmazonRequest:
         if len(inputs) == 0:
             raise EMPTY_INPUT_LIST_ERROR
         elif len(inputs) == 1:
@@ -130,7 +128,7 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
     def create(
         cls, client: Bedrock, model: str, headers: Mapping[str, str]
     ) -> Self:
-        storage: FileStorage | None = create_file_storage(headers)
+        storage = create_file_storage(headers)
         return cls(client=client, model=model, storage=storage)
 
     async def embeddings(
