@@ -24,6 +24,7 @@ from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
 
 
@@ -35,7 +36,14 @@ def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
     async def on_text(text: str) -> str:
         return text
 
-    return collect_embedding_inputs_no_attachments(request, on_text=on_text)
+    async def on_texts(fst: str, snd: str, rest: List[str]) -> str:
+        raise ValidationError(
+            "No more than one element is allowed in an element of custom_input list"
+        )
+
+    return collect_embedding_inputs_no_attachments(
+        request, on_text=on_text, on_texts=on_texts
+    )
 
 
 class AmazonTitanTextEmbeddings(EmbeddingsAdapter):

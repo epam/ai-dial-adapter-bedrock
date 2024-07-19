@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.embedding_inputs import (
+    EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
 )
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
@@ -80,21 +81,21 @@ def get_requests(
 
     async def on_mixed(
         inputs: List[str | Attachment],
-    ) -> AsyncIterator[AmazonRequest]:
+    ) -> AmazonRequest:
         if len(inputs) == 0:
-            pass
+            raise EMPTY_INPUT_LIST_ERROR
         elif len(inputs) == 1:
-            yield await on_text_or_attachment(inputs[0])
+            return await on_text_or_attachment(inputs[0])
         elif len(inputs) == 2:
             if isinstance(inputs[0], str) and isinstance(inputs[1], Attachment):
-                yield AmazonRequest(
+                return AmazonRequest(
                     inputText=inputs[0],
                     inputImage=await download_image(inputs[1], storage),
                 )
             elif isinstance(inputs[0], Attachment) and isinstance(
                 inputs[1], str
             ):
-                yield AmazonRequest(
+                return AmazonRequest(
                     inputText=inputs[1],
                     inputImage=await download_image(inputs[0], storage),
                 )
