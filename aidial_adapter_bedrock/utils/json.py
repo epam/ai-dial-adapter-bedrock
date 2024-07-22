@@ -1,3 +1,9 @@
+"""
+Utilities for pretty-printing JSON in debug logs.
+These functions are useful for dumping large data structures,
+with options to trim long strings and lists to specified limits.
+"""
+
 import json
 from dataclasses import asdict, is_dataclass
 from enum import Enum
@@ -18,7 +24,7 @@ def json_dumps_short(
 
     return json.dumps(
         _truncate_lists(
-            _truncate_strings(to_dict(obj, **kwargs), string_limit),
+            _truncate_strings(_to_dict(obj, **kwargs), string_limit),
             list_len_limit,
         ),
         default=default,
@@ -26,12 +32,12 @@ def json_dumps_short(
 
 
 def json_dumps(obj: Any, **kwargs) -> str:
-    return json.dumps(to_dict(obj, **kwargs))
+    return json.dumps(_to_dict(obj, **kwargs))
 
 
-def to_dict(obj: Any, **kwargs) -> Any:
+def _to_dict(obj: Any, **kwargs) -> Any:
     def rec(val):
-        return to_dict(val, **kwargs)
+        return _to_dict(val, **kwargs)
 
     def dict_field(key: str, val: Any) -> Any:
         if key in kwargs.get("excluded_keys", []):
