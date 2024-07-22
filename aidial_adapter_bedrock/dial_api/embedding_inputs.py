@@ -47,12 +47,6 @@ async def collect_embedding_inputs(
     on_mixed: Callable[[List[str | Attachment]], Coro[T]],
 ) -> AsyncIterator[T]:
 
-    async def on_text_or_attachment(input: str | Attachment) -> T:
-        if isinstance(input, str):
-            return await on_text(input)
-        else:
-            return await on_attachment(input)
-
     if isinstance(request.input, str):
         yield await on_text(request.input)
     elif isinstance(request.input, list):
@@ -65,6 +59,7 @@ async def collect_embedding_inputs(
                 yield await on_tokens(input)
             else:
                 is_list_of_tokens = True
+                break
 
         if is_list_of_tokens:
             yield await on_tokens(cast(Tokens, request.input))
@@ -76,23 +71,30 @@ async def collect_embedding_inputs(
         return
 
     for input in request.custom_input:
-        if isinstance(input, (str, Attachment)):
-            yield await on_text_or_attachment(input)
+        if isinstance(input, str):
+            yield await on_text(input)
+        elif isinstance(input, Attachment):
+            yield await on_attachment(input)
         elif isinstance(input, list):
             yield await on_mixed(input)
         else:
             assert_never(input)
 
 
-def collect_embedding_inputs_no_attachments(
+def collect_embedding_inputs_without_attachments(
     request: EmbeddingsRequest,
     *,
-    on_text: Callable[[str], Coro[T]],
-    on_texts: Callable[[str, str, List[str]], Coro[T]],
+    on_texts: Callable[[List[str]], Coro[T]],
     on_tokens: Callable[[Tokens], Coro[T]] = reject_tokens,
 ) -> AsyncIterator[T]:
 
+    async def on_text(text: str) -> Coro[T]:
+        return await on_texts([text])
+
     async def on_mixed(inputs: List[str | Attachment]) -> Coro[T]:
+        if inputs == []:
+            raise EMPTY_INPUT_LIST_ERROR
+
         texts: List[str] = []
         for input in inputs:
             if isinstance(input, str):
@@ -100,12 +102,7 @@ def collect_embedding_inputs_no_attachments(
             else:
                 raise ATTACHMENT_ERROR
 
-        if len(texts) == 0:
-            raise EMPTY_INPUT_LIST_ERROR
-        elif len(texts) == 1:
-            return await on_text(texts[0])
-        else:
-            return await on_texts(texts[0], texts[1], texts[2:])
+        return await on_texts(texts)
 
     return collect_embedding_inputs(
         request,

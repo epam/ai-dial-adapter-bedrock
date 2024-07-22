@@ -13,7 +13,8 @@ from aidial_sdk.embeddings.request import EmbeddingsRequest
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.embedding_inputs import (
-    collect_embedding_inputs_no_attachments,
+    EMPTY_INPUT_LIST_ERROR,
+    collect_embedding_inputs_without_attachments,
 )
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
 from aidial_adapter_bedrock.embedding.amazon.base import call_embedding_model
@@ -33,16 +34,18 @@ def create_titan_request(input: str, dimensions: int | None) -> dict:
 
 
 def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
-    async def on_text(text: str) -> str:
-        return text
+    async def on_texts(texts: List[str]) -> str:
+        if len(texts) == 0:
+            raise EMPTY_INPUT_LIST_ERROR
+        elif len(texts) == 1:
+            return texts[0]
+        else:
+            raise ValidationError(
+                "No more than one element is allowed in an element of custom_input list"
+            )
 
-    async def on_texts(fst: str, snd: str, rest: List[str]) -> str:
-        raise ValidationError(
-            "No more than one element is allowed in an element of custom_input list"
-        )
-
-    return collect_embedding_inputs_no_attachments(
-        request, on_text=on_text, on_texts=on_texts
+    return collect_embedding_inputs_without_attachments(
+        request, on_texts=on_texts
     )
 
 
