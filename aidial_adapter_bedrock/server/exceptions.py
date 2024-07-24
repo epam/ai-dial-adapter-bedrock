@@ -84,7 +84,9 @@ def dial_exception_decorator(func):
         try:
             return await func(*args, **kwargs)
         except Exception as e:
-            log.exception(e)
+            log.exception(
+                f"caught exception: {type(e).__module__}.{type(e).__name__}"
+            )
             raise to_dial_exception(e) from e
 
     return wrapper
