@@ -1,5 +1,5 @@
 from logging import DEBUG
-from typing import List, Mapping, Optional, TypedDict, Union, assert_never
+from typing import List, Optional, TypedDict, Union, assert_never
 
 from aidial_sdk.chat_completion import Message
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
@@ -220,8 +220,8 @@ class Adapter(ChatCompletionAdapter):
         )
 
     @classmethod
-    def create(cls, model: str, region: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage(headers)
+    def create(cls, model: str, region: str, api_key: str):
+        storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
         return cls(
             model=model,
             storage=storage,

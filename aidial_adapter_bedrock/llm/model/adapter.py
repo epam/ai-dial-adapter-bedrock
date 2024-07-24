@@ -1,4 +1,4 @@
-from typing import Mapping, assert_never
+from typing import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
@@ -31,9 +31,7 @@ from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
 
 async def get_bedrock_adapter(
-    deployment: ChatCompletionDeployment,
-    region: str,
-    headers: Mapping[str, str],
+    deployment: ChatCompletionDeployment, region: str, api_key: str
 ) -> ChatCompletionAdapter:
     model = deployment.model_id
     match deployment:
@@ -43,7 +41,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
         ):
-            return Claude_V3.create(model, region, headers)
+            return Claude_V3.create(model, region, api_key)
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
@@ -62,7 +60,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
             return StabilityAdapter.create(
-                await Bedrock.acreate(region), model, headers
+                await Bedrock.acreate(region), model, api_key
             )
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return AmazonAdapter.create(await Bedrock.acreate(region), model)
@@ -90,9 +88,7 @@ async def get_bedrock_adapter(
 
 
 async def get_embeddings_model(
-    deployment: EmbeddingsDeployment,
-    region: str,
-    headers: Mapping[str, str],
+    deployment: EmbeddingsDeployment, region: str, api_key: str
 ) -> EmbeddingsAdapter:
     model = deployment.model_id
     match deployment:
@@ -106,7 +102,7 @@ async def get_embeddings_model(
             )
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1:
             return AmazonTitanImageEmbeddings.create(
-                await Bedrock.acreate(region), model, headers
+                await Bedrock.acreate(region), model, api_key
             )
         case _:
             assert_never(deployment)

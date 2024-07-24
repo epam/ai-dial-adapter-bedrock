@@ -5,7 +5,7 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-from typing import AsyncIterator, List, Mapping, Self
+from typing import AsyncIterator, List, Self
 
 from aidial_sdk.chat_completion.request import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -125,10 +125,8 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
     storage: FileStorage | None
 
     @classmethod
-    def create(
-        cls, client: Bedrock, model: str, headers: Mapping[str, str]
-    ) -> Self:
-        storage = create_file_storage(headers)
+    def create(cls, client: Bedrock, model: str, api_key: str) -> Self:
+        storage = create_file_storage(api_key)
         return cls(client=client, model=model, storage=storage)
 
     async def embeddings(

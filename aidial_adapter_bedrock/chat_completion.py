@@ -53,7 +53,7 @@ class BedrockChatCompletion(ChatCompletion):
         return await get_bedrock_adapter(
             region=self.region,
             deployment=deployment,
-            headers=request.headers,
+            api_key=request.api_key,
         )
 
     @dial_exception_decorator

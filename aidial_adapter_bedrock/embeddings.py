@@ -15,7 +15,7 @@ class BedrockEmbeddings(Embeddings):
         model = await get_embeddings_model(
             deployment=EmbeddingsDeployment(request.deployment_id),
             region=self.region,
-            headers=request.headers,
+            api_key=request.api_key,
         )
 
         return await model.embeddings(request)

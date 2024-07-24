@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -105,8 +105,8 @@ class StabilityAdapter(TextCompletionAdapter):
     storage: Optional[FileStorage]
 
     @classmethod
-    def create(cls, client: Bedrock, model: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage(headers)
+    def create(cls, client: Bedrock, model: str, api_key: str):
+        storage: Optional[FileStorage] = create_file_storage(api_key)
         return cls(
             client=client,
             model=model,
