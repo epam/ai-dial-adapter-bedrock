@@ -8,7 +8,6 @@ from urllib.parse import urljoin
 
 import aiohttp
 
-from aidial_adapter_bedrock.dial_api.auth import Auth
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -26,19 +25,23 @@ class Bucket(TypedDict):
 
 class FileStorage:
     dial_url: str
-    auth: Auth
+    api_key: str
     bucket: Optional[Bucket]
 
-    def __init__(self, dial_url: str, auth: Auth):
+    def __init__(self, dial_url: str, api_key: str):
         self.dial_url = dial_url
-        self.auth = auth
+        self.api_key = api_key
         self.bucket = None
+
+    @property
+    def auth_headers(self) -> Mapping[str, str]:
+        return {"api-key": self.api_key}
 
     async def _get_bucket(self, session: aiohttp.ClientSession) -> Bucket:
         if self.bucket is None:
             async with session.get(
                 f"{self.dial_url}/v1/bucket",
-                headers=self.auth.headers,
+                headers=self.auth_headers,
             ) as response:
                 response.raise_for_status()
                 self.bucket = await response.json()
@@ -74,7 +77,7 @@ class FileStorage:
             async with session.put(
                 url=url,
                 data=data,
-                headers=self.auth.headers,
+                headers=self.auth_headers,
             ) as response:
                 response.raise_for_status()
                 meta = await response.json()
@@ -92,7 +95,7 @@ class FileStorage:
         url = urljoin(f"{self.dial_url}/v1/", dial_path)
         headers: Mapping[str, str] = {}
         if url.lower().startswith(self.dial_url.lower()):
-            headers = self.auth.headers
+            headers = self.auth_headers
 
         return await download_file_as_base64(url, headers)
 
@@ -120,16 +123,8 @@ def _compute_hash_digest(file_content: str) -> str:
 DIAL_URL = os.getenv("DIAL_URL")
 
 
-def create_file_storage(headers: Mapping[str, str]) -> Optional[FileStorage]:
+def create_file_storage(api_key: str) -> Optional[FileStorage]:
     if DIAL_URL is None:
         return None
 
-    auth = Auth.from_headers("api-key", headers)
-    if auth is None:
-        log.debug(
-            "The request doesn't have required headers to use the DIAL file storage. "
-            "Fallback to base64 encoding of images."
-        )
-        return None
-
-    return FileStorage(dial_url=DIAL_URL, auth=auth)
+    return FileStorage(dial_url=DIAL_URL, api_key=api_key)

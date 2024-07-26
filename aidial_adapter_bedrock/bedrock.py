@@ -1,5 +1,6 @@
 import json
 from abc import ABC
+from logging import DEBUG
 from typing import Any, AsyncIterator, Optional
 
 import boto3
@@ -12,6 +13,7 @@ from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
 )
+from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -37,27 +39,41 @@ class Bedrock:
         }
 
     async def ainvoke_non_streaming(self, model: str, args: dict) -> dict:
+
+        if log.isEnabledFor(DEBUG):
+            log.debug(
+                f"request: {json_dumps_short({'model': model, 'args': args})}"
+            )
+
         params = self._create_invoke_params(model, args)
         response = await make_async(lambda: self.client.invoke_model(**params))
 
-        log.debug(f"response: {response}")
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"response: {json_dumps_short(response)}")
 
         body: StreamingBody = response["body"]
         body_dict = json.loads(await make_async(lambda: body.read()))
 
-        log.debug(f"response['body']: {json.dumps(body_dict)}")
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"response['body']: {json_dumps_short(body_dict)}")
 
         return body_dict
 
     async def ainvoke_streaming(
         self, model: str, args: dict
     ) -> AsyncIterator[dict]:
+        if log.isEnabledFor(DEBUG):
+            log.debug(
+                f"request: {json_dumps_short({'model': model, 'args': args})}"
+            )
+
         params = self._create_invoke_params(model, args)
         response = await make_async(
             lambda: self.client.invoke_model_with_response_stream(**params)
         )
 
-        log.debug(f"response: {response}")
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"response: {json_dumps_short(response)}")
 
         body: EventStream = response["body"]
 
@@ -65,7 +81,8 @@ class Bedrock:
             chunk = event.get("chunk")
             if chunk:
                 chunk_dict = json.loads(chunk.get("bytes").decode())
-                log.debug(f"chunk: {json.dumps(chunk_dict)}")
+                if log.isEnabledFor(DEBUG):
+                    log.debug(f"chunk: {json_dumps_short(chunk_dict)}")
                 yield chunk_dict
 
 

@@ -1,8 +1,6 @@
 import logging
 import os
-import re
 import sys
-from logging import Filter, LogRecord
 
 from aidial_sdk import logger as aidial_logger
 from uvicorn.logging import DefaultFormatter
@@ -15,19 +13,11 @@ AIDIAL_LOG_LEVEL = os.getenv("AIDIAL_LOG_LEVEL", "WARNING")
 aidial_logger.setLevel(AIDIAL_LOG_LEVEL)
 
 
-class HealthCheckFilter(Filter):
-    def filter(self, record: LogRecord):
-        return not re.search(r"(\s+)/health(\s+)", record.getMessage())
-
-
 def configure_loggers():
     # Making the uvicorn and dial_sdk loggers delegate its logging to the root logger
     for logger in [logging.getLogger("uvicorn"), aidial_logger]:
         logger.handlers = []
         logger.propagate = True
-
-    # Filter out health check requests from uvicorn logs
-    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
     # Setting up log levels
     for name in ["app", "bedrock", "uvicorn", "__main__"]:

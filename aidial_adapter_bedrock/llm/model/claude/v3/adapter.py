@@ -1,4 +1,5 @@
-from typing import List, Mapping, Optional, TypedDict, Union, assert_never
+from logging import DEBUG
+from typing import List, Optional, TypedDict, Union, assert_never
 
 from aidial_sdk.chat_completion import Message
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
@@ -43,6 +44,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -129,9 +131,13 @@ class Adapter(ChatCompletionAdapter):
         params: ChatParams,
         tools_mode: ToolsMode | None,
     ):
-        log.debug(
-            f"Streaming request: messages={messages}, model={self.model}, params={params}"
-        )
+
+        if log.isEnabledFor(DEBUG):
+            msg = json_dumps_short(
+                {"messages": messages, "model": self.model, "params": params}
+            )
+            log.debug(f"Streaming request: {msg}")
+
         async with self.client.messages.stream(
             messages=messages,
             model=self.model,
@@ -185,9 +191,13 @@ class Adapter(ChatCompletionAdapter):
         params: ChatParams,
         tools_mode: ToolsMode | None,
     ):
-        log.debug(
-            f"Request: messages={messages}, model={self.model}, params={params}"
-        )
+
+        if log.isEnabledFor(DEBUG):
+            msg = json_dumps_short(
+                {"messages": messages, "model": self.model, "params": params}
+            )
+            log.debug(f"Request: {msg}")
+
         message = await self.client.messages.create(
             messages=messages, model=self.model, **params, stream=False
         )
@@ -210,8 +220,8 @@ class Adapter(ChatCompletionAdapter):
         )
 
     @classmethod
-    def create(cls, model: str, region: str, headers: Mapping[str, str]):
-        storage: Optional[FileStorage] = create_file_storage(headers)
+    def create(cls, model: str, region: str, api_key: str):
+        storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
         return cls(
             model=model,
             storage=storage,

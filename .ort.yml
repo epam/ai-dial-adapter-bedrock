@@ -21,3 +21,6 @@ resolutions:
     - message: ".*PyPI::werkzeug:3\\.0\\.1.*"
       reason: 'CANT_FIX_EXCEPTION'
       comment: 'BSD 3-Clause "New" or "Revised" License: https://github.com/pallets/werkzeug/blob/3.0.1/LICENSE.rst'
+    - message: ".*PyPI::numpy:2\\.0\\.0.*"
+      reason: 'CANT_FIX_EXCEPTION'
+      comment: 'BSD License: https://github.com/numpy/numpy/blob/v2.0.0/LICENSE.txt'
