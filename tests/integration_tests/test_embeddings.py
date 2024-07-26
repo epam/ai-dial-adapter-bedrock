@@ -33,7 +33,7 @@ specs: List[ModelSpec] = [
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1,
         default_dimensions=1024,
-        supports_dimensions=False,
+        supports_dimensions=True,
     ),
 ]
 

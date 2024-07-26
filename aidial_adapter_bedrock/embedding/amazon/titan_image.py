@@ -44,11 +44,12 @@ class AmazonRequest(BaseModel):
 def create_titan_request(
     request: AmazonRequest, dimensions: int | None
 ) -> dict:
+    conf = None if dimensions is None else {"outputEmbeddingLength": dimensions}
     return remove_nones(
         {
             "inputText": request.inputText,
             "inputImage": request.inputImage,
-            "dimensions": dimensions,
+            "embeddingConfig": conf,
         }
     )
 
@@ -65,15 +66,15 @@ async def download_image(
 def get_requests(
     request: EmbeddingsRequest, storage: FileStorage | None
 ) -> AsyncIterator[AmazonRequest]:
-    async def on_text(text: str):
+    async def on_text(text: str) -> AmazonRequest:
         return AmazonRequest(inputText=text)
 
-    async def on_attachment(attachment: Attachment):
+    async def on_attachment(attachment: Attachment) -> AmazonRequest:
         return AmazonRequest(
             inputImage=await download_image(attachment, storage)
         )
 
-    async def on_text_or_attachment(text: str | Attachment):
+    async def on_text_or_attachment(text: str | Attachment) -> AmazonRequest:
         if isinstance(text, str):
             return await on_text(text)
         else:
@@ -133,9 +134,7 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         self, request: EmbeddingsRequest
     ) -> EmbeddingsResponse:
 
-        # The model in fact does not support dimensions,
-        # but the documentation claims it does
-        validate_embeddings_request(request, supports_dimensions=False)
+        validate_embeddings_request(request, supports_dimensions=True)
 
         vectors: List[List[float] | str] = []
         token_count = 0
