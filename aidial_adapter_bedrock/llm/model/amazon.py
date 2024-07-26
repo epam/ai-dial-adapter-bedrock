@@ -138,7 +138,9 @@ class AmazonAdapter(PseudoChatModel):
             chunks = self.client.ainvoke_streaming(self.model, args)
             stream = chunks_to_stream(chunks, usage)
         else:
-            response = await self.client.ainvoke_non_streaming(self.model, args)
+            response, _headers = await self.client.ainvoke_non_streaming(
+                self.model, args
+            )
             stream = response_to_stream(response, usage)
 
         stream = self.post_process_stream(stream, params, self.chat_emulator)

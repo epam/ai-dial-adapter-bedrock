@@ -11,6 +11,9 @@ from aidial_adapter_bedrock.embedding.amazon.titan_image import (
 from aidial_adapter_bedrock.embedding.amazon.titan_text import (
     AmazonTitanTextEmbeddings,
 )
+from aidial_adapter_bedrock.embedding.cohere.embed_text import (
+    CohereTextEmbeddings,
+)
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
@@ -91,18 +94,22 @@ async def get_embeddings_model(
     deployment: EmbeddingsDeployment, region: str, api_key: str
 ) -> EmbeddingsAdapter:
     model = deployment.model_id
+    client = await Bedrock.acreate(region)
     match deployment:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(
-                await Bedrock.acreate(region), model, supports_dimensions=False
+                client, model, supports_dimensions=False
             )
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2:
             return AmazonTitanTextEmbeddings.create(
-                await Bedrock.acreate(region), model, supports_dimensions=True
+                client, model, supports_dimensions=True
             )
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1:
-            return AmazonTitanImageEmbeddings.create(
-                await Bedrock.acreate(region), model, api_key
-            )
+            return AmazonTitanImageEmbeddings.create(client, model, api_key)
+        case (
+            EmbeddingsDeployment.COHERE_EMBED_ENGLISH_V3
+            | EmbeddingsDeployment.COHERE_EMBED_MULTILINGUAL_V3
+        ):
+            return CohereTextEmbeddings.create(client, model)
         case _:
             assert_never(deployment)

@@ -130,7 +130,9 @@ class StabilityAdapter(TextCompletionAdapter):
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt)
-        response = await self.client.ainvoke_non_streaming(self.model, args)
+        response, _headers = await self.client.ainvoke_non_streaming(
+            self.model, args
+        )
 
         resp = StabilityResponse.parse_obj(response)
         consumer.append_content(resp.content())

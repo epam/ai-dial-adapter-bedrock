@@ -13,6 +13,6 @@ class AmazonResponse(BaseModel):
 async def call_embedding_model(
     client: Bedrock, model: str, request: dict
 ) -> Tuple[List[float], int]:
-    response_dict = await client.ainvoke_non_streaming(model, request)
+    response_dict, _headers = await client.ainvoke_non_streaming(model, request)
     response = AmazonResponse.parse_obj(response_dict)
     return response.embedding, response.inputTextTokenCount

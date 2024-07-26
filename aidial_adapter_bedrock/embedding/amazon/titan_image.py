@@ -23,7 +23,9 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
 )
-from aidial_adapter_bedrock.embedding.amazon.base import call_embedding_model
+from aidial_adapter_bedrock.embedding.amazon.response import (
+    call_embedding_model,
+)
 from aidial_adapter_bedrock.embedding.attachments import download_base64_data
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
@@ -134,7 +136,11 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         self, request: EmbeddingsRequest
     ) -> EmbeddingsResponse:
 
-        validate_embeddings_request(request, supports_dimensions=True)
+        validate_embeddings_request(
+            request,
+            supports_type=False,
+            supports_dimensions=True,
+        )
 
         vectors: List[List[float] | str] = []
         token_count = 0

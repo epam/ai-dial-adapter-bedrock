@@ -123,7 +123,9 @@ class AI21Adapter(PseudoChatModel):
         self, consumer: Consumer, params: ModelParameters, prompt: str
     ):
         args = create_request(prompt, convert_params(params))
-        response = await self.client.ainvoke_non_streaming(self.model, args)
+        response, _headers = await self.client.ainvoke_non_streaming(
+            self.model, args
+        )
 
         resp = AI21Response.parse_obj(response)
 

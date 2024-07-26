@@ -1,7 +1,7 @@
 import json
 from abc import ABC
 from logging import DEBUG
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 import boto3
 from botocore.eventstream import EventStream
@@ -38,7 +38,9 @@ class Bedrock:
             "contentType": "application/json",
         }
 
-    async def ainvoke_non_streaming(self, model: str, args: dict) -> dict:
+    async def ainvoke_non_streaming(
+        self, model: str, args: dict
+    ) -> Tuple[dict, Mapping[str, str]]:
 
         if log.isEnabledFor(DEBUG):
             log.debug(
@@ -54,10 +56,14 @@ class Bedrock:
         body: StreamingBody = response["body"]
         body_dict = json.loads(await make_async(lambda: body.read()))
 
+        response_headers = response.get("ResponseMetadata", {}).get(
+            "HTTPHeaders", {}
+        )
+
         if log.isEnabledFor(DEBUG):
             log.debug(f"response['body']: {json_dumps_short(body_dict)}")
 
-        return body_dict
+        return body_dict, response_headers
 
     async def ainvoke_streaming(
         self, model: str, args: dict

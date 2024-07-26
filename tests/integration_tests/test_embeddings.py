@@ -8,6 +8,7 @@ from openai.types import CreateEmbeddingResponse
 
 from aidial_adapter_bedrock.deployments import EmbeddingsDeployment
 from aidial_adapter_bedrock.llm.consumer import Attachment
+from aidial_adapter_bedrock.utils.json import remove_nones
 from tests.conftest import DEFAULT_API_VERSION, TEST_SERVER_URL
 from tests.utils.openai import sanitize_test_name
 
@@ -16,14 +17,15 @@ from tests.utils.openai import sanitize_test_name
 class ModelSpec:
     deployment: EmbeddingsDeployment
     default_dimensions: int
-    supports_dimensions: bool
+    supports_dimensions: bool = False
+    supports_type: bool = False
+    requires_type: bool = False
 
 
 specs: List[ModelSpec] = [
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1,
         default_dimensions=1536,
-        supports_dimensions=False,
     ),
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2,
@@ -34,6 +36,18 @@ specs: List[ModelSpec] = [
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1,
         default_dimensions=1024,
         supports_dimensions=True,
+    ),
+    ModelSpec(
+        deployment=EmbeddingsDeployment.COHERE_EMBED_ENGLISH_V3,
+        default_dimensions=1024,
+        supports_type=True,
+        requires_type=True,
+    ),
+    ModelSpec(
+        deployment=EmbeddingsDeployment.COHERE_EMBED_MULTILINGUAL_V3,
+        default_dimensions=1024,
+        supports_type=True,
+        requires_type=True,
     ),
 ]
 
@@ -50,7 +64,7 @@ class TestCase:
 
     def get_id(self):
         return sanitize_test_name(
-            f"{self.deployment.value} {self.extra_body} {self.input}"
+            f"{self.deployment.value} {remove_nones(self.extra_body)} {self.input}"
         )
 
 
@@ -97,10 +111,12 @@ def get_test_case(
         expected = Exception("Dimensions parameter is not supported")
     elif embedding_instr:
         expected = Exception("Instruction prompt is not supported")
-    elif embedding_type:
+    elif embedding_type and not spec.supports_type:
         expected = Exception(
             "The embedding model does not support embedding types"
         )
+    elif not embedding_type and spec.requires_type:
+        expected = Exception("Embedding type request parameter is required")
 
     return TestCase(
         deployment=spec.deployment,
@@ -171,7 +187,7 @@ def get_image_test_cases(
             ["dog", ["fish", "cat"]],
             [None, ["ball"]],
             ["base64", "float"],
-            [None, "embedding_type"],
+            [None, "search_document"],
             [None, "instruction"],
             [None, 256],
         )
