@@ -1,8 +1,9 @@
 """
-Amazing Titan Text Embeddings Adapter
+Text Embeddings Adapter for Cohere Embed model
 
-See official cookbook for usage instructions:
-https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/embeddings/v2/Titan-V2-Embeddings.ipynb
+See the documentation:
+https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-embed.html
+https://docs.cohere.com/reference/embed
 """
 
 from typing import AsyncIterator, List, Self
@@ -17,7 +18,7 @@ from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     collect_embedding_inputs_without_attachments,
 )
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
-from aidial_adapter_bedrock.embedding.amazon.response import (
+from aidial_adapter_bedrock.embedding.cohere.response import (
     call_embedding_model,
 )
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
@@ -31,8 +32,13 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
 
 
-def create_titan_request(input: str, dimensions: int | None) -> dict:
-    return remove_nones({"inputText": input, "dimensions": dimensions})
+def create_cohere_request(texts: List[str], input_type: str) -> dict:
+    return remove_nones(
+        {
+            "texts": texts,
+            "input_type": input_type,
+        }
+    )
 
 
 def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
@@ -51,18 +57,13 @@ def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
     )
 
 
-class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
+class CohereTextEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock
-    supports_dimensions: bool
 
     @classmethod
-    def create(
-        cls, client: Bedrock, model: str, supports_dimensions: bool
-    ) -> Self:
-        return cls(
-            client=client, model=model, supports_dimensions=supports_dimensions
-        )
+    def create(cls, client: Bedrock, model: str) -> Self:
+        return cls(client=client, model=model)
 
     async def embeddings(
         self, request: EmbeddingsRequest
@@ -70,31 +71,38 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
 
         validate_embeddings_request(
             request,
-            supports_type=False,
-            supports_dimensions=self.supports_dimensions,
+            supports_type=True,
+            supports_dimensions=False,
         )
 
-        vectors: List[List[float] | str] = []
-        token_count = 0
+        input_type: str | None = (
+            request.custom_fields and request.custom_fields.type
+        )
 
-        # NOTE: Amazon Titan doesn't support batched inputs
-        async for text_input in get_text_inputs(request):
-            sub_request = create_titan_request(text_input, request.dimensions)
-            embedding, tokens = await call_embedding_model(
-                self.client, self.model, sub_request
+        if input_type is None:
+            raise ValidationError(
+                "Embedding type request parameter is required"
             )
 
-            vector = (
+        text_inputs = [txt async for txt in get_text_inputs(request)]
+
+        embedding_request = create_cohere_request(text_inputs, input_type)
+
+        embeddings, tokens = await call_embedding_model(
+            self.client, self.model, embedding_request
+        )
+
+        vectors: List[List[float] | str] = [
+            (
                 vector_to_base64(embedding)
                 if request.encoding_format == "base64"
                 else embedding
             )
-
-            vectors.append(vector)
-            token_count += tokens
+            for embedding in embeddings
+        ]
 
         return make_embeddings_response(
             model=self.model,
             vectors=vectors,
-            usage=Usage(prompt_tokens=token_count, total_tokens=token_count),
+            usage=Usage(prompt_tokens=tokens, total_tokens=tokens),
         )

@@ -4,6 +4,8 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 ## Supported models
 
+### Chat completion models
+
 The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
@@ -30,6 +32,8 @@ The models that support `/truncate_prompt` do also support `max_prompt_tokens` r
 
 Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
 
+### Embedding models
+
 The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embeddings` endpoint:
 
 |Model|Deployment name|Modality|
@@ -37,6 +41,8 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 |Titan Multimodal Embeddings Generation 1 (G1)|amazon.titan-embed-image-v1|image/text-to-embedding|
 |Amazon Titan Text Embeddings V2|amazon.titan-embed-text-v2:0|text-to-embedding|
 |Titan Embeddings G1 – Text v1.2|amazon.titan-embed-text-v1|text-to-embedding|
+|Cohere Embed English|cohere.embed-english-v3|text-to-embedding|
+|Cohere Multilingual|cohere.embed-multilingual-v3|text-to-embedding|
 
 ## Developer environment
 

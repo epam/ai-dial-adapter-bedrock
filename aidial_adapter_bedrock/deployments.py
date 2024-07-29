@@ -50,6 +50,9 @@ class EmbeddingsDeployment(str, Enum):
     AMAZON_TITAN_EMBED_TEXT_V2 = "amazon.titan-embed-text-v2:0"
     AMAZON_TITAN_EMBED_IMAGE_V1 = "amazon.titan-embed-image-v1"
 
+    COHERE_EMBED_ENGLISH_V3 = "cohere.embed-english-v3"
+    COHERE_EMBED_MULTILINGUAL_V3 = "cohere.embed-multilingual-v3"
+
     @property
     def deployment_id(self) -> str:
         """Deployment id under which the model is served by the adapter."""
