@@ -16,6 +16,9 @@ from aidial_adapter_bedrock.utils.concurrency import (
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
+Body = dict
+Headers = Mapping[str, str]
+
 
 class Bedrock:
     client: Any
@@ -40,7 +43,7 @@ class Bedrock:
 
     async def ainvoke_non_streaming(
         self, model: str, args: dict
-    ) -> Tuple[dict, Mapping[str, str]]:
+    ) -> Tuple[Body, Headers]:
 
         if log.isEnabledFor(DEBUG):
             log.debug(

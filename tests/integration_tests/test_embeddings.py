@@ -17,35 +17,51 @@ from tests.utils.openai import sanitize_test_name
 class ModelSpec:
     deployment: EmbeddingsDeployment
     default_dimensions: int
-    supports_dimensions: bool = False
-    supports_type: bool = False
-    requires_type: bool = False
+    """Dimension of an embedding vector"""
+
+    supports_dimensions: bool
+    """Is dimensions request parameter supported?"""
+
+    supports_type: bool
+    """Is request parameter for embedding type supported?"""
+
+    requires_type: bool
+    """Is the request parameter for embedding type required?"""
 
 
 specs: List[ModelSpec] = [
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1,
         default_dimensions=1536,
+        supports_dimensions=False,
+        supports_type=False,
+        requires_type=False,
     ),
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2,
         default_dimensions=1024,
         supports_dimensions=True,
+        supports_type=False,
+        requires_type=False,
     ),
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1,
         default_dimensions=1024,
         supports_dimensions=True,
+        supports_type=False,
+        requires_type=False,
     ),
     ModelSpec(
         deployment=EmbeddingsDeployment.COHERE_EMBED_ENGLISH_V3,
         default_dimensions=1024,
+        supports_dimensions=False,
         supports_type=True,
         requires_type=True,
     ),
     ModelSpec(
         deployment=EmbeddingsDeployment.COHERE_EMBED_MULTILINGUAL_V3,
         default_dimensions=1024,
+        supports_dimensions=False,
         supports_type=True,
         requires_type=True,
     ),
