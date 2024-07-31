@@ -42,6 +42,13 @@ class AmazonRequest(BaseModel):
     inputText: str | None = None
     inputImage: str | None = None
 
+    def get_image_tokens(self) -> int:
+        # According to https://aws.amazon.com/bedrock/pricing/:
+        # Price per 1000 input (text) tokens = $0.0008
+        # Price per input image = $0.00006
+        # Therefore, cost of input image = $0.00006 / ($0.0008 / 1000) = 75 tokens
+        return 0 if self.inputImage is None else 75
+
 
 def create_titan_request(
     request: AmazonRequest, dimensions: int | None
@@ -146,11 +153,14 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         token_count = 0
 
         # NOTE: Amazon Titan doesn't support batched inputs
-        async for text_input in get_requests(request, self.storage):
-            sub_request = create_titan_request(text_input, request.dimensions)
-            embedding, tokens = await call_embedding_model(
-                self.client, self.model, sub_request
+        async for sub_request in get_requests(request, self.storage):
+            embedding, text_tokens = await call_embedding_model(
+                self.client,
+                self.model,
+                create_titan_request(sub_request, request.dimensions),
             )
+
+            image_tokens = sub_request.get_image_tokens()
 
             vector = (
                 vector_to_base64(embedding)
@@ -159,7 +169,7 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
             )
 
             vectors.append(vector)
-            token_count += tokens
+            token_count += text_tokens + image_tokens
 
         return make_embeddings_response(
             model=self.model,
