@@ -1,6 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Set, TypeVar
 
+from aidial_sdk.exceptions import HTTPException as DialException
+from aidial_sdk.exceptions import (
+    context_length_exceeded_error,
+    invalid_request_error,
+    truncate_prompt_error_system_and_last_user,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.list import select_by_indices
@@ -8,18 +14,21 @@ from aidial_adapter_bedrock.utils.list import select_by_indices
 
 class TruncatePromptError(ABC, BaseModel):
     @abstractmethod
-    def print(self) -> str:
+    def to_dial_exception(self) -> DialException:
         pass
+
+    def print(self) -> str:
+        return self.to_dial_exception().message
 
 
 class InconsistentLimitsError(TruncatePromptError):
     user_limit: int
     model_limit: int
 
-    def print(self) -> str:
-        return (
-            f"Maximum prompt tokens ({self.user_limit}) "
-            f"exceeds the model maximum prompt tokens ({self.model_limit})."
+    def to_dial_exception(self) -> DialException:
+        return invalid_request_error(
+            f"The request maximum prompt tokens is {self.user_limit}. "
+            f"However, the model's maximum context length is {self.model_limit} tokens."
         )
 
 
@@ -27,21 +36,17 @@ class ModelLimitOverflow(TruncatePromptError):
     model_limit: int
     token_count: int
 
-    def print(self) -> str:
-        return (
-            f"Token count of all messages ({self.token_count}) "
-            f"exceeds the model maximum prompt tokens ({self.model_limit})."
-        )
+    def to_dial_exception(self) -> DialException:
+        return context_length_exceeded_error(self.model_limit, self.token_count)
 
 
 class UserLimitOverflow(TruncatePromptError):
     user_limit: int
     token_count: int
 
-    def print(self) -> str:
-        return (
-            f"Token count of the last message and all system messages ({self.token_count}) "
-            f"exceeds the maximum prompt tokens ({self.user_limit})."
+    def to_dial_exception(self) -> DialException:
+        return truncate_prompt_error_system_and_last_user(
+            self.user_limit, self.token_count
         )
 
 

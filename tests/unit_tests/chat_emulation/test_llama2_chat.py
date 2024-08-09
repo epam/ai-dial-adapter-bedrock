@@ -132,8 +132,9 @@ turns_no_sys = turns_sys[1:]
         (
             turns_sys,
             1,
-            "Token count of the last message and all system messages (2) "
-            "exceeds the maximum prompt tokens (1).",
+            "The requested maximum prompt tokens is 1. "
+            "However, the system messages and the last user message resulted in 2 tokens. "
+            "Please reduce the length of the messages or increase the maximum prompt tokens.",
         ),
         (turns_sys, 2, {1, 2, 3, 4}),
         (turns_sys, 3, {1, 2, 3, 4}),

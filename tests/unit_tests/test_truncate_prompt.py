@@ -98,7 +98,7 @@ def test_prompt_is_too_big():
     assert (
         isinstance(truncation_error, TruncatePromptError)
         and truncation_error.print()
-        == "Token count of the last message and all system messages (3) exceeds the maximum prompt tokens (2)."
+        == "The requested maximum prompt tokens is 2. However, the system messages and the last user message resulted in 3 tokens. Please reduce the length of the messages or increase the maximum prompt tokens."
     )
 
 
@@ -114,7 +114,7 @@ def test_prompt_with_history_is_too_big():
     assert (
         isinstance(truncation_error, TruncatePromptError)
         and truncation_error.print()
-        == "Token count of the last message and all system messages (2) exceeds the maximum prompt tokens (1)."
+        == "The requested maximum prompt tokens is 1. However, the system messages and the last user message resulted in 2 tokens. Please reduce the length of the messages or increase the maximum prompt tokens."
     )
 
 
@@ -128,5 +128,5 @@ def test_inconsistent_limits():
     assert (
         isinstance(truncation_error, TruncatePromptError)
         and truncation_error.print()
-        == "Maximum prompt tokens (10) exceeds the model maximum prompt tokens (5)."
+        == "The request maximum prompt tokens is 10. However, the model's maximum context length is 5 tokens."
     )
