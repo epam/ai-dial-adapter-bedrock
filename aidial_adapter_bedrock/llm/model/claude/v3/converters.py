@@ -228,7 +228,8 @@ def to_dial_finish_reason(
 
 def to_claude_tool_config(function_call: Function) -> ToolParam:
     return ToolParam(
-        input_schema=function_call.parameters,
+        input_schema=function_call.parameters
+        or {"type": "object", "properties": {}},
         name=function_call.name,
         description=function_call.description or "",
     )

@@ -17,7 +17,9 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.28.57"
 botocore = "1.31.57"
-aidial-sdk = {version = "0.10.0", extras = ["telemetry"]}
+# FIXME: revert back once the fix is released
+# aidial-sdk = {version = "0.10.0", extras = ["telemetry"]}
+aidial-sdk = {git = "https://github.com/epam/ai-dial-sdk.git", "branch" = "feat/added-helpers-for-errors", extras = ["telemetry"]}
 anthropic = {version = "0.28.1", extras = ["bedrock"]}
 fastapi = "0.109.2"
 openai = "1.13.3"

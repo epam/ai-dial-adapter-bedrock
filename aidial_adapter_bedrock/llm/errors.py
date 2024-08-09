@@ -1,7 +1,8 @@
 from typing import Optional
 
-from aidial_sdk import HTTPException as DialException
 from aidial_sdk.chat_completion import Choice
+from aidial_sdk.exceptions import HTTPException as DialException
+from aidial_sdk.exceptions import request_validation_error
 
 
 class UserError(Exception):
@@ -32,13 +33,9 @@ class UserError(Exception):
                 stage.append_content(self.usage_message)
 
     def to_dial_exception(self) -> DialException:
-        return DialException(
-            status_code=422,
-            type="invalid_request_error",
+        return request_validation_error(
             message=self.error_message,
             display_message=self.error_message,
-            code="invalid_argument",
-            param=None,
         )
 
 
@@ -61,13 +58,7 @@ class ValidationError(Exception):
         super().__init__(self.message)
 
     def to_dial_exception(self) -> DialException:
-        return DialException(
-            status_code=422,
-            type="invalid_request_error",
-            message=self.message,
-            code="invalid_argument",
-            param=None,
-        )
+        return request_validation_error(message=self.message)
 
 
 # The third category of errors is everything else, including standard Python exceptions, like ValueError or KeyError.
