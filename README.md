@@ -17,6 +17,9 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
 |Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
