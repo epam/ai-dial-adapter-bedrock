@@ -270,7 +270,7 @@ def get_test_cases(
     )
 
     test_case(
-        name="max tokens 1",
+        name="pinocchio in one token",
         max_tokens=1,
         messages=[user("tell me the full story of Pinocchio")],
         expected=lambda s: len(s.content.split()) <= 1,
