@@ -18,6 +18,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 """
 
 import json
+from enum import Enum
 from functools import wraps
 
 from aidial_sdk import HTTPException as DialException
@@ -34,6 +35,21 @@ def get_exception_type(status_code: int) -> str:
     return "internal_server_error"
 
 
+class BedrockExceptionCode(Enum):
+    """
+    See https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html#API_runtime_InvokeModelWithResponseStream_ResponseSyntax
+    for the types of exceptions
+    """
+
+    THROTTLING = "throttlingException"
+    MODEL_TIMEOUT = "modelTimeoutException"
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value.lower() == other.lower()
+        return NotImplemented
+
+
 def _get_meta_status_code(response: dict) -> int | None:
     code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     if isinstance(code, int):
@@ -43,8 +59,15 @@ def _get_meta_status_code(response: dict) -> int | None:
 
 def _get_response_error_code(response: dict) -> int | None:
     code = response.get("Error", {}).get("Code")
-    if isinstance(code, str) and code.lower() == "throttlingException".lower():
-        return 429
+
+    if isinstance(code, str):
+        match code:
+            case BedrockExceptionCode.THROTTLING:
+                return 429
+            case BedrockExceptionCode.MODEL_TIMEOUT:
+                return 408
+            case _:
+                pass
     return None
 
 
