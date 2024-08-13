@@ -34,6 +34,20 @@ def get_exception_type(status_code: int) -> str:
     return "internal_server_error"
 
 
+def _get_meta_status_code(response: dict) -> int | None:
+    code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    if isinstance(code, int):
+        return code
+    return None
+
+
+def _get_response_error_code(response: dict) -> int | None:
+    code = response.get("Error", {}).get("Code")
+    if isinstance(code, str) and code.lower() == "throttlingException".lower():
+        return 429
+    return None
+
+
 def to_dial_exception(e: Exception) -> DialException:
     if (
         isinstance(e, ClientError)
@@ -46,19 +60,24 @@ def to_dial_exception(e: Exception) -> DialException:
         )
 
         status_code = (
-            response.get("ResponseMetadata", {}).get("HTTPStatusCode") or 500
+            _get_response_error_code(response)
+            or _get_meta_status_code(response)
+            or 500
         )
 
         return DialException(
             status_code=status_code,
+            code=str(status_code),
             type=get_exception_type(status_code),
             message=str(e),
         )
 
     if isinstance(e, APIStatusError):
+        status_code = e.status_code
         return DialException(
-            status_code=e.status_code,
-            type=get_exception_type(e.status_code),
+            status_code=status_code,
+            code=str(status_code),
+            type=get_exception_type(status_code),
             message=e.message,
         )
 
@@ -71,8 +90,10 @@ def to_dial_exception(e: Exception) -> DialException:
     if isinstance(e, DialException):
         return e
 
+    status_code = 500
     return DialException(
-        status_code=500,
+        status_code=status_code,
+        code=str(status_code),
         type="internal_server_error",
         message=str(e),
     )
