@@ -23,6 +23,9 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1, True, True),
+    (ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1, True, True),
     (ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14, True, True),
     (ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14, True, True),
 ]

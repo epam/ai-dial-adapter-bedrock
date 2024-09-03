@@ -77,6 +77,9 @@ async def get_bedrock_adapter(
         case (
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
         ):
             return MetaAdapter.create(
                 await Bedrock.acreate(region), model, llama3_config

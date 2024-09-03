@@ -18,6 +18,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 """
 
 import json
+from enum import Enum
 from functools import wraps
 
 from aidial_sdk.exceptions import HTTPException as DialException
@@ -37,6 +38,42 @@ def create_error(status_code: int, message: str) -> DialException:
     )
 
 
+class BedrockExceptionCode(Enum):
+    """
+    See https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html#API_runtime_InvokeModelWithResponseStream_ResponseSyntax
+    for the types of exceptions
+    """
+
+    THROTTLING = "throttlingException"
+    MODEL_TIMEOUT = "modelTimeoutException"
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value.lower() == other.lower()
+        return NotImplemented
+
+
+def _get_meta_status_code(response: dict) -> int | None:
+    code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    if isinstance(code, int):
+        return code
+    return None
+
+
+def _get_response_error_code(response: dict) -> int | None:
+    code = response.get("Error", {}).get("Code")
+
+    if isinstance(code, str):
+        match code:
+            case BedrockExceptionCode.THROTTLING:
+                return 429
+            case BedrockExceptionCode.MODEL_TIMEOUT:
+                return 408
+            case _:
+                pass
+    return None
+
+
 def to_dial_exception(e: Exception) -> DialException:
     if (
         isinstance(e, ClientError)
@@ -49,7 +86,9 @@ def to_dial_exception(e: Exception) -> DialException:
         )
 
         status_code = (
-            response.get("ResponseMetadata", {}).get("HTTPStatusCode") or 500
+            _get_response_error_code(response)
+            or _get_meta_status_code(response)
+            or 500
         )
 
         return create_error(status_code, str(e))
@@ -66,9 +105,7 @@ def to_dial_exception(e: Exception) -> DialException:
     if isinstance(e, DialException):
         return e
 
-    return internal_server_error(
-        str(e),
-    )
+    return internal_server_error(str(e))
 
 
 def dial_exception_decorator(func):

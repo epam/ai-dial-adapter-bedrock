@@ -118,6 +118,9 @@ chat_deployments = [
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+    ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
 ]
 
@@ -267,7 +270,7 @@ def get_test_cases(
     )
 
     test_case(
-        name="max tokens 1",
+        name="pinocchio in one token",
         max_tokens=1,
         messages=[user("tell me the full story of Pinocchio")],
         expected=lambda s: len(s.content.split()) <= 1,
