@@ -22,7 +22,7 @@ from enum import Enum
 from functools import wraps
 
 from aidial_sdk.exceptions import HTTPException as DialException
-from aidial_sdk.exceptions import internal_server_error, invalid_request_error
+from aidial_sdk.exceptions import InternalServerError, InvalidRequestError
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
@@ -32,9 +32,9 @@ from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 def create_error(status_code: int, message: str) -> DialException:
     return (
-        invalid_request_error(message)
+        InvalidRequestError(message)
         if status_code < 500
-        else internal_server_error(message)
+        else InternalServerError(message)
     )
 
 
@@ -105,7 +105,7 @@ def to_dial_exception(e: Exception) -> DialException:
     if isinstance(e, DialException):
         return e
 
-    return internal_server_error(str(e))
+    return InternalServerError(str(e))
 
 
 def dial_exception_decorator(func):

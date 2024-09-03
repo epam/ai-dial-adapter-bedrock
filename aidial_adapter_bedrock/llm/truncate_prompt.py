@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Set, TypeVar
 
+from aidial_sdk.exceptions import ContextLengthExceededError
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
-    context_length_exceeded_error,
-    invalid_request_error,
-    truncate_prompt_error_system_and_last_user,
+    InvalidRequestError,
+    TruncatePromptSystemAndLastUserError,
 )
 from pydantic import BaseModel
 
@@ -26,7 +26,7 @@ class InconsistentLimitsError(TruncatePromptError):
     model_limit: int
 
     def to_dial_exception(self) -> DialException:
-        return invalid_request_error(
+        return InvalidRequestError(
             f"The request maximum prompt tokens is {self.user_limit}. "
             f"However, the model's maximum context length is {self.model_limit} tokens."
         )
@@ -37,7 +37,7 @@ class ModelLimitOverflow(TruncatePromptError):
     token_count: int
 
     def to_dial_exception(self) -> DialException:
-        return context_length_exceeded_error(self.model_limit, self.token_count)
+        return ContextLengthExceededError(self.model_limit, self.token_count)
 
 
 class UserLimitOverflow(TruncatePromptError):
@@ -45,7 +45,7 @@ class UserLimitOverflow(TruncatePromptError):
     token_count: int
 
     def to_dial_exception(self) -> DialException:
-        return truncate_prompt_error_system_and_last_user(
+        return TruncatePromptSystemAndLastUserError(
             self.user_limit, self.token_count
         )
 
