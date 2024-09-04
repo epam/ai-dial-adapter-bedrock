@@ -1,5 +1,6 @@
 from typing import assert_never
 
+from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
@@ -34,7 +35,9 @@ from aidial_adapter_bedrock.llm.model.stability import StabilityAdapter
 
 
 async def get_bedrock_adapter(
-    deployment: ChatCompletionDeployment, region: str, api_key: str
+    deployment: ChatCompletionDeployment,
+    api_key: str,
+    aws_client_config: AWSClientConfig,
 ) -> ChatCompletionAdapter:
     model = deployment.model_id
     match deployment:
@@ -44,35 +47,39 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
         ):
-            return Claude_V3.create(model, region, api_key)
+            return Claude_V3.create(model, api_key, aws_client_config)
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1
         ):
             return await Claude_V1_V2.create(
-                await Bedrock.acreate(region), model
+                await Bedrock.acreate(aws_client_config), model
             )
         case (
             ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
         ):
-            return AI21Adapter.create(await Bedrock.acreate(region), model)
+            return AI21Adapter.create(
+                await Bedrock.acreate(aws_client_config), model
+            )
         case (
             ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
             return StabilityAdapter.create(
-                await Bedrock.acreate(region), model, api_key
+                await Bedrock.acreate(aws_client_config), model, api_key
             )
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
-            return AmazonAdapter.create(await Bedrock.acreate(region), model)
+            return AmazonAdapter.create(
+                await Bedrock.acreate(aws_client_config), model
+            )
         case (
             ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1
             | ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1
         ):
             return MetaAdapter.create(
-                await Bedrock.acreate(region), model, llama2_config
+                await Bedrock.acreate(aws_client_config), model, llama2_config
             )
         case (
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
@@ -82,22 +89,28 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
         ):
             return MetaAdapter.create(
-                await Bedrock.acreate(region), model, llama3_config
+                await Bedrock.acreate(aws_client_config),
+                model,
+                llama3_config,
             )
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
             | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
         ):
-            return CohereAdapter.create(await Bedrock.acreate(region), model)
+            return CohereAdapter.create(
+                await Bedrock.acreate(aws_client_config), model
+            )
         case _:
             assert_never(deployment)
 
 
 async def get_embeddings_model(
-    deployment: EmbeddingsDeployment, region: str, api_key: str
+    deployment: EmbeddingsDeployment,
+    api_key: str,
+    aws_client_config: AWSClientConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.model_id
-    client = await Bedrock.acreate(region)
+    client = await Bedrock.acreate(aws_client_config)
     match deployment:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(
