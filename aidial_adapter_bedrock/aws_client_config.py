@@ -48,7 +48,7 @@ class AWSClientConfig(BaseModel):
 
 
 class AWSClientConfigFactory:
-    RAW_UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
+    UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
     BEDROCK_ACCESS_SESSION_NAME = "BedrockAccessSession"
 
     def __init__(self, request):
@@ -67,7 +67,7 @@ class AWSClientConfigFactory:
 
     def _get_upstream_config_from_request(self, request: Request) -> dict:
         raw_upstream_config = request.headers.get(
-            self.RAW_UPSTREAM_CONFIG_HEADER_NAME
+            self.UPSTREAM_CONFIG_HEADER_NAME
         )
         return json.loads(raw_upstream_config) if raw_upstream_config else {}
 
@@ -91,12 +91,10 @@ class AWSClientConfigFactory:
             RoleSessionName=self.BEDROCK_ACCESS_SESSION_NAME,
         )
 
+        assumed_role_credentials = assumed_role_object["Credentials"]
+
         return AWSClientCredentials(
-            aws_access_key_id=assumed_role_object["Credentials"]["AccessKeyId"],
-            aws_secret_access_key=assumed_role_object["Credentials"][
-                "SecretAccessKey"
-            ],
-            aws_session_token=assumed_role_object["Credentials"][
-                "SessionToken"
-            ],
+            aws_access_key_id=assumed_role_credentials["AccessKeyId"],
+            aws_secret_access_key=assumed_role_credentials["SecretAccessKey"],
+            aws_session_token=assumed_role_credentials["SessionToken"],
         )
