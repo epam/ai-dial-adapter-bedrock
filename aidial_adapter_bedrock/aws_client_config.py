@@ -48,7 +48,7 @@ class AWSClientConfig(BaseModel):
 
 
 class AWSClientConfigFactory:
-    RAW_UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-endpoint"
+    RAW_UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
     BEDROCK_ACCESS_SESSION_NAME = "BedrockAccessSession"
 
     def __init__(self, request):
