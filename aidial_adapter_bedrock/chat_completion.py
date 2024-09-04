@@ -1,7 +1,6 @@
 import asyncio
 from typing import List, Optional, assert_never
 
-from aidial_sdk import HTTPException as DialException
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
@@ -21,6 +20,7 @@ from aidial_sdk.deployment.truncate_prompt import (
     TruncatePromptResult,
     TruncatePromptSuccess,
 )
+from aidial_sdk.exceptions import ResourceNotFoundError
 from typing_extensions import override
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
@@ -103,7 +103,7 @@ class BedrockChatCompletion(ChatCompletion):
         if not is_implemented(
             model.count_completion_tokens
         ) or not is_implemented(model.count_prompt_tokens):
-            raise DialException(status_code=404, message="Not found")
+            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TokenizeOutput] = []
         for input in request.inputs:
@@ -150,7 +150,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await self._get_model(request)
 
         if not is_implemented(model.truncate_prompt):
-            raise DialException(status_code=404, message="Not found")
+            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TruncatePromptResult] = []
         for input in request.inputs:

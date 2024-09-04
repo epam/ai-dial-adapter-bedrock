@@ -2,19 +2,19 @@
 
 [[package]]
 name = "aidial-sdk"
-version = "0.10.0"
+version = "0.13.0"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "aidial_sdk-0.10.0-py3-none-any.whl", hash = "sha256:230c3a97cbb54997a98e99175df8e43f5f201397dc9bd242e92fa5e5db93b634"},
-    {file = "aidial_sdk-0.10.0.tar.gz", hash = "sha256:5187e713ad2a6ceded47abb9709af09c0f9312ba1cd595bf69717f20457051a7"},
+    {file = "aidial_sdk-0.13.0-py3-none-any.whl", hash = "sha256:35784f12367e43f4540d67bab7b18315832e313517e02e969068d7ff2de3d69e"},
+    {file = "aidial_sdk-0.13.0.tar.gz", hash = "sha256:c895c22d95d1c1954e170ebda3f5010e80cd47ed8b7225d375d1da01f67962e5"},
 ]
 
 [package.dependencies]
 aiohttp = ">=3.8.3,<4.0.0"
 fastapi = ">=0.51,<1.0"
-httpx = ">=0.25.0,<0.26.0"
+httpx = ">=0.25.0,<1.0"
 opentelemetry-api = {version = "1.20.0", optional = true, markers = "extra == \"telemetry\""}
 opentelemetry-distro = {version = "0.41b0", optional = true, markers = "extra == \"telemetry\""}
 opentelemetry-exporter-otlp-proto-grpc = {version = "1.20.0", optional = true, markers = "extra == \"telemetry\""}
@@ -1912,7 +1912,6 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
-    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -2423,4 +2422,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "c70d81819bb7632fa61bdee525b29cebd1a20044602803202b1c175111609990"
+content-hash = "02cfc904b89c05388fa3bb4a9e7aaefa38fb4b3796962d443d9c484b136dac26"

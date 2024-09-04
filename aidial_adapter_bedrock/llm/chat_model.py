@@ -173,7 +173,7 @@ class PseudoChatModel(TextCompletionAdapter):
         )
 
         if isinstance(truncate_result, TruncatePromptError):
-            raise ValidationError(truncate_result.print())
+            raise truncate_result.to_dial_exception()
 
         discarded_messages: set[int] = truncate_result
 

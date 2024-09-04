@@ -21,7 +21,8 @@ import json
 from enum import Enum
 from functools import wraps
 
-from aidial_sdk import HTTPException as DialException
+from aidial_sdk.exceptions import HTTPException as DialException
+from aidial_sdk.exceptions import InternalServerError, InvalidRequestError
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
@@ -29,10 +30,12 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
-def get_exception_type(status_code: int) -> str:
-    if status_code < 500:
-        return "invalid_request_error"
-    return "internal_server_error"
+def create_error(status_code: int, message: str) -> DialException:
+    return (
+        InvalidRequestError(message)
+        if status_code < 500
+        else InternalServerError(message)
+    )
 
 
 class BedrockExceptionCode(Enum):
@@ -88,21 +91,10 @@ def to_dial_exception(e: Exception) -> DialException:
             or 500
         )
 
-        return DialException(
-            status_code=status_code,
-            code=str(status_code),
-            type=get_exception_type(status_code),
-            message=str(e),
-        )
+        return create_error(status_code, str(e))
 
     if isinstance(e, APIStatusError):
-        status_code = e.status_code
-        return DialException(
-            status_code=status_code,
-            code=str(status_code),
-            type=get_exception_type(status_code),
-            message=e.message,
-        )
+        return create_error(e.status_code, e.message)
 
     if isinstance(e, ValidationError):
         return e.to_dial_exception()
@@ -113,13 +105,7 @@ def to_dial_exception(e: Exception) -> DialException:
     if isinstance(e, DialException):
         return e
 
-    status_code = 500
-    return DialException(
-        status_code=status_code,
-        code=str(status_code),
-        type="internal_server_error",
-        message=str(e),
-    )
+    return InternalServerError(str(e))
 
 
 def dial_exception_decorator(func):

@@ -111,6 +111,8 @@ class AmazonAdapter(PseudoChatModel):
             client=client,
             model=model,
             tokenize_string=default_tokenize_string,
+            # TODO: To use conversational mode on Titan, you can use the format of User: {{}} \n Bot: when prompting the model.
+            # See the note at the end of: https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-a-prompt.html
             chat_emulator=default_emulator,
             tools_emulator=default_tools_emulator,
             partitioner=default_partitioner,
