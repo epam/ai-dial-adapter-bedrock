@@ -1,5 +1,3 @@
-import json
-
 import boto3
 from aidial_sdk.embeddings import Request
 from pydantic import BaseModel
@@ -42,47 +40,52 @@ class AWSClientConfig(BaseModel):
         return client_kwargs
 
 
+class UpstreamConfig(BaseModel):
+    region: str = get_aws_default_region()
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_assume_role_arn: str | None = None
+
+
 class AWSClientConfigFactory:
     UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
     BEDROCK_ACCESS_SESSION_NAME = "BedrockAccessSession"
 
     def __init__(self, request):
-        upstream_config = self._get_upstream_config_from_request(request)
-
-        self._region = upstream_config.get("region", get_aws_default_region())
-        self._access_key_id = upstream_config.get("aws_access_key_id")
-        self._secret_access_key = upstream_config.get("aws_secret_access_key")
-        self._assumed_role_arn = upstream_config.get("aws_assume_role_arn")
+        self.upstream_config = self._get_upstream_config(request)
 
     async def get_client_config(self) -> AWSClientConfig:
         return AWSClientConfig(
-            region=self._region,
+            region=self.upstream_config.region,
             credentials=await self._get_client_credentials(),
         )
 
-    def _get_upstream_config_from_request(self, request: Request) -> dict:
-        raw_upstream_config = request.headers.get(
-            self.UPSTREAM_CONFIG_HEADER_NAME
-        )
-        return json.loads(raw_upstream_config) if raw_upstream_config else {}
+    def _get_upstream_config(self, request: Request) -> UpstreamConfig:
+        conf = request.headers.get(self.UPSTREAM_CONFIG_HEADER_NAME)
+        return UpstreamConfig.parse_raw(conf) if conf else UpstreamConfig()
 
     async def _get_client_credentials(self) -> AWSClientCredentials | None:
-        if self._access_key_id and self._secret_access_key:
+        key_id = self.upstream_config.aws_access_key_id
+        secret_access_key = self.upstream_config.aws_secret_access_key
+
+        if key_id and secret_access_key:
             return AWSClientCredentials(
-                aws_access_key_id=self._access_key_id,
-                aws_secret_access_key=self._secret_access_key,
+                aws_access_key_id=key_id,
+                aws_secret_access_key=secret_access_key,
             )
 
-        if self._assumed_role_arn:
+        if self.upstream_config.aws_assume_role_arn:
             return await self._get_assumed_role_tmp_credentials()
 
     async def _get_assumed_role_tmp_credentials(self) -> AWSClientCredentials:
         sts_client = await make_async(
-            lambda: boto3.Session().client("sts", region_name=self._region)
+            lambda: boto3.Session().client(
+                "sts", region_name=self.upstream_config.region
+            )
         )
 
         assumed_role_object = sts_client.assume_role(
-            RoleArn=self._assumed_role_arn,
+            RoleArn=self.upstream_config.aws_assume_role_arn,
             RoleSessionName=self.BEDROCK_ACCESS_SESSION_NAME,
         )
 
