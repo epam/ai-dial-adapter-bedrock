@@ -23,6 +23,7 @@ from aidial_sdk.deployment.truncate_prompt import (
 from aidial_sdk.exceptions import ResourceNotFoundError
 from typing_extensions import override
 
+from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -39,21 +40,21 @@ from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 
 
 class BedrockChatCompletion(ChatCompletion):
-    region: str
-
-    def __init__(self, region: str):
-        self.region = region
-
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
         deployment = ChatCompletionDeployment.from_deployment_id(
             request.deployment_id
         )
+
+        aws_client_config = await AWSClientConfigFactory(
+            request=request,
+        ).get_client_config()
+
         return await get_bedrock_adapter(
-            region=self.region,
             deployment=deployment,
             api_key=request.api_key,
+            aws_client_config=aws_client_config,
         )
 
     @dial_exception_decorator
