@@ -98,6 +98,43 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |TEST_SERVER_URL|http://0.0.0.0:5001|Server URL used in the integration tests|
 
+## Load balancing
+
+If you use DIAL Core load balancing mechanism, you can provide `extraData` upstream setting with different aws account credentials/regions to use different model deployments:
+
+```json
+{
+  "upstreams": [
+    {
+      "extraData": {
+        "region": "eu-west-1",
+        "aws_access_key_id": "key_id_1",
+        "aws_secret_access_key": "access_key_1"
+      }
+    },
+    {
+      "extraData": {
+        "region": "eu-west-1",
+        "aws_access_key_id": "key_id_2",
+        "aws_secret_access_key": "access_key_2"
+      }
+    },
+    {
+      "extraData": {
+        "region": "eu-west-1",
+        "aws_assume_role_arn": "arn:aws:iam::123456789012:role/BedrockAccessAdapterRoleName"
+      }
+    }
+  ]
+}
+```
+
+Supported `extraData` fields:
+- `region`
+- `aws_access_key_id`
+- `aws_secret_access_key`
+- `aws_assume_role_arn`
+
 ### Docker
 
 Run the server in Docker:
