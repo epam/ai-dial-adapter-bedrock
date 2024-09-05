@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
+from aidial_adapter_bedrock.utils.json import remove_nones
 
 
 class AWSClientCredentials(BaseModel):
@@ -28,22 +29,16 @@ class AWSClientConfig(BaseModel):
 
     def get_anthropic_bedrock_client_kwargs(self) -> dict:
         client_kwargs = {"aws_region": self.region}
+
         if self.credentials:
-            if self.credentials.aws_access_key_id:
-                client_kwargs.update(
-                    {"aws_access_key": self.credentials.aws_access_key_id}
-                )
-
-            if self.credentials.aws_secret_access_key:
-                client_kwargs.update(
-                    {"aws_secret_key": self.credentials.aws_secret_access_key}
-                )
-
-            if self.credentials.aws_session_token:
-                client_kwargs.update(
-                    {"aws_session_token": self.credentials.aws_session_token}
-                )
-
+            credentials = remove_nones(
+                {
+                    "aws_access_key": self.credentials.aws_access_key_id,
+                    "aws_secret_key": self.credentials.aws_secret_access_key,
+                    "aws_session_token": self.credentials.aws_session_token,
+                }
+            )
+            client_kwargs.update(credentials)
         return client_kwargs
 
 
