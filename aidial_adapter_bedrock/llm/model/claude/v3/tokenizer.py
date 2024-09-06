@@ -28,8 +28,9 @@ https://docs.anthropic.com/en/docs/build-with-claude/tool-use#pricing
 import base64
 import io
 import json
-from typing import List, Tuple, Union, assert_never
+from typing import List, Literal, Tuple, Union, assert_never
 
+from anthropic import NotGiven
 from anthropic._tokenizers import async_get_tokenizer
 from anthropic._types import Base64FileInput
 from anthropic.types import (
@@ -37,14 +38,17 @@ from anthropic.types import (
     ImageBlockParam,
     MessageParam,
     TextBlockParam,
+    ToolParam,
     ToolResultBlockParam,
     ToolUseBlockParam,
 )
 from anthropic.types.image_block_param import Source
+from anthropic.types.message_create_params import ToolChoice
 from anthropic.types.text_block import TextBlock
 from anthropic.types.tool_use_block import ToolUseBlock
 from PIL import Image
 
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _TEXT_OVERESTIMATION_FACTOR = 1.2
@@ -139,8 +143,51 @@ async def _tokenize_message(message: MessageParam) -> int:
     return tokens
 
 
-async def tokenize(messages: List[MessageParam]) -> int:
+async def _tokenize_messages(messages: List[MessageParam]) -> int:
     tokens: int = 0
     for message in messages:
         tokens += await _tokenize_message(message) + _PER_MESSAGE_TOKENS
+    return tokens
+
+
+async def _tokenize_tool_param(tool: ToolParam) -> int:
+    return await _tokenize_text(json.dumps(tool))
+
+
+def _tokenize_tool_system_message(
+    deployment_id: str,
+    tool_choice: Literal["auto", "any", "tool"],
+) -> int:
+    match deployment_id:
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
+            return 294 if tool_choice == "auto" else 261
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
+            return 530 if tool_choice == "auto" else 281
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET:
+            return 159 if tool_choice == "auto" else 235
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU:
+            return 264 if tool_choice == "auto" else 340
+        case _:
+            raise RuntimeError(
+                f"Expected Claude 3 model, but got: {deployment_id}"
+            )
+
+
+async def tokenize(
+    deployment_id: str,
+    tools: List[ToolParam] | NotGiven,
+    tool_choice: ToolChoice | NotGiven,
+    messages: List[MessageParam],
+) -> int:
+    tokens: int = 0
+
+    if tools:
+        tokens += _tokenize_tool_system_message(
+            deployment_id, "auto" if not tool_choice else tool_choice["type"]
+        )
+        for tool in tools:
+            tokens += await _tokenize_tool_param(tool)
+
+    tokens += await _tokenize_messages(messages)
+
     return tokens

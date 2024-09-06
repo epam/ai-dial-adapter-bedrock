@@ -21,6 +21,7 @@ from anthropic.types import (
     ToolParam,
     ToolUseBlock,
 )
+from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -69,6 +70,7 @@ class ChatParams(TypedDict):
     temperature: Union[float, NotGiven]
     top_p: Union[float, NotGiven]
     tools: Union[List[ToolParam], NotGiven]
+    tool_choice: Union[ToolChoice, NotGiven]
 
 
 class Adapter(ChatCompletionAdapter):
@@ -119,6 +121,7 @@ class Adapter(ChatCompletionAdapter):
             ),
             top_p=params.top_p or NOT_GIVEN,
             tools=tools,
+            tool_choice=NOT_GIVEN,
         )
 
         if params.stream:
