@@ -38,6 +38,10 @@ def create_error(status_code: int, message: str) -> DialException:
     )
 
 
+def content_filter_error(message: str) -> DialException:
+    return InvalidRequestError(message=message, code="content_filter")
+
+
 class BedrockExceptionCode(Enum):
     """
     See https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html#API_runtime_InvokeModelWithResponseStream_ResponseSyntax
@@ -84,6 +88,11 @@ def to_dial_exception(e: Exception) -> DialException:
         log.debug(
             f"botocore.exceptions.ClientError.response: {json.dumps(response)}"
         )
+
+        if (
+            message := response.get("message")
+        ) and "One or more prompts contains filtered words" in message:
+            return content_filter_error(message)
 
         status_code = (
             _get_response_error_code(response)
