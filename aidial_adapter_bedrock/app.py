@@ -40,11 +40,11 @@ async def models():
 for deployment in ChatCompletionDeployment:
     app.add_chat_completion(
         deployment.deployment_id,
-        BedrockChatCompletion(region=AWS_DEFAULT_REGION),
+        BedrockChatCompletion(),
     )
 
 for deployment in EmbeddingsDeployment:
     app.add_embeddings(
         deployment.deployment_id,
-        BedrockEmbeddings(region=AWS_DEFAULT_REGION),
+        BedrockEmbeddings(),
     )

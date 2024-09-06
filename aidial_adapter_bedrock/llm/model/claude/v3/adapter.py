@@ -22,6 +22,7 @@ from anthropic.types import (
     ToolUseBlock,
 )
 
+from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -220,10 +221,13 @@ class Adapter(ChatCompletionAdapter):
         )
 
     @classmethod
-    def create(cls, model: str, region: str, api_key: str):
+    def create(
+        cls, model: str, api_key: str, aws_client_config: AWSClientConfig
+    ):
         storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
+        client_kwargs = aws_client_config.get_anthropic_bedrock_client_kwargs()
         return cls(
             model=model,
             storage=storage,
-            client=AsyncAnthropicBedrock(aws_region=region),
+            client=AsyncAnthropicBedrock(**client_kwargs),
         )

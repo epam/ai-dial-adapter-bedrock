@@ -8,6 +8,7 @@ from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
+from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
@@ -27,9 +28,11 @@ class Bedrock:
         self.client = client
 
     @classmethod
-    async def acreate(cls, region: str) -> "Bedrock":
+    async def acreate(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
+        client_kwargs = aws_client_config.get_boto_client_kwargs()
+        client_kwargs["service_name"] = "bedrock-runtime"
         client = await make_async(
-            lambda: boto3.Session().client("bedrock-runtime", region)
+            lambda: boto3.Session().client(**client_kwargs)
         )
         return cls(client)
 
