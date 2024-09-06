@@ -99,14 +99,14 @@ class Adapter(ChatCompletionAdapter):
             for m in messages
         ]
 
-        prompt, claude_messages = await to_claude_messages(
+        system_prompt, claude_messages = await to_claude_messages(
             parsed_messages, self.storage
         )
 
         completion_params = ChatParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=params.stop,
-            system=prompt or NOT_GIVEN,
+            system=system_prompt or NOT_GIVEN,
             temperature=(
                 NOT_GIVEN
                 if params.temperature is None

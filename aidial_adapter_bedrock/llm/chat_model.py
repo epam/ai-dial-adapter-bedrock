@@ -143,7 +143,6 @@ def default_partitioner(messages: List[BaseMessage]) -> List[int]:
 class PseudoChatModel(TextCompletionAdapter):
     chat_emulator: ChatEmulator
     tokenize_string: Callable[[str], int]
-    chat_emulator: ChatEmulator
     partitioner: Callable[[List[BaseMessage]], List[int]]
 
     async def count_prompt_tokens(
