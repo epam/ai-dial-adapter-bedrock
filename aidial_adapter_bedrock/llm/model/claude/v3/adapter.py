@@ -185,7 +185,7 @@ class Adapter(ChatCompletionAdapter):
         )
 
     async def count_completion_tokens(self, string: str) -> int:
-        return await tokenize_text(string)
+        return tokenize_text(string)
 
     async def truncate_prompt(
         self, params: DialParameters, messages: List[DialMessage]

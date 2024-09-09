@@ -1,8 +1,8 @@
 """
 An attempt to approximate the tokenizer for Claude V3.
 
-This tokenizer doesn't provide the precise token count, because Anthropic
-doesn't provide the exact tokenization algorithm.
+This tokenizer doesn't provide the precise token count,
+because Anthropic doesn't provide the exact tokenization algorithm.
 
 This tokenizer provides an *overestimation* of the request token count.
 We need to be conservative, since the tokenizer is used in the prompt
@@ -10,9 +10,9 @@ truncation algorithm. So we are choosing to be unable to pack the request with t
 as tightly as possible over making an additional chat completion request,
 which is going to fail with a token overflow error.
 
-1. For the text parts of request we use official Claude 2 tokenizer
-with an overhead of 20%, since it's explicitly declared that for Claude 3
-it only could be used as a very rough estimate:
+1. For the text parts of request we count every byte in their UTF-8 encoding.
+Note that the official Claude 2 tokenizer couldn't be used
+for anything more than a very rough estimate:
 https://github.com/anthropics/anthropic-sdk-python/blob/246a2978694b584429d4bbd5b44245ff8eac2ac2/src/anthropic/_client.py#L270-L283
 
 2. For the image parts we use the official approximation:
@@ -38,7 +38,6 @@ from typing import (
     assert_never,
 )
 
-from anthropic._tokenizers import async_get_tokenizer
 from anthropic._types import Base64FileInput
 from anthropic.types import (
     ContentBlock,
@@ -59,18 +58,12 @@ from aidial_adapter_bedrock.deployments import (
     Claude3Deployment,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_TEXT_OVERESTIMATION_FACTOR = 1.2
 
-# Rough estimation
-_PER_MESSAGE_TOKENS = 5
-
-
-async def tokenize_text(content: str) -> int:
-    tokenizer = await async_get_tokenizer()
-    tokens = len(tokenizer.encode(content).ids)
-    return int(tokens * _TEXT_OVERESTIMATION_FACTOR)
+def tokenize_text(text: str) -> int:
+    return default_tokenize_string(text)
 
 
 def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
@@ -91,12 +84,12 @@ async def _tokenize_image(source: Source) -> int:
     return int((width * height) / 750.0)
 
 
-async def _tokenize_tool_use(id: str, input: object, name: str) -> int:
-    return await tokenize_text(f"{id} {name} {json.dumps(input)}")
+def _tokenize_tool_use(id: str, input: object, name: str) -> int:
+    return tokenize_text(f"{id} {name} {json.dumps(input)}")
 
 
 async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
-    tokens: int = await tokenize_text(message["tool_use_id"])
+    tokens: int = tokenize_text(message["tool_use_id"])
     if "content" in message:
         for sub_message in message["content"]:
             tokens += await _tokenize_sub_message(sub_message)
@@ -115,11 +108,11 @@ async def _tokenize_sub_message(
     if isinstance(message, dict):
         match message["type"]:
             case "text":
-                return await tokenize_text(message["text"])
+                return tokenize_text(message["text"])
             case "image":
                 return await _tokenize_image(message["source"])
             case "tool_use":
-                return await _tokenize_tool_use(
+                return _tokenize_tool_use(
                     message["id"], message["input"], message["name"]
                 )
             case "tool_result":
@@ -129,9 +122,9 @@ async def _tokenize_sub_message(
     else:
         match message:
             case TextBlock():
-                return await tokenize_text(message.text)
+                return tokenize_text(message.text)
             case ToolUseBlock():
-                return await _tokenize_tool_use(
+                return _tokenize_tool_use(
                     message.id, message.input, message.name
                 )
             case _:
@@ -145,7 +138,7 @@ async def _tokenize_message(message: MessageParam) -> int:
 
     match content:
         case str():
-            tokens += await tokenize_text(content)
+            tokens += tokenize_text(content)
         case _:
             for item in content:
                 tokens += await _tokenize_sub_message(item)
@@ -154,14 +147,17 @@ async def _tokenize_message(message: MessageParam) -> int:
 
 
 async def _tokenize_messages(messages: List[MessageParam]) -> int:
+    # A rough estimation
+    per_message_tokens = 5
+
     tokens: int = 0
     for message in messages:
-        tokens += await _tokenize_message(message) + _PER_MESSAGE_TOKENS
+        tokens += await _tokenize_message(message) + per_message_tokens
     return tokens
 
 
-async def _tokenize_tool_param(tool: ToolParam) -> int:
-    return await tokenize_text(json.dumps(tool))
+def _tokenize_tool_param(tool: ToolParam) -> int:
+    return tokenize_text(json.dumps(tool))
 
 
 def _tokenize_tool_system_message(
@@ -190,7 +186,7 @@ async def _tokenize(
 
     if tools := params["tools"]:
         if system := params["system"]:
-            tokens += await tokenize_text(system)
+            tokens += tokenize_text(system)
 
         if tool_choice := params["tool_choice"]:
             choice = tool_choice["type"]
@@ -200,7 +196,7 @@ async def _tokenize(
         tokens += _tokenize_tool_system_message(deployment, choice)
 
         for tool in tools:
-            tokens += await _tokenize_tool_param(tool)
+            tokens += _tokenize_tool_param(tool)
 
     tokens += await _tokenize_messages(messages)
 

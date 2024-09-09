@@ -34,7 +34,7 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 The models that support `/truncate_prompt` do also support `max_prompt_tokens` request parameter.
 
 > [!IMPORTANT]
-> Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. In general, it conservatively counts every byte in UTF-8 encoding of a string as a single token. For Claude 3 models it uses 20% over-estimation of tokens provided by Claude 2.1 tokenizer.
+> Certain models do not support precise tokenization, because their tokenization algorithm is not public. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
 
 ### Embedding models
 
