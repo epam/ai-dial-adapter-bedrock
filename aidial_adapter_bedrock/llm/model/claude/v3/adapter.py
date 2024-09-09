@@ -22,6 +22,7 @@ from anthropic.types import (
 )
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
+from aidial_adapter_bedrock.deployments import Claude3Deployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -71,7 +72,7 @@ class UsageEventHandler(AsyncMessageStream):
 
 
 class Adapter(ChatCompletionAdapter):
-    model: str
+    deployment: Claude3Deployment
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
@@ -118,7 +119,9 @@ class Adapter(ChatCompletionAdapter):
 
         discarded_messages, claude_messages = await truncate_prompt(
             messages=claude_messages,
-            tokenize_messages=create_tokenizer(self.model, completion_params),
+            tokenize_messages=create_tokenizer(
+                self.deployment, completion_params
+            ),
             keep_message=keep_nothing,
             partition_messages=turn_based_partitioner,
             model_limit=None,
@@ -159,13 +162,17 @@ class Adapter(ChatCompletionAdapter):
 
         if log.isEnabledFor(DEBUG):
             msg = json_dumps_short(
-                {"messages": messages, "model": self.model, "params": params}
+                {
+                    "messages": messages,
+                    "deployment": self.deployment,
+                    "params": params,
+                }
             )
             log.debug(f"Streaming request: {msg}")
 
         async with self.client.messages.stream(
             messages=messages,
-            model=self.model,
+            model=self.deployment.model_id,
             **params,
         ) as stream:
             prompt_tokens = 0
@@ -222,12 +229,19 @@ class Adapter(ChatCompletionAdapter):
 
         if log.isEnabledFor(DEBUG):
             msg = json_dumps_short(
-                {"messages": messages, "model": self.model, "params": params}
+                {
+                    "messages": messages,
+                    "deployment": self.deployment,
+                    "params": params,
+                }
             )
             log.debug(f"Request: {msg}")
 
         message = await self.client.messages.create(
-            messages=messages, model=self.model, **params, stream=False
+            messages=messages,
+            model=self.deployment.model_id,
+            **params,
+            stream=False,
         )
         for content in message.content:
             if isinstance(content, TextBlock):
@@ -251,12 +265,15 @@ class Adapter(ChatCompletionAdapter):
 
     @classmethod
     def create(
-        cls, model: str, api_key: str, aws_client_config: AWSClientConfig
+        cls,
+        deployment: Claude3Deployment,
+        api_key: str,
+        aws_client_config: AWSClientConfig,
     ):
         storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
         client_kwargs = aws_client_config.get_anthropic_bedrock_client_kwargs()
         return cls(
-            model=model,
+            deployment=deployment,
             storage=storage,
             client=AsyncAnthropicBedrock(**client_kwargs),
         )

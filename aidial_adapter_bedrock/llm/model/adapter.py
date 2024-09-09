@@ -47,7 +47,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
         ):
-            return Claude_V3.create(model, api_key, aws_client_config)
+            return Claude_V3.create(deployment, api_key, aws_client_config)
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2

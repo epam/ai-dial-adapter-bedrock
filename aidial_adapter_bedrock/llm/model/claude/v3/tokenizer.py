@@ -54,7 +54,10 @@ from anthropic.types.text_block import TextBlock
 from anthropic.types.tool_use_block import ToolUseBlock
 from PIL import Image
 
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.deployments import (
+    ChatCompletionDeployment,
+    Claude3Deployment,
+)
 from aidial_adapter_bedrock.llm.model.claude.v3.params import MessagesParams
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -162,10 +165,10 @@ async def _tokenize_tool_param(tool: ToolParam) -> int:
 
 
 def _tokenize_tool_system_message(
-    deployment_id: str,
+    deployment: Claude3Deployment,
     tool_choice: Literal["auto", "any", "tool"],
 ) -> int:
-    match deployment_id:
+    match deployment:
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
             return 294 if tool_choice == "auto" else 261
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
@@ -175,13 +178,13 @@ def _tokenize_tool_system_message(
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU:
             return 264 if tool_choice == "auto" else 340
         case _:
-            raise RuntimeError(
-                f"Expected Claude 3 model, but got: {deployment_id}"
-            )
+            assert_never(deployment)
 
 
 async def _tokenize(
-    deployment_id: str, params: MessagesParams, messages: List[MessageParam]
+    deployment: Claude3Deployment,
+    params: MessagesParams,
+    messages: List[MessageParam],
 ) -> int:
     tokens: int = 0
 
@@ -194,7 +197,7 @@ async def _tokenize(
         else:
             choice = "auto"
 
-        tokens += _tokenize_tool_system_message(deployment_id, choice)
+        tokens += _tokenize_tool_system_message(deployment, choice)
 
         for tool in tools:
             tokens += await _tokenize_tool_param(tool)
@@ -205,9 +208,9 @@ async def _tokenize(
 
 
 def create_tokenizer(
-    deployment_id: str, params: MessagesParams
+    deployment: Claude3Deployment, params: MessagesParams
 ) -> Callable[[List[MessageParam]], Awaitable[int]]:
     async def _tokenizer(messages: List[MessageParam]) -> int:
-        return await _tokenize(deployment_id, params, messages)
+        return await _tokenize(deployment, params, messages)
 
     return _tokenizer

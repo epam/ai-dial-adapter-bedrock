@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Awaitable, Callable, List, Optional, Set, Tuple, TypeVar
 
+from aidial_sdk.exceptions import ContextLengthExceededError
+from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
-    ContextLengthExceededError,
     InvalidRequestError,
     TruncatePromptSystemAndLastUserError,
 )
-from aidial_sdk.exceptions import HTTPException as DialException
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.list import omit_by_indices, select_by_indices
