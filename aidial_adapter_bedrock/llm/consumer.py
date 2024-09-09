@@ -44,7 +44,7 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def set_discarded_messages(self, discarded_messages: List[int]):
+    def set_discarded_messages(self, discarded_messages: Optional[List[int]]):
         pass
 
     @abstractmethod
@@ -115,7 +115,7 @@ class ChoiceConsumer(Consumer):
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
 
-    def set_discarded_messages(self, discarded_messages: List[int]):
+    def set_discarded_messages(self, discarded_messages: Optional[List[int]]):
         self.discarded_messages = discarded_messages
 
     def create_function_tool_call(self, tool_call: ToolCall):

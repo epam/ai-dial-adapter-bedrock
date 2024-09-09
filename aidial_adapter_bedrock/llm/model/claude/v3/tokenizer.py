@@ -28,9 +28,16 @@ https://docs.anthropic.com/en/docs/build-with-claude/tool-use#pricing
 import base64
 import io
 import json
-from typing import List, Literal, Tuple, Union, assert_never
+from typing import (
+    Awaitable,
+    Callable,
+    List,
+    Literal,
+    Tuple,
+    Union,
+    assert_never,
+)
 
-from anthropic import NotGiven
 from anthropic._tokenizers import async_get_tokenizer
 from anthropic._types import Base64FileInput
 from anthropic.types import (
@@ -43,12 +50,12 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 from anthropic.types.image_block_param import Source
-from anthropic.types.message_create_params import ToolChoice
 from anthropic.types.text_block import TextBlock
 from anthropic.types.tool_use_block import ToolUseBlock
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.llm.model.claude.v3.params import MessagesParams
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _TEXT_OVERESTIMATION_FACTOR = 1.2
@@ -173,21 +180,34 @@ def _tokenize_tool_system_message(
             )
 
 
-async def tokenize(
-    deployment_id: str,
-    tools: List[ToolParam] | NotGiven,
-    tool_choice: ToolChoice | NotGiven,
-    messages: List[MessageParam],
+async def _tokenize(
+    deployment_id: str, params: MessagesParams, messages: List[MessageParam]
 ) -> int:
     tokens: int = 0
 
-    if tools:
-        tokens += _tokenize_tool_system_message(
-            deployment_id, "auto" if not tool_choice else tool_choice["type"]
-        )
+    if tools := params["tools"]:
+        if system := params["system"]:
+            tokens += await _tokenize_text(system)
+
+        if tool_choice := params["tool_choice"]:
+            choice = tool_choice["type"]
+        else:
+            choice = "auto"
+
+        tokens += _tokenize_tool_system_message(deployment_id, choice)
+
         for tool in tools:
             tokens += await _tokenize_tool_param(tool)
 
     tokens += await _tokenize_messages(messages)
 
     return tokens
+
+
+def create_tokenizer(
+    deployment_id: str, params: MessagesParams
+) -> Callable[[List[MessageParam]], Awaitable[int]]:
+    async def _tokenizer(messages: List[MessageParam]) -> int:
+        return await _tokenize(deployment_id, params, messages)
+
+    return _tokenizer

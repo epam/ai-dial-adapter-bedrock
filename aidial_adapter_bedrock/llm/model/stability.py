@@ -114,7 +114,7 @@ class StabilityAdapter(TextCompletionAdapter):
             tools_emulator=default_tools_emulator,
         )
 
-    def truncate_and_linearize_messages(
+    async def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
         if len(messages) == 0:

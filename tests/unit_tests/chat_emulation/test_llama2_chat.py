@@ -2,13 +2,15 @@ from typing import List, Optional, Set
 
 import pytest
 
-from aidial_adapter_bedrock.llm.chat_model import default_keep_message
+from aidial_adapter_bedrock.llm.chat_model import (
+    keep_last_user_and_system_messages,
+)
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
-    truncate_prompt,
+    truncate_prompt_,
 )
 from tests.utils.messages import ai, sys, user
 
@@ -16,18 +18,18 @@ llama2_chat_emulator = llama2_config.chat_emulator
 llama2_chat_partitioner = llama2_config.chat_partitioner
 
 
-def truncate_prompt_by_words(
+async def truncate_prompt_by_words(
     messages: List[BaseMessage],
     user_limit: int,
     model_limit: Optional[int] = None,
 ) -> Set[int] | TruncatePromptError:
-    def _tokenize_by_words(messages: List[BaseMessage]) -> int:
+    async def _tokenize_by_words(messages: List[BaseMessage]) -> int:
         return sum(len(msg.content.split()) for msg in messages)
 
-    return truncate_prompt(
+    return await truncate_prompt_(
         messages=messages,
         tokenize_messages=_tokenize_by_words,
-        keep_message=default_keep_message,
+        keep_message=keep_last_user_and_system_messages,
         partition_messages=llama2_chat_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,
@@ -126,6 +128,7 @@ turns_sys = [
 turns_no_sys = turns_sys[1:]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "messages, user_limit, expected",
     [
@@ -148,10 +151,10 @@ turns_no_sys = turns_sys[1:]
         (turns_no_sys, 5, set()),
     ],
 )
-def test_multi_turn_dialogue(
+async def test_multi_turn_dialogue(
     messages: List[BaseMessage], user_limit: int, expected: Set[int] | str
 ):
-    discarded_messages = truncate_prompt_by_words(
+    discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=user_limit
     )
 

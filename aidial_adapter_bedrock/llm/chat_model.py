@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Callable, List, Optional
+from typing import Any, AsyncIterator, Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
+from typing_extensions import override
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -12,11 +13,7 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
-from aidial_adapter_bedrock.llm.truncate_prompt import (
-    TruncatePromptError,
-    truncate_prompt,
-)
-from aidial_adapter_bedrock.utils.list import omit_by_indices
+from aidial_adapter_bedrock.llm.truncate_prompt import truncate_prompt
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
@@ -72,7 +69,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
         pass
 
     @abstractmethod
-    def truncate_and_linearize_messages(
+    async def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
         pass
@@ -88,7 +85,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         return messages
 
-    def get_text_completion_prompt(
+    async def get_text_completion_prompt(
         self, params: ModelParameters, messages: List[Message]
     ) -> TextCompletionPrompt:
 
@@ -97,7 +94,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
         base_messages = tools_emulator.parse_dial_messages(messages)
         tool_stop_sequences = tools_emulator.get_stop_sequences()
 
-        prompt = self.truncate_and_linearize_messages(
+        prompt = await self.truncate_and_linearize_messages(
             base_messages, params.max_prompt_tokens
         )
 
@@ -113,11 +110,10 @@ class TextCompletionAdapter(ChatCompletionAdapter):
         messages: List[Message],
     ) -> None:
 
-        prompt = self.get_text_completion_prompt(params, messages)
+        prompt = await self.get_text_completion_prompt(params, messages)
         params.stop = prompt.stop_sequences
 
-        if prompt.discarded_messages is not None:
-            consumer.set_discarded_messages(prompt.discarded_messages)
+        consumer.set_discarded_messages(prompt.discarded_messages)
 
         log.debug(f"model parameters: {params.json(exclude_none=True)}")
         log.debug(f"prompt: {prompt.text!r}")
@@ -127,17 +123,27 @@ class TextCompletionAdapter(ChatCompletionAdapter):
     async def truncate_prompt(
         self, params: ModelParameters, messages: List[Message]
     ) -> List[int]:
-        prompt = self.get_text_completion_prompt(params, messages)
+        prompt = await self.get_text_completion_prompt(params, messages)
         return prompt.discarded_messages or []
 
 
-def default_keep_message(messages: List[BaseMessage], idx: int) -> bool:
-    """Keep system messages and the last message."""
+def keep_last_user_and_system_messages(
+    messages: List[BaseMessage], idx: int
+) -> bool:
     return isinstance(messages[idx], SystemMessage) or idx == len(messages) - 1
 
 
-def default_partitioner(messages: List[BaseMessage]) -> List[int]:
+def keep_nothing(messages: List[BaseMessage], idx: int) -> bool:
+    return False
+
+
+def trivial_partitioner(messages: List[Any]) -> List[int]:
     return [1] * len(messages)
+
+
+def turn_based_partitioner(messages: List[Any]) -> List[int]:
+    n = len(messages)
+    return [2] * (n // 2) + [1] * (n % 2)
 
 
 class PseudoChatModel(TextCompletionAdapter):
@@ -151,43 +157,36 @@ class PseudoChatModel(TextCompletionAdapter):
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
         base_messages = tools_emulator.parse_dial_messages(messages)
-        return self.tokenize_messages(base_messages)
+        return await self.tokenize_messages(base_messages)
 
     async def count_completion_tokens(self, string: str) -> int:
         return self.tokenize_string(string)
 
-    def tokenize_messages(self, messages: List[BaseMessage]) -> int:
+    async def tokenize_messages(self, messages: List[BaseMessage]) -> int:
         return self.tokenize_string(self.chat_emulator.display(messages)[0])
 
-    def truncate_and_linearize_messages(
+    @override
+    async def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
-        truncate_result = truncate_prompt(
+        discarded_messages, messages = await truncate_prompt(
             messages=messages,
             tokenize_messages=self.tokenize_messages,
-            keep_message=default_keep_message,
+            keep_message=keep_last_user_and_system_messages,
             partition_messages=self.partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,
         )
 
-        if isinstance(truncate_result, TruncatePromptError):
-            raise truncate_result.to_dial_exception()
-
-        discarded_messages: set[int] = truncate_result
-
-        messages = omit_by_indices(messages, truncate_result)
-
         text, stop_sequences = self.chat_emulator.display(messages)
 
-        discarded_messages_list = (
-            None if max_prompt_tokens is None else list(discarded_messages)
-        )
+        if max_prompt_tokens is None:
+            discarded_messages = None
 
         return TextCompletionPrompt(
             text=text,
             stop_sequences=stop_sequences,
-            discarded_messages=discarded_messages_list,
+            discarded_messages=discarded_messages,
         )
 
     @staticmethod

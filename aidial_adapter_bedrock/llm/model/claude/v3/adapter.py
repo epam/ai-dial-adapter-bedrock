@@ -1,8 +1,8 @@
 from logging import DEBUG
-from typing import List, Optional, TypedDict, Union, assert_never
+from typing import List, Optional, assert_never
 
 from aidial_sdk.chat_completion import Message
-from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
+from anthropic import NOT_GIVEN, MessageStopEvent
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
@@ -18,10 +18,8 @@ from anthropic.types import (
     MessageStartEvent,
     MessageStreamEvent,
     TextBlock,
-    ToolParam,
     ToolUseBlock,
 )
-from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -30,7 +28,11 @@ from aidial_adapter_bedrock.dial_api.storage import (
     create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatCompletionAdapter,
+    keep_nothing,
+    turn_based_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import parse_dial_message
@@ -40,12 +42,17 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_tool_config,
     to_dial_finish_reason,
 )
+from aidial_adapter_bedrock.llm.model.claude.v3.params import MessagesParams
+from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
+    create_tokenizer,
+)
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
     process_tools_block,
     process_with_tools,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.llm.truncate_prompt import truncate_prompt
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -63,16 +70,6 @@ class UsageEventHandler(AsyncMessageStream):
             self.stop_reason = event.delta.stop_reason
 
 
-class ChatParams(TypedDict):
-    max_tokens: int
-    stop_sequences: Union[List[str], NotGiven]
-    system: Union[str, NotGiven]
-    temperature: Union[float, NotGiven]
-    top_p: Union[float, NotGiven]
-    tools: Union[List[ToolParam], NotGiven]
-    tool_choice: Union[ToolChoice, NotGiven]
-
-
 class Adapter(ChatCompletionAdapter):
     model: str
     storage: Optional[FileStorage]
@@ -84,11 +81,6 @@ class Adapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: List[Message],
     ):
-        if params.max_prompt_tokens is not None:
-            raise ValidationError(
-                "max_prompt_tokens request parameter is not supported"
-            )
-
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
@@ -110,7 +102,7 @@ class Adapter(ChatCompletionAdapter):
             parsed_messages, self.storage
         )
 
-        completion_params = ChatParams(
+        completion_params = MessagesParams(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=params.stop,
             system=system_prompt or NOT_GIVEN,
@@ -124,21 +116,45 @@ class Adapter(ChatCompletionAdapter):
             tool_choice=NOT_GIVEN,
         )
 
+        discarded_messages, claude_messages = await truncate_prompt(
+            messages=claude_messages,
+            tokenize_messages=create_tokenizer(self.model, completion_params),
+            keep_message=keep_nothing,
+            partition_messages=turn_based_partitioner,
+            model_limit=None,
+            user_limit=params.max_prompt_tokens,
+        )
+
+        if system_prompt is not None:
+            discarded_messages = [idx + 1 for idx in discarded_messages]
+
+        if params.max_prompt_tokens is None:
+            discarded_messages = None
+
         if params.stream:
             await self.invoke_streaming(
-                consumer, claude_messages, completion_params, tools_mode
+                consumer,
+                claude_messages,
+                completion_params,
+                tools_mode,
+                discarded_messages,
             )
         else:
             await self.invoke_non_streaming(
-                consumer, claude_messages, completion_params, tools_mode
+                consumer,
+                claude_messages,
+                completion_params,
+                tools_mode,
+                discarded_messages,
             )
 
     async def invoke_streaming(
         self,
         consumer: Consumer,
         messages: List[MessageParam],
-        params: ChatParams,
+        params: MessagesParams,
         tools_mode: ToolsMode | None,
+        discarded_messages: List[int] | None,
     ):
 
         if log.isEnabledFor(DEBUG):
@@ -193,12 +209,15 @@ class Adapter(ChatCompletionAdapter):
                 )
             )
 
+            consumer.set_discarded_messages(discarded_messages)
+
     async def invoke_non_streaming(
         self,
         consumer: Consumer,
         messages: List[MessageParam],
-        params: ChatParams,
+        params: MessagesParams,
         tools_mode: ToolsMode | None,
+        discarded_messages: List[int] | None,
     ):
 
         if log.isEnabledFor(DEBUG):
@@ -227,6 +246,8 @@ class Adapter(ChatCompletionAdapter):
                 completion_tokens=message.usage.output_tokens,
             )
         )
+
+        consumer.set_discarded_messages(discarded_messages)
 
     @classmethod
     def create(
