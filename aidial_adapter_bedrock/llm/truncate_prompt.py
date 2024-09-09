@@ -67,17 +67,16 @@ def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
 
 
 _T = TypeVar("_T")
-_Messages = List[_T]
 
 
 async def truncate_prompt(
-    messages: _Messages,
-    tokenize_messages: Callable[[_Messages], Awaitable[int]],
-    keep_message: Callable[[_Messages, int], bool],
-    partition_messages: Callable[[_Messages], List[int]],
+    messages: List[_T],
+    tokenize_messages: Callable[[List[_T]], Awaitable[int]],
+    keep_message: Callable[[List[_T], int], bool],
+    partition_messages: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
-) -> Tuple[List[int], _Messages]:
+) -> Tuple[List[int], List[_T]]:
     """
     Returns a list of indices of discarded messages and a list of preserved messages
     """
@@ -98,10 +97,10 @@ async def truncate_prompt(
 
 
 async def truncate_prompt_(
-    messages: _Messages,
-    tokenize_messages: Callable[[_Messages], Awaitable[int]],
-    keep_message: Callable[[_Messages, int], bool],
-    partition_messages: Callable[[_Messages], List[int]],
+    messages: List[_T],
+    tokenize_messages: Callable[[List[_T]], Awaitable[int]],
+    keep_message: Callable[[List[_T], int], bool],
+    partition_messages: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
 ) -> Set[int] | TruncatePromptError:

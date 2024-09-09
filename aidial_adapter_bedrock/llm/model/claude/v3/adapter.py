@@ -1,7 +1,7 @@
 from logging import DEBUG
-from typing import List, Optional, assert_never
+from typing import List, Optional, Tuple, assert_never
 
-from aidial_sdk.chat_completion import Message
+from aidial_sdk.chat_completion import Message as DialMessage
 from anthropic import NOT_GIVEN, MessageStopEvent
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
@@ -14,7 +14,9 @@ from anthropic.types import (
     ContentBlockStartEvent,
     ContentBlockStopEvent,
     MessageDeltaEvent,
-    MessageParam,
+)
+from anthropic.types import MessageParam as ClaudeMessage
+from anthropic.types import (
     MessageStartEvent,
     MessageStreamEvent,
     TextBlock,
@@ -23,7 +25,9 @@ from anthropic.types import (
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.deployments import Claude3Deployment
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.request import (
+    ModelParameters as DialParameters,
+)
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
@@ -43,9 +47,10 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_tool_config,
     to_dial_finish_reason,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.params import MessagesParams
+from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
     create_tokenizer,
+    tokenize_text,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
     process_tools_block,
@@ -76,26 +81,21 @@ class Adapter(ChatCompletionAdapter):
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
-    async def chat(
-        self,
-        consumer: Consumer,
-        params: ModelParameters,
-        messages: List[Message],
-    ):
+    async def _prepare_claude_request(
+        self, params: DialParameters, messages: List[DialMessage]
+    ) -> Tuple[ClaudeParameters, List[ClaudeMessage]]:
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
         tools = NOT_GIVEN
-        tools_mode = None
         if params.tool_config is not None:
             tools = [
                 to_claude_tool_config(tool_function)
                 for tool_function in params.tool_config.functions
             ]
-            tools_mode = params.tool_config.tools_mode
 
         parsed_messages = [
-            process_with_tools(parse_dial_message(m), tools_mode)
+            process_with_tools(parse_dial_message(m), params.tools_mode)
             for m in messages
         ]
 
@@ -103,7 +103,7 @@ class Adapter(ChatCompletionAdapter):
             parsed_messages, self.storage
         )
 
-        completion_params = MessagesParams(
+        completion_params = ClaudeParameters(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=params.stop,
             system=system_prompt or NOT_GIVEN,
@@ -117,18 +117,40 @@ class Adapter(ChatCompletionAdapter):
             tool_choice=NOT_GIVEN,
         )
 
-        discarded_messages, claude_messages = await truncate_prompt(
-            messages=claude_messages,
-            tokenize_messages=create_tokenizer(
-                self.deployment, completion_params
-            ),
+        return completion_params, claude_messages
+
+    async def _truncate_claude_prompt(
+        self,
+        params: ClaudeParameters,
+        messages: List[ClaudeMessage],
+        max_prompt_tokens: int | None,
+    ) -> Tuple[List[int], List[ClaudeMessage]]:
+        return await truncate_prompt(
+            messages=messages,
+            tokenize_messages=create_tokenizer(self.deployment, params),
             keep_message=keep_nothing,
             partition_messages=turn_based_partitioner,
             model_limit=None,
-            user_limit=params.max_prompt_tokens,
+            user_limit=max_prompt_tokens,
         )
 
-        if system_prompt is not None:
+    async def chat(
+        self,
+        consumer: Consumer,
+        params: DialParameters,
+        messages: List[DialMessage],
+    ):
+        claude_params, claude_messages = await self._prepare_claude_request(
+            params, messages
+        )
+
+        discarded_messages, claude_messages = (
+            await self._truncate_claude_prompt(
+                claude_params, claude_messages, params.max_prompt_tokens
+            )
+        )
+
+        if claude_params["system"] is not NOT_GIVEN:
             discarded_messages = [idx + 1 for idx in discarded_messages]
 
         if params.max_prompt_tokens is None:
@@ -138,24 +160,52 @@ class Adapter(ChatCompletionAdapter):
             await self.invoke_streaming(
                 consumer,
                 claude_messages,
-                completion_params,
-                tools_mode,
+                claude_params,
+                params.tools_mode,
                 discarded_messages,
             )
         else:
             await self.invoke_non_streaming(
                 consumer,
                 claude_messages,
-                completion_params,
-                tools_mode,
+                claude_params,
+                params.tools_mode,
                 discarded_messages,
             )
+
+    async def count_prompt_tokens(
+        self, params: DialParameters, messages: List[DialMessage]
+    ) -> int:
+        claude_params, claude_messages = await self._prepare_claude_request(
+            params, messages
+        )
+
+        return await create_tokenizer(self.deployment, claude_params)(
+            claude_messages
+        )
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return await tokenize_text(string)
+
+    async def truncate_prompt(
+        self, params: DialParameters, messages: List[DialMessage]
+    ) -> List[int]:
+        claude_params, claude_messages = await self._prepare_claude_request(
+            params, messages
+        )
+
+        discarded_messages, _claude_messages = (
+            await self._truncate_claude_prompt(
+                claude_params, claude_messages, params.max_prompt_tokens
+            )
+        )
+        return discarded_messages
 
     async def invoke_streaming(
         self,
         consumer: Consumer,
-        messages: List[MessageParam],
-        params: MessagesParams,
+        messages: List[ClaudeMessage],
+        params: ClaudeParameters,
         tools_mode: ToolsMode | None,
         discarded_messages: List[int] | None,
     ):
@@ -221,8 +271,8 @@ class Adapter(ChatCompletionAdapter):
     async def invoke_non_streaming(
         self,
         consumer: Consumer,
-        messages: List[MessageParam],
-        params: MessagesParams,
+        messages: List[ClaudeMessage],
+        params: ClaudeParameters,
         tools_mode: ToolsMode | None,
         discarded_messages: List[int] | None,
     ):

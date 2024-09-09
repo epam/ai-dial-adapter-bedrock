@@ -133,7 +133,7 @@ def keep_last_user_and_system_messages(
     return isinstance(messages[idx], SystemMessage) or idx == len(messages) - 1
 
 
-def keep_nothing(messages: List[BaseMessage], idx: int) -> bool:
+def keep_nothing(messages: List[Any], idx: int) -> bool:
     return False
 
 

@@ -10,10 +10,10 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
 |---|---|---|---|---|---|---|---|
-|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|✅|✅|✅|❌|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|✅|✅|✅|❌|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|✅|✅|✅|❌|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|✅|✅|✅|❌|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
@@ -33,7 +33,8 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 The models that support `/truncate_prompt` do also support `max_prompt_tokens` request parameter.
 
-Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
+> [!IMPORTANT]
+> Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. In general, it conservatively counts every byte in UTF-8 encoding of a string as a single token. For Claude 3 models it uses 20% over-estimation of tokens provided by Claude 2.1 tokenizer.
 
 ### Embedding models
 

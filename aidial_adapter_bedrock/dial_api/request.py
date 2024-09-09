@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.tools.tools_config import (
     ToolsConfig,
+    ToolsMode,
     validate_messages,
 )
 
@@ -44,3 +45,9 @@ class ModelParameters(BaseModel):
 
     def add_stop_sequences(self, stop: List[str]) -> "ModelParameters":
         return self.copy(update={"stop": [*self.stop, *stop]})
+
+    @property
+    def tools_mode(self) -> ToolsMode | None:
+        if self.tool_config is not None:
+            return self.tool_config.tools_mode
+        return None

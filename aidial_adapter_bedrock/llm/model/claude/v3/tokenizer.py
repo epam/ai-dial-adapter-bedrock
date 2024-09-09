@@ -58,7 +58,7 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     Claude3Deployment,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.params import MessagesParams
+from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _TEXT_OVERESTIMATION_FACTOR = 1.2
@@ -67,7 +67,7 @@ _TEXT_OVERESTIMATION_FACTOR = 1.2
 _PER_MESSAGE_TOKENS = 5
 
 
-async def _tokenize_text(content: str) -> int:
+async def tokenize_text(content: str) -> int:
     tokenizer = await async_get_tokenizer()
     tokens = len(tokenizer.encode(content).ids)
     return int(tokens * _TEXT_OVERESTIMATION_FACTOR)
@@ -92,11 +92,11 @@ async def _tokenize_image(source: Source) -> int:
 
 
 async def _tokenize_tool_use(id: str, input: object, name: str) -> int:
-    return await _tokenize_text(f"{id} {name} {json.dumps(input)}")
+    return await tokenize_text(f"{id} {name} {json.dumps(input)}")
 
 
 async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
-    tokens: int = await _tokenize_text(message["tool_use_id"])
+    tokens: int = await tokenize_text(message["tool_use_id"])
     if "content" in message:
         for sub_message in message["content"]:
             tokens += await _tokenize_sub_message(sub_message)
@@ -115,7 +115,7 @@ async def _tokenize_sub_message(
     if isinstance(message, dict):
         match message["type"]:
             case "text":
-                return await _tokenize_text(message["text"])
+                return await tokenize_text(message["text"])
             case "image":
                 return await _tokenize_image(message["source"])
             case "tool_use":
@@ -129,7 +129,7 @@ async def _tokenize_sub_message(
     else:
         match message:
             case TextBlock():
-                return await _tokenize_text(message.text)
+                return await tokenize_text(message.text)
             case ToolUseBlock():
                 return await _tokenize_tool_use(
                     message.id, message.input, message.name
@@ -145,7 +145,7 @@ async def _tokenize_message(message: MessageParam) -> int:
 
     match content:
         case str():
-            tokens += await _tokenize_text(content)
+            tokens += await tokenize_text(content)
         case _:
             for item in content:
                 tokens += await _tokenize_sub_message(item)
@@ -161,7 +161,7 @@ async def _tokenize_messages(messages: List[MessageParam]) -> int:
 
 
 async def _tokenize_tool_param(tool: ToolParam) -> int:
-    return await _tokenize_text(json.dumps(tool))
+    return await tokenize_text(json.dumps(tool))
 
 
 def _tokenize_tool_system_message(
@@ -183,14 +183,14 @@ def _tokenize_tool_system_message(
 
 async def _tokenize(
     deployment: Claude3Deployment,
-    params: MessagesParams,
+    params: ClaudeParameters,
     messages: List[MessageParam],
 ) -> int:
     tokens: int = 0
 
     if tools := params["tools"]:
         if system := params["system"]:
-            tokens += await _tokenize_text(system)
+            tokens += await tokenize_text(system)
 
         if tool_choice := params["tool_choice"]:
             choice = tool_choice["type"]
@@ -208,7 +208,7 @@ async def _tokenize(
 
 
 def create_tokenizer(
-    deployment: Claude3Deployment, params: MessagesParams
+    deployment: Claude3Deployment, params: ClaudeParameters
 ) -> Callable[[List[MessageParam]], Awaitable[int]]:
     async def _tokenizer(messages: List[MessageParam]) -> int:
         return await _tokenize(deployment, params, messages)
