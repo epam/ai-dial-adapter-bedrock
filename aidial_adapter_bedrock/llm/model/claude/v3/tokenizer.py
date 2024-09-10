@@ -28,6 +28,7 @@ https://docs.anthropic.com/en/docs/build-with-claude/tool-use#pricing
 import base64
 import io
 import json
+import math
 from typing import (
     Awaitable,
     Callable,
@@ -81,7 +82,7 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
 
 async def _tokenize_image(source: Source) -> int:
     width, height = _get_image_size(source["data"])
-    return int((width * height) / 750.0)
+    return math.ceil((width * height) / 750.0)
 
 
 def _tokenize_tool_use(id: str, input: object, name: str) -> int:
