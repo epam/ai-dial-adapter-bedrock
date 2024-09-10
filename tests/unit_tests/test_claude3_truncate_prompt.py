@@ -24,7 +24,7 @@ async def truncate_prompt(
     params = ModelParameters(max_prompt_tokens=max_prompt_tokens)
 
     try:
-        return set(await model.truncate_prompt(params, messages))
+        return set(await model.truncate_prompt(params, messages) or [])
     except DialException as e:
         return e.message
 

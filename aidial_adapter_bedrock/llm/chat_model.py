@@ -50,7 +50,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
     @not_implemented
     async def truncate_prompt(
         self, params: ModelParameters, messages: List[Message]
-    ) -> List[int]: ...
+    ) -> List[int] | None: ...
 
 
 class TextCompletionPrompt(BaseModel):
@@ -122,9 +122,9 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
     async def truncate_prompt(
         self, params: ModelParameters, messages: List[Message]
-    ) -> List[int]:
+    ) -> List[int] | None:
         prompt = await self.get_text_completion_prompt(params, messages)
-        return prompt.discarded_messages or []
+        return prompt.discarded_messages
 
 
 def keep_last(messages: List[Any], idx: int) -> bool:

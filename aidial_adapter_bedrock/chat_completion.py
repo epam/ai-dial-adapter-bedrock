@@ -170,6 +170,9 @@ class BedrockChatCompletion(ChatCompletion):
             discarded_messages = await model.truncate_prompt(
                 params, request.messages
             )
-            return TruncatePromptSuccess(discarded_messages=discarded_messages)
+
+            return TruncatePromptSuccess(
+                discarded_messages=discarded_messages or []
+            )
         except Exception as e:
             return TruncatePromptError(error=str(e))
