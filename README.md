@@ -35,14 +35,11 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 
-|-|`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
+||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
 |---|---|---|
-|✅|Fully supported based on an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
-|🟡|Partially supported, because tokenization algorithm isn't known.<br>Conservative tokenization is used that consistently **overestimates token count**|Partially supported via **prompt engineering**|
+|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
+|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|
 |❌|Not supported|Not supported|
-
-> [!IMPORTANT]
-> Certain models do not support precise tokenization, because their tokenization algorithm is not public. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
 
 ### Embedding models
 
