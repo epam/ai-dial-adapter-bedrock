@@ -82,6 +82,11 @@ class Adapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: List[Message],
     ):
+        if params.max_prompt_tokens is not None:
+            raise ValidationError(
+                "max_prompt_tokens request parameter is not supported"
+            )
+
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
