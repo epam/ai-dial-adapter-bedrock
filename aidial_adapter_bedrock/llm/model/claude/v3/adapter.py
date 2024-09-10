@@ -1,8 +1,9 @@
+from dataclasses import dataclass
 from logging import DEBUG
 from typing import List, Optional, Tuple, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from anthropic import NOT_GIVEN, BaseModel, MessageStopEvent, NotGiven
+from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
@@ -77,10 +78,12 @@ class UsageEventHandler(AsyncMessageStream):
             self.stop_reason = event.delta.stop_reason
 
 
-class ClaudeRequest(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+# NOTE: it's not pydantic BaseModel, because
+# ClaudeMessage.content is of Iterable type and
+# pydantic automatically converts lists into
+# list iterators following the type.
+@dataclass
+class ClaudeRequest:
     params: ClaudeParameters
     messages: List[ClaudeMessage]
 
@@ -189,7 +192,6 @@ class Adapter(ChatCompletionAdapter):
         self, params: DialParameters, messages: List[DialMessage]
     ) -> int:
         request = await self._prepare_claude_request(params, messages)
-
         return await create_tokenizer(self.deployment, request.params)(
             request.messages
         )
@@ -201,7 +203,6 @@ class Adapter(ChatCompletionAdapter):
         self, params: DialParameters, messages: List[DialMessage]
     ) -> List[int] | None:
         request = await self._prepare_claude_request(params, messages)
-
         discarded_messages, _request = await self._truncate_claude_request(
             request, params.max_prompt_tokens
         )

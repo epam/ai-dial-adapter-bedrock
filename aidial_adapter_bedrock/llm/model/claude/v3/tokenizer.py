@@ -40,10 +40,9 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
+from anthropic.types import ContentBlock, ImageBlockParam
+from anthropic.types import MessageParam as ClaudeMessage
 from anthropic.types import (
-    ContentBlock,
-    ImageBlockParam,
-    MessageParam,
     TextBlockParam,
     ToolParam,
     ToolResultBlockParam,
@@ -132,7 +131,7 @@ async def _tokenize_sub_message(
                 assert_never(message)
 
 
-async def _tokenize_message(message: MessageParam) -> int:
+async def _tokenize_message(message: ClaudeMessage) -> int:
     tokens: int = 0
 
     content = message["content"]
@@ -147,7 +146,7 @@ async def _tokenize_message(message: MessageParam) -> int:
     return tokens
 
 
-async def _tokenize_messages(messages: List[MessageParam]) -> int:
+async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
     # A rough estimation
     per_message_tokens = 5
 
@@ -181,7 +180,7 @@ def _tokenize_tool_system_message(
 async def _tokenize(
     deployment: Claude3Deployment,
     params: ClaudeParameters,
-    messages: List[MessageParam],
+    messages: List[ClaudeMessage],
 ) -> int:
     tokens: int = 0
 
@@ -206,8 +205,8 @@ async def _tokenize(
 
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
-) -> Callable[[List[MessageParam]], Awaitable[int]]:
-    async def _tokenizer(messages: List[MessageParam]) -> int:
+) -> Callable[[List[ClaudeMessage]], Awaitable[int]]:
+    async def _tokenizer(messages: List[ClaudeMessage]) -> int:
         return await _tokenize(deployment, params, messages)
 
     return _tokenizer
