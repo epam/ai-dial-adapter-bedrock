@@ -3,7 +3,7 @@ from typing import List, Optional, Set
 import pytest
 
 from aidial_adapter_bedrock.llm.chat_model import (
-    keep_last_user_and_system_messages,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.message import BaseMessage
@@ -25,7 +25,7 @@ async def truncate_prompt_by_words(
     return await truncate_prompt_(
         messages=messages,
         tokenize_messages=_tokenize_by_words,
-        keep_message=keep_last_user_and_system_messages,
+        keep_message=keep_last_and_system_messages,
         partition_messages=trivial_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,

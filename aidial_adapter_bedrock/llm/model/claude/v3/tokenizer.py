@@ -184,10 +184,10 @@ async def _tokenize(
 ) -> int:
     tokens: int = 0
 
-    if tools := params["tools"]:
-        if system := params["system"]:
-            tokens += tokenize_text(system)
+    if system := params["system"]:
+        tokens += tokenize_text(system)
 
+    if tools := params["tools"]:
         if tool_choice := params["tool_choice"]:
             choice = tool_choice["type"]
         else:

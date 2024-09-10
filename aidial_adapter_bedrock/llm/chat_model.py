@@ -127,14 +127,14 @@ class TextCompletionAdapter(ChatCompletionAdapter):
         return prompt.discarded_messages or []
 
 
-def keep_last_user_and_system_messages(
+def keep_last(messages: List[Any], idx: int) -> bool:
+    return idx == len(messages) - 1
+
+
+def keep_last_and_system_messages(
     messages: List[BaseMessage], idx: int
 ) -> bool:
-    return isinstance(messages[idx], SystemMessage) or idx == len(messages) - 1
-
-
-def keep_nothing(messages: List[Any], idx: int) -> bool:
-    return False
+    return isinstance(messages[idx], SystemMessage) or keep_last(messages, idx)
 
 
 def trivial_partitioner(messages: List[Any]) -> List[int]:
@@ -172,7 +172,7 @@ class PseudoChatModel(TextCompletionAdapter):
         discarded_messages, messages = await truncate_prompt(
             messages=messages,
             tokenize_messages=self.tokenize_messages,
-            keep_message=keep_last_user_and_system_messages,
+            keep_message=keep_last_and_system_messages,
             partition_messages=self.partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,

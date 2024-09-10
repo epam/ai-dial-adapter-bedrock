@@ -37,7 +37,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |-|`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
 |---|---|---|
-|✅|Fully supported based on an official tokenization algorithm|Fully supported via native tools API|
+|✅|Fully supported based on an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
 |🟡|Partially supported, because tokenization algorithm isn't known.<br>Conservative tokenization is used that consistently **overestimates token count**|Partially supported via **prompt engineering**|
 |❌|Not supported|Not supported|
 

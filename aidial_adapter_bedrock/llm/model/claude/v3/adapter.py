@@ -35,7 +35,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
-    keep_nothing,
+    keep_last,
     turn_based_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -125,14 +125,19 @@ class Adapter(ChatCompletionAdapter):
         messages: List[ClaudeMessage],
         max_prompt_tokens: int | None,
     ) -> Tuple[List[int], List[ClaudeMessage]]:
-        return await truncate_prompt(
+        discarded_messages, claude_messages = await truncate_prompt(
             messages=messages,
             tokenize_messages=create_tokenizer(self.deployment, params),
-            keep_message=keep_nothing,
+            keep_message=keep_last,
             partition_messages=turn_based_partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,
         )
+
+        if params["system"] is not NOT_GIVEN:
+            discarded_messages = [idx + 1 for idx in discarded_messages]
+
+        return discarded_messages, claude_messages
 
     async def chat(
         self,
@@ -149,9 +154,6 @@ class Adapter(ChatCompletionAdapter):
                 claude_params, claude_messages, params.max_prompt_tokens
             )
         )
-
-        if claude_params["system"] is not NOT_GIVEN:
-            discarded_messages = [idx + 1 for idx in discarded_messages]
 
         if params.max_prompt_tokens is None:
             discarded_messages = None
