@@ -2,7 +2,7 @@ from logging import DEBUG
 from typing import List, Optional, Tuple, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from anthropic import NOT_GIVEN, BaseModel, MessageStopEvent
+from anthropic import NOT_GIVEN, BaseModel, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
@@ -22,6 +22,7 @@ from anthropic.types import (
     TextBlock,
     ToolUseBlock,
 )
+from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.deployments import Claude3Deployment
@@ -96,11 +97,17 @@ class Adapter(ChatCompletionAdapter):
             raise ValidationError("List of messages must not be empty")
 
         tools = NOT_GIVEN
+        tool_choice: ToolChoice | NotGiven = NOT_GIVEN
         if params.tool_config is not None:
             tools = [
                 to_claude_tool_config(tool_function)
                 for tool_function in params.tool_config.functions
             ]
+            tool_choice = (
+                {"type": "any"}
+                if params.tool_config.required
+                else {"type": "auto"}
+            )
 
         parsed_messages = [
             process_with_tools(parse_dial_message(m), params.tools_mode)
@@ -122,7 +129,7 @@ class Adapter(ChatCompletionAdapter):
             ),
             top_p=params.top_p or NOT_GIVEN,
             tools=tools,
-            tool_choice=NOT_GIVEN,
+            tool_choice=tool_choice,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)

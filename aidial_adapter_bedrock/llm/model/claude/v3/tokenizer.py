@@ -75,7 +75,7 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
         with Image.open(io.BytesIO(image_bytes)) as img:
             return img.size
     except Exception:
-        log.error("Cannot compute image size, assuming 1000x1000")
+        log.exception("Cannot compute image size, assuming 1000x1000")
         return 1000, 1000
 
 
