@@ -44,10 +44,14 @@ flake8 = "6.0.0"
 nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
+env_override_existing_values = 1
 addopts = "--doctest-modules"
 # muting warnings coming from opentelemetry package
 filterwarnings = [
     "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies"
+]
+testpaths = [
+    "tests"
 ]
 
 [tool.pyright]

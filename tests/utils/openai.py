@@ -29,8 +29,6 @@ from openai.types.chat.completion_create_params import Function
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 
-from tests.conftest import DEFAULT_API_VERSION
-
 
 def sys(content: str) -> ChatCompletionSystemMessageParam:
     return {"role": "system", "content": content}
@@ -160,17 +158,6 @@ async def chat_completion(
 
     response = await get_response()
     return ChatCompletionResult(response=response)
-
-
-def get_client(base_url: str, model_id: str) -> AsyncAzureOpenAI:
-    return AsyncAzureOpenAI(
-        azure_endpoint=base_url,
-        azure_deployment=model_id,
-        api_version=DEFAULT_API_VERSION,
-        api_key="dummy_key",
-        max_retries=0,
-        timeout=30,
-    )
 
 
 GET_WEATHER_FUNCTION: Function = {

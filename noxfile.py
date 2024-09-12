@@ -35,7 +35,7 @@ def format(session: nox.Session):
 
 def run_tests(session: nox.Session, *args):
     session.run("poetry", "install", external=True)
-    session.run("pytest", "aidial_adapter_bedrock", *args)
+    session.run("pytest", *args)
 
 
 @nox.session

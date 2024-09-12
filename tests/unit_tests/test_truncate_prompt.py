@@ -7,6 +7,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     TruncatePromptError,
+    partition_indexer,
     truncate_prompt,
 )
 from tests.utils.messages import ai, sys, user
@@ -28,6 +29,16 @@ def truncate_prompt_by_words(
         model_limit=model_limit,
         user_limit=user_limit,
     )
+
+
+def test_partition_indexer():
+    assert [partition_indexer([2, 3])(i) for i in range(5)] == [
+        [0, 1],
+        [0, 1],
+        [2, 3, 4],
+        [2, 3, 4],
+        [2, 3, 4],
+    ]
 
 
 def test_no_truncation():
