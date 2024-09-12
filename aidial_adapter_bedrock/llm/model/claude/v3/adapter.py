@@ -82,6 +82,7 @@ class UsageEventHandler(AsyncMessageStream):
 # ClaudeMessage.content is of Iterable type and
 # pydantic automatically converts lists into
 # list iterators following the type.
+# See https://github.com/anthropics/anthropic-sdk-python/issues/656 for details.
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
