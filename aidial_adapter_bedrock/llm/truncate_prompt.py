@@ -72,9 +72,9 @@ DiscardedMessages = List[int]
 
 async def truncate_prompt(
     messages: List[_T],
-    tokenize_messages: Callable[[List[_T]], Awaitable[int]],
+    tokenizer: Callable[[List[_T]], Awaitable[int]],
     keep_message: Callable[[List[_T], int], bool],
-    partition_messages: Callable[[List[_T]], List[int]],
+    partitioner: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
 ) -> Tuple[DiscardedMessages, List[_T]]:
@@ -84,9 +84,9 @@ async def truncate_prompt(
 
     result = await compute_discarded_messages(
         messages,
-        tokenize_messages,
+        tokenizer,
         keep_message,
-        partition_messages,
+        partitioner,
         model_limit,
         user_limit,
     )
@@ -99,9 +99,9 @@ async def truncate_prompt(
 
 async def compute_discarded_messages(
     messages: List[_T],
-    tokenize_messages: Callable[[List[_T]], Awaitable[int]],
+    tokenizer: Callable[[List[_T]], Awaitable[int]],
     keep_message: Callable[[List[_T], int], bool],
-    partition_messages: Callable[[List[_T]], List[int]],
+    partitioner: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
 ) -> DiscardedMessages | TruncatePromptError:
@@ -118,7 +118,7 @@ async def compute_discarded_messages(
         if model_limit is None:
             return []
 
-        token_count = await tokenize_messages(messages)
+        token_count = await tokenizer(messages)
         if token_count <= model_limit:
             return []
 
@@ -126,14 +126,14 @@ async def compute_discarded_messages(
             model_limit=model_limit, token_count=token_count
         )
 
-    partition_sizes = partition_messages(messages)
+    partition_sizes = partitioner(messages)
     if sum(partition_sizes) != len(messages):
         raise ValueError(
             "Partition sizes must add up to the number of messages."
         )
 
     async def _tokenize_selected(indices: Set[int]) -> int:
-        return await tokenize_messages(select_by_indices(messages, indices))
+        return await tokenizer(select_by_indices(messages, indices))
 
     get_partition_indices = _partition_indexer(partition_sizes)
 

@@ -148,9 +148,9 @@ class Adapter(ChatCompletionAdapter):
     ) -> Tuple[DiscardedMessages | None, ClaudeRequest]:
         discarded_messages, messages = await truncate_prompt(
             messages=request.messages,
-            tokenize_messages=create_tokenizer(self.deployment, request.params),
+            tokenizer=create_tokenizer(self.deployment, request.params),
             keep_message=keep_last,
-            partition_messages=turn_based_partitioner,
+            partitioner=turn_based_partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,
         )

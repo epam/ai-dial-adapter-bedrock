@@ -182,9 +182,9 @@ class PseudoChatModel(TextCompletionAdapter):
     ) -> TextCompletionPrompt:
         discarded_messages, messages = await truncate_prompt(
             messages=messages,
-            tokenize_messages=self.tokenize_messages,
+            tokenizer=self.tokenize_messages,
             keep_message=keep_last_and_system_messages,
-            partition_messages=self.partitioner,
+            partitioner=self.partitioner,
             model_limit=None,
             user_limit=max_prompt_tokens,
         )

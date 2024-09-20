@@ -25,9 +25,9 @@ async def truncate_prompt_by_words(
 
     return await compute_discarded_messages(
         messages=messages,
-        tokenize_messages=_tokenize_by_words,
+        tokenizer=_tokenize_by_words,
         keep_message=keep_last_and_system_messages,
-        partition_messages=trivial_partitioner,
+        partitioner=trivial_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,
     )
