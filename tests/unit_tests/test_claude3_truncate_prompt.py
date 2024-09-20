@@ -1,5 +1,5 @@
 import math
-from typing import List, Set
+from typing import List
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +14,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from tests.utils.messages import ai, sys, to_sdk_messages, user, user_with_image
 
 _DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
@@ -29,17 +30,17 @@ async def tokenize(
     return await _MODEL.count_prompt_tokens(params, messages)
 
 
-async def truncate_prompt(
+async def compute_discarded_messages(
     messages: List[Message],
     max_prompt_tokens: int | None,
     tool_config: ToolsConfig | None = None,
-) -> Set[int] | str:
+) -> DiscardedMessages | str:
     params = ModelParameters(
         max_prompt_tokens=max_prompt_tokens, tool_config=tool_config
     )
 
     try:
-        return set(await _MODEL.truncate_prompt(params, messages) or [])
+        return await _MODEL.compute_discarded_messages(params, messages) or []
     except DialException as e:
         return e.message
 
@@ -89,9 +90,11 @@ async def test_one_turn_no_truncation(mock_tokenize_text):
 
     assert await tokenize(messages) == expected_tokens
 
-    discarded_messages = await truncate_prompt(messages, expected_tokens)
+    discarded_messages = await compute_discarded_messages(
+        messages, expected_tokens
+    )
 
-    assert discarded_messages == set()
+    assert discarded_messages == []
 
 
 @pytest.mark.asyncio
@@ -107,11 +110,11 @@ async def test_one_turn_with_image(mock_tokenize_text):
 
     assert await tokenize(messages) == expected_tokens
 
-    truncation = await truncate_prompt(messages, expected_tokens)
+    truncation = await compute_discarded_messages(messages, expected_tokens)
 
-    assert truncation == set()
+    assert truncation == []
 
-    truncation = await truncate_prompt(messages, expected_tokens - 1)
+    truncation = await compute_discarded_messages(messages, expected_tokens - 1)
 
     assert (
         truncation
@@ -135,7 +138,7 @@ async def test_one_turn_with_tools(mock_tokenize_text):
 
     assert await tokenize(messages, _TOOL_CONFIG) == expected_tokens
 
-    discarded_messages = await truncate_prompt(
+    discarded_messages = await compute_discarded_messages(
         messages, expected_tokens - 1, _TOOL_CONFIG
     )
 
@@ -159,7 +162,7 @@ async def test_one_turn_overflow(mock_tokenize_text):
         11 + (22 + _PER_MESSAGE_TOKENS) + (33 + _PER_MESSAGE_TOKENS)
     )
 
-    truncation_error = await truncate_prompt(messages, 1)
+    truncation_error = await compute_discarded_messages(messages, 1)
 
     assert (
         truncation_error
@@ -178,7 +181,7 @@ async def test_multiple_system_messages(mock_tokenize_text):
     )
 
     with pytest.raises(ValidationError) as exc_info:
-        await truncate_prompt(messages, 3)
+        await compute_discarded_messages(messages, 3)
 
         assert exc_info.value.message == (
             "System message is only allowed as the first message"
@@ -205,11 +208,11 @@ async def test_truncate_first_turn(mock_tokenize_text):
 
     assert await tokenize(messages) == expected_tokens
 
-    discarded_messages = await truncate_prompt(
+    discarded_messages = await compute_discarded_messages(
         messages, (_PER_MESSAGE_TOKENS + 33) + (_PER_MESSAGE_TOKENS + 44)
     )
 
-    assert discarded_messages == {0, 1}
+    assert discarded_messages == [0, 1]
 
 
 @pytest.mark.asyncio
@@ -224,11 +227,11 @@ async def test_truncate_first_turn_with_system(mock_tokenize_text):
         ]
     )
 
-    discarded_messages = await truncate_prompt(
+    discarded_messages = await compute_discarded_messages(
         messages, 11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55)
     )
 
-    assert discarded_messages == {1, 2}
+    assert discarded_messages == [1, 2]
 
 
 @pytest.mark.asyncio
@@ -242,7 +245,7 @@ async def test_zero_turn_overflow(mock_tokenize_text):
 
     expected_tokens = 11 + (22 + _PER_MESSAGE_TOKENS)
 
-    truncation_error = await truncate_prompt(messages, 3)
+    truncation_error = await compute_discarded_messages(messages, 3)
 
     assert (
         truncation_error
@@ -263,7 +266,7 @@ async def test_chat_history_overflow(mock_tokenize_text):
 
     min_possible_tokens = 11 + (44 + _PER_MESSAGE_TOKENS)
 
-    truncation_error = await truncate_prompt(messages, 1)
+    truncation_error = await compute_discarded_messages(messages, 1)
 
     assert (
         truncation_error

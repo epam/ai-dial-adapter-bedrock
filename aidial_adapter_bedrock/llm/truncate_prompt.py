@@ -67,6 +67,7 @@ def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
 
 
 _T = TypeVar("_T")
+DiscardedMessages = List[int]
 
 
 async def truncate_prompt(
@@ -76,12 +77,12 @@ async def truncate_prompt(
     partition_messages: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
-) -> Tuple[List[int], List[_T]]:
+) -> Tuple[DiscardedMessages, List[_T]]:
     """
     Returns a list of indices of discarded messages and a list of preserved messages
     """
 
-    result = await truncate_prompt_(
+    result = await compute_discarded_messages(
         messages,
         tokenize_messages,
         keep_message,
@@ -96,14 +97,14 @@ async def truncate_prompt(
     return (list(result), omit_by_indices(messages, result))
 
 
-async def truncate_prompt_(
+async def compute_discarded_messages(
     messages: List[_T],
     tokenize_messages: Callable[[List[_T]], Awaitable[int]],
     keep_message: Callable[[List[_T], int], bool],
     partition_messages: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
-) -> Set[int] | TruncatePromptError:
+) -> DiscardedMessages | TruncatePromptError:
     if (
         user_limit is not None
         and model_limit is not None
@@ -115,11 +116,11 @@ async def truncate_prompt_(
 
     if user_limit is None:
         if model_limit is None:
-            return set()
+            return []
 
         token_count = await tokenize_messages(messages)
         if token_count <= model_limit:
-            return set()
+            return []
 
         return ModelLimitOverflow(
             model_limit=model_limit, token_count=token_count
@@ -162,4 +163,4 @@ async def truncate_prompt_(
         kept_indices.update(chunk_indices)
 
     all_indices = set(range(n))
-    return all_indices - kept_indices
+    return sorted(list(all_indices - kept_indices))

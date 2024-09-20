@@ -165,13 +165,28 @@ def _tokenize_tool_system_message(
     tool_choice: Literal["auto", "any", "tool"],
 ) -> int:
     match deployment:
-        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
+        case (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
+        ):
             return 294 if tool_choice == "auto" else 261
-        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
+        case (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
+        ):
             return 530 if tool_choice == "auto" else 281
-        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET:
+        case (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
+        ):
             return 159 if tool_choice == "auto" else 235
-        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU:
+        case (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
+        ):
             return 264 if tool_choice == "auto" else 340
         case _:
             assert_never(deployment)

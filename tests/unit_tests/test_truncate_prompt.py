@@ -1,4 +1,4 @@
-from typing import List, Optional, Set
+from typing import List, Optional
 
 import pytest
 
@@ -8,8 +8,9 @@ from aidial_adapter_bedrock.llm.chat_model import (
 )
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
     TruncatePromptError,
-    truncate_prompt_,
+    compute_discarded_messages,
 )
 from tests.utils.messages import ai, sys, user
 
@@ -18,11 +19,11 @@ async def truncate_prompt_by_words(
     messages: List[BaseMessage],
     user_limit: int,
     model_limit: Optional[int] = None,
-) -> Set[int] | TruncatePromptError:
+) -> DiscardedMessages | TruncatePromptError:
     async def _tokenize_by_words(messages: List[BaseMessage]) -> int:
         return sum(len(msg.content.split()) for msg in messages)
 
-    return await truncate_prompt_(
+    return await compute_discarded_messages(
         messages=messages,
         tokenize_messages=_tokenize_by_words,
         keep_message=keep_last_and_system_messages,
@@ -44,7 +45,7 @@ async def test_no_truncation():
         messages=messages, user_limit=3
     )
 
-    assert isinstance(discarded_messages, set) and discarded_messages == set()
+    assert discarded_messages == []
 
 
 @pytest.mark.asyncio
@@ -61,7 +62,7 @@ async def test_truncation():
         messages=messages, user_limit=3
     )
 
-    assert discarded_messages == {1, 3}
+    assert discarded_messages == [1, 3]
 
 
 @pytest.mark.asyncio
@@ -75,7 +76,7 @@ async def test_truncation_with_one_message_left():
         messages=messages, user_limit=1
     )
 
-    assert discarded_messages == {0}
+    assert discarded_messages == [0]
 
 
 @pytest.mark.asyncio
@@ -89,7 +90,7 @@ async def test_truncation_with_one_message_accepted_after_second_check():
         messages=messages, user_limit=1
     )
 
-    assert discarded_messages == {0}
+    assert discarded_messages == [0]
 
 
 @pytest.mark.asyncio

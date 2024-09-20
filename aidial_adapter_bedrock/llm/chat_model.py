@@ -13,7 +13,10 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
-from aidial_adapter_bedrock.llm.truncate_prompt import truncate_prompt
+from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
+    truncate_prompt,
+)
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
@@ -48,15 +51,23 @@ class ChatCompletionAdapter(ABC, BaseModel):
     async def count_completion_tokens(self, string: str) -> int: ...
 
     @not_implemented
-    async def truncate_prompt(
+    async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
-    ) -> List[int] | None: ...
+    ) -> DiscardedMessages | None:
+        """
+        The method truncates the list of messages to fit
+        into the token limit set in `params.max_prompt_tokens`.
+
+        If the limit isn't provided, then it returns None.
+        Otherwise, returns the indices of _discarded_ messages which should be
+        removed from the list to make the rest fit into the token limit.
+        """
 
 
 class TextCompletionPrompt(BaseModel):
     text: str
     stop_sequences: List[str]
-    discarded_messages: Optional[List[int]] = None
+    discarded_messages: Optional[DiscardedMessages] = None
 
 
 class TextCompletionAdapter(ChatCompletionAdapter):
@@ -120,9 +131,9 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         await self.predict(consumer, params, prompt.text)
 
-    async def truncate_prompt(
+    async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
-    ) -> List[int] | None:
+    ) -> DiscardedMessages | None:
         prompt = await self.get_text_completion_prompt(params, messages)
         return prompt.discarded_messages
 

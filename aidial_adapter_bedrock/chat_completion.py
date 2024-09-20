@@ -34,6 +34,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
+from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import is_implemented
@@ -62,7 +63,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await self._get_model(request)
         params = ModelParameters.create(request)
 
-        discarded_messages: Optional[List[int]] = None
+        discarded_messages: Optional[DiscardedMessages] = None
 
         async def generate_response(usage: TokenUsage) -> None:
             nonlocal discarded_messages
@@ -150,7 +151,7 @@ class BedrockChatCompletion(ChatCompletion):
     ) -> TruncatePromptResponse:
         model = await self._get_model(request)
 
-        if not is_implemented(model.truncate_prompt):
+        if not is_implemented(model.compute_discarded_messages):
             raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TruncatePromptResult] = []
@@ -167,7 +168,7 @@ class BedrockChatCompletion(ChatCompletion):
             if params.max_prompt_tokens is None:
                 raise ValidationError("max_prompt_tokens is required")
 
-            discarded_messages = await model.truncate_prompt(
+            discarded_messages = await model.compute_discarded_messages(
                 params, request.messages
             )
 

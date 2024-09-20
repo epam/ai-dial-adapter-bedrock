@@ -60,7 +60,10 @@ from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
-from aidial_adapter_bedrock.llm.truncate_prompt import truncate_prompt
+from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
+    truncate_prompt,
+)
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -138,11 +141,11 @@ class Adapter(ChatCompletionAdapter):
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
 
-    async def _truncate_claude_request(
+    async def _computed_discarded_messages(
         self,
         request: ClaudeRequest,
         max_prompt_tokens: int | None,
-    ) -> Tuple[List[int] | None, ClaudeRequest]:
+    ) -> Tuple[DiscardedMessages | None, ClaudeRequest]:
         discarded_messages, messages = await truncate_prompt(
             messages=request.messages,
             tokenize_messages=create_tokenizer(self.deployment, request.params),
@@ -170,7 +173,7 @@ class Adapter(ChatCompletionAdapter):
     ):
         request = await self._prepare_claude_request(params, messages)
 
-        discarded_messages, request = await self._truncate_claude_request(
+        discarded_messages, request = await self._computed_discarded_messages(
             request, params.max_prompt_tokens
         )
 
@@ -200,11 +203,11 @@ class Adapter(ChatCompletionAdapter):
     async def count_completion_tokens(self, string: str) -> int:
         return tokenize_text(string)
 
-    async def truncate_prompt(
+    async def compute_discarded_messages(
         self, params: DialParameters, messages: List[DialMessage]
-    ) -> List[int] | None:
+    ) -> DiscardedMessages | None:
         request = await self._prepare_claude_request(params, messages)
-        discarded_messages, _request = await self._truncate_claude_request(
+        discarded_messages, _request = await self._computed_discarded_messages(
             request, params.max_prompt_tokens
         )
         return discarded_messages
@@ -214,7 +217,7 @@ class Adapter(ChatCompletionAdapter):
         consumer: Consumer,
         tools_mode: ToolsMode | None,
         request: ClaudeRequest,
-        discarded_messages: List[int] | None,
+        discarded_messages: DiscardedMessages | None,
     ):
 
         if log.isEnabledFor(DEBUG):
@@ -279,7 +282,7 @@ class Adapter(ChatCompletionAdapter):
         consumer: Consumer,
         tools_mode: ToolsMode | None,
         request: ClaudeRequest,
-        discarded_messages: List[int] | None,
+        discarded_messages: DiscardedMessages | None,
     ):
 
         if log.isEnabledFor(DEBUG):
