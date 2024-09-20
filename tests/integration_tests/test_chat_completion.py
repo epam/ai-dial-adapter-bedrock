@@ -113,7 +113,11 @@ chat_deployments = [
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
     ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
@@ -129,9 +133,16 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
 
 
@@ -145,8 +156,13 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
 def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
 
 
