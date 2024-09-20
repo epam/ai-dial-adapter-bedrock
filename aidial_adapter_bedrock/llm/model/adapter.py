@@ -43,9 +43,16 @@ async def get_bedrock_adapter(
     match deployment:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
             return Claude_V3.create(model, api_key, aws_client_config)
         case (
