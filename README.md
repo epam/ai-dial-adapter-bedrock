@@ -6,34 +6,40 @@ The project implements [AI DIAL API](https://epam-rail.com/dial_api) for languag
 
 ### Chat completion models
 
-The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME/chat/completions` endpoint along with optional support of `/tokenize` and `/truncate_prompt` endpoints:
+The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME/chat/completions` endpoint along with an optional support of `POST /tokenize` and `POST /truncate_prompt` endpoints:
 
-|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`|tools/functions support|precise tokenization|
-|---|---|---|---|---|---|---|---|
-|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|❌|❌|✅|❌|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|✅|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|✅|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|✅|✅|❌|❌|
-|Meta|Llama 2 Chat 13B|meta.llama2-13b-chat-v1|text-to-text|✅|✅|❌|❌|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|✅|❌|❌|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|✅|✅|❌|❌|
-|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|✅|✅|❌|❌|
-|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|✅|✅|❌|❌|
-|Cohere|Command|cohere.command-text-v14|text-to-text|✅|✅|❌|❌|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|✅|✅|❌|❌|
+Note that a model supports `/truncate_prompt` endpoint if and only if it supports `max_prompt_tokens` request parameter.
 
-The models that support `/truncate_prompt` do also support `max_prompt_tokens` request parameter.
+|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|
+|---|---|---|---|---|---|---|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
+|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|
+|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|❌|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
+|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
+|Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|🟡|🟡|❌|
+|Meta|Llama 2 Chat 13B|meta.llama2-13b-chat-v1|text-to-text|🟡|🟡|❌|
+|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
+|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
+|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
+|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|
+|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|
+|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|
 
-Certain model do not support precise tokenization, because the tokenization algorithm is not known. Instead an approximate tokenization algorithm is used. It conservatively counts every byte in UTF-8 encoding of a string as a single token.
+✅, 🟡, and ❌ denote degrees of support of the given feature:
+
+||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
+|---|---|---|
+|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
+|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|
+|❌|Not supported|Not supported|
 
 ### Embedding models
 

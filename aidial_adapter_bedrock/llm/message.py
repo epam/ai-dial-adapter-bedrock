@@ -15,35 +15,80 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 class SystemMessage(BaseModel):
     content: str
 
+    def to_message(self) -> Message:
+        return Message(role=Role.SYSTEM, content=self.content)
+
 
 class HumanRegularMessage(BaseModel):
     content: str
     custom_content: Optional[CustomContent] = None
+
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.USER,
+            content=self.content,
+            custom_content=self.custom_content,
+        )
 
 
 class HumanToolResultMessage(BaseModel):
     id: str
     content: str
 
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.TOOL,
+            tool_call_id=self.id,
+            content=self.content,
+        )
+
 
 class HumanFunctionResultMessage(BaseModel):
     name: str
     content: str
+
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.FUNCTION,
+            name=self.name,
+            content=self.content,
+        )
 
 
 class AIRegularMessage(BaseModel):
     content: str
     custom_content: Optional[CustomContent] = None
 
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.ASSISTANT,
+            content=self.content,
+            custom_content=self.custom_content,
+        )
+
 
 class AIToolCallMessage(BaseModel):
     calls: List[ToolCall]
     content: Optional[str] = None
 
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.ASSISTANT,
+            content=self.content,
+            tool_calls=self.calls,
+        )
+
 
 class AIFunctionCallMessage(BaseModel):
     call: FunctionCall
     content: Optional[str] = None
+
+    def to_message(self) -> Message:
+        return Message(
+            role=Role.ASSISTANT,
+            content=self.content,
+            function_call=self.call,
+        )
 
 
 BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]

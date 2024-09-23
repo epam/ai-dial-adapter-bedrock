@@ -186,7 +186,7 @@ async def to_claude_messages(
                     )
                 )
             case SystemMessage():
-                raise ValueError(
+                raise ValidationError(
                     "System message is only allowed as the first message"
                 )
             case _:

@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
 )
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
-    default_partitioner,
+    trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
@@ -116,7 +116,7 @@ class Adapter(PseudoChatModel):
             tokenize_string=lambda text: len(tokenizer.encode(text).ids),
             chat_emulator=chat_emulator,
             tools_emulator=tools_emulator,
-            partitioner=default_partitioner,
+            partitioner=trivial_partitioner,
             is_claude_v2_1=is_claude_v2_1,
             tokenizer=tokenizer,
         )

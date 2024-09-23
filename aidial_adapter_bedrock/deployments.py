@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 
 class ChatCompletionDeployment(str, Enum):
@@ -63,6 +64,21 @@ class ChatCompletionDeployment(str, Enum):
         cls, deployment_id: str
     ) -> "ChatCompletionDeployment":
         return cls(deployment_id)
+
+
+Claude3Deployment = Literal[
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+]
 
 
 class EmbeddingsDeployment(str, Enum):

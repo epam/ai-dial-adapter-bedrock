@@ -1,50 +1,55 @@
-from typing import List, Optional, Set
+from typing import List, Optional
+
+import pytest
 
 from aidial_adapter_bedrock.llm.chat_model import (
-    default_keep_message,
-    default_partitioner,
+    keep_last_and_system_messages,
+    trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
     TruncatePromptError,
-    truncate_prompt,
+    compute_discarded_messages,
 )
 from tests.utils.messages import ai, sys, user
 
 
-def truncate_prompt_by_words(
+async def truncate_prompt_by_words(
     messages: List[BaseMessage],
     user_limit: int,
     model_limit: Optional[int] = None,
-) -> Set[int] | TruncatePromptError:
-    def _tokenize_by_words(messages: List[BaseMessage]) -> int:
+) -> DiscardedMessages | TruncatePromptError:
+    async def _tokenize_by_words(messages: List[BaseMessage]) -> int:
         return sum(len(msg.content.split()) for msg in messages)
 
-    return truncate_prompt(
+    return await compute_discarded_messages(
         messages=messages,
-        tokenize_messages=_tokenize_by_words,
-        keep_message=default_keep_message,
-        partition_messages=default_partitioner,
+        tokenizer=_tokenize_by_words,
+        keep_message=keep_last_and_system_messages,
+        partitioner=trivial_partitioner,
         model_limit=model_limit,
         user_limit=user_limit,
     )
 
 
-def test_no_truncation():
+@pytest.mark.asyncio
+async def test_no_truncation():
     messages = [
         sys("text1"),
         user("text2"),
         ai("text3"),
     ]
 
-    discarded_messages = truncate_prompt_by_words(
+    discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=3
     )
 
-    assert isinstance(discarded_messages, set) and discarded_messages == set()
+    assert discarded_messages == []
 
 
-def test_truncation():
+@pytest.mark.asyncio
+async def test_truncation():
     messages = [
         sys("system1"),
         user("remove1"),
@@ -53,47 +58,52 @@ def test_truncation():
         user("query"),
     ]
 
-    discarded_messages = truncate_prompt_by_words(
+    discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=3
     )
 
-    assert discarded_messages == {1, 3}
+    assert discarded_messages == [1, 3]
 
 
-def test_truncation_with_one_message_left():
+@pytest.mark.asyncio
+async def test_truncation_with_one_message_left():
     messages = [
         ai("reply"),
         user("query"),
     ]
 
-    discarded_messages = truncate_prompt_by_words(
+    discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=1
     )
 
-    assert discarded_messages == {0}
+    assert discarded_messages == [0]
 
 
-def test_truncation_with_one_message_accepted_after_second_check():
+@pytest.mark.asyncio
+async def test_truncation_with_one_message_accepted_after_second_check():
     messages = [
         ai("hello world"),
         user("query"),
     ]
 
-    discarded_messages = truncate_prompt_by_words(
+    discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=1
     )
 
-    assert discarded_messages == {0}
+    assert discarded_messages == [0]
 
 
-def test_prompt_is_too_big():
+@pytest.mark.asyncio
+async def test_prompt_is_too_big():
     messages = [
         sys("text1"),
         sys("text2"),
         user("text3"),
     ]
 
-    truncation_error = truncate_prompt_by_words(messages=messages, user_limit=2)
+    truncation_error = await truncate_prompt_by_words(
+        messages=messages, user_limit=2
+    )
 
     assert (
         isinstance(truncation_error, TruncatePromptError)
@@ -102,14 +112,17 @@ def test_prompt_is_too_big():
     )
 
 
-def test_prompt_with_history_is_too_big():
+@pytest.mark.asyncio
+async def test_prompt_with_history_is_too_big():
     messages = [
         sys("text1"),
         ai("text2"),
         user("text3"),
     ]
 
-    truncation_error = truncate_prompt_by_words(messages=messages, user_limit=1)
+    truncation_error = await truncate_prompt_by_words(
+        messages=messages, user_limit=1
+    )
 
     assert (
         isinstance(truncation_error, TruncatePromptError)
@@ -118,10 +131,11 @@ def test_prompt_with_history_is_too_big():
     )
 
 
-def test_inconsistent_limits():
+@pytest.mark.asyncio
+async def test_inconsistent_limits():
     messages: List[BaseMessage] = [ai("text2")]
 
-    truncation_error = truncate_prompt_by_words(
+    truncation_error = await truncate_prompt_by_words(
         messages=messages, user_limit=10, model_limit=5
     )
 
