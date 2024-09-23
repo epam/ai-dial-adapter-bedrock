@@ -141,7 +141,7 @@ class Adapter(ChatCompletionAdapter):
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
 
-    async def _computed_discarded_messages(
+    async def _compute_discarded_messages(
         self,
         request: ClaudeRequest,
         max_prompt_tokens: int | None,
@@ -173,7 +173,7 @@ class Adapter(ChatCompletionAdapter):
     ):
         request = await self._prepare_claude_request(params, messages)
 
-        discarded_messages, request = await self._computed_discarded_messages(
+        discarded_messages, request = await self._compute_discarded_messages(
             request, params.max_prompt_tokens
         )
 
@@ -207,7 +207,7 @@ class Adapter(ChatCompletionAdapter):
         self, params: DialParameters, messages: List[DialMessage]
     ) -> DiscardedMessages | None:
         request = await self._prepare_claude_request(params, messages)
-        discarded_messages, _request = await self._computed_discarded_messages(
+        discarded_messages, _request = await self._compute_discarded_messages(
             request, params.max_prompt_tokens
         )
         return discarded_messages
