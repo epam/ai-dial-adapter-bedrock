@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional, Set, TypeVar
+from typing import Awaitable, Callable, List, Optional, Set, Tuple, TypeVar
 
 from aidial_sdk.exceptions import ContextLengthExceededError
 from aidial_sdk.exceptions import HTTPException as DialException
@@ -9,7 +9,7 @@ from aidial_sdk.exceptions import (
 )
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.utils.list import select_by_indices
+from aidial_adapter_bedrock.utils.list import omit_by_indices, select_by_indices
 
 
 class TruncatePromptError(ABC, BaseModel):
@@ -50,7 +50,7 @@ class UserLimitOverflow(TruncatePromptError):
         )
 
 
-def partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
+def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
     """
     Returns a function that maps an index to indices of its partition.
     """
@@ -65,18 +65,45 @@ def partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
     return mapping.__getitem__
 
 
-T = TypeVar("T")
-Messages = List[T]
+_T = TypeVar("_T")
+DiscardedMessages = List[int]
 
 
-def truncate_prompt(
-    messages: Messages,
-    tokenize_messages: Callable[[Messages], int],
-    keep_message: Callable[[Messages, int], bool],
-    partition_messages: Callable[[Messages], List[int]],
+async def truncate_prompt(
+    messages: List[_T],
+    tokenizer: Callable[[List[_T]], Awaitable[int]],
+    keep_message: Callable[[List[_T], int], bool],
+    partitioner: Callable[[List[_T]], List[int]],
     model_limit: Optional[int],
     user_limit: Optional[int],
-) -> Set[int] | TruncatePromptError:
+) -> Tuple[DiscardedMessages, List[_T]]:
+    """
+    Returns a list of indices of discarded messages and a list of preserved messages
+    """
+
+    result = await compute_discarded_messages(
+        messages,
+        tokenizer,
+        keep_message,
+        partitioner,
+        model_limit,
+        user_limit,
+    )
+
+    if isinstance(result, TruncatePromptError):
+        raise result.to_dial_exception()
+
+    return (list(result), omit_by_indices(messages, result))
+
+
+async def compute_discarded_messages(
+    messages: List[_T],
+    tokenizer: Callable[[List[_T]], Awaitable[int]],
+    keep_message: Callable[[List[_T], int], bool],
+    partitioner: Callable[[List[_T]], List[int]],
+    model_limit: Optional[int],
+    user_limit: Optional[int],
+) -> DiscardedMessages | TruncatePromptError:
     if (
         user_limit is not None
         and model_limit is not None
@@ -88,26 +115,26 @@ def truncate_prompt(
 
     if user_limit is None:
         if model_limit is None:
-            return set()
+            return []
 
-        token_count = tokenize_messages(messages)
+        token_count = await tokenizer(messages)
         if token_count <= model_limit:
-            return set()
+            return []
 
         return ModelLimitOverflow(
             model_limit=model_limit, token_count=token_count
         )
 
-    partition_sizes = partition_messages(messages)
+    partition_sizes = partitioner(messages)
     if sum(partition_sizes) != len(messages):
         raise ValueError(
             "Partition sizes must add up to the number of messages."
         )
 
-    def _tokenize_selected(indices: Set[int]) -> int:
-        return tokenize_messages(select_by_indices(messages, indices))
+    async def _tokenize_selected(indices: Set[int]) -> int:
+        return await tokenizer(select_by_indices(messages, indices))
 
-    get_partition_indices = partition_indexer(partition_sizes)
+    get_partition_indices = _partition_indexer(partition_sizes)
 
     n = len(messages)
     kept_indices: Set[int] = {
@@ -117,7 +144,7 @@ def truncate_prompt(
         if keep_message(messages, i)
     }
 
-    token_count = _tokenize_selected(kept_indices)
+    token_count = await _tokenize_selected(kept_indices)
     if token_count > user_limit:
         return UserLimitOverflow(user_limit=user_limit, token_count=token_count)
 
@@ -126,11 +153,13 @@ def truncate_prompt(
             continue
 
         chunk_indices = get_partition_indices(idx)
-        new_token_count = _tokenize_selected({*kept_indices, *chunk_indices})
+        new_token_count = await _tokenize_selected(
+            {*kept_indices, *chunk_indices}
+        )
         if new_token_count > user_limit:
             break
 
         kept_indices.update(chunk_indices)
 
     all_indices = set(range(n))
-    return all_indices - kept_indices
+    return sorted(list(all_indices - kept_indices))

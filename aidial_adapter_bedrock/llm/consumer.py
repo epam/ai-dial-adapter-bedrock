@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, assert_never
+from typing import Optional, assert_never
 
 from aidial_sdk.chat_completion import (
     Choice,
@@ -15,6 +15,7 @@ from aidial_adapter_bedrock.llm.message import (
     AIToolCallMessage,
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
 class Attachment(BaseModel):
@@ -44,7 +45,9 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
-    def set_discarded_messages(self, discarded_messages: List[int]):
+    def set_discarded_messages(
+        self, discarded_messages: Optional[DiscardedMessages]
+    ):
         pass
 
     @abstractmethod
@@ -59,7 +62,7 @@ class Consumer(ABC):
 class ChoiceConsumer(Consumer):
     usage: TokenUsage
     choice: Choice
-    discarded_messages: Optional[List[int]]
+    discarded_messages: Optional[DiscardedMessages]
     tools_emulator: Optional[ToolsEmulator]
 
     def __init__(self, choice: Choice):
@@ -115,7 +118,9 @@ class ChoiceConsumer(Consumer):
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
 
-    def set_discarded_messages(self, discarded_messages: List[int]):
+    def set_discarded_messages(
+        self, discarded_messages: Optional[DiscardedMessages]
+    ):
         self.discarded_messages = discarded_messages
 
     def create_function_tool_call(self, tool_call: ToolCall):

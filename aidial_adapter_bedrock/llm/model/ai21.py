@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
-    default_partitioner,
+    trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
@@ -116,7 +116,7 @@ class AI21Adapter(PseudoChatModel):
             tokenize_string=default_tokenize_string,
             tools_emulator=default_tools_emulator,
             chat_emulator=default_emulator,
-            partitioner=default_partitioner,
+            partitioner=trivial_partitioner,
         )
 
     async def predict(

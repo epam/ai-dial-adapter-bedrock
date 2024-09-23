@@ -25,6 +25,7 @@ uvicorn = "0.23.2"
 pydantic = "1.10.13"
 defusedxml = "^0.7.1"
 numpy = "^2.0.0"
+pillow = "^10.4.0"
 
 [tool.poetry.group.test.dependencies]
 pytest-asyncio = "0.21.1"

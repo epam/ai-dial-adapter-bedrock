@@ -18,20 +18,17 @@ from aidial_adapter_bedrock.llm.message import (
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 
 
+def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
+    return FunctionCall(name=block.name, arguments=json.dumps(block.input))
+
+
 def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
     return ToolCall(
         index=None,
         id=block.id,
         type="function",
-        function=FunctionCall(
-            name=block.name,
-            arguments=json.dumps(block.input),
-        ),
+        function=to_dial_function_call(block),
     )
-
-
-def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
-    return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
 def process_tools_block(

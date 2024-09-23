@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
 )
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
-    default_partitioner,
+    trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
@@ -149,7 +149,7 @@ class CohereAdapter(PseudoChatModel):
             tokenize_string=default_tokenize_string,
             chat_emulator=cohere_emulator,
             tools_emulator=default_tools_emulator,
-            partitioner=default_partitioner,
+            partitioner=trivial_partitioner,
         )
 
     @override
