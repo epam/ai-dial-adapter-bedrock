@@ -7,6 +7,8 @@ class ChatCompletionDeployment(str, Enum):
 
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
+    AI21_J2_MID_V1 = "ai21.j2-mid-v1"
+    AI21_J2_ULTRA_V1 = "ai21.j2-ultra-v1"
 
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"

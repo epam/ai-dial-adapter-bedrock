@@ -109,6 +109,8 @@ chat_deployments = [
     ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE,
     ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+    ChatCompletionDeployment.AI21_J2_MID_V1,
+    ChatCompletionDeployment.AI21_J2_ULTRA_V1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,

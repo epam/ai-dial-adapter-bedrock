@@ -66,6 +66,8 @@ async def get_bedrock_adapter(
         case (
             ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
+            | ChatCompletionDeployment.AI21_J2_MID_V1
+            | ChatCompletionDeployment.AI21_J2_ULTRA_V1
         ):
             return AI21Adapter.create(
                 await Bedrock.acreate(aws_client_config), model
