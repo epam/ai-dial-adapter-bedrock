@@ -29,7 +29,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
+|AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|
+|AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|
 |Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|
 |Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|
 
