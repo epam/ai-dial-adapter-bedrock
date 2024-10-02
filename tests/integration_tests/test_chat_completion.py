@@ -342,6 +342,12 @@ def get_test_cases(
 
     if supports_tools(deployment):
         query = "What's the temperature in Glasgow in celsius?"
+        chat_history = [
+            sys("act as a helpful assistant"),
+            user("2+3=?"),
+            ai("5"),
+            user(query),
+        ]
 
         function_args_checker = {
             "location": lambda s: "glasgow" in s.lower(),
@@ -355,7 +361,7 @@ def get_test_cases(
         # Functions
         test_case(
             name="weather function",
-            messages=[user(query)],
+            messages=chat_history,
             functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: is_valid_function_call(
                 s.function_call, name, function_args_checker
@@ -367,7 +373,7 @@ def get_test_cases(
 
         test_case(
             name="weather function followup",
-            messages=[user(query), function_req, function_resp],
+            messages=[*chat_history, function_req, function_resp],
             functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: "15" in s.content.lower(),
         )
@@ -376,7 +382,7 @@ def get_test_cases(
         tool_call_id = f"{name}_1"
         test_case(
             name="weather tool",
-            messages=[user(query)],
+            messages=chat_history,
             tools=[GET_WEATHER_TOOL],
             expected=lambda s: is_valid_tool_calls(
                 s.tool_calls, tool_call_id, name, function_args_checker
@@ -388,7 +394,7 @@ def get_test_cases(
 
         test_case(
             name="weather tool followup",
-            messages=[user(query), tool_req, tool_resp],
+            messages=[*chat_history, tool_req, tool_resp],
             tools=[GET_WEATHER_TOOL],
             expected=lambda s: "15" in s.content.lower(),
         )
