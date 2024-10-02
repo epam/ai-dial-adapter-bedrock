@@ -121,7 +121,7 @@ class StabilityAdapter(TextCompletionAdapter):
             raise ValidationError("List of messages must not be empty")
 
         return TextCompletionPrompt(
-            text=messages[-1].content,
+            text=messages[-1].text_content,
             stop_sequences=[],
             discarded_messages=list(range(len(messages) - 1)),
         )

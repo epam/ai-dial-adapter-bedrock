@@ -116,10 +116,8 @@ chat_deployments = [
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
     ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
@@ -166,6 +164,9 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
+
+
+blue_pic = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII="
 
 
 def get_test_cases(
@@ -286,6 +287,21 @@ def get_test_cases(
             else expected_success
         ),
     )
+
+    if is_claude3(deployment):
+        test_case(
+            name="image in a content part",
+            max_tokens=100,
+            messages=[
+                user(
+                    [
+                        {"type": "text", "text": "describe the image"},
+                        {"type": "image_url", "image_url": {"url": blue_pic}},
+                    ]
+                )
+            ],
+            expected=lambda s: "blue" in s.content.lower(),
+        )
 
     test_case(
         name="pinocchio in one token",

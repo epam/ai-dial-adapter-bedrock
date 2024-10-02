@@ -6,6 +6,8 @@ from aidial_sdk.chat_completion import (
     Attachment,
     FinishReason,
     Function,
+    MessageContentImagePart,
+    MessageContentTextPart,
     ToolCall,
 )
 from anthropic.types import (
@@ -32,6 +34,7 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.data_url import DataURL
 
 ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
@@ -56,6 +59,26 @@ def _validate_media_type(media_type: str) -> ImageMediaType:
     return cast(ImageMediaType, media_type)
 
 
+def _guess_url_type(url: str) -> Optional[str]:
+    return DataURL.parse_content_type(url) or mimetypes.guess_type(url)[0]
+
+
+def _guess_attachment_type(attachment: Attachment) -> Optional[str]:
+    if attachment.type is not None and "octet-stream" not in attachment.type:
+        return attachment.type
+
+    # It's an arbitrary binary file or type is missing.
+    # Trying to guess the type from the URL.
+    if (url := attachment.url) and (url_type := _guess_url_type(url)):
+        return url_type
+
+    return None
+
+
+def _create_text_block(text: str) -> TextBlockParam:
+    return TextBlockParam(text=text, type="text")
+
+
 def _create_image_block(
     media_type: ImageMediaType, data: str
 ) -> ImageBlockParam:
@@ -70,49 +93,73 @@ def _create_image_block(
 
 
 async def _download_data(url: str, file_storage: Optional[FileStorage]) -> str:
+    image_url = DataURL.parse(url)
+    if image_url is not None:
+        return image_url.data
+
     if not file_storage:
         return await download_file_as_base64(url)
 
     return await file_storage.download_file_as_base64(url)
 
 
-async def _to_claude_image(
+async def _image_url_to_claude_image(
+    image_url: str, file_storage: Optional[FileStorage]
+) -> ImageBlockParam:
+    type = _guess_url_type(image_url)
+    if not type:
+        raise ValidationError("Can't derive media type of the image")
+    data = await _download_data(image_url, file_storage)
+    return _create_image_block(_validate_media_type(type), data)
+
+
+async def _attachment_to_claude_image(
     attachment: Attachment, file_storage: Optional[FileStorage]
 ) -> ImageBlockParam:
+    type = _guess_attachment_type(attachment)
+
+    if type is None:
+        raise ValidationError("Cannot derive media type of the attachment")
+
     if attachment.data:
-        if not attachment.type:
-            raise ValidationError(
-                "Attachment type is required for provided data"
-            )
-        return _create_image_block(
-            _validate_media_type(attachment.type), attachment.data
-        )
-
-    if attachment.url:
-        media_type = attachment.type or mimetypes.guess_type(attachment.url)[0]
-        if not media_type:
-            raise ValidationError(
-                f"Cannot guess attachment type for {attachment.url}"
-            )
-
+        data = attachment.data
+    elif attachment.url:
         data = await _download_data(attachment.url, file_storage)
-        return _create_image_block(_validate_media_type(media_type), data)
+    else:
+        raise ValidationError("Attachment data or URL is required")
 
-    raise ValidationError("Attachment data or URL is required")
+    return _create_image_block(_validate_media_type(type), data)
 
 
 async def _to_claude_message(
     message: AIRegularMessage | HumanRegularMessage,
     file_storage: Optional[FileStorage],
 ) -> List[TextBlockParam | ImageBlockParam]:
-    content: List[TextBlockParam | ImageBlockParam] = []
+    ret: List[TextBlockParam | ImageBlockParam] = []
 
     if message.custom_content:
         for attachment in message.custom_content.attachments or []:
-            content.append(await _to_claude_image(attachment, file_storage))
+            ret.append(
+                await _attachment_to_claude_image(attachment, file_storage)
+            )
 
-    content.append(TextBlockParam(text=message.content, type="text"))
-    return content
+    content = message.content
+    if isinstance(content, str):
+        ret.append(_create_text_block(content))
+    else:
+        for part in content:
+            if isinstance(part, MessageContentTextPart):
+                ret.append(_create_text_block(part.text))
+            elif isinstance(part, MessageContentImagePart):
+                ret.append(
+                    await _image_url_to_claude_image(
+                        part.image_url.url, file_storage
+                    )
+                )
+            else:
+                assert_never(part)
+
+    return ret
 
 
 def _to_claude_tool_call(call: ToolCall) -> ToolUseBlockParam:
@@ -130,7 +177,7 @@ def _to_claude_tool_result(
     return ToolResultBlockParam(
         tool_use_id=message.id,
         type="tool_result",
-        content=[TextBlockParam(text=message.content, type="text")],
+        content=[_create_text_block(message.content)],
     )
 
 
@@ -143,7 +190,7 @@ async def to_claude_messages(
 
     system_prompt: str | None = None
     if isinstance(messages[0], SystemMessage):
-        system_prompt = messages[0].content
+        system_prompt = messages[0].text_content
         messages = messages[1:]
 
     claude_messages: List[MessageParam] = []
@@ -168,9 +215,7 @@ async def to_claude_messages(
                     _to_claude_tool_call(call) for call in message.calls
                 ]
                 if message.content is not None:
-                    content.insert(
-                        0, TextBlockParam(text=message.content, type="text")
-                    )
+                    content.insert(0, _create_text_block(message.content))
 
                 claude_messages.append(
                     MessageParam(
@@ -220,7 +265,7 @@ def to_dial_finish_reason(
                         "A model has called a tool, but no tools were given to the model in the first place."
                     )
                 case _:
-                    raise Exception(f"Unknown {tools_mode} during tool use!")
+                    assert_never(tools_mode)
 
         case _:
             assert_never(finish_reason)

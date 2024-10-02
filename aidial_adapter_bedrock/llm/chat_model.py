@@ -19,13 +19,15 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import not_implemented
+from aidial_adapter_bedrock.utils.request import (
+    get_message_content_text_content,
+)
 
 
 def _is_empty_system_message(msg: Message) -> bool:
     return (
         msg.role == Role.SYSTEM
-        and msg.content is not None
-        and msg.content.strip() == ""
+        and get_message_content_text_content(msg.content).strip() == ""
     )
 
 

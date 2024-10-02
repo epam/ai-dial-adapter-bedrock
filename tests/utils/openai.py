@@ -18,6 +18,9 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
 )
+from openai.types.chat.chat_completion_content_part_param import (
+    ChatCompletionContentPartParam,
+)
 from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage,
     FunctionCall,
@@ -52,7 +55,9 @@ def ai_tools(
     return {"role": "assistant", "tool_calls": tool_calls}
 
 
-def user(content: str) -> ChatCompletionUserMessageParam:
+def user(
+    content: str | List[ChatCompletionContentPartParam],
+) -> ChatCompletionUserMessageParam:
     return {"role": "user", "content": content}
 
 

@@ -44,7 +44,7 @@ def process_tools_block(
                 "A model has called a tool, but no tools were given to the model in the first place."
             )
         case _:
-            raise Exception(f"Unknown {tools_mode} during tool use!")
+            assert_never(tools_mode)
 
 
 def process_with_tools(
@@ -64,8 +64,8 @@ def process_with_tools(
             )
         return message
     elif tools_mode == ToolsMode.TOOLS:
-        if isinstance(message, HumanFunctionResultMessage) or isinstance(
-            message, AIFunctionCallMessage
+        if isinstance(
+            message, (HumanFunctionResultMessage, AIFunctionCallMessage)
         ):
             raise ValidationError(
                 "You cannot use function messages with tools config."
@@ -95,6 +95,7 @@ def process_with_tools(
                 return HumanToolResultMessage(
                     id=message.name, content=message.content
                 )
+            # FIXME: handle System and AI messages???
             case _:
                 raise ValueError(f"Unknown message type {type(message)}")
 

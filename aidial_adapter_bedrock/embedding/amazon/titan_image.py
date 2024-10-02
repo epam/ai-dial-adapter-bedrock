@@ -7,7 +7,7 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 
 from typing import AsyncIterator, List, Self
 
-from aidial_sdk.chat_completion.request import Attachment
+from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings import Usage
 from aidial_sdk.embeddings.request import EmbeddingsRequest

@@ -40,7 +40,7 @@ def encode_header(message: BaseMessage) -> str:
 
 def encode_message(message: BaseMessage) -> str:
     ret = encode_header(message)
-    ret += message.content.strip()
+    ret += message.text_content
     ret += "<|eot_id|>"
     return ret
 
