@@ -1,8 +1,13 @@
-from typing import List, Optional
+from typing import List, Optional, TypeGuard
 
+from aidial_sdk.chat_completion import (
+    MessageContentPart,
+    MessageContentTextPart,
+)
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import (
     ToolsConfig,
     ToolsMode,
@@ -51,3 +56,39 @@ class ModelParameters(BaseModel):
         if self.tool_config is not None:
             return self.tool_config.tools_mode
         return None
+
+
+def collect_text_content(
+    content: str | List[MessageContentPart] | None,
+    delimiter: str = "\n",
+    strict: bool = True,
+) -> str:
+
+    if content is None:
+        return ""
+
+    if isinstance(content, str):
+        return content
+
+    texts: List[str] = []
+    for part in content:
+        if isinstance(part, MessageContentTextPart):
+            texts.append(part.text)
+        elif strict:
+            raise ValidationError(
+                "Can't extract text from a multi-modal content part"
+            )
+
+    return delimiter.join(texts)
+
+
+def is_text_content_parts(
+    content: List[MessageContentPart],
+) -> TypeGuard[List[MessageContentTextPart]]:
+    return all(isinstance(part, MessageContentTextPart) for part in content)
+
+
+def is_plain_text_content(
+    content: str | List[MessageContentPart] | None,
+) -> TypeGuard[str | None]:
+    return content is None or isinstance(content, str)

@@ -6,12 +6,12 @@ from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import MessageContentPart, Role, ToolCall
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.errors import ValidationError
-from aidial_adapter_bedrock.utils.request import (
-    get_message_content_text_content,
+from aidial_adapter_bedrock.dial_api.request import (
+    collect_text_content,
     is_plain_text_content,
     is_text_content_parts,
 )
+from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class MessageABC(ABC, BaseModel):
@@ -60,7 +60,7 @@ class SystemMessage(BaseMessageABC):
 
     @property
     def text_content(self) -> str:
-        return get_message_content_text_content(self.content)
+        return collect_text_content(self.content)
 
 
 class HumanRegularMessage(BaseMessageABC):
@@ -91,7 +91,7 @@ class HumanRegularMessage(BaseMessageABC):
 
     @property
     def text_content(self) -> str:
-        return get_message_content_text_content(self.content)
+        return collect_text_content(self.content)
 
 
 class HumanToolResultMessage(MessageABC):
