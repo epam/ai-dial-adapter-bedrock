@@ -5,7 +5,7 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-from typing import AsyncIterator, List, Self
+from typing import AsyncIterator, List, Self, Set
 
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -14,6 +14,7 @@ from aidial_sdk.embeddings.request import EmbeddingsRequest
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.dial_api.attachment import download_attachment
 from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
@@ -26,7 +27,6 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.embedding.amazon.response import (
     call_embedding_model,
 )
-from aidial_adapter_bedrock.embedding.attachments import download_base64_data
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
@@ -34,8 +34,10 @@ from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
+
+IMAGE_MEDIA_TYPES: Set[str] = {"image/png"}
 
 
 class AmazonRequest(BaseModel):
@@ -63,24 +65,31 @@ def create_titan_request(
     )
 
 
+def _validate_content_type(content_type: str):
+    if content_type not in IMAGE_MEDIA_TYPES:
+        raise UserError(
+            f"Unsupported attachment type: {content_type}. "
+            f"Supported attachment types: {', '.join(IMAGE_MEDIA_TYPES)}.",
+        )
+
+
 async def download_image(
-    attachment: Attachment, storage: FileStorage | None
+    file_storage: FileStorage | None, attachment: Attachment
 ) -> str:
-    _content_type, data = await download_base64_data(
-        attachment, storage, ["image/png"]
-    )
-    return data
+    resource = await download_attachment(file_storage, "attachment", attachment)
+    _validate_content_type(resource.type)
+    return resource.data
 
 
 def get_requests(
-    request: EmbeddingsRequest, storage: FileStorage | None
+    file_storage: FileStorage | None, request: EmbeddingsRequest
 ) -> AsyncIterator[AmazonRequest]:
     async def on_text(text: str) -> AmazonRequest:
         return AmazonRequest(inputText=text)
 
     async def on_attachment(attachment: Attachment) -> AmazonRequest:
         return AmazonRequest(
-            inputImage=await download_image(attachment, storage)
+            inputImage=await download_image(file_storage, attachment)
         )
 
     async def on_text_or_attachment(text: str | Attachment) -> AmazonRequest:
@@ -98,14 +107,14 @@ def get_requests(
             if isinstance(inputs[0], str) and isinstance(inputs[1], Attachment):
                 return AmazonRequest(
                     inputText=inputs[0],
-                    inputImage=await download_image(inputs[1], storage),
+                    inputImage=await download_image(file_storage, inputs[1]),
                 )
             elif isinstance(inputs[0], Attachment) and isinstance(
                 inputs[1], str
             ):
                 return AmazonRequest(
                     inputText=inputs[1],
-                    inputImage=await download_image(inputs[0], storage),
+                    inputImage=await download_image(file_storage, inputs[0]),
                 )
             else:
                 raise ValidationError(
@@ -153,7 +162,8 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
         token_count = 0
 
         # NOTE: Amazon Titan doesn't support batched inputs
-        async for sub_request in get_requests(request, self.storage):
+        # TODO: create multiple tasks
+        async for sub_request in get_requests(self.storage, request):
             embedding, text_tokens = await call_embedding_model(
                 self.client,
                 self.model,

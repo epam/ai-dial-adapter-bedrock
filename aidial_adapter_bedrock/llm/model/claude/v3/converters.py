@@ -1,9 +1,7 @@
 import json
-import mimetypes
 from typing import List, Literal, Optional, Set, Tuple, assert_never, cast
 
 from aidial_sdk.chat_completion import (
-    Attachment,
     FinishReason,
     Function,
     MessageContentImagePart,
@@ -20,10 +18,11 @@ from anthropic.types import (
 )
 from anthropic.types.image_block_param import Source
 
-from aidial_adapter_bedrock.dial_api.storage import (
-    FileStorage,
-    download_file_as_base64,
+from aidial_adapter_bedrock.dial_api.attachment import (
+    download_attachment,
+    download_url,
 )
+from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
@@ -34,7 +33,7 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
-from aidial_adapter_bedrock.utils.data_url import DataURL
+from aidial_adapter_bedrock.utils.resource import Resource
 
 ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
@@ -59,105 +58,52 @@ def _validate_media_type(media_type: str) -> ImageMediaType:
     return cast(ImageMediaType, media_type)
 
 
-def _guess_url_type(url: str) -> Optional[str]:
-    return DataURL.parse_content_type(url) or mimetypes.guess_type(url)[0]
-
-
-def _guess_attachment_type(attachment: Attachment) -> Optional[str]:
-    if attachment.type is not None and "octet-stream" not in attachment.type:
-        return attachment.type
-
-    # It's an arbitrary binary file or type is missing.
-    # Trying to guess the type from the URL.
-    if (url := attachment.url) and (url_type := _guess_url_type(url)):
-        return url_type
-
-    return None
-
-
 def _create_text_block(text: str) -> TextBlockParam:
     return TextBlockParam(text=text, type="text")
 
 
-def _create_image_block(
-    media_type: ImageMediaType, data: str
-) -> ImageBlockParam:
+def _create_image_block(resource: Resource) -> ImageBlockParam:
     return ImageBlockParam(
         source=Source(
-            data=data,
-            media_type=media_type,
+            data=resource.data,
+            media_type=_validate_media_type(resource.type),
             type="base64",
         ),
         type="image",
     )
 
 
-async def _download_data(url: str, file_storage: Optional[FileStorage]) -> str:
-    image_url = DataURL.parse(url)
-    if image_url is not None:
-        return image_url.data
-
-    if not file_storage:
-        return await download_file_as_base64(url)
-
-    return await file_storage.download_file_as_base64(url)
-
-
-async def _image_url_to_claude_image(
-    image_url: str, file_storage: Optional[FileStorage]
-) -> ImageBlockParam:
-    type = _guess_url_type(image_url)
-    if not type:
-        raise ValidationError("Can't derive media type of the image")
-    data = await _download_data(image_url, file_storage)
-    return _create_image_block(_validate_media_type(type), data)
-
-
-async def _attachment_to_claude_image(
-    attachment: Attachment, file_storage: Optional[FileStorage]
-) -> ImageBlockParam:
-    type = _guess_attachment_type(attachment)
-
-    if type is None:
-        raise ValidationError("Cannot derive media type of the attachment")
-
-    if attachment.data:
-        data = attachment.data
-    elif attachment.url:
-        data = await _download_data(attachment.url, file_storage)
-    else:
-        raise ValidationError("Attachment data or URL is required")
-
-    return _create_image_block(_validate_media_type(type), data)
-
-
 async def _to_claude_message(
-    message: AIRegularMessage | HumanRegularMessage,
     file_storage: Optional[FileStorage],
+    message: AIRegularMessage | HumanRegularMessage,
 ) -> List[TextBlockParam | ImageBlockParam]:
     ret: List[TextBlockParam | ImageBlockParam] = []
 
-    if message.custom_content:
-        for attachment in message.custom_content.attachments or []:
-            ret.append(
-                await _attachment_to_claude_image(attachment, file_storage)
-            )
+    for attachment in message.attachments:
+        resource = await download_attachment(
+            file_storage, "image attachment", attachment
+        )
+        ret.append(_create_image_block(resource))
 
     content = message.content
-    if isinstance(content, str):
-        ret.append(_create_text_block(content))
-    else:
-        for part in content:
-            if isinstance(part, MessageContentTextPart):
-                ret.append(_create_text_block(part.text))
-            elif isinstance(part, MessageContentImagePart):
-                ret.append(
-                    await _image_url_to_claude_image(
-                        part.image_url.url, file_storage
-                    )
-                )
-            else:
-                assert_never(part)
+
+    match content:
+        case str():
+            ret.append(_create_text_block(content))
+        case list():
+            for part in content:
+                match part:
+                    case MessageContentTextPart(text=text):
+                        ret.append(_create_text_block(text))
+                    case MessageContentImagePart(image_url=image_url):
+                        resource = await download_url(
+                            file_storage, "image url", image_url.url
+                        )
+                        ret.append(_create_image_block(resource))
+                    case _:
+                        assert_never(part)
+        case _:
+            assert_never(content)
 
     return ret
 
@@ -200,14 +146,14 @@ async def to_claude_messages(
                 claude_messages.append(
                     MessageParam(
                         role="user",
-                        content=await _to_claude_message(message, file_storage),
+                        content=await _to_claude_message(file_storage, message),
                     )
                 )
             case AIRegularMessage():
                 claude_messages.append(
                     MessageParam(
                         role="assistant",
-                        content=await _to_claude_message(message, file_storage),
+                        content=await _to_claude_message(file_storage, message),
                     )
                 )
             case AIToolCallMessage():

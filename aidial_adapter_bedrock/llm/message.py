@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Self, Union
 
-from aidial_sdk.chat_completion import CustomContent, FunctionCall
+from aidial_sdk.chat_completion import Attachment, CustomContent, FunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import MessageContentPart, Role, ToolCall
 from pydantic import BaseModel
@@ -92,6 +92,12 @@ class HumanRegularMessage(BaseMessageABC):
     @property
     def text_content(self) -> str:
         return collect_text_content(self.content)
+
+    @property
+    def attachments(self) -> List[Attachment]:
+        return (
+            self.custom_content.attachments or [] if self.custom_content else []
+        )
 
 
 class HumanToolResultMessage(MessageABC):
@@ -188,6 +194,12 @@ class AIRegularMessage(BaseMessageABC):
     @property
     def text_content(self) -> str:
         return self.content
+
+    @property
+    def attachments(self) -> List[Attachment]:
+        return (
+            self.custom_content.attachments or [] if self.custom_content else []
+        )
 
 
 class AIToolCallMessage(MessageABC):
