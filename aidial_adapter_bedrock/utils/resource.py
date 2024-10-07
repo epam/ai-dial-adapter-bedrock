@@ -7,7 +7,16 @@ from pydantic import BaseModel
 
 class Resource(BaseModel):
     type: str
-    data: str
+    data: bytes
+
+    @classmethod
+    def from_base64(cls, type: str, data_base64: str) -> "Resource":
+        try:
+            data = base64.b64decode(data_base64, validate=True)
+        except Exception:
+            raise ValueError("Invalid base64 data")
+
+        return cls(type=type, data=data)
 
     @classmethod
     def from_data_url(cls, data_url: str) -> Optional["Resource"]:
@@ -20,17 +29,16 @@ class Resource(BaseModel):
         if type is None:
             return None
 
-        data = data_url.removeprefix(cls._to_data_url_prefix(type))
+        data_base64 = data_url.removeprefix(cls._to_data_url_prefix(type))
 
-        try:
-            base64.b64decode(data)
-        except Exception:
-            raise ValueError("Invalid base64 data")
+        return cls.from_base64(type, data_base64)
 
-        return cls(type=type, data=data)
+    @property
+    def data_base64(self) -> str:
+        return base64.b64encode(self.data).decode()
 
     def to_data_url(self) -> str:
-        return f"{self._to_data_url_prefix(self.type)}{self.data}"
+        return f"{self._to_data_url_prefix(self.type)}{self.data_base64}"
 
     @staticmethod
     def parse_data_url_content_type(data_url: str) -> Optional[str]:

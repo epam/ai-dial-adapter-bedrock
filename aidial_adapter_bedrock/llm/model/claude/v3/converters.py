@@ -65,7 +65,7 @@ def _create_text_block(text: str) -> TextBlockParam:
 def _create_image_block(resource: Resource) -> ImageBlockParam:
     return ImageBlockParam(
         source=Source(
-            data=resource.data,
+            data=resource.data_base64,
             media_type=_validate_media_type(resource.type),
             type="base64",
         ),

@@ -7,6 +7,7 @@ from typing import Mapping, Optional, TypedDict
 from urllib.parse import urljoin
 
 import aiohttp
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -23,15 +24,10 @@ class Bucket(TypedDict):
     appdata: str
 
 
-class FileStorage:
+class FileStorage(BaseModel):
     dial_url: str
     api_key: str
-    bucket: Optional[Bucket]
-
-    def __init__(self, dial_url: str, api_key: str):
-        self.dial_url = dial_url
-        self.api_key = api_key
-        self.bucket = None
+    bucket: Optional[Bucket] = None
 
     @property
     def auth_headers(self) -> Mapping[str, str]:

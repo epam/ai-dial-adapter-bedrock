@@ -18,7 +18,7 @@ async def download_url(
     if not type:
         raise _no_content_type_exception(name)
     data = await _download_url_as_base64(file_storage, url)
-    return Resource(type=type, data=data)
+    return Resource.from_base64(type=type, data_base64=data)
 
 
 async def download_attachment(
@@ -38,7 +38,7 @@ async def download_attachment(
             "Invalid attachment: either data or URL is required"
         )
 
-    return Resource(type=type, data=data)
+    return Resource.from_base64(type=type, data_base64=data)
 
 
 def _guess_url_content_type(url: str) -> Optional[str]:
@@ -63,8 +63,8 @@ def _guess_attachment_content_type(attachment: Attachment) -> Optional[str]:
 async def _download_url_as_base64(
     file_storage: Optional[FileStorage], url: str
 ) -> str:
-    if (recourse := Resource.from_data_url(url)) is not None:
-        return recourse.data
+    if (resource := Resource.from_data_url(url)) is not None:
+        return resource.data_base64
 
     if file_storage:
         return await file_storage.download_file_as_base64(url)

@@ -5,7 +5,7 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-from typing import AsyncIterator, List, Self, Set
+from typing import AsyncIterator, List, Self
 
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -37,7 +37,7 @@ from aidial_adapter_bedrock.embedding.validation import (
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
 
-IMAGE_MEDIA_TYPES: Set[str] = {"image/png"}
+IMAGE_MEDIA_TYPES = ["image/png"]
 
 
 class AmazonRequest(BaseModel):
@@ -65,32 +65,29 @@ def create_titan_request(
     )
 
 
-def _validate_content_type(content_type: str):
-    if content_type not in IMAGE_MEDIA_TYPES:
+def _validate_content_type(content_type: str, supported_types: List[str]):
+    if content_type not in supported_types:
         raise UserError(
-            f"Unsupported attachment type: {content_type}. "
-            f"Supported attachment types: {', '.join(IMAGE_MEDIA_TYPES)}.",
+            f"Unsupported attachment content type: {content_type}. "
+            f"Supported attachment  types: {', '.join(supported_types)}."
         )
-
-
-async def download_image(
-    file_storage: FileStorage | None, attachment: Attachment
-) -> str:
-    resource = await download_attachment(file_storage, "attachment", attachment)
-    _validate_content_type(resource.type)
-    return resource.data
 
 
 def get_requests(
     file_storage: FileStorage | None, request: EmbeddingsRequest
 ) -> AsyncIterator[AmazonRequest]:
+    async def download_image(attachment: Attachment) -> str:
+        resource = await download_attachment(
+            file_storage, "attachment", attachment
+        )
+        _validate_content_type(resource.type, IMAGE_MEDIA_TYPES)
+        return resource.data_base64
+
     async def on_text(text: str) -> AmazonRequest:
         return AmazonRequest(inputText=text)
 
     async def on_attachment(attachment: Attachment) -> AmazonRequest:
-        return AmazonRequest(
-            inputImage=await download_image(file_storage, attachment)
-        )
+        return AmazonRequest(inputImage=await download_image(attachment))
 
     async def on_text_or_attachment(text: str | Attachment) -> AmazonRequest:
         if isinstance(text, str):
@@ -107,14 +104,14 @@ def get_requests(
             if isinstance(inputs[0], str) and isinstance(inputs[1], Attachment):
                 return AmazonRequest(
                     inputText=inputs[0],
-                    inputImage=await download_image(file_storage, inputs[1]),
+                    inputImage=await download_image(inputs[1]),
                 )
             elif isinstance(inputs[0], Attachment) and isinstance(
                 inputs[1], str
             ):
                 return AmazonRequest(
                     inputText=inputs[1],
-                    inputImage=await download_image(file_storage, inputs[0]),
+                    inputImage=await download_image(inputs[0]),
                 )
             else:
                 raise ValidationError(
