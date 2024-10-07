@@ -18,7 +18,7 @@ from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
 )
-from aidial_adapter_bedrock.dial_api.resource import download_attachment
+from aidial_adapter_bedrock.dial_api.resource import AttachmentResource
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -77,8 +77,8 @@ def get_requests(
     file_storage: FileStorage | None, request: EmbeddingsRequest
 ) -> AsyncIterator[AmazonRequest]:
     async def download_image(attachment: Attachment) -> str:
-        resource = await download_attachment(
-            file_storage, "attachment", attachment
+        resource = await AttachmentResource(attachment=attachment).download(
+            file_storage
         )
         _validate_content_type(resource.type, IMAGE_MEDIA_TYPES)
         return resource.data_base64

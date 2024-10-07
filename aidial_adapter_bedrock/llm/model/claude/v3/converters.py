@@ -19,8 +19,8 @@ from anthropic.types import (
 from anthropic.types.image_block_param import Source
 
 from aidial_adapter_bedrock.dial_api.resource import (
-    download_attachment,
-    download_url,
+    AttachmentResource,
+    URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
@@ -80,9 +80,10 @@ async def _to_claude_message(
     ret: List[TextBlockParam | ImageBlockParam] = []
 
     for attachment in message.attachments:
-        resource = await download_attachment(
-            file_storage, "image attachment", attachment
+        dial_resource = AttachmentResource(
+            attachment=attachment, entity_name="image attachment"
         )
+        resource = await dial_resource.download(file_storage)
         ret.append(_create_image_block(resource))
 
     content = message.content
@@ -96,9 +97,10 @@ async def _to_claude_message(
                     case MessageContentTextPart(text=text):
                         ret.append(_create_text_block(text))
                     case MessageContentImagePart(image_url=image_url):
-                        resource = await download_url(
-                            file_storage, "image url", image_url.url
+                        dial_resource = URLResource(
+                            url=image_url.url, entity_name="image url"
                         )
+                        resource = await dial_resource.download(file_storage)
                         ret.append(_create_image_block(resource))
                     case _:
                         assert_never(part)
