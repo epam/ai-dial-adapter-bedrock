@@ -18,7 +18,7 @@ from anthropic.types import (
 )
 from anthropic.types.image_block_param import Source
 
-from aidial_adapter_bedrock.dial_api.attachment import (
+from aidial_adapter_bedrock.dial_api.resource import (
     download_attachment,
     download_url,
 )

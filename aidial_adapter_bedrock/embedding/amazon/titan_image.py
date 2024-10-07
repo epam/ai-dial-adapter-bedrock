@@ -14,11 +14,11 @@ from aidial_sdk.embeddings.request import EmbeddingsRequest
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.dial_api.attachment import download_attachment
 from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
 )
+from aidial_adapter_bedrock.dial_api.resource import download_attachment
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
