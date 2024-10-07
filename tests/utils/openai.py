@@ -32,6 +32,7 @@ from openai.types.chat.completion_create_params import Function
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.utils.resource import Resource
 from tests.conftest import DEFAULT_API_VERSION
 
 
@@ -59,6 +60,52 @@ def user(
     content: str | List[ChatCompletionContentPartParam],
 ) -> ChatCompletionUserMessageParam:
     return {"role": "user", "content": content}
+
+
+def user_with_attachment_data(
+    content: str, resource: Resource
+) -> ChatCompletionUserMessageParam:
+    return {
+        "role": "user",
+        "content": content,
+        "custom_content": {  # type: ignore
+            "attachments": [
+                {"type": resource.type, "data": resource.data_base64}
+            ]
+        },
+    }
+
+
+def user_with_attachment_url(
+    content: str, resource: Resource
+) -> ChatCompletionUserMessageParam:
+    return {
+        "role": "user",
+        "content": content,
+        "custom_content": {  # type: ignore
+            "attachments": [
+                {
+                    "type": resource.type,
+                    "url": resource.to_data_url(),
+                }
+            ]
+        },
+    }
+
+
+def user_with_image_url(
+    content: str, image: Resource
+) -> ChatCompletionUserMessageParam:
+    return {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": content},
+            {
+                "type": "image_url",
+                "image_url": {"url": image.to_data_url()},
+            },
+        ],
+    }
 
 
 def function_request(name: str, args: Any) -> ToolFunction:

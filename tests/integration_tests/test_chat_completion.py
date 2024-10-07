@@ -15,6 +15,7 @@ from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.utils.resource import Resource
 from tests.conftest import TEST_SERVER_URL
 from tests.utils.json import match_objects
 from tests.utils.openai import (
@@ -33,6 +34,9 @@ from tests.utils.openai import (
     tool_request,
     tool_response,
     user,
+    user_with_attachment_data,
+    user_with_attachment_url,
+    user_with_image_url,
 )
 
 
@@ -166,7 +170,14 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     ]
 
 
-blue_pic = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII="
+def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
+    return is_claude3(deployment)
+
+
+blue_pic = Resource.from_base64(
+    type="image/png",
+    data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
+)
 
 
 def get_test_cases(
@@ -288,20 +299,21 @@ def get_test_cases(
         ),
     )
 
-    if is_claude3(deployment):
-        test_case(
-            name="image in a content part",
-            max_tokens=100,
-            messages=[
-                user(
-                    [
-                        {"type": "text", "text": "describe the image"},
-                        {"type": "image_url", "image_url": {"url": blue_pic}},
-                    ]
-                )
-            ],
-            expected=lambda s: "blue" in s.content.lower(),
-        )
+    if is_vision_model(deployment):
+        content = "describe the image"
+        for idx, user_message in enumerate(
+            [
+                user_with_attachment_data(content, blue_pic),
+                user_with_attachment_url(content, blue_pic),
+                user_with_image_url(content, blue_pic),
+            ]
+        ):
+            test_case(
+                name=f"describe image {idx}",
+                max_tokens=100,
+                messages=[sys("be a helpful assistant"), user_message],  # type: ignore
+                expected=lambda s: "blue" in s.content.lower(),
+            )
 
     test_case(
         name="pinocchio in one token",
