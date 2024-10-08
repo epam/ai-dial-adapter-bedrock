@@ -1,19 +1,41 @@
+import base64
 import mimetypes
 from abc import ABC, abstractmethod
+from typing import List
 
 from aidial_sdk.chat_completion import Attachment
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, validator
 
-from aidial_adapter_bedrock.dial_api.storage import (
-    FileStorage,
-    download_file_as_base64,
-)
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.dial_api.storage import FileStorage, download_file
 from aidial_adapter_bedrock.utils.resource import Resource
+from aidial_adapter_bedrock.utils.text import truncate_string
+
+
+class ValidationError(Exception):
+    message: str
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+class MissingContentType(ValidationError):
+    pass
+
+
+class UnsupportedContentType(ValidationError):
+    type: str
+    supported_types: List[str]
+
+    def __init__(self, message: str, type: str, supported_types: List[str]):
+        self.type = type
+        self.supported_types = supported_types
+        super().__init__(message)
 
 
 class DialResource(ABC, BaseModel):
     entity_name: str = Field(default=None)
+    supported_types: List[str] | None = Field(default=None)
 
     @abstractmethod
     async def download(self, storage: FileStorage | None) -> Resource: ...
@@ -26,18 +48,28 @@ class DialResource(ABC, BaseModel):
 
     async def get_content_type(self) -> str:
         type = await self.guess_content_type()
-        if not type:
-            raise self.no_content_type_exception()
-        return type
 
-    def no_content_type_exception(self) -> ValidationError:
-        return ValidationError(
-            f"Can't derive content type of the {self.entity_name}"
-        )
+        if not type:
+            raise MissingContentType(
+                f"Can't derive content type of the {self.entity_name}"
+            )
+
+        if (
+            self.supported_types is not None
+            and type not in self.supported_types
+        ):
+            raise UnsupportedContentType(
+                type,
+                f"The {self.entity_name} is not one of the supported types",
+                self.supported_types,
+            )
+
+        return type
 
 
 class URLResource(DialResource):
     url: str
+    content_type: str | None = None
 
     @root_validator
     def validator(cls, values):
@@ -46,29 +78,44 @@ class URLResource(DialResource):
 
     async def download(self, storage: FileStorage | None) -> Resource:
         type = await self.get_content_type()
-        data = await _download_url_as_base64(storage, self.url)
-        return Resource.from_base64(type=type, data_base64=data)
+        data = await _download_url(storage, self.url)
+        return Resource(type=type, data=data)
 
     async def guess_content_type(self) -> str | None:
         return (
-            Resource.parse_data_url_content_type(self.url)
+            self.content_type
+            or Resource.parse_data_url_content_type(self.url)
             or mimetypes.guess_type(self.url)[0]
         )
 
+    def is_data_url(self) -> bool:
+        return Resource.parse_data_url_content_type(self.url) is not None
+
     async def get_resource_name(self, storage: FileStorage | None) -> str:
-        if type := Resource.parse_data_url_content_type(self.url):
-            return f"data URL ({type})"
+        if self.is_data_url():
+            return f"data URL ({await self.guess_content_type()})"
 
+        name = self.url
         if storage is not None:
-            return await storage.get_human_readable_name(self.url)
+            name = await storage.get_human_readable_name(self.url)
 
-        return self.url
+        return truncate_string(name, n=50)
 
 
 class AttachmentResource(DialResource):
     attachment: Attachment
 
-    @root_validator
+    @validator("attachment", pre=True)
+    def parse_attachment(cls, value):
+        if isinstance(value, dict):
+            attachment = Attachment.parse_obj(value)
+            # Working around the issue of defaulting missing type to a markdown:
+            if "type" not in value:
+                attachment.type = None
+            return attachment
+        return value
+
+    @root_validator(pre=True)
     def validator(cls, values):
         values["entity_name"] = values.get("entity_name") or "attachment"
         return values
@@ -77,26 +124,35 @@ class AttachmentResource(DialResource):
         type = await self.get_content_type()
 
         if self.attachment.data:
-            data = self.attachment.data
+            data = base64.b64decode(self.attachment.data)
         elif self.attachment.url:
-            data = await _download_url_as_base64(storage, self.attachment.url)
+            data = await _download_url(storage, self.attachment.url)
         else:
             raise ValidationError(f"Invalid {self.entity_name}")
 
-        return Resource.from_base64(type=type, data_base64=data)
+        return Resource(type=type, data=data)
 
-    async def guess_content_type(self) -> str | None:
+    def create_url_resource(self, url: str) -> URLResource:
+        return URLResource(
+            url=url,
+            content_type=self.effective_content_type,
+            entity_name=self.entity_name,
+        )
+
+    @property
+    def effective_content_type(self) -> str | None:
         if (
             self.attachment.type is None
             or "octet-stream" in self.attachment.type
         ):
-            # It's an arbitrary binary file or type is missing.
-            # Trying to guess the type from the URL.
-            if url := self.attachment.url:
-                resource = URLResource(url=url, entity_name=self.entity_name)
-                type = await resource.guess_content_type()
-                if type:
-                    return type
+            return None
+        return self.attachment.type
+
+    async def guess_content_type(self) -> str | None:
+        if url := self.attachment.url:
+            type = await self.create_url_resource(url).guess_content_type()
+            if type:
+                return type
 
         return self.attachment.type
 
@@ -106,21 +162,19 @@ class AttachmentResource(DialResource):
 
         if self.attachment.data:
             return f"data {self.entity_name}"
+        elif url := self.attachment.url:
+            return await self.create_url_resource(url).get_resource_name(
+                storage
+            )
+        else:
+            raise ValidationError(f"Invalid {self.entity_name}")
 
-        if url := self.attachment.url:
-            resource = URLResource(url=url, entity_name=self.entity_name)
-            return await resource.get_resource_name(storage)
 
-        raise ValidationError(f"Invalid {self.entity_name}")
-
-
-async def _download_url_as_base64(
-    file_storage: FileStorage | None, url: str
-) -> str:
+async def _download_url(file_storage: FileStorage | None, url: str) -> bytes:
     if (resource := Resource.from_data_url(url)) is not None:
-        return resource.data_base64
+        return resource.data
 
     if file_storage:
-        return await file_storage.download_file_as_base64(url)
+        return await file_storage.download_file(url)
     else:
-        return await download_file_as_base64(url)
+        return await download_file(url)

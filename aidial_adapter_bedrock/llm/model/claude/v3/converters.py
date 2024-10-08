@@ -1,5 +1,5 @@
 import json
-from typing import List, Literal, Optional, Set, Tuple, assert_never, cast
+from typing import List, Literal, Optional, Tuple, assert_never, cast
 
 from aidial_sdk.chat_completion import (
     FinishReason,
@@ -20,6 +20,8 @@ from anthropic.types.image_block_param import Source
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
+    DialResource,
+    UnsupportedContentType,
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
@@ -39,23 +41,14 @@ ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
 ]
 ImageMediaType = Literal["image/png", "image/jpeg", "image/gif", "image/webp"]
-IMAGE_MEDIA_TYPES: Set[ImageMediaType] = {
+IMAGE_MEDIA_TYPES: List[str] = [
     "image/png",
     "image/jpeg",
     "image/gif",
     "image/webp",
-}
+]
 
 FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
-
-
-def _validate_media_type(media_type: str) -> ImageMediaType:
-    if media_type not in IMAGE_MEDIA_TYPES:
-        raise UserError(
-            f"Unsupported media type: {media_type}",
-            get_usage_message(FILE_EXTENSIONS),
-        )
-    return cast(ImageMediaType, media_type)
 
 
 def _create_text_block(text: str) -> TextBlockParam:
@@ -66,25 +59,40 @@ def _create_image_block(resource: Resource) -> ImageBlockParam:
     return ImageBlockParam(
         source=Source(
             data=resource.data_base64,
-            media_type=_validate_media_type(resource.type),
+            media_type=cast(ImageMediaType, resource.type),
             type="base64",
         ),
         type="image",
     )
 
 
+async def _collect_image_block(
+    file_storage: FileStorage | None, dial_resource: DialResource
+) -> ImageBlockParam:
+    try:
+        resource = await dial_resource.download(file_storage)
+    except UnsupportedContentType as e:
+        raise UserError(
+            f"Unsupported media type: {e.type}",
+            get_usage_message(FILE_EXTENSIONS),
+        )
+
+    return _create_image_block(resource)
+
+
 async def _to_claude_message(
-    file_storage: Optional[FileStorage],
+    file_storage: FileStorage | None,
     message: AIRegularMessage | HumanRegularMessage,
 ) -> List[TextBlockParam | ImageBlockParam]:
     ret: List[TextBlockParam | ImageBlockParam] = []
 
     for attachment in message.attachments:
         dial_resource = AttachmentResource(
-            attachment=attachment, entity_name="image attachment"
+            attachment=attachment,
+            entity_name="image attachment",
+            supported_types=IMAGE_MEDIA_TYPES,
         )
-        resource = await dial_resource.download(file_storage)
-        ret.append(_create_image_block(resource))
+        ret.append(await _collect_image_block(file_storage, dial_resource))
 
     content = message.content
 
@@ -98,10 +106,15 @@ async def _to_claude_message(
                         ret.append(_create_text_block(text))
                     case MessageContentImagePart(image_url=image_url):
                         dial_resource = URLResource(
-                            url=image_url.url, entity_name="image url"
+                            url=image_url.url,
+                            entity_name="image url",
+                            supported_types=IMAGE_MEDIA_TYPES,
                         )
-                        resource = await dial_resource.download(file_storage)
-                        ret.append(_create_image_block(resource))
+                        ret.append(
+                            await _collect_image_block(
+                                file_storage, dial_resource
+                            )
+                        )
                     case _:
                         assert_never(part)
         case _:
