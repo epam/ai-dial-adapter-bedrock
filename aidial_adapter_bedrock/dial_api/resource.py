@@ -27,7 +27,7 @@ class UnsupportedContentType(ValidationError):
     type: str
     supported_types: List[str]
 
-    def __init__(self, message: str, type: str, supported_types: List[str]):
+    def __init__(self, *, message: str, type: str, supported_types: List[str]):
         self.type = type
         self.supported_types = supported_types
         super().__init__(message)
@@ -59,9 +59,9 @@ class DialResource(ABC, BaseModel):
             and type not in self.supported_types
         ):
             raise UnsupportedContentType(
-                type,
-                f"The {self.entity_name} is not one of the supported types",
-                self.supported_types,
+                message=f"The {self.entity_name} is not one of the supported types",
+                type=type,
+                supported_types=self.supported_types,
             )
 
         return type
