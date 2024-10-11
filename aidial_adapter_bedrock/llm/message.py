@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.dial_api.request import (
     collect_text_content,
     is_plain_text_content,
-    is_text_content_parts,
+    is_text_content,
     to_message_content,
 )
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -51,18 +51,12 @@ class SystemMessage(BaseMessageABC):
 
         content = message.content
 
-        if content is None:
-            raise ValidationError("System message is expected to have content")
-
-        if isinstance(content, str):
-            return cls(content=content)
-
-        if is_text_content_parts(content):
-            return cls(content=content)
-        else:
+        if not is_text_content(content):
             raise ValidationError(
-                "Unexpected non-text content parts in system message"
+                "System message is expected to be a string or a list of text content parts"
             )
+
+        return cls(content=content)
 
     @property
     def text_content(self) -> str:

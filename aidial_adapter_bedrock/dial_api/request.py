@@ -98,10 +98,20 @@ def to_message_content(content: MessageContentSpecialized) -> MessageContent:
             assert_never(content)
 
 
-def is_text_content_parts(
-    content: List[MessageContentPart],
-) -> TypeGuard[List[MessageContentTextPart]]:
-    return all(isinstance(part, MessageContentTextPart) for part in content)
+def is_text_content(
+    content: MessageContent,
+) -> TypeGuard[str | List[MessageContentTextPart]]:
+    match content:
+        case None:
+            return False
+        case str():
+            return True
+        case list():
+            return all(
+                isinstance(part, MessageContentTextPart) for part in content
+            )
+        case _:
+            assert_never(content)
 
 
 def is_plain_text_content(content: MessageContent) -> TypeGuard[str | None]:
