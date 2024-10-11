@@ -136,12 +136,12 @@ class AttachmentResource(DialResource):
     def create_url_resource(self, url: str) -> URLResource:
         return URLResource(
             url=url,
-            content_type=self.effective_content_type,
+            content_type=self.informative_content_type,
             entity_name=self.entity_name,
         )
 
     @property
-    def effective_content_type(self) -> str | None:
+    def informative_content_type(self) -> str | None:
         if (
             self.attachment.type is None
             or "octet-stream" in self.attachment.type
