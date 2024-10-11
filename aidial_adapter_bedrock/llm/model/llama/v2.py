@@ -47,7 +47,7 @@ class Dialogue(BaseModel):
 def validate_chat(messages: List[BaseMessage]) -> Dialogue:
     system: Optional[str] = None
     if messages and isinstance(messages[0], SystemMessage):
-        system = messages[0].content
+        system = messages[0].text_content
         if system.strip() == "":
             system = None
         messages = messages[1:]
@@ -66,7 +66,7 @@ def validate_chat(messages: List[BaseMessage]) -> Dialogue:
         )
 
     turns = [
-        (human.content, assistant.content)
+        (human.text_content, assistant.text_content)
         for human, assistant in zip(human, ai)
     ]
 
@@ -78,7 +78,7 @@ def validate_chat(messages: List[BaseMessage]) -> Dialogue:
     return Dialogue(
         system=system,
         turns=turns,
-        human=last_query.content,
+        human=last_query.text_content,
     )
 
 
