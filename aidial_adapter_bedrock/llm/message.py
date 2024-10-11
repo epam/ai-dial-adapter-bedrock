@@ -3,13 +3,19 @@ from typing import List, Optional, Self, Union
 
 from aidial_sdk.chat_completion import Attachment, CustomContent, FunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
-from aidial_sdk.chat_completion import MessageContentPart, Role, ToolCall
+from aidial_sdk.chat_completion import (
+    MessageContentPart,
+    MessageContentTextPart,
+    Role,
+    ToolCall,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.request import (
     collect_text_content,
     is_plain_text_content,
     is_text_content_parts,
+    to_message_content,
 )
 from aidial_adapter_bedrock.llm.errors import ValidationError
 
@@ -30,12 +36,12 @@ class BaseMessageABC(MessageABC):
 
 
 class SystemMessage(BaseMessageABC):
-    content: str | List[MessageContentPart]
+    content: str | List[MessageContentTextPart]
 
     def to_message(self) -> DialMessage:
         return DialMessage(
             role=Role.SYSTEM,
-            content=self.content,
+            content=to_message_content(self.content),
         )
 
     @classmethod
@@ -52,7 +58,7 @@ class SystemMessage(BaseMessageABC):
             return cls(content=content)
 
         if is_text_content_parts(content):
-            return cls(content=content)  # type: ignore
+            return cls(content=content)
         else:
             raise ValidationError(
                 "Unexpected non-text content parts in system message"
