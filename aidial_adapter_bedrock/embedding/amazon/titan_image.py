@@ -69,7 +69,7 @@ def _validate_content_type(content_type: str, supported_types: List[str]):
     if content_type not in supported_types:
         raise UserError(
             f"Unsupported attachment content type: {content_type}. "
-            f"Supported attachment  types: {', '.join(supported_types)}."
+            f"Supported attachment types: {', '.join(supported_types)}."
         )
 
 

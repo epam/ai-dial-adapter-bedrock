@@ -110,6 +110,7 @@ class AttachmentResource(DialResource):
         if isinstance(value, dict):
             attachment = Attachment.parse_obj(value)
             # Working around the issue of defaulting missing type to a markdown:
+            # https://github.com/epam/ai-dial-sdk/blob/2835107e950c89645a2b619fecba2518fa2d7bb1/aidial_sdk/chat_completion/request.py#L22
             if "type" not in value:
                 attachment.type = None
             return attachment
