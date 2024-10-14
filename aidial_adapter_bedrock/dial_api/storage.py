@@ -4,11 +4,12 @@ import io
 import mimetypes
 import os
 from typing import Mapping, Optional, TypedDict
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin
 
 import aiohttp
+from pydantic import BaseModel
 
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 class FileMetadata(TypedDict):
@@ -23,15 +24,10 @@ class Bucket(TypedDict):
     appdata: str
 
 
-class FileStorage:
+class FileStorage(BaseModel):
     dial_url: str
     api_key: str
-    bucket: Optional[Bucket]
-
-    def __init__(self, dial_url: str, api_key: str):
-        self.dial_url = dial_url
-        self.api_key = api_key
-        self.bucket = None
+    bucket: Optional[Bucket] = None
 
     @property
     def auth_headers(self) -> Mapping[str, str]:
@@ -48,6 +44,15 @@ class FileStorage:
                 log.debug(f"bucket: {self.bucket}")
 
         return self.bucket
+
+    async def _get_user_bucket(self, session: aiohttp.ClientSession) -> str:
+        bucket = await self._get_bucket(session)
+        appdata = bucket.get("appdata")
+        if appdata is None:
+            raise ValueError(
+                "Can't retrieve user bucket because appdata isn't available"
+            )
+        return appdata.split("/", 1)[0]
 
     @staticmethod
     def _to_form_data(
@@ -87,36 +92,48 @@ class FileStorage:
     async def upload_file_as_base64(
         self, upload_dir: str, data: str, content_type: str
     ) -> FileMetadata:
-        filename = f"{upload_dir}/{_compute_hash_digest(data)}"
+        filename = f"{upload_dir}/{compute_hash_digest(data)}"
         content: bytes = base64.b64decode(data)
         return await self.upload(filename, content_type, content)
 
-    async def download_file_as_base64(self, dial_path: str) -> str:
-        url = urljoin(f"{self.dial_url}/v1/", dial_path)
+    def attachment_link_to_url(self, link: str) -> str:
+        return urljoin(f"{self.dial_url}/v1/", link)
+
+    def _url_to_attachment_link(self, url: str) -> str:
+        return url.removeprefix(f"{self.dial_url}/v1/")
+
+    async def download_file(self, link: str) -> bytes:
+        url = self.attachment_link_to_url(link)
         headers: Mapping[str, str] = {}
         if url.lower().startswith(self.dial_url.lower()):
             headers = self.auth_headers
+        return await download_file(url, headers)
 
-        return await download_file_as_base64(url, headers)
+    async def get_human_readable_name(self, link: str) -> str:
+        url = self.attachment_link_to_url(link)
+        link = self._url_to_attachment_link(url)
+
+        link = link.removeprefix("files/")
+
+        if link.startswith("public/"):
+            bucket = "public"
+        else:
+            async with aiohttp.ClientSession() as session:
+                bucket = await self._get_user_bucket(session)
+
+        link = link.removeprefix(f"{bucket}/")
+        decoded_link = unquote(link)
+        return link if link == decoded_link else repr(decoded_link)
 
 
-async def _download_file(
-    url: str, headers: Optional[Mapping[str, str]]
-) -> bytes:
+async def download_file(url: str, headers: Mapping[str, str] = {}) -> bytes:
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as response:
             response.raise_for_status()
             return await response.read()
 
 
-async def download_file_as_base64(
-    url: str, headers: Optional[Mapping[str, str]] = None
-) -> str:
-    data = await _download_file(url, headers)
-    return base64.b64encode(data).decode("ascii")
-
-
-def _compute_hash_digest(file_content: str) -> str:
+def compute_hash_digest(file_content: str) -> str:
     return hashlib.sha256(file_content.encode()).hexdigest()
 
 

@@ -23,7 +23,7 @@ async def truncate_prompt_by_words(
     model_limit: Optional[int] = None,
 ) -> DiscardedMessages | TruncatePromptError:
     async def _tokenize_by_words(messages: List[BaseMessage]) -> int:
-        return sum(len(msg.content.split()) for msg in messages)
+        return sum(len(msg.text_content.split()) for msg in messages)
 
     return await compute_discarded_messages(
         messages=messages,

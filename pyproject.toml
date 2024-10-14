@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aidial-adapter-bedrock"
-version = "0.15.0rc"
+version = "0.16.0rc"
 description = "DIAL adapter for AWS Bedrock"
 authors = ["EPAM RAIL <SpecialEPM-DIALDevTeam@epam.com>"]
 homepage = "https://epam-rail.com"
@@ -17,7 +17,7 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.28.57"
 botocore = "1.31.57"
-aidial-sdk = {version = "0.13.0", extras = ["telemetry"]}
+aidial-sdk = {version = "0.14.0", extras = ["telemetry"]}
 anthropic = {version = "0.28.1", extras = ["bedrock"]}
 fastapi = "0.109.2"
 openai = "1.13.3"

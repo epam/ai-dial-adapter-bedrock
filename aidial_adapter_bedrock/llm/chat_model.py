@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from typing_extensions import override
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.request import (
+    ModelParameters,
+    collect_text_content,
+)
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -24,8 +27,7 @@ from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 def _is_empty_system_message(msg: Message) -> bool:
     return (
         msg.role == Role.SYSTEM
-        and msg.content is not None
-        and msg.content.strip() == ""
+        and collect_text_content(msg.content).strip() == ""
     )
 
 

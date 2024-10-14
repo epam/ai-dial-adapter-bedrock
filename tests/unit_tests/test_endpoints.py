@@ -9,6 +9,8 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
     (ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT, True, True),
     (ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT, True, True),
+    (ChatCompletionDeployment.AI21_J2_MID_V1, True, True),
+    (ChatCompletionDeployment.AI21_J2_ULTRA_V1, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1, True, True),
