@@ -10,6 +10,7 @@ from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     TruncatePromptError,
+    _partition_indexer,
     compute_discarded_messages,
 )
 from tests.utils.messages import ai, sys, user
@@ -31,6 +32,16 @@ async def truncate_prompt_by_words(
         model_limit=model_limit,
         user_limit=user_limit,
     )
+
+
+def test_partition_indexer():
+    assert [_partition_indexer([2, 3])(i) for i in range(5)] == [
+        [0, 1],
+        [0, 1],
+        [2, 3, 4],
+        [2, 3, 4],
+        [2, 3, 4],
+    ]
 
 
 @pytest.mark.asyncio

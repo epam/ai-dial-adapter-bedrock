@@ -2,7 +2,7 @@ import os
 
 import boto3
 from aidial_sdk.embeddings import Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
@@ -43,7 +43,7 @@ class AWSClientConfig(BaseModel):
 
 
 class UpstreamConfig(BaseModel):
-    region: str = get_aws_default_region()
+    region: str = Field(default_factory=get_aws_default_region)
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
     aws_assume_role_arn: str | None = os.environ.get("AWS_ASSUME_ROLE_ARN")
