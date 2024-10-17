@@ -19,6 +19,9 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.converse_adapter import (
+    ConverseChatCompletionAdapter,
+)
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
@@ -102,6 +105,15 @@ async def get_bedrock_adapter(
                 model,
                 llama3_config,
             )
+        case ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1:
+            return ConverseChatCompletionAdapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                api_key,
+                is_streaming_support_tool_calls=False,
+                fix_streaming_tool_calls=True,
+            )
+
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
             | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
