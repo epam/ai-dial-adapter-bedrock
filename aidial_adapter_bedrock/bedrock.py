@@ -97,6 +97,18 @@ class Bedrock:
                     log.debug(f"chunk: {json_dumps_short(chunk_dict)}")
                 yield chunk_dict
 
+    async def aconverse_non_streaming(self, model: str, **params):
+        response = await make_async(
+            lambda: self.client.converse(modelId=model, **params)
+        )
+        return response
+
+    async def aconverse_streaming(self, model: str, **params):
+        response = await make_async(
+            lambda: self.client.converse_stream(modelId=model, **params)
+        )
+        return response["stream"]
+
 
 class InvocationMetrics(BaseModel):
     inputTokenCount: int

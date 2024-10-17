@@ -102,6 +102,13 @@ async def get_bedrock_adapter(
                 model,
                 llama3_config,
             )
+        case ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1:
+            return MetaAdapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                llama3_config,
+            )
+
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
             | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14

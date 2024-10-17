@@ -40,6 +40,7 @@ class ChatCompletionDeployment(str, Enum):
     META_LLAMA3_1_405B_INSTRUCT_V1 = "meta.llama3-1-405b-instruct-v1:0"
     META_LLAMA3_1_70B_INSTRUCT_V1 = "meta.llama3-1-70b-instruct-v1:0"
     META_LLAMA3_1_8B_INSTRUCT_V1 = "meta.llama3-1-8b-instruct-v1:0"
+    META_LLAMA3_2_90B_INSTRUCT_V1 = "us.meta.llama3-2-90b-instruct-v1:0"
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
