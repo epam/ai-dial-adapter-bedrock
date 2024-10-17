@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 
 class ChatCompletionDeployment(str, Enum):
@@ -6,14 +7,28 @@ class ChatCompletionDeployment(str, Enum):
 
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
+    AI21_J2_MID_V1 = "ai21.j2-mid-v1"
+    AI21_J2_ULTRA_V1 = "ai21.j2-ultra-v1"
 
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
+
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
+    ANTHROPIC_CLAUDE_V3_SONNET_US = "us.anthropic.claude-3-sonnet-20240229-v1:0"
+    ANTHROPIC_CLAUDE_V3_SONNET_EU = "eu.anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    ANTHROPIC_CLAUDE_V3_5_SONNET_US = (
+        "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
+    )
+    ANTHROPIC_CLAUDE_V3_5_SONNET_EU = (
+        "eu.anthropic.claude-3-5-sonnet-20240620-v1:0"
+    )
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
+    ANTHROPIC_CLAUDE_V3_HAIKU_US = "us.anthropic.claude-3-haiku-20240307-v1:0"
+    ANTHROPIC_CLAUDE_V3_HAIKU_EU = "eu.anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
+    ANTHROPIC_CLAUDE_V3_OPUS_US = "us.anthropic.claude-3-opus-20240229-v1:0"
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -51,6 +66,21 @@ class ChatCompletionDeployment(str, Enum):
         cls, deployment_id: str
     ) -> "ChatCompletionDeployment":
         return cls(deployment_id)
+
+
+Claude3Deployment = Literal[
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+]
 
 
 class EmbeddingsDeployment(str, Enum):

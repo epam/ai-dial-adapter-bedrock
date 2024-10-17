@@ -43,11 +43,18 @@ async def get_bedrock_adapter(
     match deployment:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
-            return Claude_V3.create(model, api_key, aws_client_config)
+            return Claude_V3.create(deployment, api_key, aws_client_config)
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
@@ -59,6 +66,8 @@ async def get_bedrock_adapter(
         case (
             ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
+            | ChatCompletionDeployment.AI21_J2_MID_V1
+            | ChatCompletionDeployment.AI21_J2_ULTRA_V1
         ):
             return AI21Adapter.create(
                 await Bedrock.acreate(aws_client_config), model

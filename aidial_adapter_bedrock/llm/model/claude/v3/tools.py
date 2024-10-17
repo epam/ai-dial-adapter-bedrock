@@ -8,14 +8,20 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
+    AIRegularMessage,
     AIToolCallMessage,
     BaseMessage,
     HumanFunctionResultMessage,
     HumanRegularMessage,
     HumanToolResultMessage,
+    SystemMessage,
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+
+
+def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
+    return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
 def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
@@ -23,15 +29,8 @@ def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
         index=None,
         id=block.id,
         type="function",
-        function=FunctionCall(
-            name=block.name,
-            arguments=json.dumps(block.input),
-        ),
+        function=to_dial_function_call(block),
     )
-
-
-def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
-    return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
 def process_tools_block(
@@ -47,7 +46,7 @@ def process_tools_block(
                 "A model has called a tool, but no tools were given to the model in the first place."
             )
         case _:
-            raise Exception(f"Unknown {tools_mode} during tool use!")
+            assert_never(tools_mode)
 
 
 def process_with_tools(
@@ -67,8 +66,8 @@ def process_with_tools(
             )
         return message
     elif tools_mode == ToolsMode.TOOLS:
-        if isinstance(message, HumanFunctionResultMessage) or isinstance(
-            message, AIFunctionCallMessage
+        if isinstance(
+            message, (HumanFunctionResultMessage, AIFunctionCallMessage)
         ):
             raise ValidationError(
                 "You cannot use function messages with tools config."
@@ -76,7 +75,7 @@ def process_with_tools(
         return message
     elif tools_mode == ToolsMode.FUNCTIONS:
         match message:
-            case HumanRegularMessage():
+            case SystemMessage() | HumanRegularMessage() | AIRegularMessage():
                 return message
             case HumanToolResultMessage() | AIToolCallMessage():
                 raise ValidationError(
@@ -99,7 +98,7 @@ def process_with_tools(
                     id=message.name, content=message.content
                 )
             case _:
-                raise ValueError(f"Unknown message type {type(message)}")
+                assert_never(message)
 
     else:
         assert_never(tools_mode)

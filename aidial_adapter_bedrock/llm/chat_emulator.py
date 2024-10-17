@@ -58,7 +58,7 @@ class BasicChatEmulator(ChatEmulator):
         else:
             cue_prefix = cue + " "
 
-        return (cue_prefix + message.content.lstrip()).rstrip()
+        return (cue_prefix + message.text_content.lstrip()).rstrip()
 
     def get_ai_cue(self) -> Optional[str]:
         return self.cues["ai"]
@@ -69,7 +69,7 @@ class BasicChatEmulator(ChatEmulator):
             and len(messages) == 1
             and isinstance(messages[0], HumanRegularMessage)
         ):
-            return messages[0].content, []
+            return messages[0].text_content, []
 
         ret: List[str] = []
 

@@ -81,7 +81,7 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
 
         # Concat with the user system message
         if len(messages) > 0 and isinstance(messages[0], SystemMessage):
-            system_message += "\n" + messages[0].content
+            system_message += "\n" + messages[0].text_content
             messages = messages[1:]
 
         return [SystemMessage(content=system_message), *messages]

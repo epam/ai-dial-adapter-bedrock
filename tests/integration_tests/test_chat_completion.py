@@ -15,6 +15,7 @@ from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.utils.resource import Resource
 from tests.conftest import TEST_SERVER_URL
 from tests.utils.json import match_objects
 from tests.utils.openai import (
@@ -33,6 +34,9 @@ from tests.utils.openai import (
     tool_request,
     tool_response,
     user,
+    user_with_attachment_data,
+    user_with_attachment_url,
+    user_with_image_url,
 )
 
 
@@ -109,11 +113,15 @@ chat_deployments = [
     ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE,
     ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+    ChatCompletionDeployment.AI21_J2_MID_V1,
+    ChatCompletionDeployment.AI21_J2_ULTRA_V1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
     ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
@@ -129,9 +137,16 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
 
 
@@ -145,9 +160,24 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
 def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
+
+
+def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
+    return is_claude3(deployment)
+
+
+blue_pic = Resource.from_base64(
+    type="image/png",
+    data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
+)
 
 
 def get_test_cases(
@@ -269,6 +299,22 @@ def get_test_cases(
         ),
     )
 
+    if is_vision_model(deployment):
+        content = "describe the image"
+        for idx, user_message in enumerate(
+            [
+                user_with_attachment_data(content, blue_pic),
+                user_with_attachment_url(content, blue_pic),
+                user_with_image_url(content, blue_pic),
+            ]
+        ):
+            test_case(
+                name=f"describe image {idx}",
+                max_tokens=100,
+                messages=[sys("be a helpful assistant"), user_message],  # type: ignore
+                expected=lambda s: "blue" in s.content.lower(),
+            )
+
     test_case(
         name="pinocchio in one token",
         max_tokens=1,
@@ -308,6 +354,12 @@ def get_test_cases(
 
     if supports_tools(deployment):
         query = "What's the temperature in Glasgow in celsius?"
+        chat_history = [
+            sys("act as a helpful assistant"),
+            user("2+3=?"),
+            ai("5"),
+            user(query),
+        ]
 
         function_args_checker = {
             "location": lambda s: "glasgow" in s.lower(),
@@ -321,7 +373,7 @@ def get_test_cases(
         # Functions
         test_case(
             name="weather function",
-            messages=[user(query)],
+            messages=chat_history,
             functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: is_valid_function_call(
                 s.function_call, name, function_args_checker
@@ -333,7 +385,7 @@ def get_test_cases(
 
         test_case(
             name="weather function followup",
-            messages=[user(query), function_req, function_resp],
+            messages=[*chat_history, function_req, function_resp],
             functions=[GET_WEATHER_FUNCTION],
             expected=lambda s: "15" in s.content.lower(),
         )
@@ -342,7 +394,7 @@ def get_test_cases(
         tool_call_id = f"{name}_1"
         test_case(
             name="weather tool",
-            messages=[user(query)],
+            messages=chat_history,
             tools=[GET_WEATHER_TOOL],
             expected=lambda s: is_valid_tool_calls(
                 s.tool_calls, tool_call_id, name, function_args_checker
@@ -354,7 +406,7 @@ def get_test_cases(
 
         test_case(
             name="weather tool followup",
-            messages=[user(query), tool_req, tool_resp],
+            messages=[*chat_history, tool_req, tool_resp],
             tools=[GET_WEATHER_TOOL],
             expected=lambda s: "15" in s.content.lower(),
         )

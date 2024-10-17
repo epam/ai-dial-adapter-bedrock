@@ -10,7 +10,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
-    default_partitioner,
+    trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
@@ -115,7 +115,7 @@ class AmazonAdapter(PseudoChatModel):
             # See the note at the end of: https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-a-prompt.html
             chat_emulator=default_emulator,
             tools_emulator=default_tools_emulator,
-            partitioner=default_partitioner,
+            partitioner=trivial_partitioner,
         )
 
     @override

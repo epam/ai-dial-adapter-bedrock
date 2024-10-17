@@ -114,14 +114,14 @@ class StabilityAdapter(TextCompletionAdapter):
             tools_emulator=default_tools_emulator,
         )
 
-    def truncate_and_linearize_messages(
+    async def truncate_and_linearize_messages(
         self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
         return TextCompletionPrompt(
-            text=messages[-1].content,
+            text=messages[-1].text_content,
             stop_sequences=[],
             discarded_messages=list(range(len(messages) - 1)),
         )
