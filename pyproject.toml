@@ -8,17 +8,15 @@ documentation = "https://epam-rail.com/dial_api"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = ["ai"]
-classifiers = [
-    "Topic :: Software Development :: Libraries :: Python Modules"
-]
+classifiers = ["Topic :: Software Development :: Libraries :: Python Modules"]
 repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 
 [tool.poetry.dependencies]
 python = "^3.11,<4.0"
-boto3 = "1.28.57"
-botocore = "1.31.57"
-aidial-sdk = {version = "0.14.0", extras = ["telemetry"]}
-anthropic = {version = "0.28.1", extras = ["bedrock"]}
+boto3 = "1.35.41"
+botocore = "1.35.41"
+aidial-sdk = { version = "0.14.0", extras = ["telemetry"] }
+anthropic = { version = "0.28.1", extras = ["bedrock"] }
 fastapi = "0.109.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
@@ -48,19 +46,14 @@ nox = "^2023.4.22"
 addopts = "--doctest-modules"
 # muting warnings coming from opentelemetry package
 filterwarnings = [
-    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies"
+    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
 ]
 
 [tool.pyright]
 typeCheckingMode = "basic"
 reportUnusedVariable = "error"
 reportIncompatibleMethodOverride = "error"
-exclude = [
-    ".git",
-    ".venv",
-    ".nox",
-    "**/__pycache__"
-]
+exclude = [".git", ".venv", ".nox", "**/__pycache__"]
 
 [tool.black]
 line-length = 80
@@ -83,7 +76,4 @@ remove_all_unused_imports = true
 in_place = true
 recursive = true
 quiet = true
-exclude = [
-    "\\.venv",
-    "\\.nox",
-]
+exclude = ["\\.venv", "\\.nox"]
