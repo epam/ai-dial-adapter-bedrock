@@ -8,11 +8,13 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
+    AIRegularMessage,
     AIToolCallMessage,
     BaseMessage,
     HumanFunctionResultMessage,
     HumanRegularMessage,
     HumanToolResultMessage,
+    SystemMessage,
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
@@ -73,7 +75,7 @@ def process_with_tools(
         return message
     elif tools_mode == ToolsMode.FUNCTIONS:
         match message:
-            case HumanRegularMessage():
+            case SystemMessage() | HumanRegularMessage() | AIRegularMessage():
                 return message
             case HumanToolResultMessage() | AIToolCallMessage():
                 raise ValidationError(
