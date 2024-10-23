@@ -3,13 +3,11 @@ from itertools import product
 from typing import Any, Callable, List
 
 import pytest
-from openai import AsyncAzureOpenAI
 from openai.types import CreateEmbeddingResponse
 
 from aidial_adapter_bedrock.deployments import EmbeddingsDeployment
 from aidial_adapter_bedrock.llm.consumer import Attachment
 from aidial_adapter_bedrock.utils.json import remove_nones
-from tests.conftest import DEFAULT_API_VERSION, TEST_SERVER_URL
 from tests.utils.openai import sanitize_test_name
 
 
@@ -210,15 +208,9 @@ def get_image_test_cases(
     ],
     ids=lambda test: test.get_id(),
 )
-async def test_embeddings(server, test: TestCase):
+async def test_embeddings(get_openai_client, test: TestCase):
     model_id = test.deployment.value
-
-    client = AsyncAzureOpenAI(
-        azure_endpoint=TEST_SERVER_URL,
-        azure_deployment=model_id,
-        api_version=DEFAULT_API_VERSION,
-        api_key="dummy_key",
-    )
+    client = get_openai_client(model_id)
 
     async def run() -> CreateEmbeddingResponse:
         return await client.embeddings.create(
