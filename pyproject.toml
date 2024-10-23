@@ -19,7 +19,7 @@ boto3 = "1.28.57"
 botocore = "1.31.57"
 aidial-sdk = {version = "0.14.0", extras = ["telemetry"]}
 anthropic = {version = "0.28.1", extras = ["bedrock"]}
-fastapi = "0.109.2"
+fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
 pydantic = "1.10.13"
