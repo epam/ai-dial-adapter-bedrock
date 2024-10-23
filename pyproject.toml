@@ -45,6 +45,7 @@ flake8 = "6.0.0"
 nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
+addopts="-n=auto"
 env_override_existing_values = 1
 # muting warnings coming from opentelemetry package
 filterwarnings = [
