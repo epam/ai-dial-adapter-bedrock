@@ -15,12 +15,14 @@ from anthropic.types import (
     ContentBlockDeltaEvent,
     ContentBlockStartEvent,
     MessageDeltaEvent,
+)
+from anthropic.types import MessageParam as ClaudeMessage
+from anthropic.types import (
     MessageStartEvent,
     MessageStreamEvent,
     TextBlock,
     ToolUseBlock,
 )
-from anthropic.types import MessageParam as ClaudeMessage
 from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -63,6 +65,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     truncate_prompt,
 )
 from aidial_adapter_bedrock.utils.json import json_dumps_short
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -87,7 +90,7 @@ class UsageEventHandler(AsyncMessageStream):
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
-    messages: List[ClaudeMessage]
+    messages: ListProjection[ClaudeMessage]
 
 
 class Adapter(ChatCompletionAdapter):
@@ -143,12 +146,13 @@ class Adapter(ChatCompletionAdapter):
         return ClaudeRequest(params=claude_params, messages=claude_messages)
 
     async def _compute_discarded_messages(
-        self,
-        request: ClaudeRequest,
-        max_prompt_tokens: int | None,
+        self, request: ClaudeRequest, max_prompt_tokens: int | None
     ) -> Tuple[DiscardedMessages | None, ClaudeRequest]:
+        if max_prompt_tokens is None:
+            return None, request
+
         discarded_messages, messages = await truncate_prompt(
-            messages=request.messages,
+            messages=request.messages.list,
             tokenizer=create_tokenizer(self.deployment, request.params),
             keep_message=keep_last,
             partitioner=turn_based_partitioner,
@@ -156,14 +160,15 @@ class Adapter(ChatCompletionAdapter):
             user_limit=max_prompt_tokens,
         )
 
-        if request.params["system"] is not NOT_GIVEN:
-            discarded_messages = [idx + 1 for idx in discarded_messages]
+        claude_messages = ListProjection(messages)
 
-        if max_prompt_tokens is None:
-            discarded_messages = None
+        discarded_messages = list(
+            request.messages.to_original_indices(discarded_messages)
+        )
 
         return discarded_messages, ClaudeRequest(
-            params=request.params, messages=messages
+            params=request.params,
+            messages=claude_messages,
         )
 
     async def chat(
@@ -198,7 +203,7 @@ class Adapter(ChatCompletionAdapter):
     ) -> int:
         request = await self._prepare_claude_request(params, messages)
         return await create_tokenizer(self.deployment, request.params)(
-            request.messages
+            request.messages.list
         )
 
     async def count_completion_tokens(self, string: str) -> int:
@@ -231,7 +236,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"Streaming request: {msg}")
 
         async with self.client.messages.stream(
-            messages=request.messages,
+            messages=request.messages.raw_list,
             model=self.deployment.model_id,
             **request.params,
         ) as stream:
@@ -305,7 +310,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"Request: {msg}")
 
         message = await self.client.messages.create(
-            messages=request.messages,
+            messages=request.messages.raw_list,
             model=self.deployment.model_id,
             **request.params,
             stream=False,
