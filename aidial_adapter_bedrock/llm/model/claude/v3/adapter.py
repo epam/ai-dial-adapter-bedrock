@@ -7,13 +7,13 @@ from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
+    ContentBlockStopEvent,
     InputJsonEvent,
     TextEvent,
 )
 from anthropic.types import (
     ContentBlockDeltaEvent,
     ContentBlockStartEvent,
-    ContentBlockStopEvent,
     MessageDeltaEvent,
 )
 from anthropic.types import MessageParam as ClaudeMessage
@@ -65,6 +65,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     truncate_prompt,
 )
 from aidial_adapter_bedrock.utils.json import json_dumps_short
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -89,7 +90,7 @@ class UsageEventHandler(AsyncMessageStream):
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
-    messages: List[ClaudeMessage]
+    messages: ListProjection[ClaudeMessage]
 
 
 class Adapter(ChatCompletionAdapter):
@@ -105,16 +106,19 @@ class Adapter(ChatCompletionAdapter):
 
         tools = NOT_GIVEN
         tool_choice: ToolChoice | NotGiven = NOT_GIVEN
-        if params.tool_config is not None:
+        if (tool_config := params.tool_config) is not None:
             tools = [
                 to_claude_tool_config(tool_function)
-                for tool_function in params.tool_config.functions
+                for tool_function in tool_config.functions
             ]
+
             tool_choice = (
-                {"type": "any"}
-                if params.tool_config.required
-                else {"type": "auto"}
+                {"type": "any"} if tool_config.required else {"type": "auto"}
             )
+
+            # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
+            # by older Claude3 versions, so we limit the number of generated function calls
+            # to one in the adapter itself for the functions mode.
 
         parsed_messages = [
             process_with_tools(parse_dial_message(m), params.tools_mode)
@@ -142,12 +146,13 @@ class Adapter(ChatCompletionAdapter):
         return ClaudeRequest(params=claude_params, messages=claude_messages)
 
     async def _compute_discarded_messages(
-        self,
-        request: ClaudeRequest,
-        max_prompt_tokens: int | None,
+        self, request: ClaudeRequest, max_prompt_tokens: int | None
     ) -> Tuple[DiscardedMessages | None, ClaudeRequest]:
+        if max_prompt_tokens is None:
+            return None, request
+
         discarded_messages, messages = await truncate_prompt(
-            messages=request.messages,
+            messages=request.messages.list,
             tokenizer=create_tokenizer(self.deployment, request.params),
             keep_message=keep_last,
             partitioner=turn_based_partitioner,
@@ -155,14 +160,15 @@ class Adapter(ChatCompletionAdapter):
             user_limit=max_prompt_tokens,
         )
 
-        if request.params["system"] is not NOT_GIVEN:
-            discarded_messages = [idx + 1 for idx in discarded_messages]
+        claude_messages = ListProjection(messages)
 
-        if max_prompt_tokens is None:
-            discarded_messages = None
+        discarded_messages = list(
+            request.messages.to_original_indices(discarded_messages)
+        )
 
         return discarded_messages, ClaudeRequest(
-            params=request.params, messages=messages
+            params=request.params,
+            messages=claude_messages,
         )
 
     async def chat(
@@ -197,7 +203,7 @@ class Adapter(ChatCompletionAdapter):
     ) -> int:
         request = await self._prepare_claude_request(params, messages)
         return await create_tokenizer(self.deployment, request.params)(
-            request.messages
+            request.messages.list
         )
 
     async def count_completion_tokens(self, string: str) -> int:
@@ -230,7 +236,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"Streaming request: {msg}")
 
         async with self.client.messages.stream(
-            messages=request.messages,
+            messages=request.messages.raw_list,
             model=self.deployment.model_id,
             **request.params,
         ) as stream:
@@ -238,21 +244,32 @@ class Adapter(ChatCompletionAdapter):
             completion_tokens = 0
             stop_reason = None
             async for event in stream:
+                if log.isEnabledFor(DEBUG):
+                    log.debug(
+                        f"claude response event: {json_dumps_short(event)}"
+                    )
+
                 match event:
-                    case MessageStartEvent():
-                        prompt_tokens += event.message.usage.input_tokens
-                    case TextEvent():
-                        consumer.append_content(event.text)
-                    case MessageDeltaEvent():
-                        completion_tokens += event.usage.output_tokens
-                    case ContentBlockStopEvent():
-                        if isinstance(event.content_block, ToolUseBlock):
-                            process_tools_block(
-                                consumer, event.content_block, tools_mode
-                            )
-                    case MessageStopEvent():
-                        completion_tokens += event.message.usage.output_tokens
-                        stop_reason = event.message.stop_reason
+                    case MessageStartEvent(message=message):
+                        prompt_tokens += message.usage.input_tokens
+                    case TextEvent(text=text):
+                        consumer.append_content(text)
+                    case MessageDeltaEvent(usage=usage):
+                        completion_tokens += usage.output_tokens
+                    case ContentBlockStopEvent(content_block=content_block):
+                        match content_block:
+                            case ToolUseBlock():
+                                process_tools_block(
+                                    consumer, content_block, tools_mode
+                                )
+                            case TextBlock():
+                                # Already handled in TextEvent
+                                pass
+                            case _:
+                                assert_never(content_block)
+                    case MessageStopEvent(message=message):
+                        completion_tokens += message.usage.output_tokens
+                        stop_reason = message.stop_reason
                     case (
                         InputJsonEvent()
                         | ContentBlockStartEvent()
@@ -260,9 +277,7 @@ class Adapter(ChatCompletionAdapter):
                     ):
                         pass
                     case _:
-                        raise ValueError(
-                            f"Unsupported event type! {type(event)}"
-                        )
+                        assert_never(event)
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
@@ -295,18 +310,24 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"Request: {msg}")
 
         message = await self.client.messages.create(
-            messages=request.messages,
+            messages=request.messages.raw_list,
             model=self.deployment.model_id,
             **request.params,
             stream=False,
         )
+
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"claude response message: {json_dumps_short(message)}")
+
         for content in message.content:
-            if isinstance(content, TextBlock):
-                consumer.append_content(content.text)
-            elif isinstance(content, ToolUseBlock):
-                process_tools_block(consumer, content, tools_mode)
-            else:
-                assert_never(content)
+            match content:
+                case TextBlock(text=text):
+                    consumer.append_content(text)
+                case ToolUseBlock():
+                    process_tools_block(consumer, content, tools_mode)
+                case _:
+                    assert_never(content)
+
         consumer.close_content(
             to_dial_finish_reason(message.stop_reason, tools_mode)
         )

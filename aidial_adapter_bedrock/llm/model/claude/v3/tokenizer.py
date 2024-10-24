@@ -30,6 +30,7 @@ import io
 import json
 import math
 from typing import (
+    Any,
     Awaitable,
     Callable,
     List,
@@ -220,8 +221,8 @@ async def _tokenize(
 
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
-) -> Callable[[List[ClaudeMessage]], Awaitable[int]]:
-    async def _tokenizer(messages: List[ClaudeMessage]) -> int:
-        return await _tokenize(deployment, params, messages)
+) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
+    async def _tokenizer(messages) -> int:
+        return await _tokenize(deployment, params, [msg for msg, _ in messages])
 
     return _tokenizer

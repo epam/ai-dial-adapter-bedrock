@@ -1,5 +1,5 @@
 import json
-from typing import List, Literal, Optional, Tuple, assert_never, cast
+from typing import List, Literal, Optional, Set, Tuple, assert_never, cast
 
 from aidial_sdk.chat_completion import (
     FinishReason,
@@ -35,6 +35,8 @@ from aidial_adapter_bedrock.llm.message import (
     SystemMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.list import group_by
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.resource import Resource
 
 ClaudeFinishReason = Literal[
@@ -142,34 +144,69 @@ def _to_claude_tool_result(
     )
 
 
+def _merge_messages_with_same_role(
+    messages: ListProjection[MessageParam],
+) -> ListProjection[MessageParam]:
+    def _key(message: Tuple[MessageParam, Set[int]]) -> str:
+        return message[0]["role"]
+
+    def _merge(
+        a: Tuple[MessageParam, Set[int]],
+        b: Tuple[MessageParam, Set[int]],
+    ) -> Tuple[MessageParam, Set[int]]:
+        (msg1, set1), (msg2, set2) = a, b
+
+        content1 = msg1["content"]
+        content2 = msg2["content"]
+
+        if isinstance(content1, str):
+            content1 = [
+                cast(TextBlockParam, {"type": "text", "text": content1})
+            ]
+
+        if isinstance(content2, str):
+            content2 = [
+                cast(TextBlockParam, {"type": "text", "text": content2})
+            ]
+
+        return {
+            "role": msg1["role"],
+            "content": list(content1) + list(content2),
+        }, set1 | set2
+
+    return ListProjection(group_by(messages.list, _key, lambda x: x, _merge))
+
+
 async def to_claude_messages(
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
     file_storage: Optional[FileStorage],
-) -> Tuple[Optional[str], List[MessageParam]]:
-    if not messages:
-        return None, []
+) -> Tuple[Optional[str], ListProjection[MessageParam]]:
 
     system_prompt: str | None = None
-    if isinstance(messages[0], SystemMessage):
+    if messages and isinstance(messages[0], SystemMessage):
         system_prompt = messages[0].text_content
         messages = messages[1:]
 
-    claude_messages: List[MessageParam] = []
-    for message in messages:
+    idx_offset = int(system_prompt is not None)
+
+    ret: ListProjection[MessageParam] = ListProjection()
+    for idx, message in enumerate(messages, start=idx_offset):
         match message:
             case HumanRegularMessage():
-                claude_messages.append(
+                ret.append(
                     MessageParam(
                         role="user",
                         content=await _to_claude_message(file_storage, message),
-                    )
+                    ),
+                    idx,
                 )
             case AIRegularMessage():
-                claude_messages.append(
+                ret.append(
                     MessageParam(
                         role="assistant",
                         content=await _to_claude_message(file_storage, message),
-                    )
+                    ),
+                    idx,
                 )
             case AIToolCallMessage():
                 content: List[TextBlockParam | ToolUseBlockParam] = [
@@ -178,18 +215,20 @@ async def to_claude_messages(
                 if message.content is not None:
                     content.insert(0, _create_text_block(message.content))
 
-                claude_messages.append(
+                ret.append(
                     MessageParam(
                         role="assistant",
                         content=content,
-                    )
+                    ),
+                    idx,
                 )
             case HumanToolResultMessage():
-                claude_messages.append(
+                ret.append(
                     MessageParam(
                         role="user",
                         content=[_to_claude_tool_result(message)],
-                    )
+                    ),
+                    idx,
                 )
             case SystemMessage():
                 raise ValidationError(
@@ -198,7 +237,7 @@ async def to_claude_messages(
             case _:
                 assert_never(message)
 
-    return system_prompt, claude_messages
+    return system_prompt, _merge_messages_with_same_role(ret)
 
 
 def to_dial_finish_reason(
