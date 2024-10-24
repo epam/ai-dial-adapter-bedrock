@@ -7,22 +7,20 @@ from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     AsyncMessageStream,
+    ContentBlockStopEvent,
     InputJsonEvent,
     TextEvent,
 )
 from anthropic.types import (
     ContentBlockDeltaEvent,
     ContentBlockStartEvent,
-    ContentBlockStopEvent,
     MessageDeltaEvent,
-)
-from anthropic.types import MessageParam as ClaudeMessage
-from anthropic.types import (
     MessageStartEvent,
     MessageStreamEvent,
     TextBlock,
     ToolUseBlock,
 )
+from anthropic.types import MessageParam as ClaudeMessage
 from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -105,16 +103,19 @@ class Adapter(ChatCompletionAdapter):
 
         tools = NOT_GIVEN
         tool_choice: ToolChoice | NotGiven = NOT_GIVEN
-        if params.tool_config is not None:
+        if (tool_config := params.tool_config) is not None:
             tools = [
                 to_claude_tool_config(tool_function)
-                for tool_function in params.tool_config.functions
+                for tool_function in tool_config.functions
             ]
+
             tool_choice = (
-                {"type": "any"}
-                if params.tool_config.required
-                else {"type": "auto"}
+                {"type": "any"} if tool_config.required else {"type": "auto"}
             )
+
+            # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
+            # by older Claude3 versions, so we limit the number of generated function calls
+            # to one in the adapter itself for the functions mode.
 
         parsed_messages = [
             process_with_tools(parse_dial_message(m), params.tools_mode)
@@ -238,21 +239,32 @@ class Adapter(ChatCompletionAdapter):
             completion_tokens = 0
             stop_reason = None
             async for event in stream:
+                if log.isEnabledFor(DEBUG):
+                    log.debug(
+                        f"claude response event: {json_dumps_short(event)}"
+                    )
+
                 match event:
-                    case MessageStartEvent():
-                        prompt_tokens += event.message.usage.input_tokens
-                    case TextEvent():
-                        consumer.append_content(event.text)
-                    case MessageDeltaEvent():
-                        completion_tokens += event.usage.output_tokens
-                    case ContentBlockStopEvent():
-                        if isinstance(event.content_block, ToolUseBlock):
-                            process_tools_block(
-                                consumer, event.content_block, tools_mode
-                            )
-                    case MessageStopEvent():
-                        completion_tokens += event.message.usage.output_tokens
-                        stop_reason = event.message.stop_reason
+                    case MessageStartEvent(message=message):
+                        prompt_tokens += message.usage.input_tokens
+                    case TextEvent(text=text):
+                        consumer.append_content(text)
+                    case MessageDeltaEvent(usage=usage):
+                        completion_tokens += usage.output_tokens
+                    case ContentBlockStopEvent(content_block=content_block):
+                        match content_block:
+                            case ToolUseBlock():
+                                process_tools_block(
+                                    consumer, content_block, tools_mode
+                                )
+                            case TextBlock():
+                                # Already handled in TextEvent
+                                pass
+                            case _:
+                                assert_never(content_block)
+                    case MessageStopEvent(message=message):
+                        completion_tokens += message.usage.output_tokens
+                        stop_reason = message.stop_reason
                     case (
                         InputJsonEvent()
                         | ContentBlockStartEvent()
@@ -260,9 +272,7 @@ class Adapter(ChatCompletionAdapter):
                     ):
                         pass
                     case _:
-                        raise ValueError(
-                            f"Unsupported event type! {type(event)}"
-                        )
+                        assert_never(event)
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
@@ -300,13 +310,19 @@ class Adapter(ChatCompletionAdapter):
             **request.params,
             stream=False,
         )
+
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"claude response message: {json_dumps_short(message)}")
+
         for content in message.content:
-            if isinstance(content, TextBlock):
-                consumer.append_content(content.text)
-            elif isinstance(content, ToolUseBlock):
-                process_tools_block(consumer, content, tools_mode)
-            else:
-                assert_never(content)
+            match content:
+                case TextBlock(text=text):
+                    consumer.append_content(text)
+                case ToolUseBlock():
+                    process_tools_block(consumer, content, tools_mode)
+                case _:
+                    assert_never(content)
+
         consumer.close_content(
             to_dial_finish_reason(message.stop_reason, tools_mode)
         )

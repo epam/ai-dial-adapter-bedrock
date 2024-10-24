@@ -58,6 +58,11 @@ class Consumer(ABC):
     def create_function_call(self, function_call: FunctionCall):
         pass
 
+    @property
+    @abstractmethod
+    def has_function_call(self) -> bool:
+        pass
+
 
 class ChoiceConsumer(Consumer):
     usage: TokenUsage
@@ -134,3 +139,7 @@ class ChoiceConsumer(Consumer):
         self.choice.create_function_call(
             name=function_call.name, arguments=function_call.arguments
         )
+
+    @property
+    def has_function_call(self) -> bool:
+        return self.choice.has_function_call

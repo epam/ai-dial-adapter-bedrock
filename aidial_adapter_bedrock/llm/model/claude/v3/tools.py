@@ -18,6 +18,7 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
@@ -40,7 +41,13 @@ def process_tools_block(
         case ToolsMode.TOOLS:
             consumer.create_function_tool_call(to_dial_tool_call(block))
         case ToolsMode.FUNCTIONS:
-            consumer.create_function_call(to_dial_function_call(block))
+            if consumer.has_function_call:
+                log.warning(
+                    "The model generated more than one tool call. "
+                    "Only the first one will be taken in to account."
+                )
+            else:
+                consumer.create_function_call(to_dial_function_call(block))
         case None:
             raise ValidationError(
                 "A model has called a tool, but no tools were given to the model in the first place."
