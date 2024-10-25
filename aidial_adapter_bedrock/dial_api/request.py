@@ -69,23 +69,26 @@ class ModelParameters(BaseModel):
 def collect_text_content(
     content: MessageContentSpecialized, delimiter: str = "\n\n"
 ) -> str:
-
-    if content is None:
-        return ""
-
-    if isinstance(content, str):
-        return content
-
-    texts: List[str] = []
-    for part in content:
-        if isinstance(part, MessageContentTextPart):
-            texts.append(part.text)
-        else:
-            raise ValidationError(
-                "Can't extract text from a multi-modal content part"
-            )
-
-    return delimiter.join(texts)
+    match content:
+        case None:
+            return ""
+        case str():
+            return content
+        case list():
+            texts: List[str] = []
+            for part in content:
+                match part:
+                    case MessageContentTextPart(text=text):
+                        texts.append(text)
+                    case MessageContentImagePart():
+                        raise ValidationError(
+                            "Can't extract text from an image content part"
+                        )
+                    case _:
+                        assert_never(part)
+            return delimiter.join(texts)
+        case _:
+            assert_never(content)
 
 
 def to_message_content(content: MessageContentSpecialized) -> MessageContent:
