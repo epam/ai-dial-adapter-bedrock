@@ -46,7 +46,6 @@ async def get_bedrock_adapter(
     match deployment:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
@@ -105,8 +104,8 @@ async def get_bedrock_adapter(
                 llama3_config,
             )
         case (
-            ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
         ):
             return ConverseToolStreamingAdapter.create(
                 await Bedrock.acreate(aws_client_config),
