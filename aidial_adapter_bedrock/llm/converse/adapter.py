@@ -128,12 +128,10 @@ class ConverseAdapter(ChatCompletionAdapter):
         ), ConverseParams(
             **{
                 **params.to_dict(),
-
-                    "messages": ListProjection(
-                        omit_by_indices(messages, discarded_messages)
-                    )
-                },
-            }
+                "messages": ListProjection(
+                    omit_by_indices(messages, discarded_messages)
+                ),
+            },
         )
 
     async def count_prompt_tokens(

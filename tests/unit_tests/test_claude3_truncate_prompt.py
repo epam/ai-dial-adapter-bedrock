@@ -7,6 +7,7 @@ from aidial_sdk.chat_completion import Function, Message
 from aidial_sdk.exceptions import HTTPException as DialException
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
+from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -19,7 +20,12 @@ from tests.utils.messages import ai, sys, to_sdk_messages, user, user_with_image
 
 _DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
 
-_MODEL = Claude_V3.create(_DEPLOYMENT, "-", AWSClientConfig(region="us-east-1"))
+
+_MODEL = Claude_V3.create(
+    deployment=_DEPLOYMENT,
+    api_key="-",
+    bedrock=Bedrock.create(AWSClientConfig(region="us-east-1")),
+)
 
 
 async def tokenize(
@@ -53,7 +59,7 @@ _TOOL_CONFIG = ToolsConfig(
 
 _PER_MESSAGE_TOKENS = 5
 
-_PNG_IMAGE_50_50 = "iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAAS0lEQVR4nO3OsQEAEADAMPz/Mw9YMjE0F2Tu8aP1OnBXS9QStUQtUUvUErVELVFL1BK1RC1RS9QStUQtUUvUErVELVFL1BK1RC1xAEGqAWOFuDKrAAAAAElFTkSuQmCC"
+_PNG_IMAGE_50_50_BASE_64 = "iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAAS0lEQVR4nO3OsQEAEADAMPz/Mw9YMjE0F2Tu8aP1OnBXS9QStUQtUUvUErVELVFL1BK1RC1RS9QStUQtUUvUErVELVFL1BK1RC1xAEGqAWOFuDKrAAAAAElFTkSuQmCC"
 
 _PNG_IMAGE_50_50_TOKENS = math.ceil((50 * 50) / 750.0)
 
@@ -102,7 +108,7 @@ async def test_one_turn_with_image(mock_tokenize_text):
     messages = to_sdk_messages(
         [
             sys("11"),
-            user_with_image("22", _PNG_IMAGE_50_50),
+            user_with_image("22", _PNG_IMAGE_50_50_BASE_64),
         ]
     )
 
@@ -183,9 +189,9 @@ async def test_multiple_system_messages(mock_tokenize_text):
     with pytest.raises(ValidationError) as exc_info:
         await compute_discarded_messages(messages, 3)
 
-        assert exc_info.value.message == (
-            "System message is only allowed as the first message"
-        )
+    assert exc_info.value.message == (
+        "System message is only allowed as the first message"
+    )
 
 
 @pytest.mark.asyncio

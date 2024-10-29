@@ -25,7 +25,6 @@ https://docs.anthropic.com/en/docs/build-with-claude/tool-use#pricing
     b. the hidden tool-enabling system prompt is accounted as per the documentation.
 """
 
-import base64
 import io
 import json
 import math
@@ -38,6 +37,7 @@ from typing import (
     Tuple,
     assert_never,
     cast,
+    get_args,
 )
 
 from PIL import Image
@@ -66,11 +66,7 @@ def _get_image_size(
     image_data: bytes, format: Literal["png", "jpeg", "gif", "webp"]
 ) -> Tuple[int, int]:
     try:
-        if not isinstance(image_data, str):
-            raise ValueError("Images as files aren't yet supported.")
-
-        image_bytes = base64.b64decode(image_data)
-        with Image.open(io.BytesIO(image_bytes)) as img:
+        with Image.open(io.BytesIO(image_data), formats=[format]) as img:
             return img.size
     except Exception:
         log.exception("Cannot compute image size, assuming 1000x1000")
@@ -198,7 +194,7 @@ async def _tokenize(
 def create_tokenizer(
     deployment: str, params: ConverseParams
 ) -> Callable[[List[Tuple[ConverseMessage, Any]]], Awaitable[int]]:
-    if deployment not in Claude3Deployment.__args__:
+    if deployment not in get_args(Claude3Deployment):
         raise ValueError(f"Unsupported deployment: {deployment}")
 
     deployment = cast(Claude3Deployment, deployment)

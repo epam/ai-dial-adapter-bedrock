@@ -45,7 +45,7 @@ async def test_to_converse_message_function_call_no_content():
                 "toolUse": {
                     "toolUseId": "get_weather",
                     "name": "get_weather",
-                    "input": '{"city": "Paris"}',
+                    "input": {"city": "Paris"},
                 }
             },
         ],
@@ -70,7 +70,7 @@ async def test_to_converse_message_function_call_with_content():
                 "toolUse": {
                     "toolUseId": "get_weather",
                     "name": "get_weather",
-                    "input": '{"city": "Paris"}',
+                    "input": {"city": "Paris"},
                 }
             },
         ],
@@ -100,7 +100,7 @@ async def test_to_converse_message_tool_call_no_content():
                 "toolUse": {
                     "toolUseId": "123",
                     "name": "get_weather",
-                    "input": '{"city": "Paris"}',
+                    "input": {"city": "Paris"},
                 }
             },
         ],
@@ -132,7 +132,7 @@ async def test_to_converse_message_tool_call_with_content():
                 "toolUse": {
                     "toolUseId": "123",
                     "name": "get_weather",
-                    "input": '{"city": "Paris"}',
+                    "input": {"city": "Paris"},
                 }
             },
         ],

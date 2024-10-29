@@ -28,6 +28,13 @@ class Bedrock:
         self.client = client
 
     @classmethod
+    def create(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
+        client_kwargs = aws_client_config.get_boto_client_kwargs()
+        client_kwargs["service_name"] = "bedrock-runtime"
+        client = boto3.Session().client(**client_kwargs)
+        return cls(client)
+
+    @classmethod
     async def acreate(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
         client_kwargs = aws_client_config.get_boto_client_kwargs()
         client_kwargs["service_name"] = "bedrock-runtime"

@@ -16,7 +16,6 @@ from aidial_adapter_bedrock.dial_api.request import ToolsConfig
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     URLResource,
-    ValidationError,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.converse.constants import (
@@ -33,6 +32,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseTools,
     ConverseToolUsePart,
 )
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -79,16 +79,10 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             "toolSpec": {
                 "name": function.name,
                 "description": function.description or "",
-                "inputSchema": (
-                    {
-                        "json": (
-                            {
-                                "type": "object",
-                                "properties": function.parameters or {},
-                            }
-                        )
-                    }
-                ),
+                "inputSchema": {
+                    "json": function.parameters
+                    or {"type": "object", "properties": {}}
+                },
             }
         }
         tools.append(tool)
@@ -188,14 +182,8 @@ async def _get_converse_message_content(
     storage: FileStorage | None,
     supported_image_types: list[str] | None = None,
 ) -> List[ConverseContentPart]:
-    if message.function_call:
-        return [function_call_to_content_part(message.function_call)]
-    elif message.tool_calls:
-        return [
-            tool_call_to_content_part(tool_call)
-            for tool_call in message.tool_calls
-        ]
-    elif message.role == DialRole.FUNCTION:
+
+    if message.role == DialRole.FUNCTION:
         return [function_result_to_content_part(message)]
     elif message.role == DialRole.TOOL:
         return [tool_result_to_content_part(message)]
@@ -244,6 +232,19 @@ async def _get_converse_message_content(
                     }
                 }
             )
+    if message.function_call and message.tool_calls:
+        raise ValidationError(
+            "You cannot use both function call and tool calls in the same message"
+        )
+    elif message.function_call:
+        content.append(function_call_to_content_part(message.function_call))
+    elif message.tool_calls:
+        content.extend(
+            [
+                tool_call_to_content_part(tool_call)
+                for tool_call in message.tool_calls
+            ]
+        )
 
     return content
 
