@@ -1,7 +1,7 @@
 import json
 from typing import (
     Any,
-    AsyncGenerator,
+    AsyncIterator,
     Awaitable,
     Callable,
     Dict,
@@ -60,7 +60,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     ]
 
     async def _process_streaming(
-        self, stream: AsyncGenerator[Any, Any], consumer: Consumer
+        self, stream: AsyncIterator[Any], consumer: Consumer
     ) -> None:
         current_tool_use = None
 
