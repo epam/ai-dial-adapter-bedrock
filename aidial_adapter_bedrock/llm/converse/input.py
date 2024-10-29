@@ -16,6 +16,7 @@ from aidial_adapter_bedrock.dial_api.request import ToolsConfig
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     URLResource,
+    ValidationError,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.converse.constants import (
@@ -184,7 +185,10 @@ async def _get_converse_message_content(
     if message.function_call:
         return [function_call_to_content_part(message.function_call)]
     elif message.tool_calls:
-        return [tool_call_to_content_part(message.tool_calls[0])]
+        return [
+            tool_call_to_content_part(tool_call)
+            for tool_call in message.tool_calls
+        ]
     elif message.role == DialRole.FUNCTION:
         return [function_result_to_content_part(message)]
     elif message.role == DialRole.TOOL:
@@ -253,13 +257,13 @@ async def to_converse_message(
 
 
 def get_converse_system_prompt(
-    message: DialMessage,
+    messages: List[DialMessage],
 ) -> Dict[str, Any] | None:
-    if message.role != DialRole.SYSTEM:
-        return None
-
-    if not isinstance(message.content, str):
-        raise RuntimeServerError(
-            f"System message content expected to be a plain string, got {type(message.content)}"
+    if any(msg.role == DialRole.SYSTEM for msg in messages[1:]):
+        raise ValidationError(
+            "System message is only allowed as the first message"
         )
-    return {"text": message.content}
+
+    if messages[0].role == DialRole.SYSTEM:
+        return {"text": messages[0].content}
+    return None

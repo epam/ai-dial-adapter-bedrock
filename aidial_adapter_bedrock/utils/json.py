@@ -16,10 +16,6 @@ def remove_nones(d: dict) -> dict:
     return {k: v for k, v in d.items() if v is not None}
 
 
-def remove_list_nones(items: list) -> list:
-    return [v for v in items if v is not None]
-
-
 def json_dumps_short(
     obj: Any, *, string_limit: int = 100, list_len_limit: int = 10, **kwargs
 ) -> str:

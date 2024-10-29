@@ -1,5 +1,5 @@
 import json
-from typing import Any, AsyncGenerator, Dict, List
+from typing import Any, AsyncGenerator, Dict, List, Set, Tuple
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
@@ -23,7 +23,10 @@ from aidial_adapter_bedrock.llm.converse.input import (
     to_converse_tools,
     to_dial_finish_reason,
 )
-from aidial_adapter_bedrock.utils.json import remove_list_nones, remove_nones
+from aidial_adapter_bedrock.llm.converse.types import ConverseMessage
+from aidial_adapter_bedrock.utils.json import remove_nones
+from aidial_adapter_bedrock.utils.list import group_by
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class ConverseChatCompletionAdapter(ChatCompletionAdapter):
@@ -126,22 +129,49 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
         if stop_reason := response.get("stopReason"):
             consumer.close_content(to_dial_finish_reason(stop_reason))
 
+    async def process_messages(
+        self, messages: List[DialMessage]
+    ) -> ListProjection[ConverseMessage]:
+        def _merge(
+            a: Tuple[ConverseMessage, Set[int]],
+            b: Tuple[ConverseMessage, Set[int]],
+        ) -> Tuple[ConverseMessage, Set[int]]:
+            (msg1, set1), (msg2, set2) = a, b
+
+            content1 = msg1["content"]
+            content2 = msg2["content"]
+
+            return {
+                "role": msg1["role"],
+                "content": list(content1) + list(content2),
+            }, set1 | set2
+
+        converted: List[Tuple[ConverseMessage, Set[int]]] = [
+            (await to_converse_message(msg, self.storage), set([idx]))
+            for idx, msg in enumerate(messages)
+            if msg.role != DialRole.SYSTEM
+        ]
+
+        # Merge messages with same roles, to preserve turn-based user/assistant turns
+        return ListProjection(
+            group_by(
+                lst=converted,
+                key=lambda msg: msg[0]["role"],
+                init=lambda msg: msg,
+                merge=_merge,
+            )
+        )
+
     async def construct_converse_params(
         self,
         messages: List[DialMessage],
         params: ModelParameters,
     ) -> Dict[str, Any]:
+        system_message = get_converse_system_prompt(messages)
         return remove_nones(
             {
-                "messages": [
-                    await to_converse_message(msg, self.storage)
-                    for msg in messages
-                    if msg.role != DialRole.SYSTEM
-                ],
-                "system": remove_list_nones(
-                    [get_converse_system_prompt(msg) for msg in messages]
-                )
-                or None,
+                "system": [system_message] if system_message else None,
+                "messages": (await self.process_messages(messages)).raw_list,
                 "inferenceConfig": remove_nones(
                     {
                         "temperature": params.temperature,
