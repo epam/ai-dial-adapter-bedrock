@@ -1,10 +1,65 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, Union
+
+from aidial_adapter_bedrock.utils.json import remove_nones
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class ConverseRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
+
+
+class ConverseTextPart(TypedDict):
+    text: str
+
+
+class ConverseJsonPart(TypedDict):
+    json: dict
+
+
+class ConverseImageSource(TypedDict):
+    bytes: bytes
+
+
+class ConverseImagePartConfig(TypedDict):
+    format: Literal["png", "jpeg", "gif", "webp"]
+    source: ConverseImageSource
+
+
+class ConverseImagePart(TypedDict):
+    image: ConverseImagePartConfig
+
+
+class ConverseToolUseConfig(TypedDict):
+    toolUseId: str
+    name: str
+    #  {...}|[...]|123|123.4|'string'|True|None
+    input: Any
+
+
+class ConverseToolUsePart(TypedDict):
+    toolUse: ConverseToolUseConfig
+
+
+class ConverseToolResultConfig(TypedDict):
+    toolUseId: str
+    content: list[ConverseTextPart | ConverseJsonPart]
+    status: str
+
+
+class ConverseToolResultPart(TypedDict):
+    toolResult: ConverseToolResultConfig
+
+
+ConverseContentPart = Union[
+    ConverseTextPart,
+    ConverseJsonPart,
+    ConverseImagePart,
+    ConverseToolUsePart,
+    ConverseToolResultPart,
+]
 
 
 class ConverseToolConfig(TypedDict):
@@ -15,27 +70,11 @@ class ConverseToolConfig(TypedDict):
 
 class ConverseTools(TypedDict):
     tools: list[ConverseToolConfig]
-
-
-class ConverseToolUseConfig(TypedDict):
-    toolUseId: str
-    name: str
-    #  {...}|[...]|123|123.4|'string'|True|None
-    input: Any
+    toolChoice: dict
 
 
 class ConverseToolUse(TypedDict):
     toolUse: ConverseToolUseConfig
-
-
-class ConverseToolResultConfig(TypedDict):
-    toolUseId: str
-    content: list[dict]
-    status: str
-
-
-class ConverseToolResult(TypedDict):
-    toolResult: ConverseToolResultConfig
 
 
 class ConverseStopReason(str, Enum):
@@ -47,22 +86,34 @@ class ConverseStopReason(str, Enum):
     CONTENT_FILTERED = "content_filtered"
 
 
-class ConverseImageSource(TypedDict):
-    bytes: bytes
-
-
-class ConverseImagePart(TypedDict):
-    format: Literal["png", "jpeg", "gif", "webp"]
-    source: ConverseImageSource
-
-
-class ConverseContentPart(TypedDict, total=False):
-    text: str | None
-    image: ConverseImagePart | None
-    toolUse: ConverseToolUseConfig | None
-    toolResult: ConverseToolResultConfig | None
-
-
 class ConverseMessage(TypedDict):
     role: ConverseRole
     content: list[ConverseContentPart]
+
+
+class InferenceConfig(TypedDict, total=False):
+    temperature: float | None
+    topP: float | None
+    maxTokens: int | None
+    stopSequences: list[str] | None
+
+
+@dataclass
+class ConverseParams:
+    messages: ListProjection[ConverseMessage]
+    system: list[ConverseTextPart] | None = None
+    inferenceConfig: InferenceConfig | None = None
+    toolConfig: ConverseTools | None = None
+
+    def to_dict(self) -> dict:
+        return remove_nones(
+            {
+                "system": self.system,
+                "messages": self.messages.raw_list,
+                "inferenceConfig": self.inferenceConfig,
+                "toolConfig": self.toolConfig,
+            }
+        )
+
+
+ConverseDeployment = str

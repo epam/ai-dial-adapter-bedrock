@@ -1,53 +1,65 @@
 import json
-from typing import Any, AsyncGenerator, Dict, List, Set, Tuple
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Tuple,
+    cast,
+)
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
-from aidial_sdk.chat_completion import Role as DialRole
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.storage import (
-    FileStorage,
-    create_file_storage,
-)
+from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatCompletionAdapter,
+    keep_last,
+    turn_based_partitioner,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.input import (
     get_converse_system_prompt,
+    process_messages,
     to_converse_finish_reason,
-    to_converse_message,
     to_converse_tools,
     to_dial_finish_reason,
 )
-from aidial_adapter_bedrock.llm.converse.types import ConverseMessage
+from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseDeployment,
+    ConverseMessage,
+    ConverseParams,
+    InferenceConfig,
+)
+from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
+    truncate_prompt,
+)
 from aidial_adapter_bedrock.utils.json import remove_nones
-from aidial_adapter_bedrock.utils.list import group_by
+from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class ConverseChatCompletionAdapter(ChatCompletionAdapter):
-    model_id: str
+class ConverseAdapter(ChatCompletionAdapter):
+    deployment: str
     bedrock: Bedrock
     storage: FileStorage | None
 
-    @classmethod
-    def create(
-        cls,
-        bedrock: Bedrock,
-        model_id: str,
-        dial_api_key: str,
-    ):
-        return cls(
-            bedrock=bedrock,
-            model_id=model_id,
-            storage=create_file_storage(dial_api_key),
-        )
+    tokenize_text: Callable[[str], int]
+    tokenizer_factory: Callable[
+        [ConverseDeployment, ConverseParams],
+        Callable[[List[Tuple[ConverseMessage, Any]]], Awaitable[int]],
+    ]
 
-    async def process_streaming(
+    async def _process_streaming(
         self, stream: AsyncGenerator[Any, Any], consumer: Consumer
     ) -> None:
         current_tool_use = None
@@ -96,6 +108,54 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
             ):
                 consumer.close_content(to_dial_finish_reason(stop_reason))
 
+    async def _discard_messages(
+        self, params: ConverseParams, max_prompt_tokens: int | None
+    ) -> Tuple[DiscardedMessages | None, ConverseParams]:
+        if max_prompt_tokens is None:
+            return None, params
+
+        discarded_messages, messages = await truncate_prompt(
+            messages=params.messages.list,
+            tokenizer=self.tokenizer_factory(self.deployment, params),
+            keep_message=keep_last,
+            partitioner=turn_based_partitioner,
+            model_limit=None,
+            user_limit=max_prompt_tokens,
+        )
+
+        return list(
+            params.messages.to_original_indices(discarded_messages)
+        ), ConverseParams(
+            **{
+                **params.to_dict(),
+
+                    "messages": ListProjection(
+                        omit_by_indices(messages, discarded_messages)
+                    )
+                },
+            }
+        )
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, messages: List[DialMessage]
+    ) -> int:
+        converse_params = await self.construct_converse_params(messages, params)
+        return await self.tokenizer_factory(self.deployment, converse_params)(
+            converse_params.messages.list
+        )
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return self.tokenize_text(string)
+
+    async def compute_discarded_messages(
+        self, params: ModelParameters, messages: List[DialMessage]
+    ) -> DiscardedMessages | None:
+        converse_params = await self.construct_converse_params(messages, params)
+        discarded_messages, _ = await self._discard_messages(
+            converse_params, params.max_prompt_tokens
+        )
+        return discarded_messages
+
     def _process_non_streaming(
         self, response: Dict[str, Any], consumer: Consumer
     ) -> None:
@@ -129,50 +189,18 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
         if stop_reason := response.get("stopReason"):
             consumer.close_content(to_dial_finish_reason(stop_reason))
 
-    async def process_messages(
-        self, messages: List[DialMessage]
-    ) -> ListProjection[ConverseMessage]:
-        def _merge(
-            a: Tuple[ConverseMessage, Set[int]],
-            b: Tuple[ConverseMessage, Set[int]],
-        ) -> Tuple[ConverseMessage, Set[int]]:
-            (msg1, set1), (msg2, set2) = a, b
-
-            content1 = msg1["content"]
-            content2 = msg2["content"]
-
-            return {
-                "role": msg1["role"],
-                "content": list(content1) + list(content2),
-            }, set1 | set2
-
-        converted: List[Tuple[ConverseMessage, Set[int]]] = [
-            (await to_converse_message(msg, self.storage), set([idx]))
-            for idx, msg in enumerate(messages)
-            if msg.role != DialRole.SYSTEM
-        ]
-
-        # Merge messages with same roles, to preserve turn-based user/assistant turns
-        return ListProjection(
-            group_by(
-                lst=converted,
-                key=lambda msg: msg[0]["role"],
-                init=lambda msg: msg,
-                merge=_merge,
-            )
-        )
-
     async def construct_converse_params(
         self,
         messages: List[DialMessage],
         params: ModelParameters,
-    ) -> Dict[str, Any]:
+    ) -> ConverseParams:
         system_message = get_converse_system_prompt(messages)
-        return remove_nones(
-            {
-                "system": [system_message] if system_message else None,
-                "messages": (await self.process_messages(messages)).raw_list,
-                "inferenceConfig": remove_nones(
+        return ConverseParams(
+            system=[system_message] if system_message else None,
+            messages=await process_messages(messages, self.storage),
+            inferenceConfig=cast(
+                InferenceConfig,
+                remove_nones(
                     {
                         "temperature": params.temperature,
                         "topP": params.top_p,
@@ -185,12 +213,12 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
                         ],
                     }
                 ),
-                "toolConfig": (
-                    to_converse_tools(params.tool_config)
-                    if params.tool_config
-                    else None
-                ),
-            }
+            ),
+            toolConfig=(
+                to_converse_tools(params.tool_config)
+                if params.tool_config
+                else None
+            ),
         )
 
     def is_stream(self, params: ModelParameters) -> bool:
@@ -204,12 +232,19 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
     ) -> None:
 
         converse_params = await self.construct_converse_params(messages, params)
+        discarded_messages, converse_params = await self._discard_messages(
+            converse_params, params.max_prompt_tokens
+        )
+        if not converse_params.messages.raw_list:
+            raise ValidationError("No messages left after truncation")
+
+        consumer.set_discarded_messages(discarded_messages)
 
         if self.is_stream(params):
-            await self.process_streaming(
+            await self._process_streaming(
                 stream=(
                     await self.bedrock.aconverse_streaming(
-                        self.model_id, **converse_params
+                        self.deployment, **converse_params.to_dict()
                     )
                 ),
                 consumer=consumer,
@@ -217,19 +252,7 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
         else:
             self._process_non_streaming(
                 response=await self.bedrock.aconverse_non_streaming(
-                    self.model_id, **converse_params
+                    self.deployment, **converse_params.to_dict()
                 ),
                 consumer=consumer,
             )
-
-
-class ConverseToolStreamingAdapter(ConverseChatCompletionAdapter):
-    """
-    Some adapter, like LLama 3.2, does support tool calls, but not in streaming mode.
-    So we need to drop back to non-streaming mode when tool calls are detected.
-    """
-
-    def is_stream(self, params: ModelParameters) -> bool:
-        if params.tool_config:
-            return False
-        return super().is_stream(params)

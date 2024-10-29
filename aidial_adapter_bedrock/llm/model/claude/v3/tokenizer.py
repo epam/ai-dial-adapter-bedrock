@@ -36,29 +36,24 @@ from typing import (
     List,
     Literal,
     Tuple,
-    Union,
     assert_never,
+    cast,
 )
 
-from anthropic._types import Base64FileInput
-from anthropic.types import ContentBlock, ImageBlockParam
-from anthropic.types import MessageParam as ClaudeMessage
-from anthropic.types import (
-    TextBlockParam,
-    ToolParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
-)
-from anthropic.types.image_block_param import Source
-from anthropic.types.text_block import TextBlock
-from anthropic.types.tool_use_block import ToolUseBlock
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     Claude3Deployment,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
+from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseContentPart,
+    ConverseImagePartConfig,
+    ConverseMessage,
+    ConverseParams,
+    ConverseToolConfig,
+    ConverseToolResultConfig,
+)
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -67,7 +62,9 @@ def tokenize_text(text: str) -> int:
     return default_tokenize_string(text)
 
 
-def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
+def _get_image_size(
+    image_data: bytes, format: Literal["png", "jpeg", "gif", "webp"]
+) -> Tuple[int, int]:
     try:
         if not isinstance(image_data, str):
             raise ValueError("Images as files aren't yet supported.")
@@ -80,8 +77,8 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
         return 1000, 1000
 
 
-async def _tokenize_image(source: Source) -> int:
-    width, height = _get_image_size(source["data"])
+async def _tokenize_image(part: ConverseImagePartConfig) -> int:
+    width, height = _get_image_size(part["source"]["bytes"], part["format"])
     return math.ceil((width * height) / 750.0)
 
 
@@ -89,65 +86,44 @@ def _tokenize_tool_use(id: str, input: object, name: str) -> int:
     return tokenize_text(f"{id} {name} {json.dumps(input)}")
 
 
-async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
-    tokens: int = tokenize_text(message["tool_use_id"])
-    if "content" in message:
-        for sub_message in message["content"]:
+async def _tokenize_tool_result(tool_result: ConverseToolResultConfig) -> int:
+    tokens: int = tokenize_text(tool_result["toolUseId"])
+    if "content" in tool_result:
+        for sub_message in tool_result["content"]:
             tokens += await _tokenize_sub_message(sub_message)
     return tokens
 
 
-async def _tokenize_sub_message(
-    message: Union[
-        TextBlockParam,
-        ImageBlockParam,
-        ToolUseBlockParam,
-        ToolResultBlockParam,
-        ContentBlock,
-    ]
-) -> int:
-    if isinstance(message, dict):
-        match message["type"]:
-            case "text":
-                return tokenize_text(message["text"])
-            case "image":
-                return await _tokenize_image(message["source"])
-            case "tool_use":
-                return _tokenize_tool_use(
-                    message["id"], message["input"], message["name"]
-                )
-            case "tool_result":
-                return await _tokenize_tool_result(message)
-            case _:
-                assert_never(message["type"])
+async def _tokenize_sub_message(message: ConverseContentPart) -> int:
+    if text := message.get("text"):
+        return tokenize_text(text)
+
+    if json_content := message.get("json"):
+        return tokenize_text(json.dumps(json_content))
+
+    elif image := message.get("image"):
+        return await _tokenize_image(image)
+
+    elif tool_use := message.get("toolUse"):
+        return _tokenize_tool_use(
+            tool_use["toolUseId"], tool_use["input"], tool_use["name"]
+        )
+    elif tool_result := message.get("toolResult"):
+        return await _tokenize_tool_result(tool_result)
     else:
-        match message:
-            case TextBlock():
-                return tokenize_text(message.text)
-            case ToolUseBlock():
-                return _tokenize_tool_use(
-                    message.id, message.input, message.name
-                )
-            case _:
-                assert_never(message)
+        raise RuntimeError("Unexpected message content")
 
 
-async def _tokenize_message(message: ClaudeMessage) -> int:
+async def _tokenize_message(message: ConverseMessage) -> int:
     tokens: int = 0
 
     content = message["content"]
-
-    match content:
-        case str():
-            tokens += tokenize_text(content)
-        case _:
-            for item in content:
-                tokens += await _tokenize_sub_message(item)
-
+    for item in content:
+        tokens += await _tokenize_sub_message(item)
     return tokens
 
 
-async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
+async def _tokenize_messages(messages: List[ConverseMessage]) -> int:
     # A rough estimation
     per_message_tokens = 5
 
@@ -157,7 +133,7 @@ async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
     return tokens
 
 
-def _tokenize_tool_param(tool: ToolParam) -> int:
+def _tokenize_tool_param(tool: ConverseToolConfig) -> int:
     return tokenize_text(json.dumps(tool))
 
 
@@ -195,23 +171,23 @@ def _tokenize_tool_system_message(
 
 async def _tokenize(
     deployment: Claude3Deployment,
-    params: ClaudeParameters,
-    messages: List[ClaudeMessage],
+    params: ConverseParams,
+    messages: List[ConverseMessage],
 ) -> int:
     tokens: int = 0
 
-    if system := params["system"]:
-        tokens += tokenize_text(system)
+    if system := params.system:
+        tokens += tokenize_text(system[0]["text"])
 
-    if tools := params["tools"]:
-        if tool_choice := params["tool_choice"]:
-            choice = tool_choice["type"]
+    if tools := params.toolConfig:
+        if tool_choice := tools["toolChoice"]:
+            tool_choice = next(iter(tool_choice.keys()))
         else:
-            choice = "auto"
+            tool_choice = "auto"
 
-        tokens += _tokenize_tool_system_message(deployment, choice)
+        tokens += _tokenize_tool_system_message(deployment, tool_choice)
 
-        for tool in tools:
+        for tool in tools["tools"]:
             tokens += _tokenize_tool_param(tool)
 
     tokens += await _tokenize_messages(messages)
@@ -220,8 +196,13 @@ async def _tokenize(
 
 
 def create_tokenizer(
-    deployment: Claude3Deployment, params: ClaudeParameters
-) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
+    deployment: str, params: ConverseParams
+) -> Callable[[List[Tuple[ConverseMessage, Any]]], Awaitable[int]]:
+    if deployment not in Claude3Deployment.__args__:
+        raise ValueError(f"Unsupported deployment: {deployment}")
+
+    deployment = cast(Claude3Deployment, deployment)
+
     async def _tokenizer(messages) -> int:
         return await _tokenize(deployment, params, [msg for msg, _ in messages])
 

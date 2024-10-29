@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, assert_never
+from typing import List, Set, Tuple, assert_never
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
@@ -28,8 +28,13 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseMessage,
     ConverseRole,
     ConverseStopReason,
+    ConverseTextPart,
+    ConverseToolResultPart,
     ConverseTools,
+    ConverseToolUsePart,
 )
+from aidial_adapter_bedrock.utils.list import group_by
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 def to_dial_finish_reason(
@@ -90,12 +95,13 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
 
     return {
         "tools": tools,
+        "toolChoice": ({"any": {}} if tools_config.required else {"auto": {}}),
     }
 
 
 def function_call_to_content_part(
     dial_call: DialFunctionCall,
-) -> ConverseContentPart:
+) -> ConverseToolUsePart:
     return {
         "toolUse": {
             "toolUseId": dial_call.name,
@@ -107,7 +113,7 @@ def function_call_to_content_part(
 
 def tool_call_to_content_part(
     dial_call: DialToolCall,
-) -> ConverseContentPart:
+) -> ConverseToolUsePart:
     return {
         "toolUse": {
             "toolUseId": dial_call.id,
@@ -119,14 +125,14 @@ def tool_call_to_content_part(
 
 def function_result_to_content_part(
     message: DialMessage,
-) -> ConverseContentPart:
+) -> ConverseToolResultPart:
     if message.role != DialRole.FUNCTION:
         raise RuntimeServerError(
             "Function result message is expected to have function role"
         )
-    if not message.name or not message.content:
+    if not message.name or not isinstance(message.content, str):
         raise RuntimeServerError(
-            "Function result message is expected to have function name and content"
+            "Function result message is expected to have function name and plain text content"
         )
 
     return {
@@ -140,7 +146,7 @@ def function_result_to_content_part(
 
 def tool_result_to_content_part(
     message: DialMessage,
-) -> ConverseContentPart:
+) -> ConverseToolResultPart:
     if message.role != DialRole.TOOL:
         raise RuntimeServerError(
             "Tool result message is expected to have tool role"
@@ -258,12 +264,49 @@ async def to_converse_message(
 
 def get_converse_system_prompt(
     messages: List[DialMessage],
-) -> Dict[str, Any] | None:
+) -> ConverseTextPart | None:
     if any(msg.role == DialRole.SYSTEM for msg in messages[1:]):
         raise ValidationError(
             "System message is only allowed as the first message"
         )
 
-    if messages[0].role == DialRole.SYSTEM:
+    if messages[0].role == DialRole.SYSTEM and isinstance(
+        messages[0].content, str
+    ):
         return {"text": messages[0].content}
     return None
+
+
+async def process_messages(
+    messages: List[DialMessage],
+    storage: FileStorage | None,
+) -> ListProjection[ConverseMessage]:
+    def _merge(
+        a: Tuple[ConverseMessage, Set[int]],
+        b: Tuple[ConverseMessage, Set[int]],
+    ) -> Tuple[ConverseMessage, Set[int]]:
+        (msg1, set1), (msg2, set2) = a, b
+
+        content1 = msg1["content"]
+        content2 = msg2["content"]
+
+        return {
+            "role": msg1["role"],
+            "content": list(content1) + list(content2),
+        }, set1 | set2
+
+    converted: List[Tuple[ConverseMessage, Set[int]]] = [
+        (await to_converse_message(msg, storage), set([idx]))
+        for idx, msg in enumerate(messages)
+        if msg.role != DialRole.SYSTEM
+    ]
+
+    # Merge messages with same roles, to preserve turn-based user/assistant turns
+    return ListProjection(
+        group_by(
+            lst=converted,
+            key=lambda msg: msg[0]["role"],
+            init=lambda msg: msg,
+            merge=_merge,
+        )
+    )

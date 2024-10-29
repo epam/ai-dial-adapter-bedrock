@@ -6,6 +6,7 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
+from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.embedding.amazon.titan_image import (
     AmazonTitanImageEmbeddings,
 )
@@ -19,16 +20,15 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_bedrock.llm.converse.adapter import (
-    ConverseToolStreamingAdapter,
-)
+from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
     Adapter as Claude_V1_V2,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
-    Adapter as Claude_V3,
+from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
+    create_tokenizer,
+    tokenize_text,
 )
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
@@ -46,6 +46,8 @@ async def get_bedrock_adapter(
     match deployment:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
@@ -55,7 +57,13 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
-            return Claude_V3.create(deployment, api_key, aws_client_config)
+            return ConverseAdapter(
+                deployment=model,
+                bedrock=await Bedrock.acreate(aws_client_config),
+                storage=create_file_storage(api_key),
+                tokenize_text=tokenize_text,
+                tokenizer_factory=create_tokenizer,
+            )
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
@@ -102,15 +110,6 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config),
                 model,
                 llama3_config,
-            )
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
-        ):
-            return ConverseToolStreamingAdapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
-                api_key,
             )
 
         case (
