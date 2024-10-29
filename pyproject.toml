@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aidial-adapter-bedrock"
-version = "0.16.0rc"
+version = "0.17.0rc"
 description = "DIAL adapter for AWS Bedrock"
 authors = ["EPAM RAIL <SpecialEPM-DIALDevTeam@epam.com>"]
 homepage = "https://epam-rail.com"
@@ -17,7 +17,7 @@ boto3 = "1.35.41"
 botocore = "1.35.41"
 aidial-sdk = { version = "0.14.0", extras = ["telemetry"] }
 anthropic = { version = "0.28.1", extras = ["bedrock"] }
-fastapi = "0.109.2"
+fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
 pydantic = "1.10.13"
@@ -46,7 +46,7 @@ nox = "^2023.4.22"
 addopts = "--doctest-modules"
 # muting warnings coming from opentelemetry package
 filterwarnings = [
-    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
+  "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
 ]
 
 [tool.pyright]

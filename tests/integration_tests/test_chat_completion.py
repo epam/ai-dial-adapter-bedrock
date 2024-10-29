@@ -1,26 +1,21 @@
-import json
 import re
 from dataclasses import dataclass
-from typing import Any, Callable, List
+from typing import Callable, List
 
 import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
 from openai.types.chat import (
     ChatCompletionMessageParam,
-    ChatCompletionMessageToolCall,
     ChatCompletionToolParam,
 )
-from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.resource import Resource
 from tests.conftest import TEST_SERVER_URL
-from tests.utils.json import match_objects
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
-    GET_WEATHER_TOOL,
     ChatCompletionResult,
     ai,
     ai_function,
@@ -28,7 +23,10 @@ from tests.utils.openai import (
     chat_completion,
     function_request,
     function_response,
+    function_to_tool,
     get_client,
+    is_valid_function_call,
+    is_valid_tool_call,
     sanitize_test_name,
     sys,
     tool_request,
@@ -38,35 +36,6 @@ from tests.utils.openai import (
     user_with_attachment_url,
     user_with_image_url,
 )
-
-
-def is_valid_function_call(
-    call: FunctionCall | None, expected_name: str, expected_args: Any
-) -> bool:
-    assert call is not None
-    assert call.name == expected_name
-    obj = json.loads(call.arguments)
-    match_objects(expected_args, obj)
-    return True
-
-
-def is_valid_tool_calls(
-    calls: List[ChatCompletionMessageToolCall] | None,
-    expected_id: str,
-    expected_name: str,
-    expected_args: Any,
-) -> bool:
-    assert calls is not None
-    assert len(calls) == 1
-    call = calls[0]
-
-    function_call = call.function
-    assert call.id == expected_id
-    assert function_call.name == expected_name
-
-    obj = json.loads(function_call.arguments)
-    match_objects(expected_args, obj)
-    return True
 
 
 class ExpectedException(BaseModel):
@@ -172,6 +141,12 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
 
 def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     return is_claude3(deployment)
+
+
+def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
+    ]
 
 
 blue_pic = Resource.from_base64(
@@ -353,63 +328,137 @@ def get_test_cases(
         )
 
     if supports_tools(deployment):
-        query = "What's the temperature in Glasgow in celsius?"
-        chat_history = [
-            sys("act as a helpful assistant"),
-            user("2+3=?"),
-            ai("5"),
-            user(query),
-        ]
 
-        function_args_checker = {
-            "location": lambda s: "glasgow" in s.lower(),
-            "format": "celsius",
-        }
+        for cities in [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]:
+            function = GET_WEATHER_FUNCTION
+            tool = function_to_tool(function)
+            fun_name = function["name"]
 
-        function_args = {"location": "Glasgow", "format": "celsius"}
+            city_names = [name for name, _ in cities]
+            city_temps = [temp for _, temp in cities]
 
-        name = GET_WEATHER_FUNCTION["name"]
+            query = f"What's the temperature in {' and in '.join(city_names)} in celsius?"
 
-        # Functions
-        test_case(
-            name="weather function",
-            messages=chat_history,
-            functions=[GET_WEATHER_FUNCTION],
-            expected=lambda s: is_valid_function_call(
-                s.function_call, name, function_args_checker
-            ),
-        )
+            init_messages = [
+                sys("act as a helpful assistant"),
+                user("2+3=?"),
+                ai("5"),
+                user(query),
+            ]
 
-        function_req = ai_function(function_request(name, function_args))
-        function_resp = function_response(name, "15 celsius")
+            def create_fun_args(city: str):
+                return {
+                    "location": city,
+                    "format": "celsius",
+                }
 
-        test_case(
-            name="weather function followup",
-            messages=[*chat_history, function_req, function_resp],
-            functions=[GET_WEATHER_FUNCTION],
-            expected=lambda s: "15" in s.content.lower(),
-        )
+            def check_fun_args(city: str):
+                return {
+                    "location": lambda s: city.lower() in s.lower(),
+                    "format": "celsius",
+                }
 
-        # Tools
-        tool_call_id = f"{name}_1"
-        test_case(
-            name="weather tool",
-            messages=chat_history,
-            tools=[GET_WEATHER_TOOL],
-            expected=lambda s: is_valid_tool_calls(
-                s.tool_calls, tool_call_id, name, function_args_checker
-            ),
-        )
+            test_name_suffix = " ".join(city_names)
 
-        tool_req = ai_tools([tool_request(tool_call_id, name, function_args)])
-        tool_resp = tool_response(tool_call_id, "15 celsius")
+            # Functions
+            test_case(
+                name=f"weather function {test_name_suffix}",
+                messages=init_messages,
+                functions=[function],
+                expected=lambda s, n=city_names[0]: is_valid_function_call(
+                    s.function_call, fun_name, check_fun_args(n)
+                ),
+            )
 
-        test_case(
-            name="weather tool followup",
-            messages=[*chat_history, tool_req, tool_resp],
-            tools=[GET_WEATHER_TOOL],
-            expected=lambda s: "15" in s.content.lower(),
-        )
+            function_req = ai_function(
+                function_request(fun_name, create_fun_args(city_names[0]))
+            )
+            function_resp = function_response(
+                fun_name, f"{city_temps[0]} celsius"
+            )
+
+            if len(cities) == 1:
+                test_case(
+                    name=f"weather function followup {test_name_suffix}",
+                    messages=[
+                        *init_messages,
+                        function_req,
+                        function_resp,
+                    ],
+                    functions=[function],
+                    expected=lambda s, t=city_temps[0]: s.content_contains_all(
+                        [t]
+                    ),
+                )
+            else:
+                test_case(
+                    name=f"weather function followup {test_name_suffix}",
+                    messages=[
+                        *init_messages,
+                        function_req,
+                        function_resp,
+                    ],
+                    functions=[function],
+                    expected=lambda s, n=city_names[1]: is_valid_function_call(
+                        s.function_call, fun_name, check_fun_args(n)
+                    ),
+                )
+
+            # Tools
+            def create_tool_call_id(idx: int):
+                return f"{fun_name}_{idx+1}"
+
+            def check_tool_call_id(idx: int):
+                def _check(id: str) -> bool:
+                    return (
+                        f"{fun_name}_{idx+1}" == id
+                        if are_tools_emulated(deployment)
+                        else True
+                    )
+
+                return _check
+
+            expected_city_names = (
+                city_names[:1] if are_tools_emulated(deployment) else city_names
+            )
+
+            test_case(
+                name=f"weather tool {test_name_suffix}",
+                messages=init_messages,
+                tools=[tool],
+                expected=lambda s, n=expected_city_names: all(
+                    is_valid_tool_call(
+                        s.tool_calls,
+                        idx,
+                        check_tool_call_id(idx),
+                        fun_name,
+                        check_fun_args(n[idx]),
+                    )
+                    for idx in range(len(n))
+                ),
+            )
+
+            tool_reqs = ai_tools(
+                [
+                    tool_request(
+                        create_tool_call_id(idx),
+                        fun_name,
+                        create_fun_args(name),
+                    )
+                    for idx, (name, _) in enumerate(cities)
+                ]
+            )
+            tool_resps = [
+                tool_response(create_tool_call_id(idx), f"{temp} celsius")
+                for idx, (_, temp) in enumerate(cities)
+            ]
+
+            test_case(
+                name=f"weather tool followup {test_name_suffix}",
+                messages=[*init_messages, tool_reqs, *tool_resps],
+                tools=[tool],
+                expected=lambda s, t=city_temps: s.content_contains_all(t),
+            )
 
     return test_cases
 
