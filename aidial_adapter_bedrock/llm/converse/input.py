@@ -1,7 +1,7 @@
 import json
-from enum import Enum
-from typing import Any, Dict, TypedDict, assert_never
+from typing import Any, Dict, List, assert_never
 
+from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
@@ -18,41 +18,37 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
+from aidial_adapter_bedrock.llm.converse.constants import (
+    CONVERSE_TO_DIAL_FINISH_REASON,
+    DIAL_TO_CONVERSE_FINISH_REASON,
+)
+from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseContentPart,
+    ConverseMessage,
+    ConverseRole,
+    ConverseStopReason,
+    ConverseTools,
+)
 
 
-class ConverseRole(str, Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
+def to_dial_finish_reason(
+    converse_stop_reason: ConverseStopReason,
+) -> DialFinishReason:
+    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON.keys():
+        raise RuntimeServerError(
+            f"Unsupported converse stop reason: {converse_stop_reason}"
+        )
+    return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
-class ConverseToolConfig(TypedDict):
-    name: str
-    description: str
-    inputSchema: dict
-
-
-class ConverseTools(TypedDict):
-    tools: list[ConverseToolConfig]
-
-
-class ConverseToolUseConfig(TypedDict):
-    toolUseId: str
-    name: str
-    input: str
-
-
-class ConverseToolUse(TypedDict):
-    toolUse: ConverseToolUseConfig
-
-
-class ConverseToolResultConfig(TypedDict):
-    toolUseId: str
-    content: list[dict]
-    status: str
-
-
-class ConverseToolResult(TypedDict):
-    toolResult: ConverseToolResultConfig
+def to_converse_finish_reason(
+    dial_finish_reason: DialFinishReason,
+) -> ConverseStopReason:
+    if dial_finish_reason not in DIAL_TO_CONVERSE_FINISH_REASON.keys():
+        raise RuntimeServerError(
+            f"Unsupported DIAL stop reason: {dial_finish_reason.value}"
+        )
+    return DIAL_TO_CONVERSE_FINISH_REASON[dial_finish_reason]
 
 
 def to_converse_role(role: DialRole) -> ConverseRole:
@@ -77,7 +73,16 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             "toolSpec": {
                 "name": function.name,
                 "description": function.description or "",
-                "inputSchema": {"json": function.parameters or {}},
+                "inputSchema": (
+                    {
+                        "json": (
+                            {
+                                "type": "object",
+                                "properties": function.parameters or {},
+                            }
+                        )
+                    }
+                ),
             }
         }
         tools.append(tool)
@@ -87,33 +92,33 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
     }
 
 
-def dial_function_to_converse_tool_part(
+def function_call_to_content_part(
     dial_call: DialFunctionCall,
-) -> ConverseToolUse:
+) -> ConverseContentPart:
     return {
         "toolUse": {
             "toolUseId": dial_call.name,
             "name": dial_call.name,
-            "input": dial_call.arguments,
+            "input": json.loads(dial_call.arguments),
         }
     }
 
 
-def dial_tool_call_to_converse_tool(
+def tool_call_to_content_part(
     dial_call: DialToolCall,
-) -> ConverseToolUse:
+) -> ConverseContentPart:
     return {
         "toolUse": {
             "toolUseId": dial_call.id,
             "name": dial_call.function.name,
-            "input": dial_call.function.arguments,
+            "input": json.loads(dial_call.function.arguments),
         }
     }
 
 
-def dial_function_result_to_converse_tool_result(
+def function_result_to_content_part(
     message: DialMessage,
-) -> ConverseToolResult:
+) -> ConverseContentPart:
     if message.role != DialRole.FUNCTION:
         raise RuntimeServerError(
             "Function result message is expected to have function role"
@@ -132,9 +137,9 @@ def dial_function_result_to_converse_tool_result(
     }
 
 
-def dial_tool_result_to_converse_tool_result(
+def tool_result_to_content_part(
     message: DialMessage,
-) -> ConverseToolResult:
+) -> ConverseContentPart:
     if message.role != DialRole.TOOL:
         raise RuntimeServerError(
             "Tool result message is expected to have tool role"
@@ -171,11 +176,20 @@ def to_converse_image_type(type: str) -> str:
     raise RuntimeServerError(f"Unsupported image type: {type}")
 
 
-async def to_converse_message(
+async def _get_converse_message_content(
     message: DialMessage,
     storage: FileStorage | None,
     supported_image_types: list[str] | None = None,
-) -> Dict[str, Any]:
+) -> List[ConverseContentPart]:
+    if message.function_call:
+        return [function_call_to_content_part(message.function_call)]
+    elif message.tool_calls:
+        return [tool_call_to_content_part(message.tool_calls[0])]
+    elif message.role == DialRole.FUNCTION:
+        return [function_result_to_content_part(message)]
+    elif message.role == DialRole.TOOL:
+        return [tool_result_to_content_part(message)]
+
     content = []
     match message.content:
         case str():
@@ -221,24 +235,21 @@ async def to_converse_message(
                 }
             )
 
-    if message.function_call:
-        content.append(
-            dial_function_to_converse_tool_part(message.function_call)
-        )
-    elif message.tool_calls:
-        content.append(dial_tool_call_to_converse_tool(message.tool_calls[0]))
+    return content
 
-    if message.role == DialRole.FUNCTION:
-        content.append(dial_function_result_to_converse_tool_result(message))
-    elif message.role == DialRole.TOOL:
-        content.append(dial_tool_result_to_converse_tool_result(message))
 
-    bedrock_message = {
-        "role": to_converse_role(message.role).value,
-        "content": content,
+async def to_converse_message(
+    message: DialMessage,
+    storage: FileStorage | None,
+    supported_image_types: list[str] | None = None,
+) -> ConverseMessage:
+
+    return {
+        "role": to_converse_role(message.role),
+        "content": await _get_converse_message_content(
+            message, storage, supported_image_types
+        ),
     }
-
-    return bedrock_message
 
 
 def get_converse_system_prompt(

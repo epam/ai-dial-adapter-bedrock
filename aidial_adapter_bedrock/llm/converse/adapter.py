@@ -1,6 +1,7 @@
 import json
 from typing import Any, AsyncGenerator, Dict, List
 
+from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import Role as DialRole
@@ -17,10 +18,11 @@ from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.input import (
     get_converse_system_prompt,
+    to_converse_finish_reason,
     to_converse_message,
     to_converse_tools,
+    to_dial_finish_reason,
 )
-from aidial_adapter_bedrock.llm.converse.output import to_dial_finish_reason
 from aidial_adapter_bedrock.utils.json import remove_list_nones, remove_nones
 
 
@@ -105,7 +107,7 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
                         id=content_block["toolUse"]["toolUseId"],
                         index=None,
                         function=DialFunctionCall(
-                            name=content_block["toolUse"]["toolUseId"],
+                            name=content_block["toolUse"]["name"],
                             arguments=json.dumps(
                                 content_block["toolUse"]["input"]
                             ),
@@ -145,7 +147,12 @@ class ConverseChatCompletionAdapter(ChatCompletionAdapter):
                         "temperature": params.temperature,
                         "topP": params.top_p,
                         "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop,
+                        "stopSequences": [
+                            to_converse_finish_reason(
+                                DialFinishReason(finish_reason)
+                            ).value
+                            for finish_reason in params.stop
+                        ],
                     }
                 ),
                 "toolConfig": (
