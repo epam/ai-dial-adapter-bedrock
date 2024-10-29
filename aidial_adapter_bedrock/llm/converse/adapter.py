@@ -75,7 +75,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             elif content_block := event.get("contentBlockDelta"):
                 delta = content_block.get("delta", {})
 
-                if message := delta.get("message"):
+                if message := delta.get("text"):
                     consumer.append_content(message)
 
                 if "toolUse" in delta:

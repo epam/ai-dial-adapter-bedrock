@@ -114,7 +114,8 @@ class Bedrock:
         response = await make_async(
             lambda: self.client.converse_stream(modelId=model, **params)
         )
-        return response["stream"]
+
+        return to_async_iterator(iter(response["stream"]))
 
 
 class InvocationMetrics(BaseModel):
