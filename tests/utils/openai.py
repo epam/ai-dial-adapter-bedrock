@@ -33,7 +33,6 @@ from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.resource import Resource
-from tests.conftest import DEFAULT_API_VERSION
 from tests.utils.json import match_objects
 
 
@@ -218,17 +217,6 @@ async def chat_completion(
 
     response = await get_response()
     return ChatCompletionResult(response=response)
-
-
-def get_client(base_url: str, model_id: str) -> AsyncAzureOpenAI:
-    return AsyncAzureOpenAI(
-        azure_endpoint=base_url,
-        azure_deployment=model_id,
-        api_version=DEFAULT_API_VERSION,
-        api_key="dummy_key",
-        max_retries=0,
-        timeout=30,
-    )
 
 
 GET_WEATHER_FUNCTION: Function = {

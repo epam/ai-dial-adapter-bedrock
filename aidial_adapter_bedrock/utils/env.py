@@ -1,4 +1,5 @@
 import os
+from functools import cache
 from typing import Optional
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
@@ -13,6 +14,7 @@ def get_env(name: str, err_msg: Optional[str] = None) -> str:
     raise Exception(err_msg or f"{name} env variable is not set")
 
 
+@cache
 def get_aws_default_region() -> str:
     region = os.getenv("DEFAULT_REGION")
     if region is not None:
