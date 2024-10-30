@@ -10,6 +10,3 @@ CONVERSE_TO_DIAL_FINISH_REASON = {
     ConverseStopReason.GUARDRAIL_INTERVENED: DialFinishReason.CONTENT_FILTER,
     ConverseStopReason.CONTENT_FILTERED: DialFinishReason.CONTENT_FILTER,
 }
-DIAL_TO_CONVERSE_FINISH_REASON = {
-    value: key for key, value in CONVERSE_TO_DIAL_FINISH_REASON.items()
-}

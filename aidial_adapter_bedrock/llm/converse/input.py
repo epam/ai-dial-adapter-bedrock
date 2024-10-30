@@ -1,7 +1,6 @@
 import json
 from typing import List, Set, Tuple, assert_never
 
-from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
@@ -18,15 +17,10 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
-from aidial_adapter_bedrock.llm.converse.constants import (
-    CONVERSE_TO_DIAL_FINISH_REASON,
-    DIAL_TO_CONVERSE_FINISH_REASON,
-)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseContentPart,
     ConverseMessage,
     ConverseRole,
-    ConverseStopReason,
     ConverseTextPart,
     ConverseToolResultPart,
     ConverseTools,
@@ -35,26 +29,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
-
-
-def to_dial_finish_reason(
-    converse_stop_reason: ConverseStopReason,
-) -> DialFinishReason:
-    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON.keys():
-        raise RuntimeServerError(
-            f"Unsupported converse stop reason: {converse_stop_reason}"
-        )
-    return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
-
-
-def to_converse_finish_reason(
-    dial_finish_reason: DialFinishReason,
-) -> ConverseStopReason:
-    if dial_finish_reason not in DIAL_TO_CONVERSE_FINISH_REASON.keys():
-        raise RuntimeServerError(
-            f"Unsupported DIAL stop reason: {dial_finish_reason.value}"
-        )
-    return DIAL_TO_CONVERSE_FINISH_REASON[dial_finish_reason]
 
 
 def to_converse_role(role: DialRole) -> ConverseRole:
@@ -266,13 +240,17 @@ async def to_converse_message(
 def get_converse_system_prompt(
     messages: List[DialMessage],
 ) -> ConverseTextPart | None:
+    if not len(messages):
+        return None
     if any(msg.role == DialRole.SYSTEM for msg in messages[1:]):
         raise ValidationError(
             "System message is only allowed as the first message"
         )
 
-    if messages[0].role == DialRole.SYSTEM and isinstance(
-        messages[0].content, str
+    if (
+        messages[0].role == DialRole.SYSTEM
+        and isinstance(messages[0].content, str)
+        and messages[0].content
     ):
         return {"text": messages[0].content}
     return None
