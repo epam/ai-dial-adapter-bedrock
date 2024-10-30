@@ -51,9 +51,6 @@ env_override_existing_values = 1
 filterwarnings = [
     "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies"
 ]
-testpaths = [
-    "tests"
-]
 
 [tool.pyright]
 typeCheckingMode = "basic"
