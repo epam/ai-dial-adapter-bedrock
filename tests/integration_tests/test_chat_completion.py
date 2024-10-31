@@ -97,8 +97,6 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
-    ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
@@ -289,7 +287,7 @@ def get_test_cases(
         expected_empty_message_error = streaming_error(
             ExpectedException(
                 type=BadRequestError,
-                message="messages: text content blocks must be non-empty",
+                message="Add text to the text field, and try again",
                 status_code=400,
             )
         )
@@ -310,7 +308,7 @@ def get_test_cases(
         expected_whitespace_message = streaming_error(
             ExpectedException(
                 type=BadRequestError,
-                message="messages: text content blocks must contain non-whitespace text",
+                message="Add text to the text field, and try again",
                 status_code=400,
             )
         )
