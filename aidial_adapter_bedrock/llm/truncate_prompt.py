@@ -51,9 +51,8 @@ class UserLimitOverflow(TruncatePromptError):
 
 
 def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
-    """Returns a function that maps an index to indices of its partition.
-    >>> [_partition_indexer([2, 3])(i) for i in range(5)]
-    [[0, 1], [0, 1], [2, 3, 4], [2, 3, 4], [2, 3, 4]]
+    """
+    Returns a function that maps an index to indices of its partition.
     """
     mapping: dict[int, List[int]] = {}
     offset = 0

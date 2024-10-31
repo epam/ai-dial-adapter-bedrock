@@ -28,7 +28,7 @@ class TestAWSClientConfigFactory:
             request=request
         ).get_client_config()
 
-        assert client_config.region == "us-east-1"
+        assert client_config.region == "test-region"
         assert client_config.credentials is None
 
     async def test__get_client_config__region_provided__region_in_config(self):
@@ -52,7 +52,7 @@ class TestAWSClientConfigFactory:
             request=request,
         ).get_client_config()
 
-        assert client_config.region == "us-east-1"
+        assert client_config.region == "test-region"
         assert client_config.credentials is not None
         assert client_config.credentials.aws_access_key_id == "key_id"
         assert client_config.credentials.aws_secret_access_key == "key"
@@ -76,7 +76,7 @@ class TestAWSClientConfigFactory:
             request=request,
         ).get_client_config()
 
-        assert client_config.region == "us-east-1"
+        assert client_config.region == "test-region"
         assert client_config.credentials is not None
         assert client_config.credentials.aws_access_key_id == "key_id"
         assert client_config.credentials.aws_secret_access_key == "key"

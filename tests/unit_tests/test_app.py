@@ -1,10 +1,10 @@
 from typing import Any
 
-import requests
+import httpx
+import pytest
 
-from tests.conftest import TEST_SERVER_URL
 
-
-def test_availability(server) -> Any:
-    response = requests.get(f"{TEST_SERVER_URL}/health")
+@pytest.mark.asyncio
+async def test_availability(test_http_client: httpx.AsyncClient) -> Any:
+    response = await test_http_client.get("health")
     assert response.status_code == 200

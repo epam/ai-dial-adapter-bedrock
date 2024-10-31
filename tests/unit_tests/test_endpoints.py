@@ -1,10 +1,9 @@
 from typing import List, Tuple
 
+import httpx
 import pytest
-import requests
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from tests.conftest import TEST_SERVER_URL
 
 test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
@@ -40,22 +39,25 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
 ]
 
 
-def feature_test_helper(
-    url: str, is_supported: bool, headers: dict, payload: dict
+async def assert_feature(
+    http_client: httpx.AsyncClient,
+    endpoint: str,
+    is_supported: bool,
+    headers: dict,
+    payload: dict,
 ) -> None:
-    response = requests.post(url, json=payload, headers=headers)
+    response = await http_client.post(endpoint, json=payload, headers=headers)
     assert (
         response.status_code != 404
-    ) == is_supported, (
-        f"is_supported={is_supported}, code={response.status_code}, url={url}"
-    )
+    ) == is_supported, f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "deployment, tokenize_supported, truncate_supported", test_cases
 )
-def test_model_features(
-    server,
+async def test_model_features(
+    test_http_client: httpx.AsyncClient,
     deployment: ChatCompletionDeployment,
     tokenize_supported: bool,
     truncate_supported: bool,
@@ -63,10 +65,22 @@ def test_model_features(
     payload = {"inputs": []}
     headers = {"Content-Type": "application/json", "Api-Key": "dummy"}
 
-    BASE_URL = f"{TEST_SERVER_URL}/openai/deployments/{deployment.value}"
+    base = f"openai/deployments/{deployment.value}"
 
-    tokenize_url = f"{BASE_URL}/tokenize"
-    feature_test_helper(tokenize_url, tokenize_supported, headers, payload)
+    tokenize_endpoint = f"{base}/tokenize"
+    await assert_feature(
+        test_http_client,
+        tokenize_endpoint,
+        tokenize_supported,
+        headers,
+        payload,
+    )
 
-    truncate_url = f"{BASE_URL}/truncate_prompt"
-    feature_test_helper(truncate_url, truncate_supported, headers, payload)
+    truncate_endpoint = f"{base}/truncate_prompt"
+    await assert_feature(
+        test_http_client,
+        truncate_endpoint,
+        truncate_supported,
+        headers,
+        payload,
+    )
