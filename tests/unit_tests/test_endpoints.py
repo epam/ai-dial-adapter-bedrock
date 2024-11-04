@@ -27,6 +27,11 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US, True, True),
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL, False, True),
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, False, True),
+    (
+        ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
+        False,
+        True,
+    ),
     (ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),

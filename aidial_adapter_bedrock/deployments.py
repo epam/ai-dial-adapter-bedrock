@@ -32,6 +32,7 @@ class ChatCompletionDeployment(str, Enum):
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
+    STABILITY_STABLE_DIFFUSION_3_LARGE_V1 = "stability.sd3-large-v1:0"
 
     META_LLAMA2_13B_CHAT_V1 = "meta.llama2-13b-chat-v1"
     META_LLAMA2_70B_CHAT_V1 = "meta.llama2-70b-chat-v1"

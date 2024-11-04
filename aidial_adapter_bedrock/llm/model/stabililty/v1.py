@@ -99,7 +99,7 @@ async def save_to_storage(
     return attachment
 
 
-class StabilityAdapter(TextCompletionAdapter):
+class StabilityV1Adapter(TextCompletionAdapter):
     model: str
     client: Bedrock
     storage: Optional[FileStorage]
