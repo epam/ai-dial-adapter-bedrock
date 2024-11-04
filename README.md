@@ -26,7 +26,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 2 Chat 70B|meta.llama2-70b-chat-v1|text-to-text|🟡|🟡|❌|
 |Meta|Llama 2 Chat 13B|meta.llama2-13b-chat-v1|text-to-text|🟡|🟡|❌|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
+|Stability AI|Diffusion 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
+|Stability AI|Diffusion 3|stability.sd3-large-v1:0|text-to-image / image-to-image|❌|🟡|❌|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|
@@ -138,6 +139,7 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
 ```
 
 Supported `extraData` fields:
+
 - `region`
 - `aws_access_key_id`
 - `aws_secret_access_key`
