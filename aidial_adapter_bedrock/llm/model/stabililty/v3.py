@@ -88,6 +88,7 @@ class StabilityV3Adapter(ChatCompletionAdapter):
         last_message = messages[-1]
         if last_message.role != Role.USER:
             raise ValidationError("Last message must be from user")
+        return last_message
 
     async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
