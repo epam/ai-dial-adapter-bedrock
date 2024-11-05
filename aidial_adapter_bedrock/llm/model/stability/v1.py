@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
+from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
@@ -77,26 +78,6 @@ class StabilityResponse(BaseModel):
 
 def create_request(prompt: str) -> Dict[str, Any]:
     return {"text_prompts": [{"text": prompt}]}
-
-
-async def save_to_storage(
-    storage: FileStorage, attachment: Attachment
-) -> Attachment:
-    if (
-        attachment.type is not None
-        and attachment.type.startswith("image/")
-        and attachment.data is not None
-    ):
-        response = await storage.upload_file_as_base64(
-            "images", attachment.data, attachment.type
-        )
-        return Attachment(
-            title=attachment.title,
-            type=attachment.type,
-            url=response["url"],
-        )
-
-    return attachment
 
 
 class StabilityV1Adapter(TextCompletionAdapter):

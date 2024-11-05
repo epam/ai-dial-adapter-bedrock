@@ -31,8 +31,8 @@ from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
 from aidial_adapter_bedrock.llm.model.llama.v3 import llama3_config
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
-from aidial_adapter_bedrock.llm.model.stabililty.v1 import StabilityV1Adapter
-from aidial_adapter_bedrock.llm.model.stabililty.v3 import StabilityV3Adapter
+from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
+from aidial_adapter_bedrock.llm.model.stability.v3 import StabilityV3Adapter
 
 
 async def get_bedrock_adapter(
