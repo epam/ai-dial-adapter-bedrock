@@ -13,6 +13,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|
 |---|---|---|---|---|---|---|
 |Anthropic|Claude 3.5 Sonnet|[us.\|eu.]anthropic.claude-3-5-sonnet-20240620-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3.5 Sonnet 2.0|[us.]anthropic.claude-3-5-sonnet-20241022-v2:0|text-to-text, image-to-text|🟡|🟡|✅|
 |Anthropic|Claude 3 Sonnet|[us.\|eu.]anthropic.claude-3-sonnet-20240229-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
 |Anthropic|Claude 3 Haiku|[us.\|eu.]anthropic.claude-3-haiku-20240307-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
 |Anthropic|Claude 3 Opus|[us.]anthropic.claude-3-opus-20240229-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
