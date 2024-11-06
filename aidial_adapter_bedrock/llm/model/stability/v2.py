@@ -6,6 +6,7 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     Role,
 )
+from aidial_sdk.chat_completion.request import ImageURL
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -126,10 +127,12 @@ class StabilityV2Adapter(ChatCompletionAdapter):
                     match part:
                         case MessageContentTextPart(text=text):
                             text_parts.append(text)
-                        case MessageContentImagePart():
+                        case MessageContentImagePart(
+                            image_url=ImageURL(url=url)
+                        ):
                             image_resources.append(
                                 URLResource(
-                                    url=part.image_url.url,
+                                    url=url,
                                     supported_types=SUPPORTED_IMAGE_TYPES,
                                 )
                             )
