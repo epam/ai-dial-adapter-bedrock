@@ -32,6 +32,8 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
         False,
         True,
     ),
+    (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1, False, True),
+    (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1, False, True),
     (ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1, True, True),
     (ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1, True, True),
