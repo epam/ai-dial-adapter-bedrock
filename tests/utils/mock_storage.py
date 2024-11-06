@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from typing import Dict
 
@@ -45,9 +46,4 @@ class MockFileStorage(FileStorage):
         return link.removeprefix("files/mock-bucket/")
 
     def cleanup(self):
-        for root, dirs, files in os.walk(self.temp_dir, topdown=False):
-            for name in files:
-                os.remove(os.path.join(root, name))
-            for name in dirs:
-                os.rmdir(os.path.join(root, name))
-        os.rmdir(self.temp_dir)
+        shutil.rmtree(self.temp_dir)
