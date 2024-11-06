@@ -45,30 +45,24 @@ def _validate_image_size(
 
     with Image.open(BytesIO(image.data)) as img:
         width, height = img.size
-        if width_constraints and not (
-            width_constraints[0] <= width <= width_constraints[1]
-        ):
-            error_msg = (
-                f"Image width is {width}, but should be "
-                f"between {width_constraints[0]} and {width_constraints[1]}"
-            )
-            raise RequestValidationError(
-                message=error_msg,
-                display_message=error_msg,
-                code="invalid_argument",
-            )
-        if height_constraints and not (
-            height_constraints[0] <= height <= height_constraints[1]
-        ):
-            error_msg = (
-                f"Image height is {height}, but should be "
-                f"between {height_constraints[0]} and {height_constraints[1]}"
-            )
-            raise RequestValidationError(
-                message=error_msg,
-                display_message=error_msg,
-                code="invalid_argument",
-            )
+
+        for constraints, value, name in [
+            (width_constraints, width, "width"),
+            (height_constraints, height, "height"),
+        ]:
+            if constraints is None:
+                continue
+            min_value, max_value = constraints
+            if not (min_value <= value <= max_value):
+                error_msg = (
+                    f"Image {name} is {value}, but should be "
+                    f"between {min_value} and {max_value}"
+                )
+                raise RequestValidationError(
+                    message=error_msg,
+                    display_message=error_msg,
+                    code="invalid_argument",
+                )
 
 
 def _validate_last_message(messages: List[Message]):
