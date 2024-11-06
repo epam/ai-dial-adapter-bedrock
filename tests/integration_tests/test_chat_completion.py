@@ -97,6 +97,8 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
     ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
@@ -118,12 +120,21 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
+
+
+def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
+    return deployment not in [
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+    ] and supports_tools(deployment)
 
 
 def is_llama3(deployment: ChatCompletionDeployment) -> bool:
@@ -148,6 +159,8 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
@@ -373,9 +386,15 @@ def get_test_cases(
             expected=lambda s: "7" in s.content.lower(),
         )
 
+    city_config = (
+        [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]
+        if supports_parallel_tool_calls(deployment)
+        else [[("Glasgow", 15)]]
+    )
+
     if supports_tools(deployment):
 
-        for cities in [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]:
+        for cities in city_config:
             function = GET_WEATHER_FUNCTION
             tool = function_to_tool(function)
             fun_name = function["name"]

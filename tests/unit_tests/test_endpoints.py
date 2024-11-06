@@ -20,6 +20,8 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2, True, True),
+    (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US, True, True),
     (ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU, True, True),
