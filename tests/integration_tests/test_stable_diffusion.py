@@ -65,7 +65,6 @@ def _validate_attachment_url(response) -> str:
     assert len(response.choices) > 0
     choice = response.choices[0]
 
-    # The response should contain a message with base64-encoded image data
     assert choice.message.content is not None
     assert choice.message.custom_content is not None
     assert len(choice.message.custom_content["attachments"]) == 1
