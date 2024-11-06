@@ -32,7 +32,7 @@ from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
 from aidial_adapter_bedrock.llm.model.llama.v3 import llama3_config
 from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
 from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
-from aidial_adapter_bedrock.llm.model.stability.v3 import StabilityV3Adapter
+from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
 
 async def get_bedrock_adapter(
@@ -80,9 +80,22 @@ async def get_bedrock_adapter(
             return StabilityV1Adapter.create(
                 await Bedrock.acreate(aws_client_config), model, api_key
             )
+        case (
+            ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
+            | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
+        ):
+            return StabilityV2Adapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                api_key,
+                image_to_image_supported=False,
+            )
         case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
-            return StabilityV3Adapter.create(
-                await Bedrock.acreate(aws_client_config), model, api_key
+            return StabilityV2Adapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                api_key,
+                image_to_image_supported=True,
             )
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return AmazonAdapter.create(

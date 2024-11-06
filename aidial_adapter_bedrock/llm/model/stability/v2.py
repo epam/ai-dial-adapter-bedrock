@@ -12,6 +12,7 @@ from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
+    DialResource,
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import (
@@ -29,7 +30,7 @@ from aidial_adapter_bedrock.utils.json import remove_nones
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 
-class StabilityV3Response(BaseModel):
+class StabilityV2Response(BaseModel):
     seeds: List[int]
     images: List[str]
     # None will indicate that the request was successful
@@ -67,18 +68,26 @@ class StabilityV3Response(BaseModel):
             raise ValidationError(error)
 
 
-class StabilityV3Adapter(ChatCompletionAdapter):
+class StabilityV2Adapter(ChatCompletionAdapter):
     model: str
     client: Bedrock
     storage: Optional[FileStorage]
+    image_to_image_supported: bool
 
     @classmethod
-    def create(cls, client: Bedrock, model: str, api_key: str):
+    def create(
+        cls,
+        client: Bedrock,
+        model: str,
+        api_key: str,
+        image_to_image_supported: bool,
+    ):
         storage: Optional[FileStorage] = create_file_storage(api_key)
         return cls(
             client=client,
             model=model,
             storage=storage,
+            image_to_image_supported=image_to_image_supported,
         )
 
     def _validate_last_message(self, messages: List[Message]):
@@ -104,7 +113,7 @@ class StabilityV3Adapter(ChatCompletionAdapter):
     ) -> None:
 
         text_prompt = None
-        image_data = None
+        image_resources: List[DialResource] = []
         last_message = self._validate_last_message(messages)
         # Handle text content
         match last_message.content:
@@ -118,15 +127,12 @@ class StabilityV3Adapter(ChatCompletionAdapter):
                         case MessageContentTextPart(text=text):
                             text_parts.append(text)
                         case MessageContentImagePart():
-                            if image_data is not None:
-                                raise ValidationError(
-                                    "Only one input image is supported"
+                            image_resources.append(
+                                URLResource(
+                                    url=part.image_url.url,
+                                    supported_types=SUPPORTED_IMAGE_TYPES,
                                 )
-                            resource = await URLResource(
-                                url=part.image_url.url,
-                                supported_types=SUPPORTED_IMAGE_TYPES,
-                            ).download(self.storage)
-                            image_data = resource.data_base64
+                            )
                         case _:
                             assert_never(part)
                 if text_parts:
@@ -140,30 +146,49 @@ class StabilityV3Adapter(ChatCompletionAdapter):
             last_message.custom_content
             and last_message.custom_content.attachments
         ):
-            if (
-                len(last_message.custom_content.attachments) > 1
-                or image_data is not None
-            ):
-                raise ValidationError("Only one input image is supported")
-            resource = await AttachmentResource(
-                attachment=last_message.custom_content.attachments[0],
-                supported_types=SUPPORTED_IMAGE_TYPES,
-            ).download(self.storage)
-            image_data = resource.data_base64
+            image_resources.extend(
+                [
+                    AttachmentResource(
+                        attachment=attachment,
+                        supported_types=SUPPORTED_IMAGE_TYPES,
+                    )
+                    for attachment in last_message.custom_content.attachments
+                ]
+            )
 
-        response, _ = await self.client.ainvoke_non_streaming(
-            self.model,
-            remove_nones(
-                {
-                    "prompt": text_prompt,
-                    "image": image_data,
-                    "mode": "image-to-image" if image_data else "text-to-image",
-                    "output_format": "png",
-                }
-            ),
-        )
+        if not self.image_to_image_supported and image_resources:
+            raise ValidationError(
+                f"Image-to-image is not supported for {self.model}"
+            )
+        if len(image_resources) > 1:
+            raise ValidationError("Only one input image is supported")
+        try:
+            response, _ = await self.client.ainvoke_non_streaming(
+                self.model,
+                remove_nones(
+                    {
+                        "prompt": text_prompt,
+                        "image": (
+                            (
+                                await image_resources[0].download(self.storage)
+                            ).data_base64
+                            if image_resources
+                            else None
+                        ),
+                        "mode": (
+                            "image-to-image"
+                            if image_resources
+                            else "text-to-image"
+                        ),
+                        "output_format": "png",
+                        "strength": 0.5 if image_resources else None,
+                    }
+                ),
+            )
+        except self.client.client.exceptions.ValidationException as e:
+            raise ValidationError(e.response["Error"]["Message"])
 
-        stability_response = StabilityV3Response.parse_obj(response)
+        stability_response = StabilityV2Response.parse_obj(response)
         stability_response.throw_if_error()
 
         consumer.append_content(stability_response.content())
