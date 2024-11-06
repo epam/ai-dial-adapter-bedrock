@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.aws_client_config import (
     UpstreamConfig,
 )
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.utils.resource import Resource
+from tests.integration_tests.constants import BLUE_PNG_PICTURE
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     ChatCompletionResult,
@@ -193,12 +193,6 @@ def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
     ]
 
 
-blue_pic = Resource.from_base64(
-    type="image/png",
-    data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
-)
-
-
 def get_test_cases(
     deployment: ChatCompletionDeployment, region: str, streaming: bool
 ) -> List[TestCase]:
@@ -343,9 +337,9 @@ def get_test_cases(
         content = "describe the image"
         for idx, user_message in enumerate(
             [
-                user_with_attachment_data(content, blue_pic),
-                user_with_attachment_url(content, blue_pic),
-                user_with_image_url(content, blue_pic),
+                user_with_attachment_data(content, BLUE_PNG_PICTURE),
+                user_with_attachment_url(content, BLUE_PNG_PICTURE),
+                user_with_image_url(content, BLUE_PNG_PICTURE),
             ]
         ):
             test_case(

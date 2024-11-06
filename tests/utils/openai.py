@@ -76,6 +76,18 @@ def user_with_attachment_data(
     }
 
 
+def user_with_image_content_part(
+    content: str, resource: Resource
+) -> ChatCompletionUserMessageParam:
+    return {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": content},
+            {"type": "image_url", "image_url": {"url": resource.to_data_url()}},
+        ],
+    }
+
+
 def user_with_attachment_url(
     content: str, resource: Resource
 ) -> ChatCompletionUserMessageParam:
