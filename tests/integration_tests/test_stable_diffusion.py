@@ -155,8 +155,12 @@ async def test_image_to_image_with_too_small_picture(
             model=deployment.value,
             messages=[user_with_image_content_part("test", BLUE_PNG_PICTURE)],
         )
-    assert exc_info.value.status_code == 400
-    assert "width must be between 640 and 1536" in exc_info.value.message
+
+    assert exc_info.value.status_code == 422
+    assert (
+        "Image width is 3, but should be between 640 and 1536"
+        in exc_info.value.message
+    )
 
 
 @pytest.mark.parametrize(

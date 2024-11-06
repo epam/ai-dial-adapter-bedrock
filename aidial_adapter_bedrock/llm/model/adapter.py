@@ -98,6 +98,8 @@ async def get_bedrock_adapter(
                 model,
                 api_key,
                 image_to_image_supported=True,
+                image_width_constraints=(640, 1536),
+                image_height_constraints=(640, 1536),
             )
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return AmazonAdapter.create(
