@@ -189,7 +189,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
                 ),
             )
         except self.client.client.exceptions.ValidationException as e:
-            raise ValidationError(e.response["Error"]["Message"])
+            raise ValidationError(e.response["Error"]["Message"]) from e
 
         stability_response = StabilityV2Response.parse_obj(response)
         stability_response.throw_if_error()
