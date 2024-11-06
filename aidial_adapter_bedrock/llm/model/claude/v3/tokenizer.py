@@ -173,6 +173,11 @@ def _tokenize_tool_system_message(
         ):
             return 294 if tool_choice == "auto" else 261
         case (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+        ):
+            return 346 if tool_choice == "auto" else 313
+        case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):

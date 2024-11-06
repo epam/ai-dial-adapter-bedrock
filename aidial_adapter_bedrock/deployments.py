@@ -24,6 +24,12 @@ class ChatCompletionDeployment(str, Enum):
     ANTHROPIC_CLAUDE_V3_5_SONNET_EU = (
         "eu.anthropic.claude-3-5-sonnet-20240620-v1:0"
     )
+    ANTHROPIC_CLAUDE_V3_5_SONNET_V2 = (
+        "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    )
+    ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US = (
+        "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    )
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_HAIKU_US = "us.anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_HAIKU_EU = "eu.anthropic.claude-3-haiku-20240307-v1:0"
@@ -75,6 +81,8 @@ Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
