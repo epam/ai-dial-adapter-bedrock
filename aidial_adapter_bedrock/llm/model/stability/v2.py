@@ -165,31 +165,30 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             )
         if len(image_resources) > 1:
             raise ValidationError("Only one input image is supported")
-        try:
-            response, _ = await self.client.ainvoke_non_streaming(
-                self.model,
-                remove_nones(
-                    {
-                        "prompt": text_prompt,
-                        "image": (
-                            (
-                                await image_resources[0].download(self.storage)
-                            ).data_base64
-                            if image_resources
-                            else None
-                        ),
-                        "mode": (
-                            "image-to-image"
-                            if image_resources
-                            else "text-to-image"
-                        ),
-                        "output_format": "png",
-                        "strength": 0.5 if image_resources else None,
-                    }
-                ),
-            )
-        except self.client.client.exceptions.ValidationException as e:
-            raise ValidationError(e.response["Error"]["Message"]) from e
+
+        response, _ = await self.client.ainvoke_non_streaming(
+            self.model,
+            remove_nones(
+                {
+                    "prompt": text_prompt,
+                    "image": (
+                        (
+                            await image_resources[0].download(self.storage)
+                        ).data_base64
+                        if image_resources
+                        else None
+                    ),
+                    "mode": (
+                        "image-to-image" if image_resources else "text-to-image"
+                    ),
+                    "output_format": "png",
+                    # This parameter controls how much input image will affect generation from 0 to 1,
+                    # where 0 means that output will be identical to input image and 1 means that model will ignore input image
+                    # Since there is no recommended default value, we use 0.5 as a middle ground
+                    "strength": 0.5 if image_resources else None,
+                }
+            ),
+        )
 
         stability_response = StabilityV2Response.parse_obj(response)
         stability_response.throw_if_error()

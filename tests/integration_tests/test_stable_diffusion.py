@@ -1,5 +1,5 @@
 import base64
-import os
+from pathlib import Path
 from typing import Dict
 from unittest.mock import patch
 
@@ -12,6 +12,7 @@ from aidial_adapter_bedrock.aws_client_config import (
 )
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.resource import Resource
+from tests.integration_tests.constants import BLUE_PNG_PICTURE
 from tests.utils.mock_storage import MockFileStorage
 from tests.utils.openai import (
     user,
@@ -33,16 +34,12 @@ IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
 ]
 VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SAMPLE_DOG_IMAGE_PATH = os.path.join(
-    CURRENT_DIR, "images", "dog-sample-image.png"
+CURRENT_DIR = Path(__file__).parent
+SAMPLE_DOG_IMAGE_PATH = CURRENT_DIR / "images" / "dog-sample-image.png"
+SAMPLE_DOG_RESOURCE = Resource(
+    type="image/png",
+    data=SAMPLE_DOG_IMAGE_PATH.read_bytes(),
 )
-
-with open(SAMPLE_DOG_IMAGE_PATH, "rb") as f:
-    SAMPLE_DOG_RESOURCE = Resource(
-        type="image/png",
-        data=f.read(),
-    )
 
 
 def get_upstream_headers(region: str) -> Dict[str, str]:
@@ -92,10 +89,7 @@ def vision_model(get_openai_client):
 
 @pytest.mark.parametrize(
     "deployment, region",
-    [
-        *TEXT_TO_IMAGE_ONLY_MODELS,
-        *IMAGE_TO_IMAGE_SUPPORTED_MODELS,
-    ],
+    TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS,
 )
 @pytest.mark.asyncio
 async def test_text_to_image(
@@ -127,10 +121,7 @@ async def test_text_to_image(
     assert "YES" in vision_response.choices[0].message.content
 
 
-@pytest.mark.parametrize(
-    "deployment, region",
-    [*TEXT_TO_IMAGE_ONLY_MODELS],
-)
+@pytest.mark.parametrize("deployment, region", TEXT_TO_IMAGE_ONLY_MODELS)
 @pytest.mark.asyncio
 async def test_image_to_image_unsupported(
     get_openai_client,
@@ -150,6 +141,24 @@ async def test_image_to_image_unsupported(
     assert "Image-to-image is not supported" in exc_info.value.message
 
 
+@pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
+@pytest.mark.asyncio
+async def test_image_to_image_with_too_small_picture(
+    get_openai_client,
+    mock_v3_storage,
+    deployment,
+    region,
+):
+    client = get_openai_client(deployment.value, get_upstream_headers(region))
+    with pytest.raises(APIStatusError) as exc_info:
+        await client.chat.completions.create(
+            model=deployment.value,
+            messages=[user_with_image_content_part("test", BLUE_PNG_PICTURE)],
+        )
+    assert exc_info.value.status_code == 400
+    assert "width must be between 640 and 1536" in exc_info.value.message
+
+
 @pytest.mark.parametrize(
     "message",
     [
@@ -161,10 +170,7 @@ async def test_image_to_image_unsupported(
         ),
     ],
 )
-@pytest.mark.parametrize(
-    "deployment, region",
-    [*IMAGE_TO_IMAGE_SUPPORTED_MODELS],
-)
+@pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
 @pytest.mark.asyncio
 async def test_image_to_image(
     vision_model,
