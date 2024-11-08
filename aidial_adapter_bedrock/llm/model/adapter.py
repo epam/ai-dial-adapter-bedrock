@@ -6,6 +6,7 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
+from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.embedding.amazon.titan_image import (
     AmazonTitanImageEmbeddings,
 )
@@ -19,6 +20,7 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
@@ -28,9 +30,12 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
-from aidial_adapter_bedrock.llm.model.llama.v2 import llama2_config
-from aidial_adapter_bedrock.llm.model.llama.v3 import llama3_config
-from aidial_adapter_bedrock.llm.model.meta import MetaAdapter
+from aidial_adapter_bedrock.llm.model.llama.v3 import (
+    ConverseStreamingEmulateAdapter,
+)
+from aidial_adapter_bedrock.llm.model.llama.v3 import (
+    input_tokenizer_factory as llama_tokenizer_factory,
+)
 from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
@@ -106,23 +111,31 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
-            ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1
-            | ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1
-        ):
-            return MetaAdapter.create(
-                await Bedrock.acreate(aws_client_config), model, llama2_config
-            )
-        case (
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1
         ):
-            return MetaAdapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
-                llama3_config,
+            return ConverseAdapter(
+                deployment=model,
+                bedrock=await Bedrock.acreate(aws_client_config),
+                storage=create_file_storage(api_key),
+                input_tokenizer_factory=llama_tokenizer_factory,
+                support_tools=False,
+            )
+        case (
+            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
+        ):
+            return ConverseStreamingEmulateAdapter(
+                deployment=model,
+                bedrock=await Bedrock.acreate(aws_client_config),
+                storage=create_file_storage(api_key),
+                input_tokenizer_factory=llama_tokenizer_factory,
+                support_tools=True,
             )
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14

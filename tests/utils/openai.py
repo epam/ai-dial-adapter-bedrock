@@ -197,6 +197,7 @@ async def chat_completion(
     n: Optional[int],
     functions: List[Function] | None,
     tools: List[ChatCompletionToolParam] | None,
+    temperature: float | None = None,
 ) -> ChatCompletionResult:
     async def get_response() -> ChatCompletion:
         response = await client.chat.completions.create(
@@ -205,7 +206,7 @@ async def chat_completion(
             stream=stream,
             stop=stop,
             max_tokens=max_tokens,
-            temperature=0.0,
+            temperature=temperature if temperature is not None else 0.0,
             n=n,
             function_call="auto" if functions is not None else NOT_GIVEN,
             functions=functions or NOT_GIVEN,

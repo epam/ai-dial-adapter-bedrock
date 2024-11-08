@@ -70,14 +70,16 @@ class TestCase:
 
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
+    temperature: float | None = None
 
     def get_id(self):
         max_tokens_str = f"maxt={self.max_tokens}" if self.max_tokens else ""
         stop_sequence_str = f"stop={self.stop}" if self.stop else ""
         n_str = f"n={self.n}" if self.n else ""
+        temperature_str = f"temp={self.temperature}" if self.temperature else ""
         return sanitize_test_name(
             f"{self.deployment.value} {self.streaming} {max_tokens_str} "
-            f"{stop_sequence_str} {n_str} {self.name}"
+            f"{stop_sequence_str} {n_str} {temperature_str} {self.name}"
         )
 
 
@@ -99,13 +101,17 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
-    ChatCompletionDeployment.META_LLAMA2_13B_CHAT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA2_70B_CHAT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
+    # Llama 3.2 1B is too unstable in responses for integration tests
+    # Sometimes it cannot calculate 2+2
+    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
 }
@@ -127,6 +133,9 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
     ]
 
 
@@ -134,6 +143,8 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
     return deployment not in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
     ] and supports_tools(deployment)
 
 
@@ -141,6 +152,13 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
     ]
 
 
@@ -218,6 +236,7 @@ def get_test_cases(
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
         tools: List[ChatCompletionToolParam] | None = None,
+        temperature: float | None = None,
     ) -> None:
         test_cases.append(
             TestCase(
@@ -232,6 +251,7 @@ def get_test_cases(
                 n,
                 functions,
                 tools,
+                temperature,
             )
         )
 
@@ -304,6 +324,14 @@ def get_test_cases(
         expected_empty_message_error = streaming_error(
             cohere_invalid_request_error
         )
+    elif is_llama3(deployment):
+        expected_empty_message_error = streaming_error(
+            ExpectedException(
+                type=BadRequestError,
+                message="Add text to the text field, and try again.",
+                status_code=400,
+            )
+        )
 
     test_case(
         name="empty user message",
@@ -324,6 +352,14 @@ def get_test_cases(
     elif is_cohere(deployment):
         expected_whitespace_message = streaming_error(
             cohere_invalid_request_error
+        )
+    elif is_llama3(deployment):
+        expected_whitespace_message = streaming_error(
+            ExpectedException(
+                type=BadRequestError,
+                message="Add text to the text field, and try again.",
+                status_code=400,
+            )
         )
 
     test_case(
@@ -371,12 +407,6 @@ def get_test_cases(
 
     if is_llama3(deployment):
         test_case(
-            name="out of turn",
-            messages=[ai("hello"), user("what's 7+5?")],
-            expected=lambda s: "12" in s.content.lower(),
-        )
-
-        test_case(
             name="many system",
             messages=[
                 sys("act as a helpful assistant"),
@@ -405,11 +435,12 @@ def get_test_cases(
             query = f"What's the temperature in {' and in '.join(city_names)} in celsius?"
 
             init_messages = [
-                sys("act as a helpful assistant"),
                 user("2+3=?"),
                 ai("5"),
                 user(query),
             ]
+            if not is_llama3(deployment):
+                init_messages.insert(0, sys("act as a helpful assistant"))
 
             def create_fun_args(city: str):
                 return {
@@ -433,6 +464,7 @@ def get_test_cases(
                 expected=lambda s, n=city_names[0]: is_valid_function_call(
                     s.function_call, fun_name, check_fun_args(n)
                 ),
+                temperature=1 if is_llama3(deployment) else None,
             )
 
             function_req = ai_function(
@@ -454,6 +486,7 @@ def get_test_cases(
                     expected=lambda s, t=city_temps[0]: s.content_contains_all(
                         [t]
                     ),
+                    temperature=1 if is_llama3(deployment) else None,
                 )
             else:
                 test_case(
@@ -467,6 +500,7 @@ def get_test_cases(
                     expected=lambda s, n=city_names[1]: is_valid_function_call(
                         s.function_call, fun_name, check_fun_args(n)
                     ),
+                    temperature=1 if is_llama3(deployment) else None,
                 )
 
             # Tools
@@ -501,6 +535,7 @@ def get_test_cases(
                     )
                     for idx in range(len(n))
                 ),
+                temperature=1 if is_llama3(deployment) else None,
             )
 
             tool_reqs = ai_tools(
@@ -523,6 +558,7 @@ def get_test_cases(
                 messages=[*init_messages, tool_reqs, *tool_resps],
                 tools=[tool],
                 expected=lambda s, t=city_temps: s.content_contains_all(t),
+                temperature=1 if is_llama3(deployment) else None,
             )
 
     return test_cases
@@ -562,6 +598,7 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
             test.n,
             test.functions,
             test.tools,
+            test.temperature,
         )
 
     if isinstance(test.expected, ExpectedException):

@@ -36,6 +36,26 @@ class Bedrock:
         )
         return cls(client)
 
+    @classmethod
+    def create(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
+        client_kwargs = aws_client_config.get_boto_client_kwargs()
+        client_kwargs["service_name"] = "bedrock-runtime"
+        client = boto3.Session().client(**client_kwargs)
+        return cls(client)
+
+    async def aconverse_non_streaming(self, model: str, **params):
+        response = await make_async(
+            lambda: self.client.converse(modelId=model, **params)
+        )
+        return response
+
+    async def aconverse_streaming(self, model: str, **params):
+        response = await make_async(
+            lambda: self.client.converse_stream(modelId=model, **params)
+        )
+
+        return to_async_iterator(iter(response["stream"]))
+
     def _create_invoke_params(self, model: str, body: dict) -> dict:
         return {
             "modelId": model,
