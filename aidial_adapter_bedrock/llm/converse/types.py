@@ -68,8 +68,12 @@ class ConverseToolConfig(TypedDict):
     inputSchema: dict
 
 
+class ConverseToolSpec(TypedDict):
+    toolSpec: ConverseToolConfig
+
+
 class ConverseTools(TypedDict):
-    tools: list[ConverseToolConfig]
+    tools: list[ConverseToolSpec]
     toolChoice: dict
 
 
