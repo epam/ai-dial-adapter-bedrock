@@ -93,6 +93,7 @@ class StabilityV2Response(BaseModel):
     def attachments(self) -> List[Attachment]:
         return [
             Attachment(
+                title="Image",
                 type="image/png",
                 data=image,
             )
