@@ -1,8 +1,3 @@
-"""
-Input types for Converse API:
-https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
-"""
-
 import json
 from dataclasses import dataclass
 from typing import List, Set, Tuple, assert_never

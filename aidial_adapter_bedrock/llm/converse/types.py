@@ -1,3 +1,8 @@
+"""
+Types for Converse API:
+https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
+"""
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal, TypedDict, Union
