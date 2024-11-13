@@ -48,10 +48,10 @@ class ConverseAdapter(ChatCompletionAdapter):
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
         [ConverseDeployment, ConverseRequestWrapper],
-        Callable[[List[Tuple[ConverseMessage, Any]]], Awaitable[int]],
+        Callable[[ConverseMessages], Awaitable[int]],
     ]
     support_tools: bool
-    partitioner: Callable[[List[Tuple[ConverseMessage, Any]]], List[int]] = (
+    partitioner: Callable[[ConverseMessages], List[int]] = (
         turn_based_partitioner
     )
 

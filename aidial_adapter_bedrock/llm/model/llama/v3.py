@@ -1,11 +1,12 @@
 import json
-from typing import Any, List, Tuple
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
+from aidial_adapter_bedrock.llm.converse.adapter import (
+    ConverseAdapter,
+    ConverseMessages,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
-    ConverseMessage,
     ConverseRequestWrapper,
 )
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -29,7 +30,7 @@ def input_tokenizer_factory(
     tool_tokens = default_tokenize_string(json.dumps(params.toolConfig))
     system_tokens = default_tokenize_string(json.dumps(params.system))
 
-    async def tokenizer(msg_items: List[Tuple[ConverseMessage, Any]]) -> int:
+    async def tokenizer(msg_items: ConverseMessages) -> int:
         tokens = sum(
             default_tokenize_string(json.dumps(msg_item[0]))
             for msg_item in msg_items
