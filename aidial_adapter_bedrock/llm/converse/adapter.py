@@ -12,7 +12,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.input import (
-    get_converse_system_prompt,
+    extract_converse_system_prompt,
     process_messages,
     to_converse_tools,
 )
@@ -23,7 +23,7 @@ from aidial_adapter_bedrock.llm.converse.output import (
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
     ConverseMessage,
-    ConverseParams,
+    ConverseRequestWrapper,
     ConverseTools,
     InferenceConfig,
 )
@@ -37,6 +37,8 @@ from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
+ConverseMessages = List[Tuple[ConverseMessage, Any]]
+
 
 class ConverseAdapter(ChatCompletionAdapter):
     deployment: str
@@ -45,7 +47,7 @@ class ConverseAdapter(ChatCompletionAdapter):
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
-        [ConverseDeployment, ConverseParams],
+        [ConverseDeployment, ConverseRequestWrapper],
         Callable[[List[Tuple[ConverseMessage, Any]]], Awaitable[int]],
     ]
     support_tools: bool
@@ -54,8 +56,8 @@ class ConverseAdapter(ChatCompletionAdapter):
     )
 
     async def _discard_messages(
-        self, params: ConverseParams, max_prompt_tokens: int | None
-    ) -> Tuple[DiscardedMessages | None, ConverseParams]:
+        self, params: ConverseRequestWrapper, max_prompt_tokens: int | None
+    ) -> Tuple[DiscardedMessages | None, ConverseRequestWrapper]:
         if max_prompt_tokens is None:
             return None, params
 
@@ -70,13 +72,13 @@ class ConverseAdapter(ChatCompletionAdapter):
 
         return list(
             params.messages.to_original_indices(discarded_messages)
-        ), ConverseParams(
-            **{
-                **params.to_dict(),
-                "messages": ListProjection(
-                    omit_by_indices(messages, discarded_messages)
-                ),
-            },
+        ), ConverseRequestWrapper(
+            messages=ListProjection(
+                omit_by_indices(messages, discarded_messages)
+            ),
+            system=params.system,
+            inferenceConfig=params.inferenceConfig,
+            toolConfig=params.toolConfig,
         )
 
     async def count_prompt_tokens(
@@ -112,13 +114,18 @@ class ConverseAdapter(ChatCompletionAdapter):
         self,
         messages: List[DialMessage],
         params: ModelParameters,
-    ) -> ConverseParams:
-        system_message = get_converse_system_prompt(messages)
-        processed_messages = await process_messages(messages, self.storage)
+    ) -> ConverseRequestWrapper:
+        system_prompt_extraction = extract_converse_system_prompt(messages)
+        processed_messages = await process_messages(
+            system_prompt_extraction.modified_messages,
+            self.storage,
+            start_offset=system_prompt_extraction.system_message_count,
+        )
+        system_message = system_prompt_extraction.system_prompt
         if not processed_messages.list:
             raise ValidationError("List of messages must not be empty")
 
-        return ConverseParams(
+        return ConverseRequestWrapper(
             system=[system_message] if system_message else None,
             messages=processed_messages,
             inferenceConfig=cast(
@@ -159,7 +166,7 @@ class ConverseAdapter(ChatCompletionAdapter):
                 params=params,
                 stream=(
                     await self.bedrock.aconverse_streaming(
-                        self.deployment, **converse_params.to_dict()
+                        self.deployment, **converse_params.to_request()
                     )
                 ),
                 consumer=consumer,
@@ -168,7 +175,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             process_non_streaming(
                 params=params,
                 response=await self.bedrock.aconverse_non_streaming(
-                    self.deployment, **converse_params.to_dict()
+                    self.deployment, **converse_params.to_request()
                 ),
                 consumer=consumer,
             )

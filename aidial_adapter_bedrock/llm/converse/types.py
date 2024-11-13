@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal, TypedDict, Union
 
-from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
@@ -102,21 +101,26 @@ class InferenceConfig(TypedDict, total=False):
     stopSequences: list[str] | None
 
 
+class ConverseRequest(TypedDict, total=False):
+    messages: list[ConverseMessage]
+    system: list[ConverseTextPart] | None
+    inferenceConfig: InferenceConfig | None
+    toolConfig: ConverseTools | None
+
+
 @dataclass
-class ConverseParams:
+class ConverseRequestWrapper:
     messages: ListProjection[ConverseMessage]
     system: list[ConverseTextPart] | None = None
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
 
-    def to_dict(self) -> dict:
-        return remove_nones(
-            {
-                "system": self.system,
-                "messages": self.messages.raw_list,
-                "inferenceConfig": self.inferenceConfig,
-                "toolConfig": self.toolConfig,
-            }
+    def to_request(self) -> ConverseRequest:
+        return ConverseRequest(
+            system=self.system,
+            messages=self.messages.raw_list,
+            inferenceConfig=self.inferenceConfig,
+            toolConfig=self.toolConfig,
         )
 
 

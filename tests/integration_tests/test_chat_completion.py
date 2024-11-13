@@ -70,7 +70,7 @@ class TestCase:
 
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
-    temperature: float | None = None
+    temperature: float = 0.0
 
     def get_id(self):
         max_tokens_str = f"maxt={self.max_tokens}" if self.max_tokens else ""
@@ -236,7 +236,7 @@ def get_test_cases(
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
         tools: List[ChatCompletionToolParam] | None = None,
-        temperature: float | None = None,
+        temperature: float = 0.0,
     ) -> None:
         test_cases.append(
             TestCase(
@@ -464,7 +464,7 @@ def get_test_cases(
                 expected=lambda s, n=city_names[0]: is_valid_function_call(
                     s.function_call, fun_name, check_fun_args(n)
                 ),
-                temperature=1 if is_llama3(deployment) else None,
+                temperature=1 if is_llama3(deployment) else 0.0,
             )
 
             function_req = ai_function(
@@ -486,7 +486,7 @@ def get_test_cases(
                     expected=lambda s, t=city_temps[0]: s.content_contains_all(
                         [t]
                     ),
-                    temperature=1 if is_llama3(deployment) else None,
+                    temperature=1 if is_llama3(deployment) else 0.0,
                 )
             else:
                 test_case(
@@ -500,7 +500,7 @@ def get_test_cases(
                     expected=lambda s, n=city_names[1]: is_valid_function_call(
                         s.function_call, fun_name, check_fun_args(n)
                     ),
-                    temperature=1 if is_llama3(deployment) else None,
+                    temperature=1 if is_llama3(deployment) else 0.0,
                 )
 
             # Tools
@@ -535,7 +535,7 @@ def get_test_cases(
                     )
                     for idx in range(len(n))
                 ),
-                temperature=1 if is_llama3(deployment) else None,
+                temperature=1 if is_llama3(deployment) else 0.0,
             )
 
             tool_reqs = ai_tools(
@@ -558,7 +558,7 @@ def get_test_cases(
                 messages=[*init_messages, tool_reqs, *tool_resps],
                 tools=[tool],
                 expected=lambda s, t=city_temps: s.content_contains_all(t),
-                temperature=1 if is_llama3(deployment) else None,
+                temperature=1 if is_llama3(deployment) else 0.0,
             )
 
     return test_cases

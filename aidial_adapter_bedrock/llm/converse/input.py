@@ -1,4 +1,10 @@
+"""
+Input types for Converse API:
+https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
+"""
+
 import json
+from dataclasses import dataclass
 from typing import List, Set, Tuple, assert_never
 
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
@@ -24,6 +30,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseTextPart,
     ConverseToolResultPart,
     ConverseTools,
+    ConverseToolSpec,
     ConverseToolUsePart,
 )
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -36,30 +43,31 @@ def to_converse_role(role: DialRole) -> ConverseRole:
     Converse API accepts only 'user' and 'assistant' roles
     """
     match role:
-        case (
-            DialRole.USER | DialRole.TOOL | DialRole.FUNCTION | DialRole.SYSTEM
-        ):
+        case DialRole.USER | DialRole.TOOL | DialRole.FUNCTION:
             return ConverseRole.USER
         case DialRole.ASSISTANT:
             return ConverseRole.ASSISTANT
+        case DialRole.SYSTEM:
+            raise ValidationError("System messages are not allowed")
         case _:
             assert_never(role)
 
 
 def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
-    tools = []
+    tools: list[ConverseToolSpec] = []
     for function in tools_config.functions:
-        tool = {
-            "toolSpec": {
-                "name": function.name,
-                "description": function.description or "",
-                "inputSchema": {
-                    "json": function.parameters
-                    or {"type": "object", "properties": {}}
-                },
+        tools.append(
+            {
+                "toolSpec": {
+                    "name": function.name,
+                    "description": function.description or "",
+                    "inputSchema": {
+                        "json": function.parameters
+                        or {"type": "object", "properties": {}}
+                    },
+                }
             }
-        }
-        tools.append(tool)
+        )
 
     return {
         "tools": tools,
@@ -237,30 +245,60 @@ async def to_converse_message(
     }
 
 
-def get_converse_system_prompt(
+@dataclass
+class ExtractSystemPromptResult:
+    system_prompt: ConverseTextPart | None
+    system_message_count: int
+    modified_messages: List[DialMessage]
+
+
+def extract_converse_system_prompt(
     messages: List[DialMessage],
-) -> ConverseTextPart | None:
+) -> ExtractSystemPromptResult:
     system_msgs = []
-    saw_non_system = False
+    found_non_system = False
+    system_messages_count = 0
+    modified_messages = []
 
     for msg in messages:
         if msg.role == DialRole.SYSTEM:
-            if saw_non_system:
+            if found_non_system:
                 raise ValidationError(
-                    "System messages are only allowed at the beginning of the messages list"
+                    "A system message can only follow another system message"
                 )
-            if isinstance(msg.content, str):
-                system_msgs.append(msg.content)
+            system_messages_count += 1
+            match msg.content:
+                case str():
+                    system_msgs.append(msg.content)
+                case list():
+                    for part in msg.content:
+                        match part:
+                            case MessageContentTextPart():
+                                system_msgs.append(part.text)
+                            case MessageContentImagePart():
+                                raise ValidationError(
+                                    "System messages cannot contain images"
+                                )
+                case None:
+                    pass
+                case _:
+                    assert_never(msg.content)
         else:
-            saw_non_system = True
-
+            found_non_system = True
+            modified_messages.append(msg)
     combined = "\n\n".join(msg for msg in system_msgs if msg)
-    return {"text": combined} if combined else None
+    return ExtractSystemPromptResult(
+        system_prompt=ConverseTextPart(text=combined) if combined else None,
+        system_message_count=system_messages_count,
+        modified_messages=modified_messages,
+    )
 
 
 async def process_messages(
     messages: List[DialMessage],
     storage: FileStorage | None,
+    # Offset for system messages at the beginning
+    start_offset: int = 0,
 ) -> ListProjection[ConverseMessage]:
     def _merge(
         a: Tuple[ConverseMessage, Set[int]],
@@ -277,9 +315,8 @@ async def process_messages(
         }, set1 | set2
 
     converted: List[Tuple[ConverseMessage, Set[int]]] = [
-        (await to_converse_message(msg, storage), set([idx]))
+        (await to_converse_message(msg, storage), set([idx + start_offset]))
         for idx, msg in enumerate(messages)
-        if msg.role != DialRole.SYSTEM
     ]
 
     # Merge messages with same roles, to preserve turn-based user/assistant turns
