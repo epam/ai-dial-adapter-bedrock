@@ -244,7 +244,7 @@ async def to_converse_message(
 class ExtractSystemPromptResult:
     system_prompt: ConverseTextPart | None
     system_message_count: int
-    modified_messages: List[DialMessage]
+    non_system_messages: List[DialMessage]
 
 
 def extract_converse_system_prompt(
@@ -253,7 +253,7 @@ def extract_converse_system_prompt(
     system_msgs = []
     found_non_system = False
     system_messages_count = 0
-    modified_messages = []
+    non_system_messages = []
 
     for msg in messages:
         if msg.role == DialRole.SYSTEM:
@@ -280,16 +280,16 @@ def extract_converse_system_prompt(
                     assert_never(msg.content)
         else:
             found_non_system = True
-            modified_messages.append(msg)
+            non_system_messages.append(msg)
     combined = "\n\n".join(msg for msg in system_msgs if msg)
     return ExtractSystemPromptResult(
         system_prompt=ConverseTextPart(text=combined) if combined else None,
         system_message_count=system_messages_count,
-        modified_messages=modified_messages,
+        non_system_messages=non_system_messages,
     )
 
 
-async def process_messages(
+async def to_converse_messages(
     messages: List[DialMessage],
     storage: FileStorage | None,
     # Offset for system messages at the beginning

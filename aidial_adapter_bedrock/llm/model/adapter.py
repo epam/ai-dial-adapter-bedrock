@@ -31,7 +31,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
 )
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.llama.v3 import (
-    ConverseStreamingEmulateAdapter,
+    ConverseAdapterWithStreamingEmulation,
 )
 from aidial_adapter_bedrock.llm.model.llama.v3 import (
     input_tokenizer_factory as llama_tokenizer_factory,
@@ -130,7 +130,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
         ):
-            return ConverseStreamingEmulateAdapter(
+            return ConverseAdapterWithStreamingEmulation(
                 deployment=model,
                 bedrock=await Bedrock.acreate(aws_client_config),
                 storage=create_file_storage(api_key),

@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, List, Tuple, cast
+from typing import Any, Awaitable, Callable, List, Tuple
 
 from aidial_sdk.chat_completion import Message as DialMessage
 
@@ -13,7 +13,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
-    process_messages,
+    to_converse_messages,
     to_converse_tools,
 )
 from aidial_adapter_bedrock.llm.converse.output import (
@@ -33,7 +33,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
-from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -116,8 +115,8 @@ class ConverseAdapter(ChatCompletionAdapter):
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
         system_prompt_extraction = extract_converse_system_prompt(messages)
-        processed_messages = await process_messages(
-            system_prompt_extraction.modified_messages,
+        processed_messages = await to_converse_messages(
+            system_prompt_extraction.non_system_messages,
             self.storage,
             start_offset=system_prompt_extraction.system_message_count,
         )
@@ -128,16 +127,17 @@ class ConverseAdapter(ChatCompletionAdapter):
         return ConverseRequestWrapper(
             system=[system_message] if system_message else None,
             messages=processed_messages,
-            inferenceConfig=cast(
-                InferenceConfig,
-                remove_nones(
-                    {
-                        "temperature": params.temperature,
-                        "topP": params.top_p,
-                        "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop,
-                    }
-                ),
+            inferenceConfig=InferenceConfig(
+                **{
+                    key: value
+                    for key, value in [
+                        ("temperature", params.temperature),
+                        ("topP", params.top_p),
+                        ("maxTokens", params.max_tokens),
+                        ("stopSequences", params.stop),
+                    ]
+                    if value is not None
+                }
             ),
             toolConfig=self.get_tool_config(params),
         )

@@ -117,6 +117,94 @@ TEST_CASES = [
         ),
     ),
     TestCase(
+        name="multiple_system_messages",
+        messages=[
+            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
+            Message(role=Role.SYSTEM, content="You are also very friendly."),
+            Message(role=Role.USER, content="Hello!"),
+        ],
+        params=ModelParameters(tool_config=None),
+        expected_output=ConverseRequestWrapper(
+            inferenceConfig=default_inference_config,
+            system=[
+                ConverseTextPart(
+                    text="You are a helpful assistant.\n\nYou are also very friendly."
+                ),
+            ],
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[ConverseTextPart(text="Hello!")],
+                        ),
+                        {2},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="system_message_multiple_parts",
+        messages=[
+            Message(
+                role=Role.SYSTEM,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="You are a helpful assistant."
+                    ),
+                    MessageContentTextPart(
+                        type="text", text="You are also very friendly."
+                    ),
+                ],
+            ),
+            Message(role=Role.USER, content="Hello!"),
+        ],
+        params=ModelParameters(tool_config=None),
+        expected_output=ConverseRequestWrapper(
+            inferenceConfig=default_inference_config,
+            system=[
+                ConverseTextPart(
+                    text="You are a helpful assistant.\n\nYou are also very friendly."
+                ),
+            ],
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[ConverseTextPart(text="Hello!")],
+                        ),
+                        {1},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="system_message_with_forbidden_image",
+        messages=[
+            Message(
+                role=Role.SYSTEM,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="You are a helpful assistant."
+                    ),
+                    MessageContentImagePart(
+                        type="image_url",
+                        image_url=ImageURL(url=BLUE_PNG_PICTURE.to_data_url()),
+                    ),
+                ],
+            ),
+            Message(role=Role.USER, content="Hello!"),
+        ],
+        params=ModelParameters(tool_config=None),
+        expected_error=ExpectedException(
+            type=ValidationError,
+            message="System messages cannot contain images",
+        ),
+    ),
+    TestCase(
         name="tools_convert",
         messages=[
             Message(role=Role.USER, content="What's the weather?"),

@@ -5,7 +5,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedro
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal, TypedDict, Union
+from typing import Any, Literal, Required, TypedDict, Union
 
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -100,14 +100,14 @@ class ConverseMessage(TypedDict):
 
 
 class InferenceConfig(TypedDict, total=False):
-    temperature: float | None
-    topP: float | None
-    maxTokens: int | None
-    stopSequences: list[str] | None
+    temperature: float
+    topP: float
+    maxTokens: int
+    stopSequences: list[str]
 
 
 class ConverseRequest(TypedDict, total=False):
-    messages: list[ConverseMessage]
+    messages: Required[list[ConverseMessage]]
     system: list[ConverseTextPart] | None
     inferenceConfig: InferenceConfig | None
     toolConfig: ConverseTools | None

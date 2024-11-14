@@ -12,9 +12,9 @@ from aidial_adapter_bedrock.llm.converse.types import (
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 
 
-class ConverseStreamingEmulateAdapter(ConverseAdapter):
+class ConverseAdapterWithStreamingEmulation(ConverseAdapter):
     """
-    Llama 3.1 supports tools, but only in non-streaming mode.
+    Llama 3 models support tools only in the non-streaming mode.
     So we need to run request in non-streaming mode, and then emulate streaming.
     """
 
