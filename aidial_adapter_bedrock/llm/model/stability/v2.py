@@ -216,7 +216,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             )
 
         if not self.image_to_image_supported and image_resources:
-            raise UserError("Image-to-Image is not supported.")
+            raise UserError("Image-to-Image is not supported")
         if len(image_resources) > 1:
             raise UserError("Only one input image is supported")
 
