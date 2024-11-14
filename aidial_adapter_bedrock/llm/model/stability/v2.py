@@ -34,7 +34,7 @@ from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
-SUPPORTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", "jpe", ".png", ".webp"]
+SUPPORTED_IMAGE_EXTENSIONS = ["jpeg", "jpe", "jpg", "png", "webp"]
 
 
 async def _download_resource(
