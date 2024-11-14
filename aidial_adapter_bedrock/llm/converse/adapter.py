@@ -33,6 +33,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
+from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -128,16 +129,14 @@ class ConverseAdapter(ChatCompletionAdapter):
             system=[system_message] if system_message else None,
             messages=processed_messages,
             inferenceConfig=InferenceConfig(
-                **{
-                    key: value
-                    for key, value in [
-                        ("temperature", params.temperature),
-                        ("topP", params.top_p),
-                        ("maxTokens", params.max_tokens),
-                        ("stopSequences", params.stop),
-                    ]
-                    if value is not None
-                }
+                **remove_nones(
+                    {
+                        "temperature": params.temperature,
+                        "topP": params.top_p,
+                        "maxTokens": params.max_tokens,
+                        "stopSequences": params.stop,
+                    }
+                )
             ),
             toolConfig=self.get_tool_config(params),
         )

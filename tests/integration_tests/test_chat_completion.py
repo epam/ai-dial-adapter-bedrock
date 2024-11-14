@@ -406,6 +406,19 @@ def get_test_cases(
     )
 
     if is_llama3(deployment):
+
+        test_case(
+            name="out_of_turn",
+            messages=[ai("hello"), user("what's 7+5?")],
+            expected=streaming_error(
+                ExpectedException(
+                    type=BadRequestError,
+                    message="A conversation must start with a user message",
+                    status_code=400,
+                )
+            ),
+        )
+
         test_case(
             name="many system",
             messages=[
@@ -439,6 +452,7 @@ def get_test_cases(
                 ai("5"),
                 user(query),
             ]
+            # Llama 3 works badly with system messages along tools
             if not is_llama3(deployment):
                 init_messages.insert(0, sys("act as a helpful assistant"))
 
