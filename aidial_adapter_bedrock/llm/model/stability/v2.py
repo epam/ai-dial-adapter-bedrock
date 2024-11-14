@@ -26,7 +26,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.json import remove_nones
@@ -202,11 +202,9 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             )
 
         if not self.image_to_image_supported and image_resources:
-            raise ValidationError(
-                f"Image-to-image is not supported for {self.model}"
-            )
+            raise UserError(f"Image-to-image is not supported for {self.model}")
         if len(image_resources) > 1:
-            raise ValidationError("Only one input image is supported")
+            raise UserError("Only one input image is supported")
 
         if self.image_to_image_supported and image_resources:
             image_resource = await image_resources[0].download(self.storage)
@@ -215,6 +213,9 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             )
         else:
             image_resource = None
+
+        if not text_prompt:
+            raise UserError("Text prompt is required")
 
         response, _ = await self.client.ainvoke_non_streaming(
             self.model,
