@@ -7,16 +7,23 @@ from aidial_sdk.chat_completion import Attachment
 from pydantic import BaseModel, Field, root_validator, validator
 
 from aidial_adapter_bedrock.dial_api.storage import FileStorage, download_file
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.resource import Resource
 from aidial_adapter_bedrock.utils.text import truncate_string
 
 
-class MissingContentType(UserError):
+class ValidationError(Exception):
+    message: str
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+class MissingContentType(ValidationError):
     pass
 
 
-class UnsupportedContentType(UserError):
+class UnsupportedContentType(ValidationError):
     type: str
     supported_types: List[str]
 

@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     DialResource,
+    UnsupportedContentType,
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import (
@@ -33,6 +34,19 @@ from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+SUPPORTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", "jpe", ".png", ".webp"]
+
+
+async def _download_resource(
+    dial_resource: DialResource, storage: FileStorage | None
+) -> Resource:
+    try:
+        return await dial_resource.download(storage)
+    except UnsupportedContentType as e:
+        raise UserError(
+            error_message=f"Unsupported image type: {e.type}",
+            usage_message=f"Supported image types: {', '.join(SUPPORTED_IMAGE_EXTENSIONS)}",
+        )
 
 
 def _validate_image_size(
@@ -207,7 +221,9 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             raise UserError("Only one input image is supported")
 
         if self.image_to_image_supported and image_resources:
-            image_resource = await image_resources[0].download(self.storage)
+            image_resource = await _download_resource(
+                image_resources[0], self.storage
+            )
             _validate_image_size(
                 image_resource, self.width_constraints, self.height_constraints
             )
