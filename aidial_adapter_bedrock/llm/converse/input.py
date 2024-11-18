@@ -306,15 +306,15 @@ async def to_converse_messages(
 
         return {
             "role": msg1["role"],
-            "content": list(content1) + list(content2),
+            "content": content1 + content2,
         }, set1 | set2
 
-    converted: List[Tuple[ConverseMessage, Set[int]]] = [
+    converted = [
         (await to_converse_message(msg, storage), set([idx + start_offset]))
         for idx, msg in enumerate(messages)
     ]
 
-    # Merge messages with same roles, to preserve turn-based user/assistant turns
+    # Merge messages with the same roles to achieve an alternation of user-assistant roles.
     return ListProjection(
         group_by(
             lst=converted,

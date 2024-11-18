@@ -116,18 +116,18 @@ class ConverseAdapter(ChatCompletionAdapter):
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
         system_prompt_extraction = extract_converse_system_prompt(messages)
-        processed_messages = await to_converse_messages(
+        converse_messages = await to_converse_messages(
             system_prompt_extraction.non_system_messages,
             self.storage,
             start_offset=system_prompt_extraction.system_message_count,
         )
         system_message = system_prompt_extraction.system_prompt
-        if not processed_messages.list:
+        if not converse_messages.list:
             raise ValidationError("List of messages must not be empty")
 
         return ConverseRequestWrapper(
             system=[system_message] if system_message else None,
-            messages=processed_messages,
+            messages=converse_messages,
             inferenceConfig=InferenceConfig(
                 **remove_nones(
                     {
