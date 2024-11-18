@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.aws_client_config import (
     UpstreamConfig,
 )
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from tests.integration_tests.constants import BLUE_PNG_PICTURE
+from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     ChatCompletionResult,
@@ -202,7 +202,10 @@ cohere_invalid_request_error = ExpectedException(
 
 
 def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
-    return is_claude3(deployment)
+    return is_claude3(deployment) or deployment in [
+        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+    ]
 
 
 def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
@@ -373,16 +376,16 @@ def get_test_cases(
         content = "describe the image"
         for idx, user_message in enumerate(
             [
-                user_with_attachment_data(content, BLUE_PNG_PICTURE),
-                user_with_attachment_url(content, BLUE_PNG_PICTURE),
-                user_with_image_url(content, BLUE_PNG_PICTURE),
+                user_with_attachment_data(content, SAMPLE_DOG_RESOURCE),
+                user_with_attachment_url(content, SAMPLE_DOG_RESOURCE),
+                user_with_image_url(content, SAMPLE_DOG_RESOURCE),
             ]
         ):
             test_case(
                 name=f"describe image {idx}",
                 max_tokens=100,
                 messages=[sys("be a helpful assistant"), user_message],  # type: ignore
-                expected=lambda s: "blue" in s.content.lower(),
+                expected=lambda s: "dog" in s.content.lower(),
             )
 
     test_case(
