@@ -1,7 +1,7 @@
 import json
 from abc import ABC
 from logging import DEBUG
-from typing import Any, AsyncIterator, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple, Unpack
 
 import boto3
 from botocore.eventstream import EventStream
@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -35,6 +36,23 @@ class Bedrock:
             lambda: boto3.Session().client(**client_kwargs)
         )
         return cls(client)
+
+    async def aconverse_non_streaming(
+        self, model: str, **params: Unpack[ConverseRequest]
+    ):
+        response = await make_async(
+            lambda: self.client.converse(modelId=model, **params)
+        )
+        return response
+
+    async def aconverse_streaming(
+        self, model: str, **params: Unpack[ConverseRequest]
+    ):
+        response = await make_async(
+            lambda: self.client.converse_stream(modelId=model, **params)
+        )
+
+        return to_async_iterator(iter(response["stream"]))
 
     def _create_invoke_params(self, model: str, body: dict) -> dict:
         return {

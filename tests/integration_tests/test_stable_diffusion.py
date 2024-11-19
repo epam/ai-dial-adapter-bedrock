@@ -1,5 +1,4 @@
 import base64
-from pathlib import Path
 from typing import Dict
 from unittest.mock import patch
 
@@ -12,7 +11,10 @@ from aidial_adapter_bedrock.aws_client_config import (
 )
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.resource import Resource
-from tests.integration_tests.constants import BLUE_PNG_PICTURE
+from tests.integration_tests.constants import (
+    BLUE_PNG_PICTURE,
+    SAMPLE_DOG_RESOURCE,
+)
 from tests.utils.mock_storage import MockFileStorage
 from tests.utils.openai import (
     user,
@@ -33,13 +35,6 @@ IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
     ),
 ]
 VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
-
-CURRENT_DIR = Path(__file__).parent
-SAMPLE_DOG_IMAGE_PATH = CURRENT_DIR / "images" / "dog-sample-image.png"
-SAMPLE_DOG_RESOURCE = Resource(
-    type="image/png",
-    data=SAMPLE_DOG_IMAGE_PATH.read_bytes(),
-)
 
 
 def get_upstream_headers(region: str) -> Dict[str, str]:
