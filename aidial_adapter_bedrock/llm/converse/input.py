@@ -310,8 +310,8 @@ async def to_converse_messages(
         }, set1 | set2
 
     converted = [
-        (await to_converse_message(msg, storage), set([idx + start_offset]))
-        for idx, msg in enumerate(messages)
+        (await to_converse_message(msg, storage), set([idx]))
+        for idx, msg in enumerate(messages, start=start_offset)
     ]
 
     # Merge messages with the same roles to achieve an alternation of user-assistant roles.
