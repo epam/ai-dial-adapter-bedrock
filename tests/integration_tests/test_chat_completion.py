@@ -213,6 +213,8 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
     ]
 
+    # Claude 3.5 Haiku was launched as a text-only model
+    # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
     excluded_models = {
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
