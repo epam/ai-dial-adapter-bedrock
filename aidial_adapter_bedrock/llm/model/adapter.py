@@ -57,6 +57,8 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
