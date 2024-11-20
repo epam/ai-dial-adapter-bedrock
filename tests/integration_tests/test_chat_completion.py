@@ -101,6 +101,8 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -131,6 +133,8 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
@@ -182,6 +186,8 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
     ]
@@ -202,10 +208,22 @@ cohere_invalid_request_error = ExpectedException(
 
 
 def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
-    return is_claude3(deployment) or deployment in [
+    allowed_models = [
         ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
     ]
+
+    # Claude 3.5 Haiku was launched as a text-only model
+    # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
+    excluded_models = {
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
+    }
+
+    is_allowed_model = is_claude3(deployment) or deployment in allowed_models
+    is_excluded_model = deployment in excluded_models
+
+    return is_allowed_model and not is_excluded_model
 
 
 def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
