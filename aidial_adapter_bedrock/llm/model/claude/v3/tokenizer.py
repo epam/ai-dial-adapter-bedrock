@@ -194,7 +194,6 @@ def _tokenize_tool_system_message(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             # Actually token usage for Haiku 3.5 is unknown
             # temporary using tha same as for Haiku 3
-            # will be not actual after Anthropic tokenizer integration
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
         ):
