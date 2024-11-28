@@ -6,9 +6,13 @@ from aidial_sdk.chat_completion import (
     FunctionChoice,
     Message,
     Role,
+    Tool,
     ToolChoice,
 )
-from aidial_sdk.chat_completion.request import AzureChatCompletionRequest
+from aidial_sdk.chat_completion.request import (
+    AzureChatCompletionRequest,
+    StaticTool,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -108,6 +112,15 @@ class ToolsConfig(BaseModel):
             case _:
                 return tool_choice
 
+    @staticmethod
+    def _get_function_from_tool(tool: Tool | StaticTool) -> Function:
+        if isinstance(tool, Tool):
+            return tool.function
+        elif isinstance(tool, StaticTool):
+            raise ValidationError("Static tools aren't supported")
+        else:
+            assert_never(tool)
+
     @classmethod
     def from_request(cls, request: AzureChatCompletionRequest) -> Self | None:
         validate_messages(request)
@@ -118,7 +131,10 @@ class ToolsConfig(BaseModel):
             tool_ids = None
 
         elif request.tools is not None:
-            functions = [tool.function for tool in request.tools]
+            functions = [
+                ToolsConfig._get_function_from_tool(tool)
+                for tool in request.tools
+            ]
             function_call = ToolsConfig.tool_choice_to_function_call(
                 request.tool_choice
             )
