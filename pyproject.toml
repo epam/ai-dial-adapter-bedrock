@@ -17,7 +17,7 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.35.41"
 botocore = "1.35.41"
-aidial-sdk = {version = "0.14.0", extras = ["telemetry"]}
+aidial-sdk = {version = "0.16.0", extras = ["telemetry"]}
 anthropic = {version = "0.28.1", extras = ["bedrock"]}
 fastapi = "0.115.2"
 openai = "1.13.3"
@@ -26,6 +26,7 @@ pydantic = "1.10.13"
 defusedxml = "^0.7.1"
 numpy = "^2.0.0"
 pillow = "^10.4.0"
+aiohttp = "^3.10.11"
 
 [tool.poetry.group.test.dependencies]
 pytest-asyncio = "0.21.1"
