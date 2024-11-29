@@ -3,13 +3,13 @@ from types import TracebackType
 from typing import Optional, assert_never
 
 from aidial_sdk.chat_completion import (
+    Attachment,
     Choice,
     FinishReason,
     FunctionCall,
     Response,
     ToolCall,
 )
-from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.message import (
@@ -18,15 +18,6 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-
-
-class Attachment(BaseModel):
-    type: str | None = None
-    title: str | None = None
-    data: str | None = None
-    url: str | None = None
-    reference_url: str | None = None
-    reference_type: str | None = None
 
 
 class Consumer(ABC):
@@ -147,7 +138,7 @@ class ChoiceConsumer(Consumer):
         self._process_content(content)
 
     def add_attachment(self, attachment: Attachment):
-        self.choice.add_attachment(**attachment.dict())
+        self.choice.add_attachment(attachment)
 
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)
