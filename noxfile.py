@@ -40,9 +40,9 @@ def run_tests(session: nox.Session, *args):
 
 @nox.session
 def test(session: nox.Session):
-    run_tests(session, "tests/unit_tests/", "-x")
+    run_tests(session, "tests/unit_tests/")
 
 
 @nox.session
 def integration_tests(session: nox.Session):
-    run_tests(session, "tests/integration_tests/", "-x")
+    run_tests(session, "tests/integration_tests/")
