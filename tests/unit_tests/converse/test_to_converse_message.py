@@ -1,4 +1,3 @@
-import pytest
 from aidial_sdk.chat_completion import FunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import Role as DialRole
@@ -7,7 +6,6 @@ from aidial_sdk.chat_completion import ToolCall
 from aidial_adapter_bedrock.llm.converse.input import to_converse_message
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_text():
     dial_message = DialMessage(role=DialRole.USER, content="Hello, world!")
     converse_message = await to_converse_message(dial_message, storage=None)
@@ -18,7 +16,6 @@ async def test_to_converse_message_text():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_assistant():
     dial_message = DialMessage(role=DialRole.ASSISTANT, content="Hello")
     converse_message = await to_converse_message(dial_message, storage=None)
@@ -29,7 +26,6 @@ async def test_to_converse_message_assistant():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_function_call_no_content():
     dial_message = DialMessage(
         role=DialRole.ASSISTANT,
@@ -52,7 +48,6 @@ async def test_to_converse_message_function_call_no_content():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_function_call_with_content():
     dial_message = DialMessage(
         role=DialRole.ASSISTANT,
@@ -77,7 +72,6 @@ async def test_to_converse_message_function_call_with_content():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_tool_call_no_content():
     dial_message = DialMessage(
         role=DialRole.ASSISTANT,
@@ -107,7 +101,6 @@ async def test_to_converse_message_tool_call_no_content():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_tool_call_with_content():
     dial_message = DialMessage(
         role=DialRole.ASSISTANT,
@@ -139,7 +132,6 @@ async def test_to_converse_message_tool_call_with_content():
     }
 
 
-@pytest.mark.asyncio
 async def test_to_converse_message_multiple_tool_calls():
     dial_message = DialMessage(
         role=DialRole.ASSISTANT,

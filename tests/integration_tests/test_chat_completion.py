@@ -595,7 +595,6 @@ def get_extra_headers(region: str) -> Mapping[str, str]:
     }
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     [

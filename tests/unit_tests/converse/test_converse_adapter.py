@@ -398,7 +398,6 @@ TEST_CASES = [
 @pytest.mark.parametrize(
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
-@pytest.mark.asyncio
 async def test_converse_adapter(
     test_case: TestCase,
 ):
