@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, List, Mapping
 
+import openai
 import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
 from openai.types.chat import (
@@ -237,15 +238,6 @@ def get_test_cases(
 ) -> List[TestCase]:
     test_cases: List[TestCase] = []
 
-    def streaming_error(exc: ExpectedException) -> ExpectedException:
-        if streaming:
-            return ExpectedException(
-                type=APIError,
-                message="An error occurred during streaming",
-            )
-        else:
-            return exc
-
     def test_case(
         name: str,
         messages: List[ChatCompletionMessageParam],
@@ -334,24 +326,22 @@ def get_test_cases(
 
     expected_empty_message_error = expected_success
     if is_claude3(deployment):
-        expected_empty_message_error = streaming_error(
-            ExpectedException(
-                type=BadRequestError,
-                message="messages: text content blocks must be non-empty",
-                status_code=400,
-            )
+        expected_empty_message_error = ExpectedException(
+            type=(
+                openai.InternalServerError
+                if streaming
+                else openai.BadRequestError
+            ),
+            message="messages: text content blocks must be non-empty",
+            status_code=500 if streaming else 400,
         )
     elif is_cohere(deployment):
-        expected_empty_message_error = streaming_error(
-            cohere_invalid_request_error
-        )
+        expected_empty_message_error = cohere_invalid_request_error
     elif is_llama3(deployment):
-        expected_empty_message_error = streaming_error(
-            ExpectedException(
-                type=BadRequestError,
-                message="Add text to the text field, and try again.",
-                status_code=400,
-            )
+        expected_empty_message_error = ExpectedException(
+            type=BadRequestError,
+            message="Add text to the text field, and try again.",
+            status_code=400,
         )
 
     test_case(
@@ -363,24 +353,22 @@ def get_test_cases(
 
     expected_whitespace_message = expected_success
     if is_claude3(deployment):
-        expected_whitespace_message = streaming_error(
-            ExpectedException(
-                type=BadRequestError,
-                message="messages: text content blocks must contain non-whitespace text",
-                status_code=400,
-            )
+        expected_whitespace_message = ExpectedException(
+            type=(
+                openai.InternalServerError
+                if streaming
+                else openai.BadRequestError
+            ),
+            message="messages: text content blocks must contain non-whitespace text",
+            status_code=500 if streaming else 400,
         )
     elif is_cohere(deployment):
-        expected_whitespace_message = streaming_error(
-            cohere_invalid_request_error
-        )
+        expected_whitespace_message = cohere_invalid_request_error
     elif is_llama3(deployment):
-        expected_whitespace_message = streaming_error(
-            ExpectedException(
-                type=BadRequestError,
-                message="Add text to the text field, and try again.",
-                status_code=400,
-            )
+        expected_whitespace_message = ExpectedException(
+            type=BadRequestError,
+            message="Add text to the text field, and try again.",
+            status_code=400,
         )
 
     test_case(
@@ -431,7 +419,7 @@ def get_test_cases(
         test_case(
             name="out_of_turn",
             messages=[ai("hello"), user("what's 7+5?")],
-            expected=streaming_error(
+            expected=(
                 ExpectedException(
                     type=BadRequestError,
                     message="A conversation must start with a user message",
@@ -642,7 +630,9 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
 
         actual_exc = exc_info.value
 
-        assert isinstance(actual_exc, test.expected.type)
+        assert isinstance(
+            actual_exc, test.expected.type
+        ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
         actual_status_code = getattr(actual_exc, "status_code", None)
         assert actual_status_code == test.expected.status_code
         assert re.search(test.expected.message, str(actual_exc))

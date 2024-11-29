@@ -133,7 +133,7 @@ async def test_image_to_image_unsupported(
             ],
         )
     assert exc_info.value.status_code == 422
-    assert "Image-to-image is not supported" in exc_info.value.message
+    assert "Image-to-Image is not supported" in exc_info.value.message
 
 
 @pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
