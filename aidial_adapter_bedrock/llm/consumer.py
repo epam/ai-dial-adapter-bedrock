@@ -77,7 +77,7 @@ class ChoiceConsumer(Consumer):
             # Delay opening a choice to the very last moment
             # so as to give opportunity for exceptions to bubble up to
             # the level of HTTP response (instead of error objects in a stream).
-            choice = self._choice = self.response.create_single_choice()
+            choice = self._choice = self.response.create_choice()
             choice.open()
             return choice
         else:
