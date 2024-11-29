@@ -188,6 +188,19 @@ class ChatCompletionResult(BaseModel):
         )
 
 
+def for_all_choices(
+    predicate: Callable[[str], bool], n: int = 1
+) -> Callable[[ChatCompletionResult], bool]:
+    def f(resp: ChatCompletionResult) -> bool:
+        contents = resp.contents
+        assert (
+            len(contents) == n
+        ), f"Expected {n} candidates, got {len(contents)}"
+        return all(predicate(content) for content in contents)
+
+    return f
+
+
 async def chat_completion(
     client: AsyncAzureOpenAI,
     messages: List[ChatCompletionMessageParam],
@@ -220,7 +233,9 @@ async def chat_completion(
                 async for chunk in response:
                     yield chunk.dict()
 
-            response_dict = await merge_chunks(generator())
+            response_dict = await merge_chunks(
+                generator()
+            )  # FIXME: migrate to merge_chat_completion_chunks
             response_dict["object"] = "chat.completion"
             response_dict["model"] = "dummy_model"
 
