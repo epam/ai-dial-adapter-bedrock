@@ -73,9 +73,7 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
             supports_dimensions=self.supports_dimensions,
         )
 
-        async def compute_embeddings(
-            req: str,
-        ) -> Tuple[List[float], int]:
+        async def compute_embeddings(req: str) -> Tuple[List[float], int]:
             return await call_embedding_model(
                 self.client,
                 self.model,
@@ -84,8 +82,8 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
 
         # NOTE: Amazon Titan doesn't support batched inputs
         tasks = [
-            asyncio.create_task(compute_embeddings(sub_request))
-            async for sub_request in get_text_inputs(request)
+            asyncio.create_task(compute_embeddings(req))
+            async for req in get_text_inputs(request)
         ]
         results = await asyncio.gather(*tasks)
 

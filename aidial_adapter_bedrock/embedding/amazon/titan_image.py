@@ -167,8 +167,8 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
 
         # NOTE: Amazon Titan doesn't support batched inputs
         tasks = [
-            asyncio.create_task(compute_embeddings(sub_request))
-            async for sub_request in get_requests(self.storage, request)
+            asyncio.create_task(compute_embeddings(req))
+            async for req in get_requests(self.storage, request)
         ]
         results = await asyncio.gather(*tasks)
 
