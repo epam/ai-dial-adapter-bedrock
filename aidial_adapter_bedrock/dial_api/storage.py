@@ -40,8 +40,9 @@ class FileStorage(BaseModel):
                 headers=self.auth_headers,
             ) as response:
                 response.raise_for_status()
-                self.bucket = await response.json()
+                self.bucket = bucket = await response.json()
                 log.debug(f"bucket: {self.bucket}")
+                return bucket
 
         return self.bucket
 
