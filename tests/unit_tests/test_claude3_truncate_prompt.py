@@ -15,9 +15,12 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
+from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployment
 from tests.utils.messages import ai, sys, to_sdk_messages, user, user_with_image
 
-_DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+_DEPLOYMENT = AdapterDeployment.static(
+    upstream=ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+)
 
 _MODEL = Claude_V3.create(_DEPLOYMENT, "-", AWSClientConfig(region="us-east-1"))
 

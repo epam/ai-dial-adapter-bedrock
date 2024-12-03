@@ -24,7 +24,6 @@ from aidial_sdk.exceptions import ResourceNotFoundError
 from typing_extensions import override
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
@@ -36,24 +35,28 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
+from aidial_adapter_bedrock.utils.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 
 
 class BedrockChatCompletion(ChatCompletion):
+    deployment: AdapterChatCompletionDeployment
+
+    def __init__(self, deployment: AdapterChatCompletionDeployment) -> None:
+        self.deployment = deployment
+
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
-        deployment = ChatCompletionDeployment.from_deployment_id(
-            request.deployment_id
-        )
-
         aws_client_config = await AWSClientConfigFactory(
             request=request,
         ).get_client_config()
 
         return await get_bedrock_adapter(
-            deployment=deployment,
+            deployment=self.deployment,
             api_key=request.api_key,
             aws_client_config=aws_client_config,
         )

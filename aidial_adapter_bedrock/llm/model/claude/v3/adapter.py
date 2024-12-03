@@ -64,6 +64,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
+from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -94,7 +95,7 @@ class ClaudeRequest:
 
 
 class Adapter(ChatCompletionAdapter):
-    deployment: Claude3Deployment
+    deployment: AdapterDeployment[Claude3Deployment]
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
@@ -153,7 +154,9 @@ class Adapter(ChatCompletionAdapter):
 
         discarded_messages, messages = await truncate_prompt(
             messages=request.messages.list,
-            tokenizer=create_tokenizer(self.deployment, request.params),
+            tokenizer=create_tokenizer(
+                self.deployment.reference_deployment_id, request.params
+            ),
             keep_message=keep_last,
             partitioner=turn_based_partitioner,
             model_limit=None,
@@ -202,9 +205,9 @@ class Adapter(ChatCompletionAdapter):
         self, params: DialParameters, messages: List[DialMessage]
     ) -> int:
         request = await self._prepare_claude_request(params, messages)
-        return await create_tokenizer(self.deployment, request.params)(
-            request.messages.list
-        )
+        return await create_tokenizer(
+            self.deployment.reference_deployment_id, request.params
+        )(request.messages.list)
 
     async def count_completion_tokens(self, string: str) -> int:
         return tokenize_text(string)
@@ -237,7 +240,7 @@ class Adapter(ChatCompletionAdapter):
 
         async with self.client.messages.stream(
             messages=request.messages.raw_list,
-            model=self.deployment.model_id,
+            model=self.deployment.upstream_deployment_id,
             **request.params,
         ) as stream:
             prompt_tokens = 0
@@ -311,7 +314,7 @@ class Adapter(ChatCompletionAdapter):
 
         message = await self.client.messages.create(
             messages=request.messages.raw_list,
-            model=self.deployment.model_id,
+            model=self.deployment.upstream_deployment_id,
             **request.params,
             stream=False,
         )
@@ -344,7 +347,7 @@ class Adapter(ChatCompletionAdapter):
     @classmethod
     def create(
         cls,
-        deployment: Claude3Deployment,
+        deployment: AdapterDeployment[Claude3Deployment],
         api_key: str,
         aws_client_config: AWSClientConfig,
     ):

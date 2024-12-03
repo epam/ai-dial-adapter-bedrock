@@ -1,8 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 
-class ChatCompletionDeployment(str, Enum):
+class ChatCompletionDeployment(StrEnum):
     AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
 
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
@@ -60,28 +60,11 @@ class ChatCompletionDeployment(str, Enum):
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
-    @property
-    def deployment_id(self) -> str:
-        """Deployment id under which the model is served by the adapter."""
-        return self.value
 
-    @property
-    def model_id(self) -> str:
-        """Id of the model in the Bedrock service."""
-
-        # Redirect Stability model without version to the earliest non-deprecated version (V1)
-        if self == ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL:
-            return (
-                ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1.model_id
-            )
-
-        return self.value
-
-    @classmethod
-    def from_deployment_id(
-        cls, deployment_id: str
-    ) -> "ChatCompletionDeployment":
-        return cls(deployment_id)
+# Redirect Stability model without version to the earliest non-deprecated version (V1)
+CHAT_COMPLETION_REDIRECTS = {
+    ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL: ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
+}
 
 
 Claude3Deployment = Literal[
@@ -103,20 +86,10 @@ Claude3Deployment = Literal[
 ]
 
 
-class EmbeddingsDeployment(str, Enum):
+class EmbeddingsDeployment(StrEnum):
     AMAZON_TITAN_EMBED_TEXT_V1 = "amazon.titan-embed-text-v1"
     AMAZON_TITAN_EMBED_TEXT_V2 = "amazon.titan-embed-text-v2:0"
     AMAZON_TITAN_EMBED_IMAGE_V1 = "amazon.titan-embed-image-v1"
 
     COHERE_EMBED_ENGLISH_V3 = "cohere.embed-english-v3"
     COHERE_EMBED_MULTILINGUAL_V3 = "cohere.embed-multilingual-v3"
-
-    @property
-    def deployment_id(self) -> str:
-        """Deployment id under which the model is served by the adapter."""
-        return self.value
-
-    @property
-    def model_id(self) -> str:
-        """Id of the model in the Bedrock service."""
-        return self.value

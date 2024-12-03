@@ -3,7 +3,10 @@ from typing import List
 import pytest
 from openai import AsyncAzureOpenAI
 
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.deployments import (
+    ChatCompletionDeployment,
+    EmbeddingsDeployment,
+)
 
 
 async def models_request_openai(client: AsyncAzureOpenAI) -> List[str]:
@@ -12,7 +15,9 @@ async def models_request_openai(client: AsyncAzureOpenAI) -> List[str]:
 
 
 def assert_models_subset(actual_models: List[str]):
-    expected_models = [option.value for option in ChatCompletionDeployment]
+    expected_models = list(map(str, ChatCompletionDeployment)) + list(
+        map(str, EmbeddingsDeployment)
+    )
 
     assert set(expected_models).issubset(
         set(actual_models)
