@@ -6,7 +6,10 @@ from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.embeddings import BedrockEmbeddings
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
 from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployments
-from aidial_adapter_bedrock.utils.env import get_aws_default_region
+from aidial_adapter_bedrock.utils.env import (
+    get_aws_default_region,
+    get_str_dict,
+)
 from aidial_adapter_bedrock.utils.log_config import configure_loggers
 
 AWS_DEFAULT_REGION = get_aws_default_region()
@@ -23,7 +26,9 @@ app = DIALApp(
 # logging=True configuration.
 configure_loggers()
 
-deployments = AdapterDeployments.create()
+deployments = AdapterDeployments.create(
+    compat_mapping=get_str_dict("COMPATIBILITY_MAPPING")
+)
 
 
 @app.get("/openai/models")

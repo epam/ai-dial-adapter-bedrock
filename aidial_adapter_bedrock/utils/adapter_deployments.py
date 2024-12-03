@@ -8,7 +8,6 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _D = TypeVar("_D")
@@ -61,17 +60,13 @@ AdapterChatCompletionDeployment = AdapterDeployment[ChatCompletionDeployment]
 AdapterEmbeddingsDeployment = AdapterDeployment[EmbeddingsDeployment]
 
 
-_COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING"
-
-
 class AdapterDeployments(BaseModel):
     chat_completions: Dict[str, AdapterChatCompletionDeployment]
     embeddings: Dict[str, AdapterEmbeddingsDeployment]
 
     @classmethod
-    def create(cls) -> "AdapterDeployments":
+    def create(cls, *, compat_mapping: Dict[str, str]) -> "AdapterDeployments":
 
-        compat_mapping = get_str_dict(_COMPAT_MAPPING_NAME)
         chat_completions = _create_deployments(
             compat_mapping,
             ChatCompletionDeployment,
@@ -81,7 +76,7 @@ class AdapterDeployments(BaseModel):
 
         if compat_mapping:
             raise ValueError(
-                f"None of the values in the following {_COMPAT_MAPPING_NAME} dictionary maps to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
+                f"None of the values in the following compatibility mapping maps to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
                 f"Remap the deployments to the supported Bedrock deployments to fix the error."
             )
 
@@ -116,7 +111,7 @@ def _create_deployments(
         if deployment_id in ret:
             log.warning(
                 f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                f"Remove {deployment_id!r} from the {_COMPAT_MAPPING_NAME} env variable to avoid the warning."
+                f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
             )
 
         ret[deployment_id] = deployment.dynamic(deployment_id)
