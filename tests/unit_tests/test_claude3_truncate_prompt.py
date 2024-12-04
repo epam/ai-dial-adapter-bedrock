@@ -18,7 +18,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployment
 from tests.utils.messages import ai, sys, to_sdk_messages, user, user_with_image
 
-_DEPLOYMENT = AdapterDeployment.static(
+_DEPLOYMENT = AdapterDeployment.supported(
     upstream=ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
 )
 

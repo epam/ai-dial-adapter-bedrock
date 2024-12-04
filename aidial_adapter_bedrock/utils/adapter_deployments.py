@@ -34,14 +34,16 @@ class AdapterDeployment(BaseModel, Generic[_D]):
     """
 
     @classmethod
-    def static(cls, *, deployment_id: str | None = None, upstream: _D) -> Self:
+    def supported(
+        cls, *, deployment_id: str | None = None, upstream: _D
+    ) -> Self:
         return cls(
             adapter_deployment_id=deployment_id or str(upstream),
             upstream_deployment_id=str(upstream),
             reference_deployment_id=upstream,
         )
 
-    def dynamic(self, deployment_id: str) -> "AdapterDeployment[_D]":
+    def compat(self, deployment_id: str) -> "AdapterDeployment[_D]":
         return AdapterDeployment(
             adapter_deployment_id=deployment_id,
             upstream_deployment_id=deployment_id,
@@ -76,7 +78,7 @@ class AdapterDeployments(BaseModel):
 
         if compat_mapping:
             raise ValueError(
-                f"None of the values in the following compatibility mapping maps to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
+                f"None of the values in the following compatibility dictionary corresponds to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
                 f"Remap the deployments to the supported Bedrock deployments to fix the error."
             )
 
@@ -94,26 +96,29 @@ def _create_deployments(
     redirects: Dict[_D, _D] = {},
 ) -> Dict[str, AdapterDeployment[_D]]:
 
-    ret: Dict[str, AdapterDeployment[_D]] = {}
+    supported: Dict[str, AdapterDeployment[_D]] = {}
     for upstream in upstream_deployments:
         deployment_id = str(upstream)
-        ret[deployment_id] = AdapterDeployment.static(
+        supported[deployment_id] = AdapterDeployment.supported(
             deployment_id=deployment_id,
             upstream=redirects.get(upstream, upstream),
         )
 
-    for deployment_id, reference_deployment_id in list(compat_mapping.items()):
-        if (deployment := ret.get(reference_deployment_id)) is None:
+    compat: Dict[str, AdapterDeployment[_D]] = {}
+
+    for deployment_id, supported_deployment_id in list(compat_mapping.items()):
+        if (
+            supported_deployment := supported.get(supported_deployment_id)
+        ) is None:
             continue
 
-        compat_mapping.pop(deployment_id)
-
-        if deployment_id in ret:
+        if deployment_id in supported:
             log.warning(
                 f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
                 f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
             )
 
-        ret[deployment_id] = deployment.dynamic(deployment_id)
+        compat_mapping.pop(deployment_id)
+        compat[deployment_id] = supported_deployment.compat(deployment_id)
 
-    return ret
+    return supported | compat
