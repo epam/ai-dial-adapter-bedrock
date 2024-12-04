@@ -143,11 +143,12 @@ Naturally, this will only work if the APIs of v2 and v3 deployments are compatib
 1. The requests utilizing the modalities supported by both v2 and v3 will work just fine.
 2. However, the requests with modalities that are supported by v3 *(e.g. audio)* and aren't supported by v2, won't be processed correctly. You will have to wait until the Adapter supports the v3 deployment natively.
 
+When a version of the Adapter supporting the v3 model is released, you may migrate to it and safely remove the entry from the `COMPATIBILITY_MAPPING` dictionary.
+
 Note that a mapping such as this one would be ineffectual:
 
 ```json
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "stability.stable-image-ultra-v1:0"}
-
 ```
 
 since the APIs and capabilities of these two models are drastically different.
