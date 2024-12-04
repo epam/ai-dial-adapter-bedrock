@@ -17,7 +17,7 @@ _T = TypeVar("_T")
 class AdapterDeployment(BaseModel, Generic[_D]):
     adapter_deployment_id: str
     """
-    Deployment id under which the model is served by the Adapter
+    The deployment id under which the model is served by the Adapter
     at the route /openai/deployments/{deployment_id}/(chat/completions|embeddings)
     """
 
@@ -30,7 +30,7 @@ class AdapterDeployment(BaseModel, Generic[_D]):
     reference_deployment_id: _D
     """
     The reference Bedrock deployment which is known to share
-    the same API as self.bedrock_model_id.
+    the same API as `upstream_deployment_id`.
     """
 
     @classmethod
