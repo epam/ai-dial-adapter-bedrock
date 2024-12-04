@@ -1,4 +1,3 @@
-import operator
 from dataclasses import dataclass, field
 from typing import Dict, List, Protocol
 
@@ -21,7 +20,7 @@ class supported:
     redirect: ChatCompletionDeployment | EmbeddingsDeployment | None = None
 
     def check(self, deployments: AdapterDeployments):
-        deployment_name = str(self.deployment_id)
+        deployment_name = self.deployment_id.value
         if isinstance(self.deployment_id, ChatCompletionDeployment):
             deployment = deployments.chat_completions.get(deployment_name)
         else:
@@ -30,7 +29,7 @@ class supported:
         assert deployment is not None
         assert deployment.adapter_deployment_id == deployment_name
         if self.redirect is not None:
-            assert deployment.upstream_deployment_id == str(self.redirect)
+            assert deployment.upstream_deployment_id == self.redirect.value
             assert deployment.reference_deployment_id == self.redirect
         else:
             assert deployment.upstream_deployment_id == deployment_name
@@ -69,7 +68,7 @@ test_cases: List[TestCase] = [
     TestCase(
         desc="invalid compat",
         compat={"xxx": "yyy", "zzz": "ddd"},
-        error='None of the values in the following compatibility dictionary corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy", "zzz": "ddd"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
+        error='None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy", "zzz": "ddd"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
     ),
     TestCase(
         desc="partially invalid compat",
@@ -77,13 +76,13 @@ test_cases: List[TestCase] = [
             "xxx": "yyy",
             "zzz": ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
         },
-        error='None of the values in the following compatibility dictionary corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
+        error='None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
     ),
     TestCase(
-        desc="default",
+        desc="compat chat+embeddings",
         compat={
             "xxx": ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
-            "yyy": EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2,
+            "yyy": EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2.value,
         },
         checks=[
             supported(ChatCompletionDeployment.AI21_J2_ULTRA_V1),
@@ -96,13 +95,40 @@ test_cases: List[TestCase] = [
             compat("yyy", EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2),
         ],
     ),
+    TestCase(
+        desc="compat supported deployment",
+        compat={
+            ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL.value: ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
+        },
+        checks=[
+            supported(ChatCompletionDeployment.AI21_J2_ULTRA_V1),
+            compat(
+                ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL.value,
+                ChatCompletionDeployment.AI21_J2_ULTRA_V1,
+            ),
+        ],
+    ),
+    TestCase(
+        desc="compat mismatching supported deployments #1",
+        compat={
+            ChatCompletionDeployment.AI21_J2_ULTRA_V1.value: EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1.value,
+        },
+        error="The chat completion deployment 'ai21.j2-ultra-v1' is mapped onto the embeddings deployment 'amazon.titan-embed-image-v1'",
+    ),
+    TestCase(
+        desc="compat mismatching supported deployments #2",
+        compat={
+            EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1.value: ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
+        },
+        error="The embeddings deployment 'amazon.titan-embed-image-v1' is mapped onto the chat completion deployment 'ai21.j2-ultra-v1'",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    "test_case", test_cases, ids=operator.attrgetter("desc")
+    "test_case", test_cases, ids=lambda t: t.desc.replace(" ", "_")
 )
-def test_compat_mapping_errors(test_case: TestCase):
+def test_compat_mapping(test_case: TestCase):
     if test_case.error is not None:
         with pytest.raises(ValueError, match=test_case.error):
             AdapterDeployments.create(compat_mapping=test_case.compat)

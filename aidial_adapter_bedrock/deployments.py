@@ -1,8 +1,8 @@
-from enum import StrEnum
+from enum import Enum
 from typing import Literal
 
 
-class ChatCompletionDeployment(StrEnum):
+class ChatCompletionDeployment(Enum):
     AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
 
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"
@@ -86,7 +86,7 @@ Claude3Deployment = Literal[
 ]
 
 
-class EmbeddingsDeployment(StrEnum):
+class EmbeddingsDeployment(Enum):
     AMAZON_TITAN_EMBED_TEXT_V1 = "amazon.titan-embed-text-v1"
     AMAZON_TITAN_EMBED_TEXT_V2 = "amazon.titan-embed-text-v2:0"
     AMAZON_TITAN_EMBED_IMAGE_V1 = "amazon.titan-embed-image-v1"

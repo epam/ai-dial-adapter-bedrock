@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from typing import Dict, Generic, Iterable, Self, TypeVar
 
 from pydantic import BaseModel
@@ -10,8 +11,8 @@ from aidial_adapter_bedrock.deployments import (
 )
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_D = TypeVar("_D")
-_T = TypeVar("_T")
+_D = TypeVar("_D", bound=Enum)
+_T = TypeVar("_T", bound=Enum)
 
 
 class AdapterDeployment(BaseModel, Generic[_D]):
@@ -38,8 +39,8 @@ class AdapterDeployment(BaseModel, Generic[_D]):
         cls, *, deployment_id: str | None = None, upstream: _D
     ) -> Self:
         return cls(
-            adapter_deployment_id=deployment_id or str(upstream),
-            upstream_deployment_id=str(upstream),
+            adapter_deployment_id=deployment_id or upstream.value,
+            upstream_deployment_id=upstream.value,
             reference_deployment_id=upstream,
         )
 
@@ -69,6 +70,32 @@ class AdapterDeployments(BaseModel):
     @classmethod
     def create(cls, *, compat_mapping: Dict[str, str]) -> "AdapterDeployments":
 
+        chat_completions = {e.value for e in ChatCompletionDeployment}
+        embeddings = {e.value for e in EmbeddingsDeployment}
+
+        for deployment_id, supported_id in compat_mapping.items():
+            if deployment_id in chat_completions or deployment_id in embeddings:
+                log.warning(
+                    f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
+                    f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
+                )
+
+                if (
+                    deployment_id in chat_completions
+                    and supported_id in embeddings
+                ):
+                    raise ValueError(
+                        f"The chat completion deployment {deployment_id!r} is mapped onto the embeddings deployment {supported_id!r}"
+                    )
+
+                if (
+                    deployment_id in embeddings
+                    and supported_id in chat_completions
+                ):
+                    raise ValueError(
+                        f"The embeddings deployment {deployment_id!r} is mapped onto the chat completion deployment {supported_id!r}"
+                    )
+
         chat_completions = _create_deployments(
             compat_mapping,
             ChatCompletionDeployment,
@@ -78,7 +105,7 @@ class AdapterDeployments(BaseModel):
 
         if compat_mapping:
             raise ValueError(
-                f"None of the values in the following compatibility dictionary corresponds to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
+                f"None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
                 f"Remap the deployments to the supported Bedrock deployments to fix the error."
             )
 
@@ -98,25 +125,18 @@ def _create_deployments(
 
     supported: Dict[str, AdapterDeployment[_D]] = {}
     for upstream in upstream_deployments:
-        deployment_id = str(upstream)
+        deployment_id = upstream.value
         supported[deployment_id] = AdapterDeployment.supported(
             deployment_id=deployment_id,
             upstream=redirects.get(upstream, upstream),
         )
 
     compat: Dict[str, AdapterDeployment[_D]] = {}
-
     for deployment_id, supported_deployment_id in list(compat_mapping.items()):
         if (
             supported_deployment := supported.get(supported_deployment_id)
         ) is None:
             continue
-
-        if deployment_id in supported:
-            log.warning(
-                f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
-            )
 
         compat_mapping.pop(deployment_id)
         compat[deployment_id] = supported_deployment.compat(deployment_id)
