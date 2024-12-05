@@ -9,7 +9,6 @@ https://docs.cohere.com/reference/embed
 from typing import AsyncIterator, List, Self
 
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
-from aidial_sdk.embeddings import Usage
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -24,7 +23,6 @@ from aidial_adapter_bedrock.embedding.cohere.response import (
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
-from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
@@ -92,17 +90,9 @@ class CohereTextEmbeddings(EmbeddingsAdapter):
             self.client, self.model, embedding_request
         )
 
-        vectors: List[List[float] | str] = [
-            (
-                vector_to_base64(embedding)
-                if request.encoding_format == "base64"
-                else embedding
-            )
-            for embedding in embeddings
-        ]
-
         return make_embeddings_response(
             model=self.model,
-            vectors=vectors,
-            usage=Usage(prompt_tokens=tokens, total_tokens=tokens),
+            encoding_format=request.encoding_format,
+            vectors=embeddings,
+            prompt_tokens=tokens,
         )
