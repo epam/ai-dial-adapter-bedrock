@@ -116,6 +116,9 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
+    ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST,
+    ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST,
+    ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST,
 }
 
 
@@ -140,16 +143,26 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        # Technically, Nova Micro supports tools, but it's unstable
+        # ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        ChatCompletionDeployment.AMAZON_NOVA_PRO,
+        ChatCompletionDeployment.AMAZON_NOVA_LITE,
+        ChatCompletionDeployment.AMAZON_NOVA_MICRO,
     ]
 
 
 def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
-    return deployment not in [
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-    ] and supports_tools(deployment)
+    return (
+        deployment
+        not in [
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+        ]
+        and not is_nova(deployment)
+        and supports_tools(deployment)
+    )
 
 
 def is_llama3(deployment: ChatCompletionDeployment) -> bool:
@@ -193,6 +206,14 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     ]
 
 
+def is_nova(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        ChatCompletionDeployment.AMAZON_NOVA_PRO,
+        ChatCompletionDeployment.AMAZON_NOVA_LITE,
+    ]
+
+
 def is_ai21(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
@@ -211,6 +232,8 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     allowed_models = [
         ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        ChatCompletionDeployment.AMAZON_NOVA_PRO,
+        ChatCompletionDeployment.AMAZON_NOVA_LITE,
     ]
 
     # Claude 3.5 Haiku was launched as a text-only model
@@ -287,16 +310,30 @@ def get_test_cases(
             return not success
         return success
 
-    test_case(
-        name="dialog recall",
-        messages=[
-            user("my name is Anton"),
-            ai("nice to meet you"),
-            user("what's my name?"),
-        ],
-        max_tokens=32,
-        expected=dial_recall_expected,
-    )
+    # Nova models do not allow you to recall user name, with error like that:
+    # "I'm sorry, I can't share private information about someone without that person's consent."
+    if is_nova(deployment):
+        test_case(
+            name="dialog recall",
+            messages=[
+                user("Remember Paris city. Just say hello"),
+                ai("Hello"),
+                user("What city did I mention earlier?"),
+            ],
+            max_tokens=32,
+            expected=lambda s: "paris" in s.content.lower(),
+        )
+    else:
+        test_case(
+            name="dialog recall",
+            messages=[
+                user("my name is Anton"),
+                ai("nice to meet you"),
+                user("what's my name?"),
+            ],
+            max_tokens=32,
+            expected=dial_recall_expected,
+        )
 
     test_case(
         name="2+3=5",
@@ -345,7 +382,7 @@ def get_test_cases(
         expected_empty_message_error = streaming_error(
             cohere_invalid_request_error
         )
-    elif is_llama3(deployment):
+    elif is_llama3(deployment) or is_nova(deployment):
         expected_empty_message_error = streaming_error(
             ExpectedException(
                 type=BadRequestError,
@@ -374,7 +411,7 @@ def get_test_cases(
         expected_whitespace_message = streaming_error(
             cohere_invalid_request_error
         )
-    elif is_llama3(deployment):
+    elif is_llama3(deployment) or is_nova(deployment):
         expected_whitespace_message = streaming_error(
             ExpectedException(
                 type=BadRequestError,
