@@ -299,41 +299,16 @@ def get_test_cases(
             )
         )
 
-    def dial_recall_expected(r: ChatCompletionResult):
-        content = r.content.lower()
-        success = "anton" in content
-        # Amazon Titan and Cohere performances have degraded recently
-        if deployment in [
-            ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE,
-            ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
-        ]:
-            return not success
-        return success
-
-    # Nova models do not allow you to recall user name, with error like that:
-    # "I'm sorry, I can't share private information about someone without that person's consent."
-    if is_nova(deployment):
-        test_case(
-            name="dialog recall",
-            messages=[
-                user("Remember Paris city. Just say hello"),
-                ai("Hello"),
-                user("What city did I mention earlier?"),
-            ],
-            max_tokens=32,
-            expected=lambda s: "paris" in s.content.lower(),
-        )
-    else:
-        test_case(
-            name="dialog recall",
-            messages=[
-                user("my name is Anton"),
-                ai("nice to meet you"),
-                user("what's my name?"),
-            ],
-            max_tokens=32,
-            expected=dial_recall_expected,
-        )
+    test_case(
+        name="dialog recall",
+        messages=[
+            user("Remember Paris city. Just say hello"),
+            ai("Hello"),
+            user("What city did I mention earlier?"),
+        ],
+        max_tokens=32,
+        expected=lambda s: "paris" in s.content.lower(),
+    )
 
     test_case(
         name="2+3=5",
