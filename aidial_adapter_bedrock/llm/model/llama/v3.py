@@ -1,4 +1,5 @@
 import json
+from typing import Awaitable, Callable
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import (
@@ -26,7 +27,7 @@ class ConverseAdapterWithStreamingEmulation(ConverseAdapter):
 
 def input_tokenizer_factory(
     deployment: ConverseDeployment, params: ConverseRequestWrapper
-):
+) -> Callable[[ConverseMessages], Awaitable[int]]:
     tool_tokens = default_tokenize_string(json.dumps(params.toolConfig))
     system_tokens = default_tokenize_string(json.dumps(params.system))
 

@@ -19,11 +19,9 @@ class ModelsResponse(BaseModel):
 
 
 def _encode_vector(
-    encoding_format: Literal["float", "base64"],
-    vector: List[float],
+    encoding_format: Literal["float", "base64"], vector: List[float]
 ) -> List[float] | str:
-    base64_encoding = encoding_format == "base64"
-    return vector_to_base64(vector) if base64_encoding else vector
+    return vector_to_base64(vector) if encoding_format == "base64" else vector
 
 
 def make_embeddings_response(
