@@ -21,6 +21,9 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
+from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
+    default_converse_tokenizer_factory,
+)
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
@@ -32,9 +35,6 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
 from aidial_adapter_bedrock.llm.model.llama.v3 import (
     ConverseAdapterWithStreamingEmulation,
-)
-from aidial_adapter_bedrock.llm.model.llama.v3 import (
-    input_tokenizer_factory as llama_tokenizer_factory,
 )
 from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
@@ -113,6 +113,18 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
+            ChatCompletionDeployment.AMAZON_NOVA_MICRO
+            | ChatCompletionDeployment.AMAZON_NOVA_PRO
+            | ChatCompletionDeployment.AMAZON_NOVA_LITE
+        ):
+            return ConverseAdapter(
+                deployment=model,
+                bedrock=await Bedrock.acreate(aws_client_config),
+                storage=create_file_storage(api_key),
+                input_tokenizer_factory=default_converse_tokenizer_factory,
+                support_tools=True,
+            )
+        case (
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
@@ -123,7 +135,7 @@ async def get_bedrock_adapter(
                 deployment=model,
                 bedrock=await Bedrock.acreate(aws_client_config),
                 storage=create_file_storage(api_key),
-                input_tokenizer_factory=llama_tokenizer_factory,
+                input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=False,
             )
         case (
@@ -136,7 +148,7 @@ async def get_bedrock_adapter(
                 deployment=model,
                 bedrock=await Bedrock.acreate(aws_client_config),
                 storage=create_file_storage(api_key),
-                input_tokenizer_factory=llama_tokenizer_factory,
+                input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=True,
             )
         case (
