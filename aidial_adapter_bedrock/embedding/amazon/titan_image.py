@@ -5,11 +5,11 @@ See official cookbook for usage instructions:
 https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42d38bb09d40756bf0ea0/multimodal/Titan/titan-multimodal-embeddings/rag/1_multimodal_rag.ipynb
 """
 
-from typing import AsyncIterator, List, Self
+import asyncio
+from typing import AsyncIterator, List, Self, Tuple
 
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
-from aidial_sdk.embeddings import Usage
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 from pydantic import BaseModel
 
@@ -30,7 +30,6 @@ from aidial_adapter_bedrock.embedding.amazon.response import (
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
-from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
@@ -155,31 +154,27 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
             supports_dimensions=True,
         )
 
-        vectors: List[List[float] | str] = []
-        token_count = 0
-
-        # NOTE: Amazon Titan doesn't support batched inputs
-        # TODO: create multiple tasks
-        async for sub_request in get_requests(self.storage, request):
+        async def compute_embeddings(
+            req: AmazonRequest,
+        ) -> Tuple[List[float], int]:
             embedding, text_tokens = await call_embedding_model(
                 self.client,
                 self.model,
-                create_titan_request(sub_request, request.dimensions),
+                create_titan_request(req, request.dimensions),
             )
+            image_tokens = req.get_image_tokens()
+            return embedding, text_tokens + image_tokens
 
-            image_tokens = sub_request.get_image_tokens()
-
-            vector = (
-                vector_to_base64(embedding)
-                if request.encoding_format == "base64"
-                else embedding
-            )
-
-            vectors.append(vector)
-            token_count += text_tokens + image_tokens
+        # NOTE: Amazon Titan doesn't support batched inputs
+        tasks = [
+            asyncio.create_task(compute_embeddings(req))
+            async for req in get_requests(self.storage, request)
+        ]
+        results = await asyncio.gather(*tasks)
 
         return make_embeddings_response(
             model=self.model,
-            vectors=vectors,
-            usage=Usage(prompt_tokens=token_count, total_tokens=token_count),
+            encoding_format=request.encoding_format,
+            vectors=[r[0] for r in results],
+            prompt_tokens=sum(r[1] for r in results),
         )

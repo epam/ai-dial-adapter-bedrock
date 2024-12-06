@@ -12,3 +12,4 @@ class ConverseAdapterWithStreamingEmulation(ConverseAdapter):
         if self.get_tool_config(params):
             return False
         return params.stream
+
