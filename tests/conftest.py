@@ -2,7 +2,6 @@ from typing import Mapping
 
 import httpx
 import pytest
-import pytest_asyncio
 from httpx import ASGITransport
 from openai import AsyncAzureOpenAI
 
@@ -16,7 +15,7 @@ def configure_unit_tests(monkeypatch, request):
         monkeypatch.setenv("AWS_DEFAULT_REGION", "test-region")
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_http_client():
     from aidial_adapter_bedrock.app import app
 
