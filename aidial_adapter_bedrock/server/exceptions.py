@@ -20,6 +20,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 import json
 from enum import Enum
 from functools import wraps
+from typing import assert_never
 
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import InternalServerError, InvalidRequestError
@@ -44,13 +45,34 @@ class BedrockExceptionCode(Enum):
     for the types of exceptions
     """
 
-    THROTTLING = "throttlingException"
+    INTERNAL_SERVER = "internalServerException"
+    MODEL_STREAM_ERROR = "modelStreamErrorException"
     MODEL_TIMEOUT = "modelTimeoutException"
+    SERVER_UNAVAILABLE = "serviceUnavailableException"
+    THROTTLING = "throttlingException"
+    VALIDATION = "validationException"
 
     def __eq__(self, other):
         if isinstance(other, str):
             return self.value.lower() == other.lower()
         return NotImplemented
+
+    def get_status_code(self) -> int:
+        match self:
+            case BedrockExceptionCode.INTERNAL_SERVER:
+                return 500
+            case BedrockExceptionCode.MODEL_STREAM_ERROR:
+                return 424
+            case BedrockExceptionCode.MODEL_TIMEOUT:
+                return 408
+            case BedrockExceptionCode.SERVER_UNAVAILABLE:
+                return 503
+            case BedrockExceptionCode.THROTTLING:
+                return 429
+            case BedrockExceptionCode.VALIDATION:
+                return 400
+            case _:
+                assert_never(self)
 
 
 def _get_meta_status_code(response: dict) -> int | None:
@@ -62,16 +84,10 @@ def _get_meta_status_code(response: dict) -> int | None:
 
 def _get_response_error_code(response: dict) -> int | None:
     code = response.get("Error", {}).get("Code")
-
-    if isinstance(code, str):
-        match code:
-            case BedrockExceptionCode.THROTTLING:
-                return 429
-            case BedrockExceptionCode.MODEL_TIMEOUT:
-                return 408
-            case _:
-                pass
-    return None
+    try:
+        return BedrockExceptionCode(code).get_status_code()
+    except Exception:
+        return None
 
 
 def _get_content_filter_error(response: dict) -> DialException | None:
@@ -125,9 +141,11 @@ def dial_exception_decorator(func):
         try:
             return await func(*args, **kwargs)
         except Exception as e:
+            dial_exception = to_dial_exception(e)
             log.exception(
-                f"caught exception: {type(e).__module__}.{type(e).__name__}"
+                f"Caught exception: {type(e).__module__}.{type(e).__name__}. "
+                f"The exception converted to the dial exception: {dial_exception!r}."
             )
-            raise to_dial_exception(e) from e
+            raise dial_exception from e
 
     return wrapper

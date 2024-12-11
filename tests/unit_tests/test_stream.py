@@ -38,7 +38,6 @@ lstrip_test_cases: List[Tuple[List[str]]] = [
 ]
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     lstrip_test_cases,
@@ -74,7 +73,6 @@ remove_prefix_test_cases: List[Tuple[str, List[str]]] = [
 ]
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     remove_prefix_test_cases,
@@ -113,7 +111,6 @@ stop_at_test_cases: List[Tuple[str | List[str], List[str]]] = [
 ]
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     stop_at_test_cases,
@@ -136,7 +133,6 @@ ensure_not_empty_test_cases: List[Tuple[str | List[str], List[str]]] = [
 ]
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "test",
     ensure_not_empty_test_cases,

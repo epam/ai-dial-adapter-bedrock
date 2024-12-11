@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from unittest import mock
 
-import pytest
-
 from aidial_adapter_bedrock.aws_client_config import (
     AWSClientConfigFactory,
     AWSClientCredentials,
@@ -14,7 +12,6 @@ class FakeRequest:
     headers: dict[str, str]
 
 
-@pytest.mark.asyncio
 class TestAWSClientConfigFactory:
     @staticmethod
     def _get_request(raw_upstream_config):

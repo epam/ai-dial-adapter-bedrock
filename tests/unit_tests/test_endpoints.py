@@ -7,6 +7,9 @@ from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 
 test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
+    (ChatCompletionDeployment.AMAZON_NOVA_PRO, True, True),
+    (ChatCompletionDeployment.AMAZON_NOVA_LITE, True, True),
+    (ChatCompletionDeployment.AMAZON_NOVA_MICRO, True, True),
     (ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT, True, True),
     (ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT, True, True),
     (ChatCompletionDeployment.AI21_J2_MID_V1, True, True),
@@ -65,7 +68,6 @@ async def assert_feature(
     ) == is_supported, f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "deployment, tokenize_supported, truncate_supported", test_cases
 )

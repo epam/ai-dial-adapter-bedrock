@@ -3,6 +3,9 @@ from typing import Literal
 
 
 class ChatCompletionDeployment(str, Enum):
+    AMAZON_NOVA_PRO = "amazon.nova-pro-v1:0"
+    AMAZON_NOVA_LITE = "amazon.nova-lite-v1:0"
+    AMAZON_NOVA_MICRO = "amazon.nova-micro-v1:0"
     AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
 
     AI21_J2_GRANDE_INSTRUCT = "ai21.j2-grande-instruct"

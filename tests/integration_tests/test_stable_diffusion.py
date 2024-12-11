@@ -86,7 +86,6 @@ def vision_model(get_openai_client):
     "deployment, region",
     TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS,
 )
-@pytest.mark.asyncio
 async def test_text_to_image(
     vision_model, get_openai_client, mock_v3_storage, deployment, region
 ):
@@ -117,7 +116,6 @@ async def test_text_to_image(
 
 
 @pytest.mark.parametrize("deployment, region", TEXT_TO_IMAGE_ONLY_MODELS)
-@pytest.mark.asyncio
 async def test_image_to_image_unsupported(
     get_openai_client,
     deployment,
@@ -133,11 +131,10 @@ async def test_image_to_image_unsupported(
             ],
         )
     assert exc_info.value.status_code == 422
-    assert "Image-to-image is not supported" in exc_info.value.message
+    assert "Image-to-Image is not supported" in exc_info.value.message
 
 
 @pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
-@pytest.mark.asyncio
 async def test_image_to_image_with_too_small_picture(
     get_openai_client,
     mock_v3_storage,
@@ -170,7 +167,6 @@ async def test_image_to_image_with_too_small_picture(
     ],
 )
 @pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
-@pytest.mark.asyncio
 async def test_image_to_image(
     vision_model,
     get_openai_client,
