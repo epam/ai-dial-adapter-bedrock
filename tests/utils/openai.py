@@ -233,9 +233,7 @@ async def chat_completion(
                 async for chunk in response:
                     yield chunk.dict()
 
-            response_dict = await merge_chunks(
-                generator()
-            )  # FIXME: migrate to merge_chat_completion_chunks
+            response_dict = await merge_chunks(generator())
             response_dict["object"] = "chat.completion"
             response_dict["model"] = "dummy_model"
 
