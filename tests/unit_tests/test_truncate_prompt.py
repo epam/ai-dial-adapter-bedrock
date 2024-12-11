@@ -1,7 +1,5 @@
 from typing import List, Optional
 
-import pytest
-
 from aidial_adapter_bedrock.llm.chat_model import (
     keep_last_and_system_messages,
     trivial_partitioner,
@@ -44,7 +42,6 @@ def test_partition_indexer():
     ]
 
 
-@pytest.mark.asyncio
 async def test_no_truncation():
     messages = [
         sys("text1"),
@@ -59,7 +56,6 @@ async def test_no_truncation():
     assert discarded_messages == []
 
 
-@pytest.mark.asyncio
 async def test_truncation():
     messages = [
         sys("system1"),
@@ -76,7 +72,6 @@ async def test_truncation():
     assert discarded_messages == [1, 3]
 
 
-@pytest.mark.asyncio
 async def test_truncation_with_one_message_left():
     messages = [
         ai("reply"),
@@ -90,7 +85,6 @@ async def test_truncation_with_one_message_left():
     assert discarded_messages == [0]
 
 
-@pytest.mark.asyncio
 async def test_truncation_with_one_message_accepted_after_second_check():
     messages = [
         ai("hello world"),
@@ -104,7 +98,6 @@ async def test_truncation_with_one_message_accepted_after_second_check():
     assert discarded_messages == [0]
 
 
-@pytest.mark.asyncio
 async def test_prompt_is_too_big():
     messages = [
         sys("text1"),
@@ -123,7 +116,6 @@ async def test_prompt_is_too_big():
     )
 
 
-@pytest.mark.asyncio
 async def test_prompt_with_history_is_too_big():
     messages = [
         sys("text1"),
@@ -142,7 +134,6 @@ async def test_prompt_with_history_is_too_big():
     )
 
 
-@pytest.mark.asyncio
 async def test_inconsistent_limits():
     messages: List[BaseMessage] = [ai("text2")]
 

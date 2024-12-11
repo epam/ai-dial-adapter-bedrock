@@ -1,13 +1,15 @@
 from abc import ABC, abstractmethod
+from types import TracebackType
 from typing import Optional, assert_never
 
 from aidial_sdk.chat_completion import (
+    Attachment,
     Choice,
     FinishReason,
     FunctionCall,
+    Response,
     ToolCall,
 )
-from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.message import (
@@ -16,15 +18,6 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-
-
-class Attachment(BaseModel):
-    type: str | None = None
-    title: str | None = None
-    data: str | None = None
-    url: str | None = None
-    reference_url: str | None = None
-    reference_type: str | None = None
 
 
 class Consumer(ABC):
@@ -66,15 +59,42 @@ class Consumer(ABC):
 
 class ChoiceConsumer(Consumer):
     usage: TokenUsage
-    choice: Choice
+    response: Response
+    _choice: Optional[Choice]
     discarded_messages: Optional[DiscardedMessages]
     tools_emulator: Optional[ToolsEmulator]
 
-    def __init__(self, choice: Choice):
-        self.choice = choice
+    def __init__(self, response: Response):
+        self.response = response
+        self._choice = None
         self.usage = TokenUsage()
         self.discarded_messages = None
         self.tools_emulator = None
+
+    @property
+    def choice(self) -> Choice:
+        if self._choice is None:
+            # Delay opening a choice to the very last moment
+            # so as to give opportunity for exceptions to bubble up to
+            # the level of HTTP response (instead of error objects in a stream).
+            choice = self._choice = self.response.create_choice()
+            choice.open()
+            return choice
+        else:
+            return self._choice
+
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        if exc is None and self._choice is not None:
+            self._choice.close()
+        return False
 
     def set_tools_emulator(self, tools_emulator: ToolsEmulator):
         self.tools_emulator = tools_emulator
@@ -118,7 +138,7 @@ class ChoiceConsumer(Consumer):
         self._process_content(content)
 
     def add_attachment(self, attachment: Attachment):
-        self.choice.add_attachment(**attachment.dict())
+        self.choice.add_attachment(attachment)
 
     def add_usage(self, usage: TokenUsage):
         self.usage.accumulate(usage)

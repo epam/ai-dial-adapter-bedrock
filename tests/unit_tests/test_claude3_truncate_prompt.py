@@ -77,7 +77,6 @@ def mock_tokenize_text():
         yield mock
 
 
-@pytest.mark.asyncio
 async def test_one_turn_no_truncation(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -100,7 +99,6 @@ async def test_one_turn_no_truncation(mock_tokenize_text):
     assert discarded_messages == []
 
 
-@pytest.mark.asyncio
 async def test_one_turn_with_image(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -125,7 +123,6 @@ async def test_one_turn_with_image(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_one_turn_with_tools(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -151,7 +148,6 @@ async def test_one_turn_with_tools(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_one_turn_overflow(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -173,7 +169,6 @@ async def test_one_turn_overflow(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_multiple_system_messages(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -191,7 +186,6 @@ async def test_multiple_system_messages(mock_tokenize_text):
         )
 
 
-@pytest.mark.asyncio
 async def test_truncate_first_turn(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -218,7 +212,6 @@ async def test_truncate_first_turn(mock_tokenize_text):
     assert discarded_messages == [0, 1]
 
 
-@pytest.mark.asyncio
 async def test_truncate_first_turn_with_system(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -237,7 +230,6 @@ async def test_truncate_first_turn_with_system(mock_tokenize_text):
     assert discarded_messages == [1, 2]
 
 
-@pytest.mark.asyncio
 async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system with adjacent messages with the same role
     messages = to_sdk_messages(
@@ -267,7 +259,6 @@ async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
     assert discarded_messages == [1, 2, 3, 4, 5]
 
 
-@pytest.mark.asyncio
 async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system_2 with one less tokens requests than the critical amount
     messages = to_sdk_messages(
@@ -304,7 +295,6 @@ async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_zero_turn_overflow(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -323,7 +313,6 @@ async def test_zero_turn_overflow(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_chat_history_overflow(mock_tokenize_text):
     messages = to_sdk_messages(
         [
@@ -344,7 +333,6 @@ async def test_chat_history_overflow(mock_tokenize_text):
     )
 
 
-@pytest.mark.asyncio
 async def test_chat_history_overflow_2(mock_tokenize_text):
     # Equivalent of test_chat_history_overflow with adjacent messages with the same role
     messages = to_sdk_messages(

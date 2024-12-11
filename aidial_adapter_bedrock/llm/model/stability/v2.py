@@ -2,6 +2,7 @@ from io import BytesIO
 from typing import List, Optional, Tuple, assert_never
 
 from aidial_sdk.chat_completion import (
+    Attachment,
     Message,
     MessageContentImagePart,
     MessageContentTextPart,
@@ -26,7 +27,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
+from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages

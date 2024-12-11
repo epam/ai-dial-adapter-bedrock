@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from aidial_sdk.chat_completion import Attachment
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -14,7 +15,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     TextCompletionAdapter,
     TextCompletionPrompt,
 )
-from aidial_adapter_bedrock.llm.consumer import Attachment, Consumer
+from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage

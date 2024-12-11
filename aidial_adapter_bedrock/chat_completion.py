@@ -71,8 +71,7 @@ class BedrockChatCompletion(ChatCompletion):
         async def generate_response(usage: TokenUsage) -> None:
             nonlocal discarded_messages
 
-            with response.create_choice() as choice:
-                consumer = ChoiceConsumer(choice=choice)
+            with ChoiceConsumer(response=response) as consumer:
                 if isinstance(model, TextCompletionAdapter):
                     consumer.set_tools_emulator(
                         model.tools_emulator(params.tool_config)
@@ -81,7 +80,7 @@ class BedrockChatCompletion(ChatCompletion):
                 try:
                     await model.chat(consumer, params, request.messages)
                 except UserError as e:
-                    await e.report_usage(choice)
+                    await e.report_usage(consumer.choice)
                     await response.aflush()
                     raise e
 
