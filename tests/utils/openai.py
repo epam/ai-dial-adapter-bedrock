@@ -188,6 +188,19 @@ class ChatCompletionResult(BaseModel):
         )
 
 
+def for_all_choices(
+    predicate: Callable[[str], bool], n: int = 1
+) -> Callable[[ChatCompletionResult], bool]:
+    def f(resp: ChatCompletionResult) -> bool:
+        contents = resp.contents
+        assert (
+            len(contents) == n
+        ), f"Expected {n} candidates, got {len(contents)}"
+        return all(predicate(content) for content in contents)
+
+    return f
+
+
 async def chat_completion(
     client: AsyncAzureOpenAI,
     messages: List[ChatCompletionMessageParam],

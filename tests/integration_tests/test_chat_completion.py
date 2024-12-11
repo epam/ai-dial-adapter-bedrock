@@ -25,6 +25,7 @@ from tests.utils.openai import (
     ai_function,
     ai_tools,
     chat_completion,
+    for_all_choices,
     function_request,
     function_response,
     function_to_tool,
@@ -312,6 +313,14 @@ def get_test_cases(
         name="empty system message",
         messages=[sys(""), user("compute (2+4)")],
         expected=lambda s: "6" in s.content,
+    )
+
+    test_case(
+        name="multiple candidates",
+        max_tokens=10,
+        n=5,
+        messages=[user("2+7=?. Reply with a single number")],
+        expected=for_all_choices(lambda s: "9" in s, 5),
     )
 
     query = 'Reply with "Hello"'
