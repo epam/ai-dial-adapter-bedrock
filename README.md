@@ -31,12 +31,12 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|text-to-image / image-to-image|❌|🟡|❌|
+|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|text-to-image, image-to-image|❌|🟡|❌|
 |Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|
 |Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
-|Amazon|Nova Pro|amazon.nova-pro-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
-|Amazon|Nova Lite|amazon.nova-lite-v1:0|text-to-text, image-to-text|🟡|🟡|✅|
+|Amazon|Nova Pro|amazon.nova-pro-v1:0|text-to-text, image-to-text, document-to-text|🟡|🟡|✅|
+|Amazon|Nova Lite|amazon.nova-lite-v1:0|text-to-text, image-to-text, document-to-text|🟡|🟡|✅|
 |Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
 |AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|

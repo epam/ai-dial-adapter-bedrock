@@ -187,7 +187,7 @@ def to_converse_multi_modal_part(
                 # Passing generic name, since provider explicitly stated,
                 # that this field is vulnerable for prompt injection, because the model might
                 # inadvertently interpret it as instructions.
-                name=f"doc{str(uuid.uuid4()).replace('-', '')}.{DOCUMENT_MIME_TO_CONVERSE_TYPE[resource.type]}",
+                name=str(uuid.uuid4()),
                 source={"bytes": resource.data},
             )
         )
