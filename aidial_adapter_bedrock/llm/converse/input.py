@@ -1,4 +1,5 @@
 import json
+import uuid
 from dataclasses import dataclass
 from typing import List, Set, Tuple, assert_never
 
@@ -183,6 +184,10 @@ def to_converse_multi_modal_part(
         return ConverseDocumentPart(
             document=ConverseDocumentPartConfig(
                 format=DOCUMENT_MIME_TO_CONVERSE_TYPE[resource.type],
+                # Passing generic name, since provider explicitly stated,
+                # that this field is vulnerable for prompt injection, because the model might
+                # inadvertently interpret it as instructions.
+                name=f"{uuid.uuid4()}.{DOCUMENT_MIME_TO_CONVERSE_TYPE[resource.type]}",
                 source={"bytes": resource.data},
             )
         )

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 
 import pytest
 from aidial_sdk.chat_completion.request import (
@@ -53,6 +53,20 @@ async def _input_tokenizer_factory(_deployment, _params):
     return _test_tokenizer
 
 
+@dataclass(frozen=True)
+class UndefinedValue(str):
+    """Sentinel object for values that should be ignored in comparisons."""
+
+    def __eq__(self, other: Any) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return "UNDEFINED"
+
+
+UNDEFINED = UndefinedValue()
+
+
 @dataclass
 class ExpectedException:
     type: type[Exception]
@@ -104,6 +118,7 @@ def _create_document_test_cases() -> List[TestCase]:
                                     ),
                                     ConverseDocumentPart(
                                         document=ConverseDocumentPartConfig(
+                                            name=UNDEFINED,
                                             format=converse_type,
                                             source=ConverseSource(
                                                 bytes=SAMPLE_DOCUMENT_RESOURCE.data

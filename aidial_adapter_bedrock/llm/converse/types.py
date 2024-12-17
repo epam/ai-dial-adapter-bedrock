@@ -42,6 +42,7 @@ class ConverseDocumentPartConfig(TypedDict):
         Literal["pdf", "csv", "doc", "docx", "xls", "xlsx", "html", "txt", "md"]
         | str
     )
+    name: str
     source: ConverseSource
 
 
