@@ -3,6 +3,8 @@ from typing import List
 
 import pytest
 from aidial_sdk.chat_completion.request import (
+    Attachment,
+    CustomContent,
     Function,
     FunctionCall,
     ImageURL,
@@ -17,13 +19,18 @@ from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
+from aidial_adapter_bedrock.llm.converse.input import (
+    DOCUMENT_MIME_TO_CONVERSE_TYPE,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseDocumentPart,
+    ConverseDocumentPartConfig,
     ConverseImagePart,
     ConverseImagePartConfig,
-    ConverseImageSource,
     ConverseMessage,
     ConverseRequestWrapper,
     ConverseRole,
+    ConverseSource,
     ConverseTextPart,
     ConverseToolResultPart,
     ConverseToolUseConfig,
@@ -33,7 +40,10 @@ from aidial_adapter_bedrock.llm.converse.types import (
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
-from tests.integration_tests.constants import BLUE_PNG_PICTURE
+from tests.integration_tests.constants import (
+    BLUE_PNG_PICTURE,
+    SAMPLE_DOCUMENT_RESOURCE,
+)
 
 
 async def _input_tokenizer_factory(_deployment, _params):
@@ -60,6 +70,58 @@ class TestCase:
 
 
 default_inference_config = InferenceConfig(stopSequences=[])
+
+
+def _create_document_test_cases() -> List[TestCase]:
+    return [
+        TestCase(
+            name=f"attachment document {converse_type}",
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="tell me about this document",
+                    custom_content=CustomContent(
+                        attachments=[
+                            Attachment(
+                                type=mime_type,
+                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                            )
+                        ]
+                    ),
+                )
+            ],
+            params=ModelParameters(tool_config=None),
+            expected_output=ConverseRequestWrapper(
+                inferenceConfig=default_inference_config,
+                messages=ListProjection(
+                    list=[
+                        (
+                            ConverseMessage(
+                                role=ConverseRole.USER,
+                                content=[
+                                    ConverseTextPart(
+                                        text="tell me about this document"
+                                    ),
+                                    ConverseDocumentPart(
+                                        document=ConverseDocumentPartConfig(
+                                            format=converse_type,
+                                            source=ConverseSource(
+                                                bytes=SAMPLE_DOCUMENT_RESOURCE.data
+                                            ),
+                                        )
+                                    ),
+                                ],
+                            ),
+                            {0},
+                        )
+                    ]
+                ),
+            ),
+        )
+        for mime_type, converse_type in DOCUMENT_MIME_TO_CONVERSE_TYPE.items()
+    ]
+
+
 TEST_CASES = [
     TestCase(
         name="plain_message",
@@ -332,7 +394,7 @@ TEST_CASES = [
                                 ConverseImagePart(
                                     image=ConverseImagePartConfig(
                                         format="png",
-                                        source=ConverseImageSource(
+                                        source=ConverseSource(
                                             bytes=BLUE_PNG_PICTURE.data
                                         ),
                                     )
@@ -392,6 +454,7 @@ TEST_CASES = [
             ),
         ),
     ),
+    *(_create_document_test_cases()),
 ]
 
 

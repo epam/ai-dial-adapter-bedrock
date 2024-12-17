@@ -12,3 +12,7 @@ SAMPLE_DOG_RESOURCE = Resource(
     type="image/png",
     data=SAMPLE_DOG_IMAGE_PATH.read_bytes(),
 )
+SAMPLE_DOCUMENT_RESOURCE = Resource.from_base64(
+    type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
+)

@@ -20,6 +20,10 @@ from aidial_adapter_bedrock.dial_api.resource import (
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseContentPart,
+    ConverseDocumentPart,
+    ConverseDocumentPartConfig,
+    ConverseImagePart,
+    ConverseImagePartConfig,
     ConverseMessage,
     ConverseRole,
     ConverseTextPart,
@@ -31,6 +35,25 @@ from aidial_adapter_bedrock.llm.converse.types import (
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
+from aidial_adapter_bedrock.utils.resource import Resource
+
+IMAGE_MIME_TO_CONVERSE_TYPE = {
+    "image/png": "png",
+    "image/jpeg": "jpeg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+}
+
+DOCUMENT_MIME_TO_CONVERSE_TYPE = {
+    "application/pdf": "pdf",
+    "application/csv": "csv",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "text/plain": "txt",
+    "text/markdown": "md",
+}
 
 
 def to_converse_role(role: DialRole) -> ConverseRole:
@@ -146,12 +169,27 @@ def tool_result_to_content_part(
         }
 
 
-def to_converse_image_type(type: str) -> str:
-    if type == "image/png":
-        return "png"
-    if type == "image/jpeg":
-        return "jpeg"
-    raise RuntimeServerError(f"Unsupported image type: {type}")
+def to_converse_multi_modal_part(
+    resource: Resource,
+) -> ConverseImagePart | ConverseDocumentPart:
+    if resource.type in IMAGE_MIME_TO_CONVERSE_TYPE:
+        return ConverseImagePart(
+            image=ConverseImagePartConfig(
+                format=IMAGE_MIME_TO_CONVERSE_TYPE[resource.type],
+                source={"bytes": resource.data},
+            )
+        )
+    elif resource.type in DOCUMENT_MIME_TO_CONVERSE_TYPE:
+        return ConverseDocumentPart(
+            document=ConverseDocumentPartConfig(
+                format=DOCUMENT_MIME_TO_CONVERSE_TYPE[resource.type],
+                source={"bytes": resource.data},
+            )
+        )
+    else:
+        raise RuntimeServerError(
+            f"Unsupported multi-modal type: {resource.type}"
+        )
 
 
 async def _get_converse_message_content(
@@ -179,18 +217,8 @@ async def _get_converse_message_content(
                             url=part.image_url.url,
                             supported_types=supported_image_types,
                         ).download(storage)
-                        content.append(
-                            {
-                                "image": {
-                                    "format": to_converse_image_type(
-                                        resource.type
-                                    ),
-                                    "source": {
-                                        "bytes": resource.data,
-                                    },
-                                }
-                            }
-                        )
+                        content.append(to_converse_multi_modal_part(resource))
+
         case None:
             pass
         case _:
@@ -201,14 +229,7 @@ async def _get_converse_message_content(
             resource = await AttachmentResource(attachment=attachment).download(
                 storage
             )
-            content.append(
-                {
-                    "image": {
-                        "format": to_converse_image_type(resource.type),
-                        "source": {"bytes": resource.data},
-                    }
-                }
-            )
+            content.append(to_converse_multi_modal_part(resource))
     if message.function_call and message.tool_calls:
         raise ValidationError(
             "You cannot use both function call and tool calls in the same message"

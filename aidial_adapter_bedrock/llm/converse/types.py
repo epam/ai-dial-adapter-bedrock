@@ -24,17 +24,29 @@ class ConverseJsonPart(TypedDict):
     json: dict
 
 
-class ConverseImageSource(TypedDict):
+class ConverseSource(TypedDict):
     bytes: bytes
 
 
 class ConverseImagePartConfig(TypedDict):
-    format: Literal["png", "jpeg", "gif", "webp"]
-    source: ConverseImageSource
+    format: Literal["png", "jpeg", "gif", "webp"] | str
+    source: ConverseSource
 
 
 class ConverseImagePart(TypedDict):
     image: ConverseImagePartConfig
+
+
+class ConverseDocumentPartConfig(TypedDict):
+    format: (
+        Literal["pdf", "csv", "doc", "docx", "xls", "xlsx", "html", "txt", "md"]
+        | str
+    )
+    source: ConverseSource
+
+
+class ConverseDocumentPart(TypedDict):
+    document: ConverseDocumentPartConfig
 
 
 class ConverseToolUseConfig(TypedDict):
@@ -62,6 +74,7 @@ ConverseContentPart = Union[
     ConverseTextPart,
     ConverseJsonPart,
     ConverseImagePart,
+    ConverseDocumentPart,
     ConverseToolUsePart,
     ConverseToolResultPart,
 ]
