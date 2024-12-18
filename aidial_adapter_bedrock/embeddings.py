@@ -1,11 +1,11 @@
 from aidial_sdk.embeddings import Embeddings, Request, Response
 
+from aidial_adapter_bedrock.adapter_deployments import (
+    AdapterEmbeddingsDeployment,
+)
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.llm.model.adapter import get_embeddings_model
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.utils.adapter_deployments import (
-    AdapterEmbeddingsDeployment,
-)
 
 
 class BedrockEmbeddings(Embeddings):

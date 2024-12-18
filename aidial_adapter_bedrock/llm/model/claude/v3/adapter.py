@@ -25,6 +25,7 @@ from anthropic.types import (
 )
 from anthropic.types.message_create_params import ToolChoice
 
+from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.deployments import Claude3Deployment
 from aidial_adapter_bedrock.dial_api.request import (
@@ -64,7 +65,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
-from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log

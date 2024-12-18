@@ -3,11 +3,11 @@ from typing import Dict, List, Protocol
 
 import pytest
 
+from aidial_adapter_bedrock.adapter_deployments import AdapterDeployments
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployments
 
 
 class Checker(Protocol):

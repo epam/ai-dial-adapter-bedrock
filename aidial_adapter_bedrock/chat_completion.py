@@ -23,6 +23,9 @@ from aidial_sdk.deployment.truncate_prompt import (
 from aidial_sdk.exceptions import ResourceNotFoundError
 from typing_extensions import override
 
+from aidial_adapter_bedrock.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+)
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -35,9 +38,6 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.utils.adapter_deployments import (
-    AdapterChatCompletionDeployment,
-)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 

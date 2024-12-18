@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import Dict, Generic, Iterable, Self, TypeVar
+from typing import Dict, Generic, Iterable, Self, Tuple, TypeVar
 
 from pydantic import BaseModel
 
@@ -96,12 +96,14 @@ class AdapterDeployments(BaseModel):
                         f"The embeddings deployment {deployment_id!r} is mapped onto the chat completion deployment {supported_id!r}"
                     )
 
-        chat_completions = _create_deployments(
+        compat_mapping, chat_completions = _create_deployments(
             compat_mapping,
             ChatCompletionDeployment,
             redirects=CHAT_COMPLETION_REDIRECTS,
         )
-        embeddings = _create_deployments(compat_mapping, EmbeddingsDeployment)
+        compat_mapping, embeddings = _create_deployments(
+            compat_mapping, EmbeddingsDeployment
+        )
 
         if compat_mapping:
             raise ValueError(
@@ -120,8 +122,10 @@ def _create_deployments(
     compat_mapping: Dict[str, str],
     upstream_deployments: Iterable[_D],
     *,
-    redirects: Dict[_D, _D] = {},
-) -> Dict[str, AdapterDeployment[_D]]:
+    redirects: Dict[_D, _D] | None = None,
+) -> Tuple[Dict[str, str], Dict[str, AdapterDeployment[_D]]]:
+    compat_mapping = compat_mapping.copy()
+    redirects = redirects or {}
 
     supported: Dict[str, AdapterDeployment[_D]] = {}
     for upstream in upstream_deployments:
@@ -141,4 +145,4 @@ def _create_deployments(
         compat_mapping.pop(deployment_id)
         compat[deployment_id] = supported_deployment.compat(deployment_id)
 
-    return supported | compat
+    return compat_mapping, supported | compat

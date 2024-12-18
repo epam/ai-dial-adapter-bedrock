@@ -1,5 +1,9 @@
 from typing import assert_never
 
+from aidial_adapter_bedrock.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+    AdapterEmbeddingsDeployment,
+)
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
@@ -38,10 +42,6 @@ from aidial_adapter_bedrock.llm.model.llama.v3 import (
 )
 from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
-from aidial_adapter_bedrock.utils.adapter_deployments import (
-    AdapterChatCompletionDeployment,
-    AdapterEmbeddingsDeployment,
-)
 
 
 async def get_bedrock_adapter(
