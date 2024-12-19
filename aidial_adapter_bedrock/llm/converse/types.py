@@ -24,17 +24,30 @@ class ConverseJsonPart(TypedDict):
     json: dict
 
 
-class ConverseImageSource(TypedDict):
+class ConverseSource(TypedDict):
     bytes: bytes
 
 
 class ConverseImagePartConfig(TypedDict):
-    format: Literal["png", "jpeg", "gif", "webp"]
-    source: ConverseImageSource
+    format: Literal["png", "jpeg", "gif", "webp"] | str
+    source: ConverseSource
 
 
 class ConverseImagePart(TypedDict):
     image: ConverseImagePartConfig
+
+
+class ConverseDocumentPartConfig(TypedDict):
+    format: (
+        Literal["pdf", "csv", "doc", "docx", "xls", "xlsx", "html", "txt", "md"]
+        | str
+    )
+    name: str
+    source: ConverseSource
+
+
+class ConverseDocumentPart(TypedDict):
+    document: ConverseDocumentPartConfig
 
 
 class ConverseToolUseConfig(TypedDict):
@@ -62,6 +75,7 @@ ConverseContentPart = Union[
     ConverseTextPart,
     ConverseJsonPart,
     ConverseImagePart,
+    ConverseDocumentPart,
     ConverseToolUsePart,
     ConverseToolResultPart,
 ]
@@ -135,3 +149,29 @@ class ConverseRequestWrapper:
 
 
 ConverseDeployment = str
+
+
+class ConverseImageType(str, Enum):
+    PNG = "png"
+    JPEG = "jpeg"
+    GIF = "gif"
+    WEBP = "webp"
+
+    @classmethod
+    def all(cls) -> list["ConverseImageType"]:
+        return list(cls)
+
+
+class ConverseDocumentType(str, Enum):
+    PDF = "pdf"
+    CSV = "csv"
+    DOC = "doc"
+    DOCX = "docx"
+    XLS = "xls"
+    XLSX = "xlsx"
+    TXT = "txt"
+    MD = "md"
+
+    @classmethod
+    def all(cls) -> list["ConverseDocumentType"]:
+        return list(cls)

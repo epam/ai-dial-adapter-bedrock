@@ -1,8 +1,10 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Any, List
 
 import pytest
 from aidial_sdk.chat_completion.request import (
+    Attachment,
+    CustomContent,
     Function,
     FunctionCall,
     ImageURL,
@@ -17,23 +19,35 @@ from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
+from aidial_adapter_bedrock.llm.converse.constants import (
+    CONVERSE_DOCUMENT_TYPE_TO_MIME,
+    CONVERSE_IMAGE_TYPE_TO_MIME,
+    DOCUMENT_MIME_TO_CONVERSE_TYPE,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseDocumentPart,
+    ConverseDocumentPartConfig,
+    ConverseDocumentType,
     ConverseImagePart,
     ConverseImagePartConfig,
-    ConverseImageSource,
+    ConverseImageType,
     ConverseMessage,
     ConverseRequestWrapper,
     ConverseRole,
+    ConverseSource,
     ConverseTextPart,
     ConverseToolResultPart,
     ConverseToolUseConfig,
     ConverseToolUsePart,
     InferenceConfig,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
-from tests.integration_tests.constants import BLUE_PNG_PICTURE
+from tests.integration_tests.constants import (
+    BLUE_PNG_PICTURE,
+    SAMPLE_DOCUMENT_RESOURCE,
+)
 
 
 async def _input_tokenizer_factory(_deployment, _params):
@@ -41,6 +55,20 @@ async def _input_tokenizer_factory(_deployment, _params):
         return 100
 
     return _test_tokenizer
+
+
+@dataclass(frozen=True)
+class UndefinedValue(str):
+    """Sentinel object for values that should be ignored in comparisons."""
+
+    def __eq__(self, other: Any) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return "UNDEFINED"
+
+
+UNDEFINED = UndefinedValue()
 
 
 @dataclass
@@ -54,12 +82,153 @@ class TestCase:
     __test__ = False
     name: str
     messages: List[Message]
-    params: ModelParameters
+    supported_image_types: list[ConverseImageType] = field(
+        default_factory=ConverseImageType.all
+    )
+    supported_document_types: list[ConverseDocumentType] = field(
+        default_factory=ConverseDocumentType.all
+    )
+    params: ModelParameters = field(default_factory=ModelParameters)
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
 
 
 default_inference_config = InferenceConfig(stopSequences=[])
+
+
+def _create_document_test_cases() -> List[TestCase]:
+    return [
+        TestCase(
+            name=f"attachment_document_{converse_type}",
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="tell me about this document",
+                    custom_content=CustomContent(
+                        attachments=[
+                            Attachment(
+                                type=mime_type,
+                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                            )
+                        ]
+                    ),
+                )
+            ],
+            expected_output=ConverseRequestWrapper(
+                inferenceConfig=default_inference_config,
+                messages=ListProjection(
+                    list=[
+                        (
+                            ConverseMessage(
+                                role=ConverseRole.USER,
+                                content=[
+                                    ConverseTextPart(
+                                        text="tell me about this document"
+                                    ),
+                                    ConverseDocumentPart(
+                                        document=ConverseDocumentPartConfig(
+                                            name=UNDEFINED,
+                                            format=converse_type,
+                                            source=ConverseSource(
+                                                bytes=SAMPLE_DOCUMENT_RESOURCE.data
+                                            ),
+                                        )
+                                    ),
+                                ],
+                            ),
+                            {0},
+                        )
+                    ]
+                ),
+            ),
+        )
+        for mime_type, converse_type in DOCUMENT_MIME_TO_CONVERSE_TYPE.items()
+    ]
+
+
+def _create_unsupported_multi_modal_type_test_cases() -> List[TestCase]:
+    test_cases = []
+
+    # Fully unknown type
+
+    test_cases.append(
+        TestCase(
+            name="unsupported_multi_modal_type_unknown",
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Describe this attachment",
+                    custom_content=CustomContent(
+                        attachments=[
+                            Attachment(
+                                type="some/unknown-type",
+                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                            )
+                        ]
+                    ),
+                )
+            ],
+            expected_error=ExpectedException(
+                type=UserError,
+                message=(
+                    "Unsupported attachment type: some/unknown-type"
+                    "\nSupported image types: "
+                    + ", ".join([t.value for t in ConverseImageType.all()])
+                    + "\nSupported document types: "
+                    + ", ".join([t.value for t in ConverseDocumentType.all()])
+                ),
+            ),
+        )
+    )
+    for converse_type in ConverseImageType.all() + ConverseDocumentType.all():
+        supported_image_types = [
+            t for t in ConverseImageType.all() if t != converse_type
+        ]
+        supported_document_types = [
+            t for t in ConverseDocumentType.all() if t != converse_type
+        ]
+        if converse_type in ConverseImageType:
+            mime_type = CONVERSE_IMAGE_TYPE_TO_MIME[converse_type]  # type: ignore
+        else:
+            mime_type = CONVERSE_DOCUMENT_TYPE_TO_MIME[converse_type]  # type: ignore
+
+        error_message = (
+            "Unsupported attachment type: "
+            + mime_type
+            + "\nSupported image types: "
+            + ", ".join([t.value for t in supported_image_types])
+            + "\nSupported document types: "
+            + ", ".join([t.value for t in supported_document_types])
+        )
+
+        test_cases.append(
+            TestCase(
+                name=f"unsupported_multi_modal_type_{converse_type.value}",
+                supported_image_types=supported_image_types,
+                supported_document_types=supported_document_types,
+                messages=[
+                    Message(
+                        role=Role.USER,
+                        content="Describe this attachment",
+                        custom_content=CustomContent(
+                            attachments=[
+                                Attachment(
+                                    type=mime_type,
+                                    data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                                )
+                            ]
+                        ),
+                    )
+                ],
+                expected_error=ExpectedException(
+                    type=UserError,
+                    message=error_message,
+                ),
+            )
+        )
+    return test_cases
+
+
 TEST_CASES = [
     TestCase(
         name="plain_message",
@@ -332,7 +501,7 @@ TEST_CASES = [
                                 ConverseImagePart(
                                     image=ConverseImagePartConfig(
                                         format="png",
-                                        source=ConverseImageSource(
+                                        source=ConverseSource(
                                             bytes=BLUE_PNG_PICTURE.data
                                         ),
                                     )
@@ -392,6 +561,8 @@ TEST_CASES = [
             ),
         ),
     ),
+    *(_create_document_test_cases()),
+    *(_create_unsupported_multi_modal_type_test_cases()),
 ]
 
 
@@ -408,6 +579,8 @@ async def test_converse_adapter(
         input_tokenizer_factory=_input_tokenizer_factory,  # type: ignore
         support_tools=True,
         storage=None,
+        supported_image_types=test_case.supported_image_types,
+        supported_document_types=test_case.supported_document_types,
     )
     construct_coro = adapter.construct_converse_params(
         messages=test_case.messages,
@@ -417,8 +590,12 @@ async def test_converse_adapter(
     if test_case.expected_error is not None:
         with pytest.raises(test_case.expected_error.type) as exc_info:
             converse_request = await construct_coro
-        assert hasattr(exc_info.value, "message")
-        error_message = getattr(exc_info.value, "message")
+        assert hasattr(exc_info.value, "message") or hasattr(
+            exc_info.value, "error_message"
+        )
+        error_message = getattr(exc_info.value, "message", None) or getattr(
+            exc_info.value, "error_message"
+        )
         assert isinstance(error_message, str)
         assert error_message == test_case.expected_error.message
     else:

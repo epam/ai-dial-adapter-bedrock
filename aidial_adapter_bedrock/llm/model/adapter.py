@@ -28,6 +28,10 @@ from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
     default_converse_tokenizer_factory,
 )
+from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseDocumentType,
+    ConverseImageType,
+)
 from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
 from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
@@ -132,6 +136,21 @@ async def get_bedrock_adapter(
                 storage=create_file_storage(api_key),
                 input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=True,
+                supported_image_types=ConverseImageType.all(),
+                supported_document_types=ConverseDocumentType.all(),
+            )
+        case (
+            ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
+        ):
+            return ConverseAdapter(
+                deployment=model,
+                bedrock=await Bedrock.acreate(aws_client_config),
+                storage=create_file_storage(api_key),
+                input_tokenizer_factory=default_converse_tokenizer_factory,
+                support_tools=False,
+                supported_image_types=ConverseImageType.all(),
+                supported_document_types=[],
             )
         case (
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
@@ -146,6 +165,8 @@ async def get_bedrock_adapter(
                 storage=create_file_storage(api_key),
                 input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=False,
+                supported_image_types=[],
+                supported_document_types=[],
             )
         case (
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
@@ -159,6 +180,8 @@ async def get_bedrock_adapter(
                 storage=create_file_storage(api_key),
                 input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=True,
+                supported_image_types=[],
+                supported_document_types=[],
             )
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14

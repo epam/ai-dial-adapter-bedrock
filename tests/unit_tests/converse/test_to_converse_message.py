@@ -8,7 +8,7 @@ from aidial_adapter_bedrock.llm.converse.input import to_converse_message
 
 async def test_to_converse_message_text():
     dial_message = DialMessage(role=DialRole.USER, content="Hello, world!")
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
 
     assert converse_message == {
         "role": "user",
@@ -18,7 +18,7 @@ async def test_to_converse_message_text():
 
 async def test_to_converse_message_assistant():
     dial_message = DialMessage(role=DialRole.ASSISTANT, content="Hello")
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
 
     assert converse_message == {
         "role": "assistant",
@@ -33,7 +33,7 @@ async def test_to_converse_message_function_call_no_content():
             name="get_weather", arguments='{"city": "Paris"}'
         ),
     )
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
     assert converse_message == {
         "role": "assistant",
         "content": [
@@ -56,7 +56,7 @@ async def test_to_converse_message_function_call_with_content():
             name="get_weather", arguments='{"city": "Paris"}'
         ),
     )
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
     assert converse_message == {
         "role": "assistant",
         "content": [
@@ -86,7 +86,7 @@ async def test_to_converse_message_tool_call_no_content():
             )
         ],
     )
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
     assert converse_message == {
         "role": "assistant",
         "content": [
@@ -116,7 +116,7 @@ async def test_to_converse_message_tool_call_with_content():
             )
         ],
     )
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
     assert converse_message == {
         "role": "assistant",
         "content": [
@@ -154,7 +154,7 @@ async def test_to_converse_message_multiple_tool_calls():
             ),
         ],
     )
-    converse_message = await to_converse_message(dial_message, storage=None)
+    converse_message = await to_converse_message(dial_message)
     assert converse_message == {
         "role": "assistant",
         "content": [
