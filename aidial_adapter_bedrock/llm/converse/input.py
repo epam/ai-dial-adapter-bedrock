@@ -170,7 +170,7 @@ def sanitize_document_name(name: str) -> str:
     - Not have consecutive spaces
     """
     name = re.sub(r"\s+", " ", name)
-    name = re.sub(r"[^a-zA-Z0-9\-\(\)\[\] _.]", "_", name)
+    name = re.sub(r"[^a-zA-Z0-9\-\(\)\[\] _]", "_", name)
     return name[:200]
 
 
