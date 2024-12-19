@@ -257,10 +257,7 @@ async def _get_converse_message_content(
                             raise UserError(
                                 error_message=_unsupported_multi_modal_error(
                                     e.type
-                                ),
-                                usage_message=_unsupported_multi_modal_error(
-                                    e.type
-                                ),
+                                )
                             )
 
         case None:
@@ -284,7 +281,6 @@ async def _get_converse_message_content(
             except UnsupportedContentType as e:
                 raise UserError(
                     error_message=_unsupported_multi_modal_error(e.type),
-                    usage_message=_unsupported_multi_modal_error(e.type),
                 )
 
     if message.function_call and message.tool_calls:
@@ -398,7 +394,7 @@ async def to_converse_messages(
             await to_converse_message(
                 msg, storage, supported_image_types, supported_document_types
             ),
-            set([idx]),
+            {idx},
         )
         for idx, msg in enumerate(messages, start=start_offset)
     ]
