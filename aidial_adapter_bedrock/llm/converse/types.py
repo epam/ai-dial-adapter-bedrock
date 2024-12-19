@@ -149,3 +149,29 @@ class ConverseRequestWrapper:
 
 
 ConverseDeployment = str
+
+
+class ConverseImageType(str, Enum):
+    PNG = "png"
+    JPEG = "jpeg"
+    GIF = "gif"
+    WEBP = "webp"
+
+    @classmethod
+    def all(cls) -> list["ConverseImageType"]:
+        return list(cls)
+
+
+class ConverseDocumentType(str, Enum):
+    PDF = "pdf"
+    CSV = "csv"
+    DOC = "doc"
+    DOCX = "docx"
+    XLS = "xls"
+    XLSX = "xlsx"
+    TXT = "txt"
+    MD = "md"
+
+    @classmethod
+    def all(cls) -> list["ConverseDocumentType"]:
+        return list(cls)

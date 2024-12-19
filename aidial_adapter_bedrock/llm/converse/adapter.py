@@ -22,6 +22,8 @@ from aidial_adapter_bedrock.llm.converse.output import (
 )
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
+    ConverseDocumentType,
+    ConverseImageType,
     ConverseMessage,
     ConverseRequestWrapper,
     ConverseTools,
@@ -44,6 +46,8 @@ class ConverseAdapter(ChatCompletionAdapter):
     deployment: str
     bedrock: Bedrock
     storage: FileStorage | None
+    supported_image_types: list[ConverseImageType]
+    supported_document_types: list[ConverseDocumentType]
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
@@ -120,6 +124,8 @@ class ConverseAdapter(ChatCompletionAdapter):
             system_prompt_extraction.non_system_messages,
             self.storage,
             start_offset=system_prompt_extraction.system_message_count,
+            supported_image_types=self.supported_image_types,
+            supported_document_types=self.supported_document_types,
         )
         system_message = system_prompt_extraction.system_prompt
         if not converse_messages.list:
