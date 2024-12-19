@@ -1,5 +1,9 @@
 from typing import assert_never
 
+from aidial_adapter_bedrock.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+    AdapterEmbeddingsDeployment,
+)
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
@@ -45,12 +49,13 @@ from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
 
 async def get_bedrock_adapter(
-    deployment: ChatCompletionDeployment,
+    *,
+    deployment: AdapterChatCompletionDeployment,
     api_key: str,
     aws_client_config: AWSClientConfig,
 ) -> ChatCompletionAdapter:
-    model = deployment.model_id
-    match deployment:
+    model = deployment.upstream_deployment_id
+    match deployment.reference_deployment_id:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
@@ -68,7 +73,11 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
-            return Claude_V3.create(deployment, api_key, aws_client_config)
+            return Claude_V3.create(
+                deployment.clone(deployment.reference_deployment_id),
+                api_key,
+                aws_client_config,
+            )
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
@@ -186,13 +195,14 @@ async def get_bedrock_adapter(
 
 
 async def get_embeddings_model(
-    deployment: EmbeddingsDeployment,
+    *,
+    deployment: AdapterEmbeddingsDeployment,
     api_key: str,
     aws_client_config: AWSClientConfig,
 ) -> EmbeddingsAdapter:
-    model = deployment.model_id
+    model = deployment.upstream_deployment_id
     client = await Bedrock.acreate(aws_client_config)
-    match deployment:
+    match deployment.reference_deployment_id:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(
                 client, model, supports_dimensions=False

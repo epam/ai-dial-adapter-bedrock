@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Self
 
 from aidial_sdk.embeddings import Embedding
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -8,9 +8,26 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
 
 
+class Capabilities(BaseModel):
+    chat_completion: bool = False
+    completion: bool = False
+    embeddings: bool = False
+    fine_tune: bool = False
+    inference: bool = False
+
+
 class ModelObject(BaseModel):
     object: Literal["model"] = "model"
+    capabilities: Capabilities = Capabilities()
     id: str
+
+    @classmethod
+    def chat_completions(cls, id: str) -> Self:
+        return cls(id=id, capabilities=Capabilities(chat_completion=True))
+
+    @classmethod
+    def embeddings(cls, id: str) -> Self:
+        return cls(id=id, capabilities=Capabilities(embeddings=True))
 
 
 class ModelsResponse(BaseModel):

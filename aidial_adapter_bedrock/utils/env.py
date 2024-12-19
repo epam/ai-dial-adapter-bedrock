@@ -1,17 +1,32 @@
+import json
 import os
 from functools import cache
-from typing import Optional
+from typing import Dict, Optional
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 def get_env(name: str, err_msg: Optional[str] = None) -> str:
-    if name in os.environ:
-        val = os.environ.get(name)
-        if val is not None:
-            return val
+    if (val := os.getenv(name)) is None:
+        raise Exception(err_msg or f"{name} env variable is not set")
+    return val
 
-    raise Exception(err_msg or f"{name} env variable is not set")
+
+def get_str_dict(name: str) -> Dict[str, str]:
+    if (val := os.getenv(name)) is None:
+        return {}
+
+    try:
+        dct = json.loads(val)
+        assert isinstance(dct, dict)
+        assert all(
+            isinstance(k, str) and isinstance(v, str) for k, v in dct.items()
+        )
+        return dct
+    except Exception:
+        raise ValueError(
+            f"{name} env variable doesn't contain a valid string to string JSON dictionary"
+        )
 
 
 @cache
