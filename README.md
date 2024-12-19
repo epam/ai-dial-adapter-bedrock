@@ -23,7 +23,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|
 |Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|
+|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|
 |Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
