@@ -153,9 +153,7 @@ async def get_bedrock_adapter(
                 supported_document_types=[],
             )
         case (
-            ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
+            ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1
         ):
