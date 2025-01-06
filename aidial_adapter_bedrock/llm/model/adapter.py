@@ -174,13 +174,19 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
         ):
+            is_vision_model = model in [
+                ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
+                ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+            ]
             return ConverseAdapterWithStreamingEmulation(
                 deployment=model,
                 bedrock=await Bedrock.acreate(aws_client_config),
                 storage=create_file_storage(api_key),
                 input_tokenizer_factory=default_converse_tokenizer_factory,
                 support_tools=True,
-                supported_image_types=[],
+                supported_image_types=(
+                    ConverseImageType.all() if is_vision_model else []
+                ),
                 supported_document_types=[],
             )
         case (
