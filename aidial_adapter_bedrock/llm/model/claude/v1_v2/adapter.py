@@ -99,7 +99,9 @@ class Adapter(PseudoChatModel):
 
     @classmethod
     async def create(cls, client: Bedrock, model: str):
-        is_claude_v2_1 = model == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1
+        is_claude_v2_1 = (
+            model == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1.value
+        )
 
         chat_emulator = get_anthropic_emulator(
             is_system_message_supported=is_claude_v2_1
