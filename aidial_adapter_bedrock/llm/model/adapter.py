@@ -172,7 +172,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
         ):
-            is_vision_model = model in [
+            is_vision_model = deployment.reference_deployment_id in [
                 ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
                 ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
             ]
