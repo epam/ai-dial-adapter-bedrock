@@ -8,4 +8,5 @@ __pycache__
 .nox
 dist
 .vscode/launch.json
+*.html
 ~*
