@@ -14,8 +14,11 @@ async def models_request_openai(client: AsyncAzureOpenAI) -> List[str]:
 
 
 def assert_models_subset(actual_models: List[str]):
-    expected_models = list(map(str, ChatCompletionDeployment)) + list(
-        map(str, EmbeddingsDeployment)
+    def model_names(cls) -> list[str]:
+        return [e.value for e in cls]
+
+    expected_models = model_names(ChatCompletionDeployment) + model_names(
+        EmbeddingsDeployment
     )
 
     assert set(expected_models).issubset(
