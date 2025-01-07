@@ -10,7 +10,6 @@ from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.embedding.amazon.titan_image import (
     AmazonTitanImageEmbeddings,
 )
@@ -24,9 +23,9 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
-from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
-    default_converse_tokenizer_factory,
+from aidial_adapter_bedrock.llm.converse.factory import (
+    ConverseAdapterFactory,
+    ToolsSupport,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
@@ -41,9 +40,6 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
 from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
-from aidial_adapter_bedrock.llm.model.llama.v3 import (
-    ConverseAdapterWithStreamingEmulation,
-)
 from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
@@ -55,6 +51,11 @@ async def get_bedrock_adapter(
     aws_client_config: AWSClientConfig,
 ) -> ChatCompletionAdapter:
     model = deployment.upstream_deployment_id
+
+    converse_adapter = ConverseAdapterFactory(
+        deployment=model, aws_client_config=aws_client_config, api_key=api_key
+    )
+
     match deployment.reference_deployment_id:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
@@ -126,16 +127,19 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
+            ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
+            | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
+        ):
+            return CohereAdapter.create(
+                await Bedrock.acreate(aws_client_config), model
+            )
+        case (
             ChatCompletionDeployment.AMAZON_NOVA_MICRO
             | ChatCompletionDeployment.AMAZON_NOVA_PRO
             | ChatCompletionDeployment.AMAZON_NOVA_LITE
         ):
-            return ConverseAdapter(
-                deployment=model,
-                bedrock=await Bedrock.acreate(aws_client_config),
-                storage=create_file_storage(api_key),
-                input_tokenizer_factory=default_converse_tokenizer_factory,
-                support_tools=True,
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
                 supported_image_types=ConverseImageType.all(),
                 supported_document_types=ConverseDocumentType.all(),
             )
@@ -143,52 +147,29 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
         ):
-            return ConverseAdapter(
-                deployment=model,
-                bedrock=await Bedrock.acreate(aws_client_config),
-                storage=create_file_storage(api_key),
-                input_tokenizer_factory=default_converse_tokenizer_factory,
-                support_tools=False,
+            return await converse_adapter.create(
                 supported_image_types=ConverseImageType.all(),
-                supported_document_types=[],
             )
         case (
-            ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
+            ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1
         ):
-            return ConverseAdapter(
-                deployment=model,
-                bedrock=await Bedrock.acreate(aws_client_config),
-                storage=create_file_storage(api_key),
-                input_tokenizer_factory=default_converse_tokenizer_factory,
-                support_tools=False,
-                supported_image_types=[],
-                supported_document_types=[],
-            )
+            return await converse_adapter.create()
         case (
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
         ):
-            return ConverseAdapterWithStreamingEmulation(
-                deployment=model,
-                bedrock=await Bedrock.acreate(aws_client_config),
-                storage=create_file_storage(api_key),
-                input_tokenizer_factory=default_converse_tokenizer_factory,
-                support_tools=True,
-                supported_image_types=[],
-                supported_document_types=[],
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.NON_STREAMING_ONLY,
             )
         case (
-            ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
-            | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
+            ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1
         ):
-            return CohereAdapter.create(
-                await Bedrock.acreate(aws_client_config), model
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.NON_STREAMING_ONLY,
+                supported_image_types=ConverseImageType.all(),
             )
         case _:
             assert_never(deployment)
