@@ -9,6 +9,7 @@ from aidial_adapter_bedrock.deployments import EmbeddingsDeployment
 from aidial_adapter_bedrock.llm.consumer import Attachment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from tests.utils.openai import sanitize_test_name
+from tests.utils.validation import check_enum_completeness
 
 
 @dataclass
@@ -64,6 +65,8 @@ specs: List[ModelSpec] = [
         requires_type=True,
     ),
 ]
+
+check_enum_completeness([s.deployment for s in specs])
 
 
 @dataclass

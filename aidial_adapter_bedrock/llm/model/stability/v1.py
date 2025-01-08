@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from aidial_sdk.chat_completion import Attachment
+from aidial_sdk.chat_completion import Attachment, Message
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -11,17 +11,15 @@ from aidial_adapter_bedrock.dial_api.storage import (
     create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import (
-    TextCompletionAdapter,
-    TextCompletionPrompt,
-)
+from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.errors import ValidationError
-from aidial_adapter_bedrock.llm.message import BaseMessage
-from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
-from aidial_adapter_bedrock.llm.tools.default_emulator import (
-    default_tools_emulator,
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
+from aidial_adapter_bedrock.llm.model.stability.message import (
+    parse_message,
+    validate_last_message,
 )
+from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
+from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
 class StabilityStatus(str, Enum):
@@ -81,7 +79,7 @@ def create_request(prompt: str) -> Dict[str, Any]:
     return {"text_prompts": [{"text": prompt}]}
 
 
-class StabilityV1Adapter(TextCompletionAdapter):
+class StabilityV1Adapter(ChatCompletionAdapter):
     model: str
     client: Bedrock
     storage: Optional[FileStorage]
@@ -89,29 +87,31 @@ class StabilityV1Adapter(TextCompletionAdapter):
     @classmethod
     def create(cls, client: Bedrock, model: str, api_key: str):
         storage: Optional[FileStorage] = create_file_storage(api_key)
-        return cls(
-            client=client,
-            model=model,
-            storage=storage,
-            tools_emulator=default_tools_emulator,
-        )
+        return cls(client=client, model=model, storage=storage)
 
-    async def truncate_and_linearize_messages(
-        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
-    ) -> TextCompletionPrompt:
-        if len(messages) == 0:
-            raise ValidationError("List of messages must not be empty")
+    async def compute_discarded_messages(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> DiscardedMessages | None:
+        validate_last_message(messages)
+        return list(range(len(messages) - 1))
 
-        return TextCompletionPrompt(
-            text=messages[-1].text_content,
-            stop_sequences=[],
-            discarded_messages=list(range(len(messages) - 1)),
-        )
+    async def chat(
+        self,
+        consumer: Consumer,
+        params: ModelParameters,
+        messages: List[Message],
+    ) -> None:
 
-    async def predict(
-        self, consumer: Consumer, params: ModelParameters, prompt: str
-    ):
-        args = create_request(prompt)
+        message = validate_last_message(messages)
+        text_prompt, image_resources = parse_message(message, [])
+
+        if image_resources:
+            raise UserError("Image-to-Image is not supported")
+
+        if text_prompt is None:
+            raise ValidationError("Content of the last message is missing")
+
+        args = create_request(text_prompt)
         response, _headers = await self.client.ainvoke_non_streaming(
             self.model, args
         )
