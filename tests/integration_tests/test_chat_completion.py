@@ -77,7 +77,7 @@ class TestCase:
     def get_id(self):
         maxt = f"maxt:{self.max_tokens}" if self.max_tokens else None
         stop = f"stop:{self.stop}" if self.stop else None
-        n_str = f"n:{self.n}" if self.n else None
+        n = f"n:{self.n}" if self.n else None
         temp = f"temp:{self.temperature}" if self.temperature else None
         return sanitize_test_name(
             "/".join(
@@ -87,7 +87,7 @@ class TestCase:
                     self.streaming,
                     maxt,
                     stop,
-                    n_str,
+                    n,
                     temp,
                     self.name,
                 ]
