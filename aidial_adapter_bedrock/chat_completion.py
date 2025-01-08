@@ -20,7 +20,7 @@ from aidial_sdk.deployment.truncate_prompt import (
     TruncatePromptResult,
     TruncatePromptSuccess,
 )
-from aidial_sdk.exceptions import ResourceNotFoundError
+from aidial_sdk.exceptions import HTTPException as DialException
 from typing_extensions import override
 
 from aidial_adapter_bedrock.adapter_deployments import (
@@ -29,17 +29,16 @@ from aidial_adapter_bedrock.adapter_deployments import (
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import (
-    ChatCompletionAdapter,
-    TextCompletionAdapter,
-)
+from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
+from aidial_adapter_bedrock.server.exceptions import (
+    dial_exception_decorator,
+    not_implemented_handler,
+)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
-from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 
 
 class BedrockChatCompletion(ChatCompletion):
@@ -72,11 +71,6 @@ class BedrockChatCompletion(ChatCompletion):
             nonlocal discarded_messages
 
             with ChoiceConsumer(response=response) as consumer:
-                if isinstance(model, TextCompletionAdapter):
-                    consumer.set_tools_emulator(
-                        model.tools_emulator(params.tool_config)
-                    )
-
                 try:
                     await model.chat(consumer, params, request.messages)
                 except UserError as e:
@@ -101,13 +95,9 @@ class BedrockChatCompletion(ChatCompletion):
 
     @override
     @dial_exception_decorator
+    @not_implemented_handler
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
         model = await self._get_model(request)
-
-        if not is_implemented(
-            model.count_completion_tokens
-        ) or not is_implemented(model.count_prompt_tokens):
-            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TokenizeOutput] = []
         for input in request.inputs:
@@ -130,6 +120,12 @@ class BedrockChatCompletion(ChatCompletion):
         try:
             tokens = await model.count_completion_tokens(value)
             return TokenizeSuccess(token_count=tokens)
+        except NotImplementedError:
+            raise
+        except DialException as e:
+            # FIXME: remove when the issue is fixed:
+            # https://github.com/epam/ai-dial-sdk/issues/207
+            return TokenizeError(error=e.message)
         except Exception as e:
             return TokenizeError(error=str(e))
 
@@ -143,18 +139,22 @@ class BedrockChatCompletion(ChatCompletion):
                 params, request.messages
             )
             return TokenizeSuccess(token_count=token_count)
+        except NotImplementedError:
+            raise
+        except DialException as e:
+            # FIXME: remove when the issue is fixed:
+            # https://github.com/epam/ai-dial-sdk/issues/207
+            return TokenizeError(error=e.message)
         except Exception as e:
             return TokenizeError(error=str(e))
 
     @override
     @dial_exception_decorator
+    @not_implemented_handler
     async def truncate_prompt(
         self, request: TruncatePromptRequest
     ) -> TruncatePromptResponse:
         model = await self._get_model(request)
-
-        if not is_implemented(model.compute_discarded_messages):
-            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TruncatePromptResult] = []
         for input in request.inputs:
@@ -177,5 +177,11 @@ class BedrockChatCompletion(ChatCompletion):
             return TruncatePromptSuccess(
                 discarded_messages=discarded_messages or []
             )
+        except NotImplementedError:
+            raise
+        except DialException as e:
+            # FIXME: remove when the issue is fixed:
+            # https://github.com/epam/ai-dial-sdk/issues/207
+            return TruncatePromptError(error=e.message)
         except Exception as e:
             return TruncatePromptError(error=str(e))
