@@ -81,6 +81,7 @@ async def test_model_features(
     tokenize_supported: bool,
     truncate_supported: bool,
 ):
+    payload = {"inputs": []}
     headers = {"Content-Type": "application/json", "Api-Key": "dummy"}
 
     base = f"openai/deployments/{deployment.value}"
@@ -91,17 +92,7 @@ async def test_model_features(
         tokenize_endpoint,
         tokenize_supported,
         headers,
-        {
-            "inputs": [
-                {"type": "string", "value": "test"},
-                {
-                    "type": "request",
-                    "value": {
-                        "messages": [{"role": "user", "content": "test"}]
-                    },
-                },
-            ]
-        },
+        payload,
     )
 
     truncate_endpoint = f"{base}/truncate_prompt"
@@ -110,5 +101,5 @@ async def test_model_features(
         truncate_endpoint,
         truncate_supported,
         headers,
-        {"inputs": [{"messages": [{"role": "user", "content": "test"}]}]},
+        payload,
     )
