@@ -2,7 +2,6 @@ import json
 import re
 from typing import Any, AsyncGenerator, Callable, List, Optional
 
-import httpx
 from aidial_sdk.utils.streaming import merge_chunks
 from openai import AsyncAzureOpenAI, AsyncStream
 from openai._types import NOT_GIVEN
@@ -246,53 +245,6 @@ async def chat_completion(
 
     response = await get_response()
     return ChatCompletionResult(response=response)
-
-
-async def truncate_prompt(
-    client: httpx.AsyncClient,
-    model: str,
-    messages: List[ChatCompletionMessageParam],
-    max_prompt_tokens: Optional[int],
-) -> dict:
-    request: dict = {"messages": messages}
-    if max_prompt_tokens is not None:
-        request["max_prompt_tokens"] = max_prompt_tokens
-
-    request = {"inputs": [request]}
-
-    response = await client.post(
-        url=f"/openai/deployments/{model}/truncate_prompt",
-        json=request,
-        headers={"api-key": "dummy"},
-    )
-
-    response.raise_for_status()
-    return response.json()
-
-
-async def tokenize(
-    client: httpx.AsyncClient,
-    model: str,
-    messages: List[ChatCompletionMessageParam],
-) -> dict:
-
-    request = {
-        "inputs": [
-            {
-                "type": "request",
-                "value": {"messages": messages},
-            }
-        ]
-    }
-
-    response = await client.post(
-        url=f"/openai/deployments/{model}/tokenize",
-        json=request,
-        headers={"api-key": "dummy"},
-    )
-
-    response.raise_for_status()
-    return response.json()
 
 
 GET_WEATHER_FUNCTION: Function = {
