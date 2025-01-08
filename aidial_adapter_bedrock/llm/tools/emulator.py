@@ -55,7 +55,11 @@ class ToolsEmulator(ABC, BaseModel):
         Recognizing function/tool call from a model response.
         """
 
-    def parse_dial_messages(self, messages: List[Message]) -> List[BaseMessage]:
+    def parse_dial_messages(self, messages: List[Message]) -> List[Message]:
         parsed_messages = list(map(parse_dial_message, messages))
         base_messages = self.convert_to_base_messages(parsed_messages)
-        return self.add_tool_declarations(base_messages)
+        base_messages = self.add_tool_declarations(base_messages)
+        dial_messages = [
+            base_message.to_message() for base_message in base_messages
+        ]
+        return dial_messages

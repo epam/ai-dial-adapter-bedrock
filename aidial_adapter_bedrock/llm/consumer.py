@@ -22,6 +22,10 @@ from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 class Consumer(ABC):
     @abstractmethod
+    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
+        pass
+
+    @abstractmethod
     def append_content(self, content: str):
         pass
 

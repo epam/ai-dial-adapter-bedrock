@@ -2,6 +2,7 @@ import json
 import re
 from typing import Any, AsyncGenerator, Callable, List, Optional
 
+import httpx
 from aidial_sdk.utils.streaming import merge_chunks
 from openai import AsyncAzureOpenAI, AsyncStream
 from openai._types import NOT_GIVEN
@@ -149,8 +150,12 @@ def function_to_tool(function: FunctionDefinition) -> ChatCompletionToolParam:
 
 
 def sanitize_test_name(name: str) -> str:
-    name2 = "".join(c if c.isalnum() else "_" for c in name.lower())
-    return re.sub("_+", "_", name2)
+    name = "".join(
+        c if (c.isalnum() or c in "/:") else "_" for c in name.lower()
+    )
+    name = re.sub("_+", "_", name)
+    name = re.sub("/+", "/", name)
+    return name
 
 
 class ChatCompletionResult(BaseModel):
@@ -207,12 +212,17 @@ async def chat_completion(
     stream: bool,
     stop: Optional[List[str]],
     max_tokens: Optional[int],
+    max_prompt_tokens: Optional[int],
     n: Optional[int],
     functions: List[Function] | None,
     tools: List[ChatCompletionToolParam] | None,
     temperature: float = 0.0,
 ) -> ChatCompletionResult:
     async def get_response() -> ChatCompletion:
+        extra_body = {}
+        if max_prompt_tokens is not None:
+            extra_body["max_prompt_tokens"] = max_prompt_tokens
+
         response = await client.chat.completions.create(
             model="dummy_model",
             messages=messages,
@@ -225,6 +235,7 @@ async def chat_completion(
             functions=functions or NOT_GIVEN,
             tool_choice="auto" if tools is not None else NOT_GIVEN,
             tools=tools or NOT_GIVEN,
+            extra_body=extra_body,
         )
 
         if isinstance(response, AsyncStream):
@@ -243,6 +254,53 @@ async def chat_completion(
 
     response = await get_response()
     return ChatCompletionResult(response=response)
+
+
+async def truncate_prompt(
+    client: httpx.AsyncClient,
+    model: str,
+    messages: List[ChatCompletionMessageParam],
+    max_prompt_tokens: Optional[int],
+) -> dict:
+    request: dict = {"messages": messages}
+    if max_prompt_tokens is not None:
+        request["max_prompt_tokens"] = max_prompt_tokens
+
+    request = {"inputs": [request]}
+
+    response = await client.post(
+        url=f"/openai/deployments/{model}/truncate_prompt",
+        json=request,
+        headers={"api-key": "dummy"},
+    )
+
+    response.raise_for_status()
+    return response.json()
+
+
+async def tokenize(
+    client: httpx.AsyncClient,
+    model: str,
+    messages: List[ChatCompletionMessageParam],
+) -> dict:
+
+    request = {
+        "inputs": [
+            {
+                "type": "request",
+                "value": {"messages": messages},
+            }
+        ]
+    }
+
+    response = await client.post(
+        url=f"/openai/deployments/{model}/tokenize",
+        json=request,
+        headers={"api-key": "dummy"},
+    )
+
+    response.raise_for_status()
+    return response.json()
 
 
 GET_WEATHER_FUNCTION: Function = {

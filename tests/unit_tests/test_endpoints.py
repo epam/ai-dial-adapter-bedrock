@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from tests.utils.validation import check_enum_completeness
 
 test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
@@ -55,6 +56,9 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
 ]
 
 
+check_enum_completeness([model for model, _, _ in test_cases])
+
+
 async def assert_feature(
     http_client: httpx.AsyncClient,
     endpoint: str,
@@ -77,7 +81,6 @@ async def test_model_features(
     tokenize_supported: bool,
     truncate_supported: bool,
 ):
-    payload = {"inputs": []}
     headers = {"Content-Type": "application/json", "Api-Key": "dummy"}
 
     base = f"openai/deployments/{deployment.value}"
@@ -88,7 +91,17 @@ async def test_model_features(
         tokenize_endpoint,
         tokenize_supported,
         headers,
-        payload,
+        {
+            "inputs": [
+                {"type": "string", "value": "test"},
+                {
+                    "type": "request",
+                    "value": {
+                        "messages": [{"role": "user", "content": "test"}]
+                    },
+                },
+            ]
+        },
     )
 
     truncate_endpoint = f"{base}/truncate_prompt"
@@ -97,5 +110,5 @@ async def test_model_features(
         truncate_endpoint,
         truncate_supported,
         headers,
-        payload,
+        {"inputs": [{"messages": [{"role": "user", "content": "test"}]}]},
     )

@@ -2,7 +2,6 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel, Field
-from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
@@ -13,12 +12,27 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
+    post_process_completion_stream,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    PseudoChatModel,
+    ChatCompletionAdapter,
+    TextCompletionAdapter,
+    default_preprocess_messages,
+    keep_last_and_system_messages_dial,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
+    tools_emulator_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
+    truncate_prompt_decorator,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
@@ -137,31 +151,35 @@ cohere_emulator = BasicChatEmulator(
 )
 
 
-class CohereAdapter(PseudoChatModel):
+def _preprocess_cohere_messages(messages: List[Message]) -> List[Message]:
+    messages = default_preprocess_messages(messages)
+
+    # Cohere doesn't support empty messages,
+    # so replace it with a single space.
+    for msg in messages:
+        msg.content = msg.content or " "
+
+    return messages
+
+
+def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
+    return compose_decorators(
+        tools_emulator_decorator(default_tools_emulator),
+        preprocess_messages_decorator(_preprocess_cohere_messages),
+        truncate_prompt_decorator(
+            keep_message=keep_last_and_system_messages_dial,
+            partitioner=trivial_partitioner,
+        ),
+    )(
+        pseudo_chat_adapter(cohere_emulator)(
+            CohereAdapter(client=client, model=model)
+        )
+    )
+
+
+class CohereAdapter(TextCompletionAdapter):
     model: str
     client: Bedrock
-
-    @classmethod
-    def create(cls, client: Bedrock, model: str):
-        return cls(
-            client=client,
-            model=model,
-            tokenize_string=default_tokenize_string,
-            chat_emulator=cohere_emulator,
-            tools_emulator=default_tools_emulator,
-            partitioner=trivial_partitioner,
-        )
-
-    @override
-    def preprocess_messages(self, messages: List[Message]) -> List[Message]:
-        messages = super().preprocess_messages(messages)
-
-        # Cohere doesn't support empty messages,
-        # so replace it with a single space.
-        for msg in messages:
-            msg.content = msg.content or " "
-
-        return messages
 
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
@@ -179,10 +197,18 @@ class CohereAdapter(PseudoChatModel):
             )
             stream = response_to_stream(response, usage)
 
-        stream = self.post_process_stream(stream, params, self.chat_emulator)
+        stream = post_process_completion_stream(stream, params, cohere_emulator)
 
         async for content in stream:
             consumer.append_content(content)
         consumer.close_content()
 
         consumer.add_usage(usage)
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return default_tokenize_string(string)
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, prompt: str
+    ) -> int:
+        return default_tokenize_string(prompt)
