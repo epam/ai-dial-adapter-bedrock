@@ -20,6 +20,7 @@ from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
 from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
     preprocess_messages_decorator,
 )
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
     tools_emulator_decorator,
 )
@@ -96,8 +97,9 @@ def create_adapter(
     client: Bedrock, model: str, api_key: str
 ) -> ChatCompletionAdapter:
     return compose_decorators(
-        tools_emulator_decorator(default_tools_emulator),
         preprocess_messages_decorator(default_preprocess_messages),
+        replicator_decorator(),
+        tools_emulator_decorator(default_tools_emulator),
     )(StabilityV1Adapter.create(client, model, api_key))
 
 

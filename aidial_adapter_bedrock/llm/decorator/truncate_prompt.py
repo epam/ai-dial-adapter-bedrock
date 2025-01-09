@@ -36,12 +36,13 @@ class TruncatePromptDecorator(ChatCompletionDecorator):
         messages: List[Message],
         consumer: Consumer | None = None,
     ) -> Tuple[ModelParameters, List[Message], DiscardedMessages | None]:
-        async def _tokenize_messages(msgs: List[Message]) -> int:
+
+        async def _tokenizer(msgs: List[Message]) -> int:
             return await self.count_prompt_tokens(params, msgs)
 
         discarded_messages, messages = await truncate_prompt(
             messages=messages,
-            tokenizer=_tokenize_messages,
+            tokenizer=_tokenizer,
             keep_message=self.keep_message,
             partitioner=self.partitioner,
             model_limit=None,

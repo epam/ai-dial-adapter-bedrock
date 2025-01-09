@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import Optional, assert_never
+from typing import ContextManager, Optional, Self, assert_never
 
 from aidial_sdk.chat_completion import (
     Attachment,
@@ -20,9 +22,9 @@ from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
-class Consumer(ABC):
+class Consumer(ContextManager["Consumer"], ABC):
     @abstractmethod
-    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
+    def set_tools_emulator(self, emulator: ToolsEmulator):
         pass
 
     @abstractmethod
@@ -42,17 +44,25 @@ class Consumer(ABC):
         pass
 
     @abstractmethod
+    def get_usage(self) -> TokenUsage:
+        pass
+
+    @abstractmethod
     def set_discarded_messages(
-        self, discarded_messages: Optional[DiscardedMessages]
+        self, discarded_messages: DiscardedMessages | None
     ):
         pass
 
     @abstractmethod
-    def create_function_tool_call(self, tool_call: ToolCall):
+    def get_discarded_messages(self) -> DiscardedMessages | None:
         pass
 
     @abstractmethod
-    def create_function_call(self, function_call: FunctionCall):
+    def create_function_tool_call(self, call: ToolCall):
+        pass
+
+    @abstractmethod
+    def create_function_call(self, call: FunctionCall):
         pass
 
     @property
@@ -60,10 +70,15 @@ class Consumer(ABC):
     def has_function_call(self) -> bool:
         pass
 
+    @abstractmethod
+    def clone(self) -> Self:
+        pass
+
 
 class ChoiceConsumer(Consumer):
-    usage: TokenUsage
     response: Response
+
+    usage: TokenUsage
     _choice: Optional[Choice]
     discarded_messages: Optional[DiscardedMessages]
     tools_emulator: Optional[ToolsEmulator]
@@ -74,6 +89,9 @@ class ChoiceConsumer(Consumer):
         self.usage = TokenUsage()
         self.discarded_messages = None
         self.tools_emulator = None
+
+    def clone(self) -> ChoiceConsumer:
+        return ChoiceConsumer(self.response)
 
     @property
     def choice(self) -> Choice:
@@ -87,7 +105,13 @@ class ChoiceConsumer(Consumer):
         else:
             return self._choice
 
-    def __enter__(self):
+    def get_usage(self) -> TokenUsage:
+        return self.usage
+
+    def get_discarded_messages(self) -> DiscardedMessages | None:
+        return self.discarded_messages
+
+    def __enter__(self) -> ChoiceConsumer:
         return self
 
     def __exit__(
@@ -100,8 +124,8 @@ class ChoiceConsumer(Consumer):
             self._choice.close()
         return False
 
-    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
-        self.tools_emulator = tools_emulator
+    def set_tools_emulator(self, emulator: ToolsEmulator):
+        self.tools_emulator = emulator
 
     def _process_content(
         self, content: str | None, finish_reason: FinishReason | None = None
@@ -148,22 +172,23 @@ class ChoiceConsumer(Consumer):
         self.usage.accumulate(usage)
 
     def set_discarded_messages(
-        self, discarded_messages: Optional[DiscardedMessages]
+        self, discarded_messages: DiscardedMessages | None
     ):
         self.discarded_messages = discarded_messages
 
-    def create_function_tool_call(self, tool_call: ToolCall):
+    def create_function_tool_call(self, call: ToolCall):
         self.choice.create_function_tool_call(
-            id=tool_call.id,
-            name=tool_call.function.name,
-            arguments=tool_call.function.arguments,
+            id=call.id,
+            name=call.function.name,
+            arguments=call.function.arguments,
         )
 
-    def create_function_call(self, function_call: FunctionCall):
+    def create_function_call(self, call: FunctionCall):
         self.choice.create_function_call(
-            name=function_call.name, arguments=function_call.arguments
+            name=call.name,
+            arguments=call.arguments,
         )
 
     @property
     def has_function_call(self) -> bool:
-        return self.choice.has_function_call
+        return self._choice is not None and self._choice.has_function_call

@@ -9,7 +9,6 @@ from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters,
     collect_text_content,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class ChatEmulator(ABC, BaseModel):
@@ -26,17 +25,6 @@ class CueMapping(TypedDict):
     system: Optional[str]
     human: Optional[str]
     ai: Optional[str]
-
-
-class OneShotChatEmulator(ChatEmulator):
-    def display(self, messages: List[Message]) -> Tuple[str, List[str]]:
-        if len(messages) == 0:
-            raise ValidationError("List of messages must not be empty")
-
-        return collect_text_content(messages[-1].content), []
-
-    def get_ai_cue(self) -> Optional[str]:
-        return None
 
 
 class BasicChatEmulator(ChatEmulator):

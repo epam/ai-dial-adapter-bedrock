@@ -3,6 +3,7 @@ from typing import assert_never
 import aidial_adapter_bedrock.llm.model.ai21 as ai21
 import aidial_adapter_bedrock.llm.model.amazon as amazon
 import aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter as claude_v1_v2
+import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
 import aidial_adapter_bedrock.llm.model.cohere as cohere
 import aidial_adapter_bedrock.llm.model.stability.v1 as stability_v1
 from aidial_adapter_bedrock.adapter_deployments import (
@@ -36,9 +37,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
-    Adapter as Claude_V3,
-)
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
 
@@ -72,11 +71,12 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
-            return Claude_V3.create(
+            return claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
                 api_key,
                 aws_client_config,
             )
+
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
@@ -105,20 +105,24 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
         ):
-            return StabilityV2Adapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
-                api_key,
-                image_to_image_supported=False,
+            return replicator_decorator()(
+                StabilityV2Adapter.create(
+                    await Bedrock.acreate(aws_client_config),
+                    model,
+                    api_key,
+                    image_to_image_supported=False,
+                )
             )
         case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
-            return StabilityV2Adapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
-                api_key,
-                image_to_image_supported=True,
-                image_width_constraints=(640, 1536),
-                image_height_constraints=(640, 1536),
+            return replicator_decorator()(
+                StabilityV2Adapter.create(
+                    await Bedrock.acreate(aws_client_config),
+                    model,
+                    api_key,
+                    image_to_image_supported=True,
+                    image_width_constraints=(640, 1536),
+                    image_height_constraints=(640, 1536),
+                )
             )
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return amazon.create_adapter(

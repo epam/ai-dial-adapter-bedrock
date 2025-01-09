@@ -1,5 +1,4 @@
-import asyncio
-from typing import List, Optional, assert_never
+from typing import List, assert_never
 
 from aidial_sdk.chat_completion import ChatCompletion, Request, Response
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
@@ -28,12 +27,10 @@ from aidial_adapter_bedrock.adapter_deployments import (
 )
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
-from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.server.exceptions import (
     dial_exception_decorator,
     not_implemented_handler,
@@ -65,31 +62,19 @@ class BedrockChatCompletion(ChatCompletion):
         model = await self._get_model(request)
         params = ModelParameters.create(request)
 
-        discarded_messages: Optional[DiscardedMessages] = None
+        with ChoiceConsumer(response) as consumer:
+            try:
+                await model.chat(consumer, params, request.messages)
+            except UserError as e:
+                await e.report_usage(consumer.choice)
+                await response.aflush()
+                raise e
 
-        async def generate_response(usage: TokenUsage) -> None:
-            nonlocal discarded_messages
-
-            with ChoiceConsumer(response=response) as consumer:
-                try:
-                    await model.chat(consumer, params, request.messages)
-                except UserError as e:
-                    await e.report_usage(consumer.choice)
-                    await response.aflush()
-                    raise e
-
-                usage.accumulate(consumer.usage)
-                discarded_messages = consumer.discarded_messages
-
-        usage = TokenUsage()
-
-        await asyncio.gather(
-            *(generate_response(usage) for _ in range(request.n or 1))
-        )
-
+        usage = consumer.get_usage()
         log.debug(f"usage: {usage}")
         response.set_usage(usage.prompt_tokens, usage.completion_tokens)
 
+        discarded_messages = consumer.get_discarded_messages()
         if discarded_messages is not None:
             response.set_discarded_messages(discarded_messages)
 

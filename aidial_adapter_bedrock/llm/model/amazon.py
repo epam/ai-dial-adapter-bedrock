@@ -23,6 +23,7 @@ from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
     preprocess_messages_decorator,
 )
 from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
     tools_emulator_decorator,
 )
@@ -130,12 +131,13 @@ def _preprocess_amazon_messages(messages: List[Message]) -> List[Message]:
 
 def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
     return compose_decorators(
-        tools_emulator_decorator(default_tools_emulator),
         preprocess_messages_decorator(_preprocess_amazon_messages),
         truncate_prompt_decorator(
             keep_message=keep_last_and_system_messages_dial,
             partitioner=trivial_partitioner,
         ),
+        replicator_decorator(),
+        tools_emulator_decorator(default_tools_emulator),
     )(
         # TODO: To use conversational mode on Titan, you can use the format of User: {{}} \n Bot: when prompting the model.
         # See the note at the end of: https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-a-prompt.html

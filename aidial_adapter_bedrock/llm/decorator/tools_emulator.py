@@ -24,7 +24,6 @@ def tools_emulator_decorator(
 class ToolsEmulatorDecorator(ChatCompletionDecorator):
     tools_emulator: Callable[[ToolsConfig], ToolsEmulator]
 
-    # TODO: express via a OnInput decorator
     def _on_input(
         self,
         params: ModelParameters,

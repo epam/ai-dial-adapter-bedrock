@@ -28,6 +28,7 @@ from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
     preprocess_messages_decorator,
 )
 from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
     tools_emulator_decorator,
 )
@@ -120,11 +121,12 @@ async def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
 
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
-        tools_emulator_decorator(tools_emulator),
         truncate_prompt_decorator(
             keep_message=keep_last_and_system_messages_dial,
             partitioner=trivial_partitioner,
         ),
+        replicator_decorator(),
+        tools_emulator_decorator(tools_emulator),
     )(pseudo_chat_adapter(chat_emulator)(await Adapter.create(client, model)))
 
 
