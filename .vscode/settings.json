@@ -7,6 +7,9 @@
     },
     "editor.tabSize": 4
   },
+  "[toml]": {
+    "editor.formatOnSave": true,
+  },
   "python.testing.pytestArgs": [
     "."
   ],
