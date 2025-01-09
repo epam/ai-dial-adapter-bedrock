@@ -149,8 +149,10 @@ def function_to_tool(function: FunctionDefinition) -> ChatCompletionToolParam:
 
 
 def sanitize_test_name(name: str) -> str:
-    name2 = "".join(c if c.isalnum() else "_" for c in name.lower())
-    return re.sub("_+", "_", name2)
+    name = "".join(
+        c if (c.isalnum() or c in "/:") else "_" for c in name.lower()
+    )
+    return re.sub("_+", "_", name)
 
 
 class ChatCompletionResult(BaseModel):

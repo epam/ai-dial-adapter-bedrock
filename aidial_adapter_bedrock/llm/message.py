@@ -64,8 +64,6 @@ class SystemMessage(BaseMessageABC):
 
 
 class HumanRegularMessage(BaseMessageABC):
-    """MM stands for multi-modal"""
-
     content: str | List[MessageContentPart]
     custom_content: Optional[CustomContent] = None
 

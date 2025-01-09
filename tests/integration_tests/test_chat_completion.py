@@ -75,13 +75,24 @@ class TestCase:
     temperature: float = 0.0
 
     def get_id(self):
-        max_tokens_str = f"maxt={self.max_tokens}" if self.max_tokens else ""
-        stop_sequence_str = f"stop={self.stop}" if self.stop else ""
-        n_str = f"n={self.n}" if self.n else ""
-        temperature_str = f"temp={self.temperature}" if self.temperature else ""
+        maxt = f"maxt:{self.max_tokens}" if self.max_tokens else None
+        stop = f"stop:{self.stop}" if self.stop else None
+        n = f"n:{self.n}" if self.n else None
+        temp = f"temp:{self.temperature}" if self.temperature else None
         return sanitize_test_name(
-            f"{self.deployment.value} {self.streaming} {max_tokens_str} "
-            f"{stop_sequence_str} {n_str} {temperature_str} {self.name}"
+            "/".join(
+                str(part)
+                for part in [
+                    self.deployment.value,
+                    self.streaming,
+                    maxt,
+                    stop,
+                    n,
+                    temp,
+                    self.name,
+                ]
+                if part is not None
+            )
         )
 
 
