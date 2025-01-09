@@ -2,26 +2,22 @@
 name = "aidial-adapter-bedrock"
 version = "0.21.0rc"
 description = "DIAL adapter for AWS Bedrock"
-authors = [
-    { name = "EPAM RAIL", email = "SpecialEPM-DIALDevTeam@epam.com" },
-]
+authors = [{ name = "EPAM RAIL", email = "SpecialEPM-DIALDevTeam@epam.com" }]
 homepage = "https://epam-rail.com"
 documentation = "https://epam-rail.com/dial_api"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = ["ai"]
-classifiers = [
-    "Topic :: Software Development :: Libraries :: Python Modules"
-]
+classifiers = ["Topic :: Software Development :: Libraries :: Python Modules"]
 repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
-dynamic = [ "dependencies", "requires-python" ]
+dynamic = ["dependencies", "requires-python"]
 
 [tool.poetry.dependencies]
 python = "^3.11,<4.0"
 boto3 = "1.35.41"
 botocore = "1.35.41"
-aidial-sdk = {version = "0.16.0", extras = ["telemetry"]}
-anthropic = {version = "0.28.1", extras = ["bedrock"]}
+aidial-sdk = { version = "0.16.0", extras = ["telemetry"] }
+anthropic = { version = "0.28.1", extras = ["bedrock"] }
 fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
@@ -58,19 +54,14 @@ generate_report_on_test = true
 env_override_existing_values = 1
 # muting warnings coming from opentelemetry package
 filterwarnings = [
-    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies"
+    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
 ]
 
 [tool.pyright]
 typeCheckingMode = "basic"
 reportUnusedVariable = "error"
 reportIncompatibleMethodOverride = "error"
-exclude = [
-    ".git",
-    ".venv",
-    ".nox",
-    "**/__pycache__"
-]
+exclude = [".git", ".venv", ".nox", "**/__pycache__"]
 
 [tool.black]
 line-length = 80
@@ -93,7 +84,4 @@ remove_all_unused_imports = true
 in_place = true
 recursive = true
 quiet = true
-exclude = [
-    "\\.venv",
-    "\\.nox",
-]
+exclude = ["\\.venv", "\\.nox"]
