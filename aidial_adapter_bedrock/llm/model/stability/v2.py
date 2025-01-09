@@ -1,14 +1,7 @@
 from io import BytesIO
-from typing import List, Optional, Tuple, assert_never
+from typing import List, Optional, Tuple
 
-from aidial_sdk.chat_completion import (
-    Attachment,
-    Message,
-    MessageContentImagePart,
-    MessageContentTextPart,
-    Role,
-)
-from aidial_sdk.chat_completion.request import ImageURL
+from aidial_sdk.chat_completion import Attachment, Message
 from aidial_sdk.exceptions import RequestValidationError
 from PIL import Image
 from pydantic import BaseModel
@@ -16,10 +9,8 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.resource import (
-    AttachmentResource,
     DialResource,
     UnsupportedContentType,
-    URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -29,6 +20,10 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
+from aidial_adapter_bedrock.llm.model.stability.message import (
+    parse_message,
+    validate_last_message,
+)
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.json import remove_nones
@@ -78,16 +73,6 @@ def _validate_image_size(
                     display_message=error_msg,
                     code="invalid_argument",
                 )
-
-
-def _validate_last_message(messages: List[Message]):
-    if not messages:
-        raise ValidationError("No messages provided")
-
-    last_message = messages[-1]
-    if last_message.role != Role.USER:
-        raise ValidationError("Last message must be from user")
-    return last_message
 
 
 class StabilityV2Response(BaseModel):
@@ -160,7 +145,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
     async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
     ) -> DiscardedMessages | None:
-        _validate_last_message(messages)
+        validate_last_message(messages)
         return list(range(len(messages) - 1))
 
     async def chat(
@@ -170,51 +155,10 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         messages: List[Message],
     ) -> None:
 
-        text_prompt = None
-        image_resources: List[DialResource] = []
-        last_message = _validate_last_message(messages)
-        # Handle text content
-        match last_message.content:
-            case str(text):
-                text_prompt = text
-            case list():
-                text_parts = []
-
-                for part in last_message.content:
-                    match part:
-                        case MessageContentTextPart(text=text):
-                            text_parts.append(text)
-                        case MessageContentImagePart(
-                            image_url=ImageURL(url=url)
-                        ):
-                            image_resources.append(
-                                URLResource(
-                                    url=url,
-                                    supported_types=SUPPORTED_IMAGE_TYPES,
-                                )
-                            )
-                        case _:
-                            assert_never(part)
-                if text_parts:
-                    text_prompt = " ".join(text_parts)
-            case None:
-                pass
-            case _:
-                assert_never(last_message.content)
-
-        if (
-            last_message.custom_content
-            and last_message.custom_content.attachments
-        ):
-            image_resources.extend(
-                [
-                    AttachmentResource(
-                        attachment=attachment,
-                        supported_types=SUPPORTED_IMAGE_TYPES,
-                    )
-                    for attachment in last_message.custom_content.attachments
-                ]
-            )
+        message = validate_last_message(messages)
+        text_prompt, image_resources = parse_message(
+            message, SUPPORTED_IMAGE_TYPES
+        )
 
         if not self.image_to_image_supported and image_resources:
             raise UserError("Image-to-Image is not supported")

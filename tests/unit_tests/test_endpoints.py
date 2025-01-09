@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from tests.utils.validation import check_enum_completeness
 
 test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE, True, True),
@@ -53,6 +54,9 @@ test_cases: List[Tuple[ChatCompletionDeployment, bool, bool]] = [
     (ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14, True, True),
     (ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14, True, True),
 ]
+
+
+check_enum_completeness([model for model, _, _ in test_cases])
 
 
 async def assert_feature(

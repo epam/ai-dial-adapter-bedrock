@@ -153,9 +153,7 @@ def sanitize_test_name(name: str) -> str:
     name = "".join(
         c if (c.isalnum() or c in "/:") else "_" for c in name.lower()
     )
-    name = re.sub("_+", "_", name)
-    name = re.sub("/+", "/", name)
-    return name
+    return re.sub("_+", "_", name)
 
 
 class ChatCompletionResult(BaseModel):
