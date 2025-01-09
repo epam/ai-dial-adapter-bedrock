@@ -24,7 +24,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 class Consumer(ContextManager["Consumer"], ABC):
     @abstractmethod
-    def set_tools_emulator(self, emulator: ToolsEmulator):
+    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
         pass
 
     @abstractmethod
@@ -49,20 +49,20 @@ class Consumer(ContextManager["Consumer"], ABC):
 
     @abstractmethod
     def set_discarded_messages(
-        self, discarded_messages: DiscardedMessages | None
+        self, discarded_messages: Optional[DiscardedMessages]
     ):
         pass
 
     @abstractmethod
-    def get_discarded_messages(self) -> DiscardedMessages | None:
+    def get_discarded_messages(self) -> Optional[DiscardedMessages]:
         pass
 
     @abstractmethod
-    def create_function_tool_call(self, call: ToolCall):
+    def create_function_tool_call(self, tool_call: ToolCall):
         pass
 
     @abstractmethod
-    def create_function_call(self, call: FunctionCall):
+    def create_function_call(self, function_call: FunctionCall):
         pass
 
     @property
@@ -124,8 +124,8 @@ class ChoiceConsumer(Consumer):
             self._choice.close()
         return False
 
-    def set_tools_emulator(self, emulator: ToolsEmulator):
-        self.tools_emulator = emulator
+    def set_tools_emulator(self, tools_emulator: ToolsEmulator):
+        self.tools_emulator = tools_emulator
 
     def _process_content(
         self, content: str | None, finish_reason: FinishReason | None = None
@@ -172,21 +172,20 @@ class ChoiceConsumer(Consumer):
         self.usage.accumulate(usage)
 
     def set_discarded_messages(
-        self, discarded_messages: DiscardedMessages | None
+        self, discarded_messages: Optional[DiscardedMessages]
     ):
         self.discarded_messages = discarded_messages
 
-    def create_function_tool_call(self, call: ToolCall):
+    def create_function_tool_call(self, tool_call: ToolCall):
         self.choice.create_function_tool_call(
-            id=call.id,
-            name=call.function.name,
-            arguments=call.function.arguments,
+            id=tool_call.id,
+            name=tool_call.function.name,
+            arguments=tool_call.function.arguments,
         )
 
-    def create_function_call(self, call: FunctionCall):
+    def create_function_call(self, function_call: FunctionCall):
         self.choice.create_function_call(
-            name=call.name,
-            arguments=call.arguments,
+            name=function_call.name, arguments=function_call.arguments
         )
 
     @property

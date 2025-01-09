@@ -43,14 +43,13 @@ class ConverseAdapterFactory(BaseModel):
             if tools_support == ToolsSupport.NON_STREAMING_ONLY
             else ConverseAdapter
         )
-        return replicator_decorator()(
-            cls(
-                deployment=self.deployment,
-                bedrock=await Bedrock.acreate(self.aws_client_config),
-                storage=create_file_storage(self.api_key),
-                input_tokenizer_factory=default_converse_tokenizer_factory,
-                support_tools=tools_support != ToolsSupport.NONE,
-                supported_image_types=supported_image_types or [],
-                supported_document_types=supported_document_types or [],
-            )
+        model = cls(
+            deployment=self.deployment,
+            bedrock=await Bedrock.acreate(self.aws_client_config),
+            storage=create_file_storage(self.api_key),
+            input_tokenizer_factory=default_converse_tokenizer_factory,
+            support_tools=tools_support != ToolsSupport.NONE,
+            supported_image_types=supported_image_types or [],
+            supported_document_types=supported_document_types or [],
         )
+        return replicator_decorator()(model)

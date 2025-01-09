@@ -105,25 +105,23 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
         ):
-            return replicator_decorator()(
-                StabilityV2Adapter.create(
-                    await Bedrock.acreate(aws_client_config),
-                    model,
-                    api_key,
-                    image_to_image_supported=False,
-                )
+            model = StabilityV2Adapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                api_key,
+                image_to_image_supported=False,
             )
+            return replicator_decorator()(model)
         case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
-            return replicator_decorator()(
-                StabilityV2Adapter.create(
-                    await Bedrock.acreate(aws_client_config),
-                    model,
-                    api_key,
-                    image_to_image_supported=True,
-                    image_width_constraints=(640, 1536),
-                    image_height_constraints=(640, 1536),
-                )
+            model = StabilityV2Adapter.create(
+                await Bedrock.acreate(aws_client_config),
+                model,
+                api_key,
+                image_to_image_supported=True,
+                image_width_constraints=(640, 1536),
+                image_height_constraints=(640, 1536),
             )
+            return replicator_decorator()(model)
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return amazon.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
