@@ -3,37 +3,44 @@ IMAGE_NAME ?= ai-dial-adapter-bedrock
 PLATFORM ?= linux/amd64
 DEV_PYTHON ?= 3.11
 DOCKER ?= docker
+VENV ?= .venv
+POETRY ?= ${VENV}/bin/poetry
+POETRY_VERSION ?= 1.8.5
 ARGS=
 
-.PHONY: all install build serve clean lint format test integration_tests docker_build docker_run
+.PHONY: all init_env install build serve clean lint format test integration_tests docker_build docker_run
 
 all: build
 
-install:
-	poetry env use python$(DEV_PYTHON)
-	poetry install
+init_env:
+	python -m venv ${VENV}
+	${VENV}/bin/pip install poetry==${POETRY_VERSION} --quiet
+
+install: init_env
+	${POETRY} env use python$(DEV_PYTHON)
+	${POETRY} install
 
 build: install
-	poetry build
+	${POETRY} build
 
 serve: install
-	poetry run uvicorn "aidial_adapter_bedrock.app:app" --reload --host "0.0.0.0" --port $(PORT) --workers=1 --env-file ./.env
+	${POETRY} run uvicorn "aidial_adapter_bedrock.app:app" --reload --host "0.0.0.0" --port $(PORT) --workers=1 --env-file ./.env
 
 clean:
-	poetry run python -m scripts.clean
-	poetry env remove --all
+	${POETRY} run python -m scripts.clean
+	${POETRY} env remove --all
 
 lint: install
-	poetry run nox -s lint
+	${POETRY} run nox -s lint
 
 format: install
-	poetry run nox -s format
+	${POETRY} run nox -s format
 
 test: install
-	poetry run nox -s test
+	${POETRY} run nox -s test
 
 integration_tests: install
-	poetry run nox -s integration_tests
+	${POETRY} run nox -s integration_tests
 
 docker_test:
 	$(DOCKER) build --platform $(PLATFORM) -f Dockerfile.test -t $(IMAGE_NAME):test .
