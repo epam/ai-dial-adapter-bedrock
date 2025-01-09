@@ -210,17 +210,12 @@ async def chat_completion(
     stream: bool,
     stop: Optional[List[str]],
     max_tokens: Optional[int],
-    max_prompt_tokens: Optional[int],
     n: Optional[int],
     functions: List[Function] | None,
     tools: List[ChatCompletionToolParam] | None,
     temperature: float = 0.0,
 ) -> ChatCompletionResult:
     async def get_response() -> ChatCompletion:
-        extra_body = {}
-        if max_prompt_tokens is not None:
-            extra_body["max_prompt_tokens"] = max_prompt_tokens
-
         response = await client.chat.completions.create(
             model="dummy_model",
             messages=messages,
@@ -233,7 +228,6 @@ async def chat_completion(
             functions=functions or NOT_GIVEN,
             tool_choice="auto" if tools is not None else NOT_GIVEN,
             tools=tools or NOT_GIVEN,
-            extra_body=extra_body,
         )
 
         if isinstance(response, AsyncStream):

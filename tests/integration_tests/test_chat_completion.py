@@ -644,7 +644,6 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
             test.streaming,
             test.stop,
             test.max_tokens,
-            None,
             test.n,
             test.functions,
             test.tools,
