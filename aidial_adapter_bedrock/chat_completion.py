@@ -20,7 +20,6 @@ from aidial_sdk.deployment.truncate_prompt import (
     TruncatePromptResult,
     TruncatePromptSuccess,
 )
-from aidial_sdk.exceptions import HTTPException as DialException
 from typing_extensions import override
 
 from aidial_adapter_bedrock.adapter_deployments import (
@@ -130,10 +129,6 @@ class BedrockChatCompletion(ChatCompletion):
             return TokenizeSuccess(token_count=tokens)
         except NotImplementedError:
             raise
-        except DialException as e:
-            # FIXME: remove when the issue is fixed:
-            # https://github.com/epam/ai-dial-sdk/issues/207
-            return TokenizeError(error=e.message)
         except Exception as e:
             return TokenizeError(error=str(e))
 
@@ -149,10 +144,6 @@ class BedrockChatCompletion(ChatCompletion):
             return TokenizeSuccess(token_count=token_count)
         except NotImplementedError:
             raise
-        except DialException as e:
-            # FIXME: remove when the issue is fixed:
-            # https://github.com/epam/ai-dial-sdk/issues/207
-            return TokenizeError(error=e.message)
         except Exception as e:
             return TokenizeError(error=str(e))
 
@@ -187,9 +178,5 @@ class BedrockChatCompletion(ChatCompletion):
             )
         except NotImplementedError:
             raise
-        except DialException as e:
-            # FIXME: remove when the issue is fixed:
-            # https://github.com/epam/ai-dial-sdk/issues/207
-            return TruncatePromptError(error=e.message)
         except Exception as e:
             return TruncatePromptError(error=str(e))
