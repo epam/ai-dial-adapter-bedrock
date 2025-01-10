@@ -30,6 +30,8 @@ async def test_http_client():
     async with httpx.AsyncClient(
         transport=ASGITransport(app),  # type: ignore
         base_url="http://test-app.com",
+        params={"api-version": "dummy-version"},
+        headers={"api-key": "dummy-key"},
     ) as client:
         yield client
 
@@ -43,8 +45,8 @@ def get_openai_client(test_http_client: httpx.AsyncClient):
         return AsyncAzureOpenAI(
             azure_endpoint=str(test_http_client.base_url),
             azure_deployment=deployment_id,
-            api_version="",
-            api_key="dummy_key",
+            api_version="dummy-version",
+            api_key="dummy-key",
             max_retries=0,
             timeout=30,
             http_client=test_http_client,

@@ -315,6 +315,13 @@ def get_test_cases(
     )
 
     test_case(
+        name="model field",
+        messages=[user("test")],
+        max_tokens=1,
+        expected=lambda s: s.response.model == deployment.value,
+    )
+
+    test_case(
         name="2+3=5",
         messages=[user("compute (2+3)")],
         expected=lambda s: "5" in s.content,
