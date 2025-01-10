@@ -16,7 +16,6 @@ def replicator_decorator() -> ChatCompletionTransformer:
 
 
 class ReplicatorDecorator(ChatCompletionDecorator):
-
     async def chat(
         self,
         consumer: Consumer,
@@ -27,11 +26,7 @@ class ReplicatorDecorator(ChatCompletionDecorator):
         params1.n = 1
 
         async def _chat(root_consumer: Consumer):
-            with root_consumer.clone() as consumer:
+            with root_consumer.fork() as consumer:
                 await self.adapter.chat(consumer, params1, messages)
-                root_consumer.add_usage(consumer.get_usage())
-                root_consumer.set_discarded_messages(
-                    consumer.get_discarded_messages()
-                )
 
         await asyncio.gather(*(_chat(consumer) for _ in range(params.n)))

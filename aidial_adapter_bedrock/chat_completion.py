@@ -70,13 +70,7 @@ class BedrockChatCompletion(ChatCompletion):
                 await response.aflush()
                 raise e
 
-        usage = consumer.get_usage()
-        log.debug(f"usage: {usage}")
-        response.set_usage(usage.prompt_tokens, usage.completion_tokens)
-
-        discarded_messages = consumer.get_discarded_messages()
-        if discarded_messages is not None:
-            response.set_discarded_messages(discarded_messages)
+        log.debug(f"usage: {consumer.usage}")
 
     @override
     @dial_exception_decorator
