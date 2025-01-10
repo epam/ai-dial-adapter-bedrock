@@ -23,10 +23,6 @@ class Consumer(ContextManager, ABC):
 
     @property
     @abstractmethod
-    def root(self) -> Consumer: ...
-
-    @property
-    @abstractmethod
     def choice(self) -> Choice: ...
 
     @abstractmethod
@@ -76,11 +72,7 @@ class ChoiceConsumer(Consumer):
         self._root = root
 
     def fork(self) -> Consumer:
-        return ChoiceConsumer(self.response, self.root)
-
-    @property
-    def root(self) -> Consumer:
-        return self._root or self
+        return ChoiceConsumer(self.response, self._root or self)
 
     @property
     def choice(self) -> Choice:
@@ -106,7 +98,7 @@ class ChoiceConsumer(Consumer):
         if exc is None and self._choice is not None:
             self._choice.close()
 
-        if self is self.root:
+        if self._root is None:
             if self.usage is not None:
                 self.response.set_usage(
                     self.usage.prompt_tokens,
@@ -130,18 +122,18 @@ class ChoiceConsumer(Consumer):
         self.choice.add_attachment(attachment)
 
     def add_usage(self, usage: TokenUsage):
-        if self is self.root:
-            self.usage = (self.usage or TokenUsage()).accumulate(usage)
+        if self._root:
+            self._root.add_usage(usage)
         else:
-            self.root.add_usage(usage)
+            self.usage = (self.usage or TokenUsage()).accumulate(usage)
 
     def set_discarded_messages(
         self, discarded_messages: Optional[DiscardedMessages]
     ):
-        if self is self.root:
-            self.discarded_messages = discarded_messages
+        if self._root:
+            self._root.set_discarded_messages(discarded_messages)
         else:
-            self.root.set_discarded_messages(discarded_messages)
+            self.discarded_messages = discarded_messages
 
     def create_function_tool_call(self, call: ToolCall):
         self.choice.create_function_tool_call(
@@ -180,10 +172,6 @@ class ConsumerDecorator(Consumer):
 
     def fork(self) -> Consumer:
         return self.consumer.fork()
-
-    @property
-    def root(self) -> Consumer:
-        return self.consumer.root
 
     @property
     def choice(self) -> Choice:
