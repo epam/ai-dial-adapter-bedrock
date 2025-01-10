@@ -63,6 +63,8 @@ class BedrockChatCompletion(ChatCompletion):
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
+        response.set_model(self.deployment.upstream_deployment_id)
+
         model = await self._get_model(request)
         params = ModelParameters.create(request)
 
