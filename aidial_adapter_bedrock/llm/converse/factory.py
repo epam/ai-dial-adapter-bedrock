@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatCompletionAdapter,
+    default_preprocess_messages,
+)
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
     default_converse_tokenizer_factory,
@@ -13,6 +16,10 @@ from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
+)
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
 )
 from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.llama.v3 import (
@@ -52,4 +59,7 @@ class ConverseAdapterFactory(BaseModel):
             supported_image_types=supported_image_types or [],
             supported_document_types=supported_document_types or [],
         )
-        return replicator_decorator()(model)
+        return compose_decorators(
+            preprocess_messages_decorator(default_preprocess_messages),
+            replicator_decorator(),
+        )(model)

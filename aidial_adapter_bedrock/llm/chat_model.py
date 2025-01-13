@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any, List, Set, Tuple
 
 from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
@@ -69,23 +70,29 @@ class TextCompletionAdapter(ABC, BaseModel):
         raise NotImplementedError
 
 
-def default_preprocess_messages(messages: List[Message]) -> List[Message]:
-    # FIXME: this message modification invalidates followup
-    # computation of discarded message indices
-
+def default_preprocess_messages(
+    messages: List[Message],
+) -> ListProjection[Message]:
     def _is_empty_system_message(msg: Message) -> bool:
         return (
             msg.role == Role.SYSTEM
             and collect_text_content(msg.content).strip() == ""
         )
 
-    # Skipping empty system messages
-    messages = [msg for msg in messages if not _is_empty_system_message(msg)]
+    ret: List[Tuple[Message, Set[int]]] = []
+    idx: Set[int] = set()
 
-    if len(messages) == 0:
+    for i, msg in enumerate(messages):
+        idx.add(i)
+        if _is_empty_system_message(msg):
+            continue
+        ret.append((msg, idx))
+        idx = set()
+
+    if len(ret) == 0:
         raise ValidationError("List of messages must not be empty")
 
-    return messages
+    return ListProjection(ret)
 
 
 def keep_last(messages: List[Any], idx: int) -> bool:

@@ -35,6 +35,7 @@ from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class AmazonResult(BaseModel):
@@ -118,15 +119,17 @@ async def response_to_stream(
     yield resp.content()
 
 
-def _preprocess_amazon_messages(messages: List[Message]) -> List[Message]:
-    messages = default_preprocess_messages(messages)
+def _preprocess_amazon_messages(
+    messages: List[Message],
+) -> ListProjection[Message]:
+    ret = default_preprocess_messages(messages)
 
     # AWS Titan doesn't support empty messages,
     # so we replace it with a single space.
-    for msg in messages:
+    for msg in ret.raw_list:
         msg.content = msg.content or " "
 
-    return messages
+    return ret
 
 
 def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:

@@ -43,6 +43,9 @@ class Consumer(ContextManager, ABC):
     ): ...
 
     @abstractmethod
+    def get_discarded_messages(self) -> Optional[DiscardedMessages]: ...
+
+    @abstractmethod
     def create_function_tool_call(self, call: ToolCall): ...
 
     @abstractmethod
@@ -135,6 +138,12 @@ class ChoiceConsumer(Consumer):
         else:
             self.discarded_messages = discarded_messages
 
+    def get_discarded_messages(self) -> Optional[DiscardedMessages]:
+        if self._root:
+            return self._root.get_discarded_messages()
+        else:
+            return self.discarded_messages
+
     def create_function_tool_call(self, call: ToolCall):
         self.choice.create_function_tool_call(
             id=call.id,
@@ -193,6 +202,9 @@ class ConsumerDecorator(Consumer):
         self, discarded_messages: Optional[DiscardedMessages]
     ):
         self.consumer.set_discarded_messages(discarded_messages)
+
+    def get_discarded_messages(self) -> Optional[DiscardedMessages]:
+        return self.consumer.get_discarded_messages()
 
     def create_function_tool_call(self, call: ToolCall):
         self.consumer.create_function_tool_call(call)
