@@ -1,7 +1,7 @@
 import json
 import re
 from dataclasses import dataclass
-from typing import Callable, List
+from typing import Awaitable, Callable, List, assert_never
 
 import httpx
 import pytest
@@ -30,6 +30,21 @@ def expected_success(*args, **kwargs):
     return True
 
 
+Tokenize = Callable[[List[ChatCompletionMessageParam]], Awaitable[int]]
+
+
+@dataclass
+class DynamicMaxPromptTokens:
+    messages: List[ChatCompletionMessageParam]
+    post_process: Callable[[int], int] | None = None
+
+    async def __call__(self, tokenize: Tokenize) -> int:
+        tokens = await tokenize(self.messages)
+        if self.post_process:
+            tokens = self.post_process(tokens)
+        return tokens
+
+
 @dataclass
 class TestCase:
     __test__ = False
@@ -38,7 +53,7 @@ class TestCase:
     deployment: ChatCompletionDeployment
     messages: List[ChatCompletionMessageParam]
     expected: dict | Callable[[dict], bool] | ExpectedException
-    max_prompt_tokens: int | List[ChatCompletionMessageParam] | None
+    max_prompt_tokens: DynamicMaxPromptTokens | int | None
 
     def get_id(self):
         if isinstance(self.max_prompt_tokens, int):
@@ -62,7 +77,7 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
         expected: (
             dict | Callable[[dict], bool] | ExpectedException
         ) = expected_success,
-        max_prompt_tokens: int | List[ChatCompletionMessageParam] | None = None,
+        max_prompt_tokens: DynamicMaxPromptTokens | int | None = None,
     ) -> None:
         test_cases.append(
             TestCase(name, deployment, messages, expected, max_prompt_tokens)
@@ -110,7 +125,13 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
             ai("pong"),
             user("test"),
         ],
-        max_prompt_tokens=1000,
+        max_prompt_tokens=DynamicMaxPromptTokens(
+            [
+                user("ping"),
+                ai("pong"),
+                user("test"),
+            ],
+        ),
         expected={"outputs": [{"status": "success", "discarded_messages": []}]},
     )
 
@@ -121,13 +142,15 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
             ai("pong"),
             user("hello world"),
         ],
-        max_prompt_tokens=1,
+        max_prompt_tokens=DynamicMaxPromptTokens(
+            [user("hello world")], lambda x: x - 1
+        ),
         expected={
             "outputs": [
                 {
                     "status": "error",
                     "error": re.compile(
-                        r"The requested maximum prompt tokens is 1. However, the system messages and the last user message resulted in \d+ tokens. Please reduce the length of the messages or increase the maximum prompt tokens."
+                        r"The requested maximum prompt tokens is \d+. However, the system messages and the last user message resulted in \d+ tokens. Please reduce the length of the messages or increase the maximum prompt tokens."
                     ),
                 }
             ]
@@ -141,7 +164,7 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
             ai("pong"),
             user("hello world"),
         ],
-        max_prompt_tokens=[user("hello world")],
+        max_prompt_tokens=DynamicMaxPromptTokens([user("hello world")]),
         expected={
             "outputs": [{"status": "success", "discarded_messages": [0, 1]}]
         },
@@ -167,11 +190,19 @@ async def test_truncate_prompt(
             max_prompt_tokens = None
         elif isinstance(test.max_prompt_tokens, int):
             max_prompt_tokens = test.max_prompt_tokens
-        elif isinstance(test.max_prompt_tokens, list):
-            max_prompt_tokens = await tokenize(
-                test_http_client, test.deployment.value, test.max_prompt_tokens
-            )
-            max_prompt_tokens = max_prompt_tokens["outputs"][0]["token_count"]
+        elif callable(test.max_prompt_tokens):
+
+            async def tokenize_messages(
+                messages: List[ChatCompletionMessageParam],
+            ) -> int:
+                resp = await tokenize(
+                    test_http_client, test.deployment.value, messages
+                )
+                return resp["outputs"][0]["token_count"]
+
+            max_prompt_tokens = await test.max_prompt_tokens(tokenize_messages)
+        else:
+            assert_never(test.max_prompt_tokens)
 
         return await truncate_prompt(
             test_http_client,
