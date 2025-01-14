@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 
@@ -16,5 +17,9 @@ def match_objects(expected: Any, actual: Any) -> None:
             match_objects(expected[i], actual[i])
     elif callable(expected):
         assert expected(actual)
+    elif isinstance(expected, re.Pattern) and isinstance(actual, str):
+        assert expected.match(
+            actual
+        ), f"Expected {expected!r}, actual {actual!r}"
     else:
-        assert expected == actual
+        assert expected == actual, f"Expected {expected!r}, actual {actual!r}"

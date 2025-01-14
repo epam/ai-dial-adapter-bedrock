@@ -23,7 +23,11 @@ from functools import wraps
 from typing import assert_never
 
 from aidial_sdk.exceptions import HTTPException as DialException
-from aidial_sdk.exceptions import InternalServerError, InvalidRequestError
+from aidial_sdk.exceptions import (
+    InternalServerError,
+    InvalidRequestError,
+    ResourceNotFoundError,
+)
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
@@ -147,5 +151,16 @@ def dial_exception_decorator(func):
                 f"The exception converted to the dial exception: {dial_exception!r}."
             )
             raise dial_exception from e
+
+    return wrapper
+
+
+def not_implemented_handler(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except NotImplementedError:
+            raise ResourceNotFoundError("The endpoint is not implemented")
 
     return wrapper

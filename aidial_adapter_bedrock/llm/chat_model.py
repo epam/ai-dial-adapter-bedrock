@@ -21,7 +21,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     truncate_prompt,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-from aidial_adapter_bedrock.utils.not_implemented import not_implemented
 
 
 def _is_empty_system_message(msg: Message) -> bool:
@@ -44,15 +43,14 @@ class ChatCompletionAdapter(ABC, BaseModel):
     ) -> None:
         pass
 
-    @not_implemented
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
-    ) -> int: ...
+    ) -> int:
+        raise NotImplementedError
 
-    @not_implemented
-    async def count_completion_tokens(self, string: str) -> int: ...
+    async def count_completion_tokens(self, string: str) -> int:
+        raise NotImplementedError
 
-    @not_implemented
     async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
     ) -> DiscardedMessages | None:
@@ -64,6 +62,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
         Otherwise, returns the indices of _discarded_ messages which should be
         removed from the list to make the rest fit into the token limit.
         """
+        raise NotImplementedError
 
 
 class TextCompletionPrompt(BaseModel):

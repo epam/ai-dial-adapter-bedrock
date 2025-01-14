@@ -20,7 +20,6 @@ from aidial_sdk.deployment.truncate_prompt import (
     TruncatePromptResult,
     TruncatePromptSuccess,
 )
-from aidial_sdk.exceptions import ResourceNotFoundError
 from typing_extensions import override
 
 from aidial_adapter_bedrock.adapter_deployments import (
@@ -37,9 +36,11 @@ from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
+from aidial_adapter_bedrock.server.exceptions import (
+    dial_exception_decorator,
+    not_implemented_handler,
+)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
-from aidial_adapter_bedrock.utils.not_implemented import is_implemented
 
 
 class BedrockChatCompletion(ChatCompletion):
@@ -103,13 +104,9 @@ class BedrockChatCompletion(ChatCompletion):
 
     @override
     @dial_exception_decorator
+    @not_implemented_handler
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
         model = await self._get_model(request)
-
-        if not is_implemented(
-            model.count_completion_tokens
-        ) or not is_implemented(model.count_prompt_tokens):
-            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TokenizeOutput] = []
         for input in request.inputs:
@@ -132,6 +129,8 @@ class BedrockChatCompletion(ChatCompletion):
         try:
             tokens = await model.count_completion_tokens(value)
             return TokenizeSuccess(token_count=tokens)
+        except NotImplementedError:
+            raise
         except Exception as e:
             return TokenizeError(error=str(e))
 
@@ -145,18 +144,18 @@ class BedrockChatCompletion(ChatCompletion):
                 params, request.messages
             )
             return TokenizeSuccess(token_count=token_count)
+        except NotImplementedError:
+            raise
         except Exception as e:
             return TokenizeError(error=str(e))
 
     @override
     @dial_exception_decorator
+    @not_implemented_handler
     async def truncate_prompt(
         self, request: TruncatePromptRequest
     ) -> TruncatePromptResponse:
         model = await self._get_model(request)
-
-        if not is_implemented(model.compute_discarded_messages):
-            raise ResourceNotFoundError("The endpoint is not implemented")
 
         outputs: List[TruncatePromptResult] = []
         for input in request.inputs:
@@ -179,5 +178,7 @@ class BedrockChatCompletion(ChatCompletion):
             return TruncatePromptSuccess(
                 discarded_messages=discarded_messages or []
             )
+        except NotImplementedError:
+            raise
         except Exception as e:
             return TruncatePromptError(error=str(e))
