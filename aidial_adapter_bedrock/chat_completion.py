@@ -19,7 +19,6 @@ from aidial_sdk.deployment.truncate_prompt import (
     TruncatePromptResult,
     TruncatePromptSuccess,
 )
-from aidial_sdk.exceptions import HTTPException as DialException
 from typing_extensions import override
 
 from aidial_adapter_bedrock.adapter_deployments import (
@@ -101,11 +100,9 @@ class BedrockChatCompletion(ChatCompletion):
         try:
             tokens = await model.count_completion_tokens(value)
             return TokenizeSuccess(token_count=tokens)
-        except DialException as e:
-            return TokenizeError(error=e.message)
+        except NotImplementedError:
+            raise
         except Exception as e:
-            if isinstance(e, NotImplementedError):
-                raise
             return TokenizeError(error=str(e))
 
     async def _tokenize_request(
@@ -118,11 +115,9 @@ class BedrockChatCompletion(ChatCompletion):
                 params, request.messages
             )
             return TokenizeSuccess(token_count=token_count)
-        except DialException as e:
-            return TokenizeError(error=e.message)
+        except NotImplementedError:
+            raise
         except Exception as e:
-            if isinstance(e, NotImplementedError):
-                raise
             return TokenizeError(error=str(e))
 
     @override
@@ -154,11 +149,7 @@ class BedrockChatCompletion(ChatCompletion):
             return TruncatePromptSuccess(
                 discarded_messages=discarded_messages or []
             )
-        except DialException as e:
-            # TODO: remove when the issue is fixed:
-            # https://github.com/epam/ai-dial-sdk/issues/207
-            return TruncatePromptError(error=e.message)
+        except NotImplementedError:
+            raise
         except Exception as e:
-            if isinstance(e, NotImplementedError):
-                raise
             return TruncatePromptError(error=str(e))

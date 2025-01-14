@@ -47,6 +47,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
         Otherwise, returns the indices of _discarded_ messages which should be
         removed from the list to make the rest fit into the token limit.
         """
+        raise NotImplementedError
 
         raise NotImplementedError
 
