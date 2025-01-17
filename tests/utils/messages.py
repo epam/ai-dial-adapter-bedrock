@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence
 
 from aidial_sdk.chat_completion import Attachment, CustomContent
 from aidial_sdk.chat_completion import Message as DialMessage
@@ -30,5 +30,5 @@ def user_with_image(content: str, image_base64: str) -> HumanRegularMessage:
     return HumanRegularMessage(content=content, custom_content=custom_content)
 
 
-def to_sdk_messages(messages: List[MessageABC]) -> List[DialMessage]:
+def to_sdk_messages(messages: Sequence[MessageABC]) -> List[DialMessage]:
     return [msg.to_message() for msg in messages]

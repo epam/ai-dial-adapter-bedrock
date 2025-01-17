@@ -1,6 +1,7 @@
 from typing import Any, AsyncIterator, Dict
 
 import anthropic
+from aidial_sdk.chat_completion import Message, Role
 from anthropic._tokenizers import async_get_tokenizer
 from tokenizers import Tokenizer
 
@@ -19,7 +20,6 @@ from aidial_adapter_bedrock.llm.chat_model import (
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.claude_emulator import (
     legacy_tools_emulator,
@@ -68,10 +68,10 @@ async def response_to_stream(response: dict) -> AsyncIterator[str]:
 
 
 def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
-    def add_cue(message: BaseMessage, idx: int) -> bool:
+    def add_cue(message: Message, idx: int) -> bool:
         if (
             idx == 0
-            and isinstance(message, SystemMessage)
+            and message.role == Role.SYSTEM
             and is_system_message_supported
         ):
             return False

@@ -7,7 +7,7 @@ _T = TypeVar("_T")
 @dataclass
 class ListProjection(Generic[_T]):
     """
-    The class presents a transformation of the original list which may
+    The class represents a transformation of the original list which may
     include merge, removal and addition of the original list elements.
 
     Each derivative element is mapped onto a subset of original elements.
