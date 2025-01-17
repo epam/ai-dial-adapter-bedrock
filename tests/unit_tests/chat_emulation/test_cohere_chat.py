@@ -7,7 +7,7 @@ def test_construction1():
         user("  human message1  "),
     ]
 
-    text, stop_sequences = cohere_emulator.display((messages))
+    text, stop_sequences = cohere_emulator.display(messages)
 
     assert stop_sequences == ["\nUser:"]
     assert text == "human message1"
@@ -21,7 +21,7 @@ def test_construction2():
         user("  human message2  "),
     ]
 
-    text, stop_sequences = cohere_emulator.display((messages))
+    text, stop_sequences = cohere_emulator.display(messages)
 
     assert stop_sequences == ["\nUser:"]
     assert text == "\n".join(

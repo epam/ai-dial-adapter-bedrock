@@ -17,7 +17,7 @@ def test_construction(is_system_message_supported: bool):
 
     text, stop_sequences = get_anthropic_emulator(
         is_system_message_supported
-    ).display((messages))
+    ).display(messages)
 
     sys_message_prefix = "Human: " if not is_system_message_supported else ""
 

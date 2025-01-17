@@ -101,7 +101,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        base_messages = tools_emulator.parse_dial_messages(messages)
+        base_messages = tools_emulator.prepare_messages(messages)
         tool_stop_sequences = tools_emulator.get_stop_sequences()
 
         prompt = await self.truncate_and_linearize_messages(
@@ -164,7 +164,7 @@ class PseudoChatModel(TextCompletionAdapter):
     ) -> int:
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        messages = tools_emulator.parse_dial_messages(messages)
+        messages = tools_emulator.prepare_messages(messages)
         return await self.tokenize_messages(messages)
 
     async def count_completion_tokens(self, string: str) -> int:
