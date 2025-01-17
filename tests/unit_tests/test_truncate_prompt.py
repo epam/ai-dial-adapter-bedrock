@@ -6,14 +6,13 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last_and_system_messages,
     trivial_partitioner,
 )
-from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     TruncatePromptError,
     _partition_indexer,
     compute_discarded_messages,
 )
-from tests.utils.messages import ai, sys, to_sdk_messages, user
+from tests.utils.messages import ai, sys, user
 
 
 async def truncate_prompt_by_words(
@@ -66,7 +65,6 @@ async def test_truncation():
         user("remove2"),
         user("query"),
     ]
-
     discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=3
     )
@@ -137,10 +135,10 @@ async def test_prompt_with_history_is_too_big():
 
 
 async def test_inconsistent_limits():
-    messages: List[BaseMessage] = [ai("text2")]
+    messages = [ai("text2")]
 
     truncation_error = await truncate_prompt_by_words(
-        messages=to_sdk_messages(messages), user_limit=10, model_limit=5
+        messages=messages, user_limit=10, model_limit=5
     )
 
     assert (

@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-from tests.utils.messages import ai, sys, to_sdk_messages, user, user_with_image
+from tests.utils.messages import ai, sys, user, user_with_image
 
 _DEPLOYMENT = AdapterDeployment.supported(
     upstream=ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
@@ -78,13 +78,11 @@ def mock_tokenize_text():
 
 
 async def test_one_turn_no_truncation(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-            ai("33"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+        ai("33"),
+    ]
 
     expected_tokens = (
         11 + (_PER_MESSAGE_TOKENS + 22) + (_PER_MESSAGE_TOKENS + 33)
@@ -100,12 +98,10 @@ async def test_one_turn_no_truncation(mock_tokenize_text):
 
 
 async def test_one_turn_with_image(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user_with_image("22", _PNG_IMAGE_50_50),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user_with_image("22", _PNG_IMAGE_50_50),
+    ]
 
     expected_tokens = 11 + (_PER_MESSAGE_TOKENS + _PNG_IMAGE_50_50_TOKENS + 22)
 
@@ -124,13 +120,11 @@ async def test_one_turn_with_image(mock_tokenize_text):
 
 
 async def test_one_turn_with_tools(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-            ai("33"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+        ai("33"),
+    ]
 
     expected_tokens = (
         530 + 11 + 1 + (_PER_MESSAGE_TOKENS + 22) + (_PER_MESSAGE_TOKENS + 33)
@@ -149,13 +143,11 @@ async def test_one_turn_with_tools(mock_tokenize_text):
 
 
 async def test_one_turn_overflow(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-            ai("33"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+        ai("33"),
+    ]
 
     expected_tokens = (
         11 + (22 + _PER_MESSAGE_TOKENS) + (33 + _PER_MESSAGE_TOKENS)
@@ -170,13 +162,11 @@ async def test_one_turn_overflow(mock_tokenize_text):
 
 
 async def test_multiple_system_messages(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("system1"),
-            sys("system2"),
-            user("user"),
-        ]
-    )
+    messages = [
+        sys("system1"),
+        sys("system2"),
+        user("user"),
+    ]
 
     with pytest.raises(ValidationError) as exc_info:
         await compute_discarded_messages(messages, 3)
@@ -187,14 +177,12 @@ async def test_multiple_system_messages(mock_tokenize_text):
 
 
 async def test_truncate_first_turn(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            user("11"),
-            ai("22"),
-            user("33"),
-            ai("44"),
-        ]
-    )
+    messages = [
+        user("11"),
+        ai("22"),
+        user("33"),
+        ai("44"),
+    ]
 
     expected_tokens = (
         (_PER_MESSAGE_TOKENS + 11)
@@ -213,15 +201,13 @@ async def test_truncate_first_turn(mock_tokenize_text):
 
 
 async def test_truncate_first_turn_with_system(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-            ai("33"),
-            user("44"),
-            ai("55"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+        ai("33"),
+        user("44"),
+        ai("55"),
+    ]
 
     discarded_messages = await compute_discarded_messages(
         messages, 11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55)
@@ -232,24 +218,22 @@ async def test_truncate_first_turn_with_system(mock_tokenize_text):
 
 async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system with adjacent messages with the same role
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            # 22 block (discarded)
-            user("10"),
-            user("12"),
-            # 33 block (discarded)
-            ai("10"),
-            ai("11"),
-            ai("12"),
-            # 44 block
-            user("44"),
-            # 55 block
-            ai("12"),
-            ai("22"),
-            ai("21"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        # 22 block (discarded)
+        user("10"),
+        user("12"),
+        # 33 block (discarded)
+        ai("10"),
+        ai("11"),
+        ai("12"),
+        # 44 block
+        user("44"),
+        # 55 block
+        ai("12"),
+        ai("22"),
+        ai("21"),
+    ]
 
     discarded_messages = await compute_discarded_messages(
         messages,
@@ -261,24 +245,22 @@ async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
 
 async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system_2 with one less tokens requests than the critical amount
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            # 22 block (discarded)
-            user("10"),
-            user("12"),
-            # 33 block (discarded)
-            ai("10"),
-            ai("11"),
-            ai("12"),
-            # 44 block
-            user("44"),
-            # 55 block
-            ai("12"),
-            ai("22"),
-            ai("21"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        # 22 block (discarded)
+        user("10"),
+        user("12"),
+        # 33 block (discarded)
+        ai("10"),
+        ai("11"),
+        ai("12"),
+        # 44 block
+        user("44"),
+        # 55 block
+        ai("12"),
+        ai("22"),
+        ai("21"),
+    ]
 
     min_possible_tokens = (
         11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55)
@@ -296,12 +278,10 @@ async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
 
 
 async def test_zero_turn_overflow(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+    ]
 
     expected_tokens = 11 + (22 + _PER_MESSAGE_TOKENS)
 
@@ -314,14 +294,12 @@ async def test_zero_turn_overflow(mock_tokenize_text):
 
 
 async def test_chat_history_overflow(mock_tokenize_text):
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("22"),
-            ai("33"),
-            user("44"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("22"),
+        ai("33"),
+        user("44"),
+    ]
 
     min_possible_tokens = 11 + (44 + _PER_MESSAGE_TOKENS)
 
@@ -335,16 +313,14 @@ async def test_chat_history_overflow(mock_tokenize_text):
 
 async def test_chat_history_overflow_2(mock_tokenize_text):
     # Equivalent of test_chat_history_overflow with adjacent messages with the same role
-    messages = to_sdk_messages(
-        [
-            sys("11"),
-            user("11"),
-            user("11"),
-            ai("11"),
-            ai("22"),
-            user("44"),
-        ]
-    )
+    messages = [
+        sys("11"),
+        user("11"),
+        user("11"),
+        ai("11"),
+        ai("22"),
+        user("44"),
+    ]
 
     min_possible_tokens = 11 + (44 + _PER_MESSAGE_TOKENS)
 

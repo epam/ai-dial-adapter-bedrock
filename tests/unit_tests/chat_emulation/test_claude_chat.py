@@ -1,17 +1,14 @@
-from typing import List
-
 import pytest
 
-from aidial_adapter_bedrock.llm.message import MessageABC
 from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
     get_anthropic_emulator,
 )
-from tests.utils.messages import ai, sys, to_sdk_messages, user
+from tests.utils.messages import ai, sys, user
 
 
 @pytest.mark.parametrize("is_system_message_supported", [False, True])
 def test_construction(is_system_message_supported: bool):
-    messages: List[MessageABC] = [
+    messages = [
         sys(" system message1 "),
         user("  human message1  "),
         ai("     ai message1     "),
@@ -20,7 +17,7 @@ def test_construction(is_system_message_supported: bool):
 
     text, stop_sequences = get_anthropic_emulator(
         is_system_message_supported
-    ).display(to_sdk_messages(messages))
+    ).display((messages))
 
     sys_message_prefix = "Human: " if not is_system_message_supported else ""
 

@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
 from typing_extensions import override
 
-import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters,
     collect_text_content,
