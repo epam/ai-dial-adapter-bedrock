@@ -12,7 +12,10 @@ from aidial_adapter_bedrock.dial_api.request import (
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
-from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.emulator import (
+    ToolsEmulator,
+    emulate_tools,
+)
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
@@ -101,7 +104,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        base_messages = tools_emulator.prepare_messages(messages)
+        base_messages = emulate_tools(tools_emulator, messages)
         tool_stop_sequences = tools_emulator.get_stop_sequences()
 
         prompt = await self.truncate_and_linearize_messages(
@@ -164,7 +167,7 @@ class PseudoChatModel(TextCompletionAdapter):
     ) -> int:
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        messages = tools_emulator.prepare_messages(messages)
+        messages = emulate_tools(tools_emulator, messages)
         return await self.tokenize_messages(messages)
 
     async def count_completion_tokens(self, string: str) -> int:
