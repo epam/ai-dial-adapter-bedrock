@@ -202,7 +202,7 @@ class CohereAdapter(TextCompletionAdapter):
             )
             stream = response_to_stream(response, usage)
 
-        stream = post_process_completion_stream(stream, params, cohere_emulator)
+        stream = post_process_completion_stream(params, cohere_emulator, stream)
 
         async for content in stream:
             consumer.append_content(content)

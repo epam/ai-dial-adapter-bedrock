@@ -119,9 +119,9 @@ Reply to the last message from the user taking into account the preceding dialog
 
 
 def post_process_completion_stream(
-    stream: AsyncIterator[str],
     params: ModelParameters,
     emulator: ChatEmulator,
+    stream: AsyncIterator[str],
 ) -> AsyncIterator[str]:
     # Removing leading spaces
     stream = stream_utils.lstrip(stream)

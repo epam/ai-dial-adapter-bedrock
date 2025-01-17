@@ -171,7 +171,7 @@ class AmazonAdapter(TextCompletionAdapter):
             stream = response_to_stream(response, usage)
 
         stream = post_process_completion_stream(
-            stream, params, default_emulator
+            params, default_emulator, stream
         )
 
         async for content in stream:
