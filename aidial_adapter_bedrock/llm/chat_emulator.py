@@ -29,9 +29,9 @@ class CueMapping(TypedDict):
 
 class BasicChatEmulator(ChatEmulator):
     prelude_template: Optional[str]
-    add_cue: Callable[[Message, int], bool]
-    add_invitation_cue: bool
-    fallback_to_completion: bool
+    should_prefix_with_cue: Callable[[Message, int], bool]
+    should_add_invitation_cue: bool
+    should_fallback_to_completion: bool
     cues: CueMapping
     separator: str
 
@@ -55,7 +55,7 @@ class BasicChatEmulator(ChatEmulator):
     def _format_message(self, message: Message, idx: int) -> str:
         cue = self._get_cue(message)
 
-        if cue is None or not self.add_cue(message, idx):
+        if cue is None or not self.should_prefix_with_cue(message, idx):
             cue_prefix = ""
         else:
             cue_prefix = cue + " "
@@ -69,7 +69,7 @@ class BasicChatEmulator(ChatEmulator):
 
     def display(self, messages: List[Message]) -> Tuple[str, List[str]]:
         if (
-            self.fallback_to_completion
+            self.should_fallback_to_completion
             and len(messages) == 1
             and messages[0].role == Role.USER
         ):
@@ -83,7 +83,7 @@ class BasicChatEmulator(ChatEmulator):
         for message in messages:
             ret.append(self._format_message(message, len(ret)))
 
-        if self.add_invitation_cue:
+        if self.should_add_invitation_cue:
             ret.append(
                 self._format_message(
                     Message(role=Role.ASSISTANT, content=""), len(ret)
@@ -106,9 +106,9 @@ The messages from you start with "{human}".
 Reply to the last message from the user taking into account the preceding dialog history.
 ====================
 """.strip(),
-    add_cue=lambda *_: True,
-    add_invitation_cue=True,
-    fallback_to_completion=True,
+    should_prefix_with_cue=lambda *_: True,
+    should_add_invitation_cue=True,
+    should_fallback_to_completion=True,
     cues=CueMapping(
         system="Human:",
         human="Human:",

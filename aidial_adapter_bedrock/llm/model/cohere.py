@@ -18,7 +18,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     TextCompletionAdapter,
     default_preprocess_messages,
-    keep_last_and_system_messages_dial,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -141,9 +141,9 @@ async def response_to_stream(
 
 cohere_emulator = BasicChatEmulator(
     prelude_template=None,
-    add_cue=lambda _, idx: idx > 0,
-    add_invitation_cue=False,
-    fallback_to_completion=False,
+    should_prefix_with_cue=lambda _, idx: idx > 0,
+    should_add_invitation_cue=False,
+    should_fallback_to_completion=False,
     cues=CueMapping(
         system="User:",
         human="User:",
@@ -170,7 +170,7 @@ def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
     return compose_decorators(
         preprocess_messages_decorator(_preprocess_cohere_messages),
         truncate_prompt_decorator(
-            keep_message=keep_last_and_system_messages_dial,
+            keep_message=keep_last_and_system_messages,
             partitioner=trivial_partitioner,
         ),
         replicator_decorator(),

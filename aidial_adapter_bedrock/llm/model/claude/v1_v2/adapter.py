@@ -19,7 +19,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     TextCompletionAdapter,
     default_preprocess_messages,
-    keep_last_and_system_messages_dial,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -94,9 +94,9 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
 
     return BasicChatEmulator(
         prelude_template=None,
-        add_cue=add_cue,
-        add_invitation_cue=True,
-        fallback_to_completion=False,
+        should_prefix_with_cue=add_cue,
+        should_add_invitation_cue=True,
+        should_fallback_to_completion=False,
         cues=CueMapping(
             system=anthropic.HUMAN_PROMPT.strip(),
             human=anthropic.HUMAN_PROMPT.strip(),
@@ -122,7 +122,7 @@ async def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
         truncate_prompt_decorator(
-            keep_message=keep_last_and_system_messages_dial,
+            keep_message=keep_last_and_system_messages,
             partitioner=trivial_partitioner,
         ),
         replicator_decorator(),

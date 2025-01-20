@@ -12,7 +12,10 @@ from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
     AIToolCallMessage,
 )
-from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.emulator import (
+    ToolsEmulator,
+    emulate_tools,
+)
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
@@ -72,7 +75,7 @@ class ToolsEmulatorDecorator(ChatCompletionDecorator):
             params.stop = params.stop + tools_emulator.get_stop_sequences()
             params.tool_config = None
 
-            messages = tools_emulator.parse_dial_messages(messages)
+            messages = emulate_tools(tools_emulator, messages)
 
         return params, messages
 

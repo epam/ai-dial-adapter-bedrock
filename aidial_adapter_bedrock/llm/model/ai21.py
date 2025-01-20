@@ -10,7 +10,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     TextCompletionAdapter,
     default_preprocess_messages,
-    keep_last_and_system_messages_dial,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
@@ -123,7 +123,7 @@ def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
         truncate_prompt_decorator(
-            keep_message=keep_last_and_system_messages_dial,
+            keep_message=keep_last_and_system_messages,
             partitioner=trivial_partitioner,
         ),
         replicator_decorator(),

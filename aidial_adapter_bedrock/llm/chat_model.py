@@ -10,7 +10,6 @@ from aidial_adapter_bedrock.dial_api.request import (
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
-from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -100,15 +99,7 @@ def keep_last(messages: List[Any], idx: int) -> bool:
     return idx == len(messages) - 1
 
 
-def keep_last_and_system_messages(
-    messages: List[BaseMessage], idx: int
-) -> bool:
-    return isinstance(messages[idx], SystemMessage) or keep_last(messages, idx)
-
-
-def keep_last_and_system_messages_dial(
-    messages: List[Message], idx: int
-) -> bool:
+def keep_last_and_system_messages(messages: List[Message], idx: int) -> bool:
     return messages[idx].role == Role.SYSTEM or keep_last(messages, idx)
 
 
