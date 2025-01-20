@@ -126,9 +126,9 @@ async def response_to_stream(
 
 cohere_emulator = BasicChatEmulator(
     prelude_template=None,
-    add_cue=lambda _, idx: idx > 0,
-    add_invitation_cue=False,
-    fallback_to_completion=False,
+    should_prefix_with_cue=lambda _, idx: idx > 0,
+    should_add_invitation_cue=False,
+    should_fallback_to_completion=False,
     cues=CueMapping(
         system="User:",
         human="User:",

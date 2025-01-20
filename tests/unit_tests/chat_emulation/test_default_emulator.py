@@ -7,9 +7,9 @@ from tests.utils.messages import ai, sys, user
 
 noop_emulator = BasicChatEmulator(
     prelude_template=None,
-    add_cue=lambda *_: False,
-    add_invitation_cue=False,
-    fallback_to_completion=False,
+    should_prefix_with_cue=lambda *_: False,
+    should_add_invitation_cue=False,
+    should_fallback_to_completion=False,
     cues=CueMapping(system=None, human=None, ai=None),
     separator="",
 )
