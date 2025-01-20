@@ -1,10 +1,11 @@
 from typing import List, Optional
 
+from aidial_sdk.chat_completion import Message
+
 from aidial_adapter_bedrock.llm.chat_model import (
     keep_last_and_system_messages,
     trivial_partitioner,
 )
-from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     TruncatePromptError,
@@ -15,12 +16,12 @@ from tests.utils.messages import ai, sys, user
 
 
 async def truncate_prompt_by_words(
-    messages: List[BaseMessage],
+    messages: List[Message],
     user_limit: int,
     model_limit: Optional[int] = None,
 ) -> DiscardedMessages | TruncatePromptError:
-    async def _tokenize_by_words(messages: List[BaseMessage]) -> int:
-        return sum(len(msg.text_content.split()) for msg in messages)
+    async def _tokenize_by_words(messages: List[Message]) -> int:
+        return sum(len(msg.text().split()) for msg in messages)
 
     return await compute_discarded_messages(
         messages=messages,
@@ -64,7 +65,6 @@ async def test_truncation():
         user("remove2"),
         user("query"),
     ]
-
     discarded_messages = await truncate_prompt_by_words(
         messages=messages, user_limit=3
     )
@@ -135,7 +135,7 @@ async def test_prompt_with_history_is_too_big():
 
 
 async def test_inconsistent_limits():
-    messages: List[BaseMessage] = [ai("text2")]
+    messages = [ai("text2")]
 
     truncation_error = await truncate_prompt_by_words(
         messages=messages, user_limit=10, model_limit=5

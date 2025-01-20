@@ -13,6 +13,7 @@ from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
+    post_process_completion_stream,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
     PseudoChatModel,
@@ -125,9 +126,9 @@ async def response_to_stream(
 
 cohere_emulator = BasicChatEmulator(
     prelude_template=None,
-    add_cue=lambda _, idx: idx > 0,
-    add_invitation_cue=False,
-    fallback_to_completion=False,
+    should_prefix_with_cue=lambda _, idx: idx > 0,
+    should_add_invitation_cue=False,
+    should_fallback_to_completion=False,
     cues=CueMapping(
         system="User:",
         human="User:",
@@ -179,7 +180,9 @@ class CohereAdapter(PseudoChatModel):
             )
             stream = response_to_stream(response, usage)
 
-        stream = self.post_process_stream(stream, params, self.chat_emulator)
+        stream = post_process_completion_stream(
+            params, self.chat_emulator, stream
+        )
 
         async for content in stream:
             consumer.append_content(content)

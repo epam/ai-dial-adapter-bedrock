@@ -1,18 +1,15 @@
-from typing import List
-
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
     default_emulator,
 )
-from aidial_adapter_bedrock.llm.message import BaseMessage
 from tests.utils.messages import ai, sys, user
 
 noop_emulator = BasicChatEmulator(
     prelude_template=None,
-    add_cue=lambda *_: False,
-    add_invitation_cue=False,
-    fallback_to_completion=False,
+    should_prefix_with_cue=lambda *_: False,
+    should_add_invitation_cue=False,
+    should_fallback_to_completion=False,
     cues=CueMapping(system=None, human=None, ai=None),
     separator="",
 )
@@ -44,7 +41,7 @@ def test_construction():
 
 
 def test_construction_with_single_user_message():
-    messages: List[BaseMessage] = [user(" human message ")]
+    messages = [user(" human message ")]
     text, stop_sequences = default_emulator.display(messages)
 
     assert stop_sequences == []
@@ -52,7 +49,7 @@ def test_construction_with_single_user_message():
 
 
 def test_construction_with_single_ai_message():
-    messages: List[BaseMessage] = [ai(" ai message ")]
+    messages = [ai(" ai message ")]
     text, stop_sequences = default_emulator.display(messages)
 
     prelude = default_emulator._prelude

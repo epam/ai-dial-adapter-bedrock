@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
 from typing_extensions import override
 
-import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters,
     collect_text_content,
@@ -13,8 +12,10 @@ from aidial_adapter_bedrock.dial_api.request import (
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
-from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
-from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
+from aidial_adapter_bedrock.llm.tools.emulator import (
+    ToolsEmulator,
+    emulate_tools,
+)
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
@@ -82,7 +83,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
     @abstractmethod
     async def truncate_and_linearize_messages(
-        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
+        self, messages: List[Message], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
         pass
 
@@ -103,7 +104,7 @@ class TextCompletionAdapter(ChatCompletionAdapter):
 
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        base_messages = tools_emulator.parse_dial_messages(messages)
+        base_messages = emulate_tools(tools_emulator, messages)
         tool_stop_sequences = tools_emulator.get_stop_sequences()
 
         prompt = await self.truncate_and_linearize_messages(
@@ -143,10 +144,8 @@ def keep_last(messages: List[Any], idx: int) -> bool:
     return idx == len(messages) - 1
 
 
-def keep_last_and_system_messages(
-    messages: List[BaseMessage], idx: int
-) -> bool:
-    return isinstance(messages[idx], SystemMessage) or keep_last(messages, idx)
+def keep_last_and_system_messages(messages: List[Message], idx: int) -> bool:
+    return messages[idx].role == Role.SYSTEM or keep_last(messages, idx)
 
 
 def trivial_partitioner(messages: List[Any]) -> List[int]:
@@ -161,25 +160,25 @@ def turn_based_partitioner(messages: List[Any]) -> List[int]:
 class PseudoChatModel(TextCompletionAdapter):
     chat_emulator: ChatEmulator
     tokenize_string: Callable[[str], int]
-    partitioner: Callable[[List[BaseMessage]], List[int]]
+    partitioner: Callable[[List[Message]], List[int]]
 
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
         messages = self.preprocess_messages(messages)
         tools_emulator = self.tools_emulator(params.tool_config)
-        base_messages = tools_emulator.parse_dial_messages(messages)
-        return await self.tokenize_messages(base_messages)
+        messages = emulate_tools(tools_emulator, messages)
+        return await self.tokenize_messages(messages)
 
     async def count_completion_tokens(self, string: str) -> int:
         return self.tokenize_string(string)
 
-    async def tokenize_messages(self, messages: List[BaseMessage]) -> int:
+    async def tokenize_messages(self, messages: List[Message]) -> int:
         return self.tokenize_string(self.chat_emulator.display(messages)[0])
 
     @override
     async def truncate_and_linearize_messages(
-        self, messages: List[BaseMessage], max_prompt_tokens: Optional[int]
+        self, messages: List[Message], max_prompt_tokens: Optional[int]
     ) -> TextCompletionPrompt:
         discarded_messages, messages = await truncate_prompt(
             messages=messages,
@@ -200,28 +199,3 @@ class PseudoChatModel(TextCompletionAdapter):
             stop_sequences=stop_sequences,
             discarded_messages=discarded_messages,
         )
-
-    @staticmethod
-    def post_process_stream(
-        stream: AsyncIterator[str],
-        params: ModelParameters,
-        emulator: ChatEmulator,
-    ) -> AsyncIterator[str]:
-        # Removing leading spaces
-        stream = stream_utils.lstrip(stream)
-
-        # Model may occasionally start responding with its cue.
-        ai_cue = emulator.get_ai_cue()
-        if ai_cue is not None:
-            stream = stream_utils.remove_prefix(stream, ai_cue)
-            stream = stream_utils.lstrip(stream)
-
-        # The model may not support stop sequences, so do it manually
-        if params.stop:
-            stream = stream_utils.stop_at(stream, params.stop)
-
-        # After all the post processing, the stream may become empty.
-        # To avoid this, add a space to the stream.
-        stream = stream_utils.ensure_not_empty(stream, " ")
-
-        return stream

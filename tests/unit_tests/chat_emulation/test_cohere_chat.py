@@ -1,12 +1,9 @@
-from typing import List
-
-from aidial_adapter_bedrock.llm.message import BaseMessage
 from aidial_adapter_bedrock.llm.model.cohere import cohere_emulator
 from tests.utils.messages import ai, sys, user
 
 
 def test_construction1():
-    messages: List[BaseMessage] = [
+    messages = [
         user("  human message1  "),
     ]
 
