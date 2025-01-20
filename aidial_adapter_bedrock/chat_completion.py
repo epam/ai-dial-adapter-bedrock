@@ -66,6 +66,25 @@ class BedrockChatCompletion(ChatCompletion):
     async def chat_completion(self, request: Request, response: Response):
         response.set_model(self.deployment.upstream_deployment_id)
 
+        query = request.messages[-1].text
+
+        try:
+            steps_str, interval_str = query.split(" ")
+            steps: int = int(steps_str)
+            interval: float = float(interval_str)
+        except Exception:
+            steps = 100
+            interval = 1.0
+
+        with response.create_single_choice() as choice:
+            for idx in range(1, steps + 1):
+                msg = f"[{idx}/{steps}] ..."
+                choice.append_content(msg + "\n")
+                log.info(msg)
+                await asyncio.sleep(interval)
+
+        return
+
         model = await self._get_model(request)
         params = ModelParameters.create(request)
 
