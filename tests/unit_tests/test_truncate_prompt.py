@@ -1,8 +1,11 @@
 from typing import List, Optional
 
-from aidial_sdk.chat_completion import Message, Role
+from aidial_sdk.chat_completion import Message
 
-from aidial_adapter_bedrock.llm.chat_model import keep_last, trivial_partitioner
+from aidial_adapter_bedrock.llm.chat_model import (
+    keep_last_and_system_messages,
+    trivial_partitioner,
+)
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     TruncatePromptError,
@@ -10,10 +13,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     compute_discarded_messages,
 )
 from tests.utils.messages import ai, sys, user
-
-
-def keep_last_and_system_messages(messages: List[Message], idx: int) -> bool:
-    return messages[idx].role == Role.SYSTEM or keep_last(messages, idx)
 
 
 async def truncate_prompt_by_words(

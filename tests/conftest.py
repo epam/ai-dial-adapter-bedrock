@@ -47,7 +47,7 @@ def get_openai_client(test_http_client: httpx.AsyncClient):
             azure_deployment=deployment_id,
             api_version="dummy-version",
             api_key="dummy-key",
-            max_retries=0,
+            max_retries=2,
             timeout=30,
             http_client=test_http_client,
             default_headers=extra_headers,

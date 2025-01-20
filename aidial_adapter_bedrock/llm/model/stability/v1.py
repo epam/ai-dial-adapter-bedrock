@@ -113,6 +113,12 @@ class StabilityV1Adapter(ChatCompletionAdapter):
         storage: Optional[FileStorage] = create_file_storage(api_key)
         return cls(client=client, model=model, storage=storage)
 
+    async def compute_discarded_messages(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> DiscardedMessages | None:
+        validate_last_message(messages)
+        return list(range(len(messages) - 1))
+
     async def chat(
         self,
         consumer: Consumer,
@@ -144,9 +150,3 @@ class StabilityV1Adapter(ChatCompletionAdapter):
             if self.storage:
                 attachment = await save_to_storage(self.storage, attachment)
             consumer.add_attachment(attachment)
-
-    async def compute_discarded_messages(
-        self, params: ModelParameters, messages: List[Message]
-    ) -> DiscardedMessages | None:
-        validate_last_message(messages)
-        return list(range(len(messages) - 1))
