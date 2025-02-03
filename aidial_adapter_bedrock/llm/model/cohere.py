@@ -44,23 +44,10 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class CohereResult(BaseModel):
-    tokenCount: int
-    outputText: str
-    completionReason: Optional[str]
-
-
-class Likelihood(BaseModel):
-    likelihood: float
-    token: str
-
-
 class CohereGeneration(BaseModel):
     id: str
     text: str
-    likelihood: float
     finish_reason: str
-    token_likelihoods: List[Likelihood] = Field(repr=False)
 
 
 class CohereResponse(ResponseWithInvocationMetricsMixin):
@@ -70,11 +57,6 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
 
     def content(self) -> str:
         return self.generations[0].text
-
-    @property
-    def tokens(self) -> List[str]:
-        """Includes prompt and completion tokens"""
-        return [lh.token for lh in self.generations[0].token_likelihoods]
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
@@ -89,9 +71,7 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
         # Choosing reasonable default
         ret["max_tokens"] = DEFAULT_MAX_TOKENS_COHERE
 
-    ret["return_likelihoods"] = "ALL"
-
-    # NOTE: num_generations is supported
+    ret["num_generations"] = params.n
 
     return ret
 
