@@ -6,7 +6,6 @@ from aidial_sdk.chat_completion import Message as DialMessage
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
-    AsyncMessageStream,
     ContentBlockStopEvent,
     InputJsonEvent,
     TextEvent,
@@ -17,12 +16,7 @@ from anthropic.types import (
     MessageDeltaEvent,
 )
 from anthropic.types import MessageParam as ClaudeMessage
-from anthropic.types import (
-    MessageStartEvent,
-    MessageStreamEvent,
-    TextBlock,
-    ToolUseBlock,
-)
+from anthropic.types import MessageStartEvent, TextBlock, ToolUseBlock
 from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
@@ -45,7 +39,6 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import parse_dial_message
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
-    ClaudeFinishReason,
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
@@ -68,19 +61,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-
-
-class UsageEventHandler(AsyncMessageStream):
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    stop_reason: Optional[ClaudeFinishReason] = None
-
-    async def on_stream_event(self, event: MessageStreamEvent):
-        if isinstance(event, MessageStartEvent):
-            self.prompt_tokens = event.message.usage.input_tokens
-        elif isinstance(event, MessageDeltaEvent):
-            self.completion_tokens += event.usage.output_tokens
-            self.stop_reason = event.delta.stop_reason
 
 
 # NOTE: it's not pydantic BaseModel, because
@@ -228,15 +208,11 @@ class Adapter(ChatCompletionAdapter):
         request: ClaudeRequest,
         discarded_messages: DiscardedMessages | None,
     ):
-
         if log.isEnabledFor(DEBUG):
             msg = json_dumps_short(
-                {
-                    "deployment": self.deployment,
-                    "request": request,
-                }
+                {"deployment": self.deployment, "request": request}
             )
-            log.debug(f"Streaming request: {msg}")
+            log.debug(f"request: {msg}")
 
         async with self.client.messages.stream(
             messages=request.messages.raw_list,
@@ -248,9 +224,7 @@ class Adapter(ChatCompletionAdapter):
             stop_reason = None
             async for event in stream:
                 if log.isEnabledFor(DEBUG):
-                    log.debug(
-                        f"claude response event: {json_dumps_short(event)}"
-                    )
+                    log.debug(f"response event: {json_dumps_short(event)}")
 
                 match event:
                     case MessageStartEvent(message=message):
@@ -271,7 +245,6 @@ class Adapter(ChatCompletionAdapter):
                             case _:
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
-                        completion_tokens += message.usage.output_tokens
                         stop_reason = message.stop_reason
                     case (
                         InputJsonEvent()
@@ -305,12 +278,9 @@ class Adapter(ChatCompletionAdapter):
 
         if log.isEnabledFor(DEBUG):
             msg = json_dumps_short(
-                {
-                    "deployment": self.deployment,
-                    "request": request,
-                }
+                {"deployment": self.deployment, "request": request}
             )
-            log.debug(f"Request: {msg}")
+            log.debug(f"request: {msg}")
 
         message = await self.client.messages.create(
             messages=request.messages.raw_list,
@@ -320,7 +290,7 @@ class Adapter(ChatCompletionAdapter):
         )
 
         if log.isEnabledFor(DEBUG):
-            log.debug(f"claude response message: {json_dumps_short(message)}")
+            log.debug(f"response: {json_dumps_short(message)}")
 
         for content in message.content:
             match content:

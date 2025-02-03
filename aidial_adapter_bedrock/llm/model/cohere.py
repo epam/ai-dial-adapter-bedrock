@@ -6,7 +6,9 @@ from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
+    Headers,
     ResponseWithInvocationMetricsMixin,
+    usage_from_headers,
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
@@ -25,7 +27,6 @@ from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 class CohereResult(BaseModel):
@@ -60,27 +61,6 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
         """Includes prompt and completion tokens"""
         return [lh.token for lh in self.generations[0].token_likelihoods]
 
-    def usage_by_tokens(self) -> TokenUsage:
-        special_tokens = 7
-        total_tokens = len(self.tokens) - special_tokens
-
-        # The structure for the response:
-        # ["<BOS_TOKEN>", "User", ":", *<prompt>, "\n", "Chat", "bot", ":", "<EOP_TOKEN>", *<completion>]
-        # prompt_tokens = len(<prompt>)
-        # completion_tokens = len(["<EOP_TOKEN>"] + <completion>)
-
-        separator = "<EOP_TOKEN>"
-        if separator in self.tokens:
-            prompt_tokens = self.tokens.index(separator) - special_tokens
-        else:
-            log.error(f"Separator '{separator}' not found in tokens")
-            prompt_tokens = total_tokens // 2
-
-        return TokenUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=total_tokens - prompt_tokens,
-        )
-
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
     ret = {}
@@ -110,17 +90,15 @@ async def chunks_to_stream(
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         resp = CohereResponse.parse_obj(chunk)
-        usage.accumulate(resp.usage_by_metrics())
-        log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
+        usage.accumulate(resp.usage_from_metrics())
         yield resp.content()
 
 
 async def response_to_stream(
-    response: dict, usage: TokenUsage
+    response_body: dict, response_headers: Headers, usage: TokenUsage
 ) -> AsyncIterator[str]:
-    resp = CohereResponse.parse_obj(response)
-    usage.accumulate(resp.usage_by_tokens())
-    log.debug(f"tokens: {'|'.join(resp.tokens)!r}")
+    resp = CohereResponse.parse_obj(response_body)
+    usage.accumulate(usage_from_headers(response_headers))
     yield resp.content()
 
 
@@ -175,10 +153,10 @@ class CohereAdapter(PseudoChatModel):
             chunks = self.client.ainvoke_streaming(self.model, args)
             stream = chunks_to_stream(chunks, usage)
         else:
-            response, _headers = await self.client.ainvoke_non_streaming(
+            response, headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, usage)
+            stream = response_to_stream(response, headers, usage)
 
         stream = post_process_completion_stream(
             params, self.chat_emulator, stream

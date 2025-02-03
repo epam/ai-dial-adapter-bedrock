@@ -1,3 +1,4 @@
+from logging import DEBUG
 from typing import Any, Awaitable, Callable, List, Tuple
 
 from aidial_sdk.chat_completion import Message as DialMessage
@@ -35,9 +36,10 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
-from aidial_adapter_bedrock.utils.json import remove_nones
+from aidial_adapter_bedrock.utils.json import json_dumps_short, remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 ConverseMessages = List[Tuple[ConverseMessage, Any]]
 
@@ -166,12 +168,20 @@ class ConverseAdapter(ChatCompletionAdapter):
 
         consumer.set_discarded_messages(discarded_messages)
 
+        request = converse_params.to_request()
+
+        if log.isEnabledFor(DEBUG):
+            msg = json_dumps_short(
+                {"deployment": self.deployment, "request": request}
+            )
+            log.debug(f"request: {msg}")
+
         if self.is_stream(params):
             await process_streaming(
                 params=params,
                 stream=(
                     await self.bedrock.aconverse_streaming(
-                        self.deployment, **converse_params.to_request()
+                        self.deployment, **request
                     )
                 ),
                 consumer=consumer,
@@ -180,7 +190,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             process_non_streaming(
                 params=params,
                 response=await self.bedrock.aconverse_non_streaming(
-                    self.deployment, **converse_params.to_request()
+                    self.deployment, **request
                 ),
                 consumer=consumer,
             )
