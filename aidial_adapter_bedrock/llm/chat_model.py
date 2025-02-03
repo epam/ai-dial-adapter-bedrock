@@ -48,8 +48,6 @@ class ChatCompletionAdapter(ABC, BaseModel):
         """
         raise NotImplementedError
 
-        raise NotImplementedError
-
 
 class TextCompletionAdapter(ABC, BaseModel):
     class Config:
