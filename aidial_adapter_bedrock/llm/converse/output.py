@@ -1,4 +1,5 @@
 import json
+from logging import DEBUG
 from typing import Any, AsyncIterator, Dict, assert_never
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
@@ -14,6 +15,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
 )
 from aidial_adapter_bedrock.llm.converse.types import ConverseStopReason
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.json import json_dumps_short
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 def to_dial_finish_reason(
@@ -34,6 +37,19 @@ async def process_streaming(
     current_tool_use = None
 
     async for event in stream:
+        if log.isEnabledFor(DEBUG):
+            log.debug(f"response event: {json_dumps_short(event)}")
+
+        if (metadata := event.get("metadata")) and (
+            usage := metadata.get("usage")
+        ):
+            consumer.add_usage(
+                TokenUsage(
+                    prompt_tokens=usage.get("inputTokens") or 0,
+                    completion_tokens=usage.get("outputTokens") or 0,
+                )
+            )
+
         if (content_block_start := event.get("contentBlockStart")) and (
             tool_use := content_block_start.get("start", {}).get("toolUse")
         ):
@@ -57,7 +73,6 @@ async def process_streaming(
 
         elif event.get("contentBlockStop"):
             if current_tool_use:
-
                 match params.tools_mode:
                     case ToolsMode.TOOLS:
                         consumer.create_function_tool_call(
@@ -99,6 +114,9 @@ def process_non_streaming(
     response: Dict[str, Any],
     consumer: Consumer,
 ) -> None:
+    if log.isEnabledFor(DEBUG):
+        log.debug(f"response: {json_dumps_short(response)}")
+
     message = response["output"]["message"]
     for content_block in message.get("content", []):
         if "text" in content_block:

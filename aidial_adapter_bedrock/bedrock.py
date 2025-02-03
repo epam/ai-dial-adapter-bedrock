@@ -128,7 +128,7 @@ class ResponseWithInvocationMetricsMixin(ABC, BaseModel):
         alias="amazon-bedrock-invocationMetrics"
     )
 
-    def usage_by_metrics(self) -> TokenUsage:
+    def usage_from_metrics(self) -> TokenUsage:
         metrics = self.invocation_metrics
         if metrics is None:
             return TokenUsage()
@@ -137,3 +137,30 @@ class ResponseWithInvocationMetricsMixin(ABC, BaseModel):
             prompt_tokens=metrics.inputTokenCount,
             completion_tokens=metrics.outputTokenCount,
         )
+
+
+def prompt_tokens_from_headers(headers: Headers) -> int | None:
+    try:
+        return int(headers["x-amzn-bedrock-input-token-count"])
+    except Exception:
+        log.error(
+            "Failed to extract prompt token usage from the response headers"
+        )
+        return None
+
+
+def completion_tokens_from_headers(headers: Headers) -> int | None:
+    try:
+        return int(headers["x-amzn-bedrock-output-token-count"])
+    except Exception:
+        log.error(
+            "Failed to extract completion token usage from the response headers"
+        )
+        return None
+
+
+def usage_from_headers(response_headers: Headers) -> TokenUsage:
+    return TokenUsage(
+        prompt_tokens=prompt_tokens_from_headers(response_headers) or 0,
+        completion_tokens=completion_tokens_from_headers(response_headers) or 0,
+    )

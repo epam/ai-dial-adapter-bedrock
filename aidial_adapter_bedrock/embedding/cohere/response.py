@@ -2,8 +2,7 @@ from typing import List, Literal, Tuple
 
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.bedrock import Bedrock, prompt_tokens_from_headers
 
 
 class CohereResponse(BaseModel):
@@ -22,8 +21,5 @@ async def call_embedding_model(
     body, headers = await client.ainvoke_non_streaming(model, request)
     response = CohereResponse.parse_obj(body)
 
-    input_tokens = int(headers.get("x-amzn-bedrock-input-token-count", "0"))
-    if input_tokens == 0:
-        log.warning("Can't extract input tokens from embeddings response")
-
+    input_tokens = prompt_tokens_from_headers(headers) or 0
     return response.embeddings, input_tokens

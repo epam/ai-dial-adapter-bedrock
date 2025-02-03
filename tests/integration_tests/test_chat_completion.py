@@ -437,7 +437,9 @@ def get_test_cases(
         name="pinocchio in one token",
         max_tokens=1,
         messages=[user("tell me the full story of Pinocchio")],
-        expected=lambda s: len(s.content.split()) <= 1,
+        expected=lambda s: len(s.content.split()) <= 1
+        and s.usage is not None
+        and s.usage.completion_tokens == 1,
     )
 
     # ai21 models do not support more than one stop word
