@@ -1,7 +1,10 @@
-from typing import Any, AsyncIterator, Dict, List, Optional
+# Adapter for Cohere models.
+# See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
 
-from aidial_sdk.chat_completion import Message
-from pydantic import BaseModel, Field
+from typing import Any, AsyncIterator, Dict, List, Literal, Optional
+
+from aidial_sdk.chat_completion import FinishReason, Message
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
@@ -43,11 +46,28 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 )
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
+CohereFinishReason = (
+    Literal["COMPLETE", "MAX_TOKENS", "ERROR", "ERROR_TOXIC"] | str
+)
+
+
+def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
+    match reason:
+        case "COMPLETE" | "ERROR":
+            return FinishReason.STOP
+        case "MAX_TOKENS":
+            return FinishReason.LENGTH
+        case "ERROR_TOXIC":
+            return FinishReason.CONTENT_FILTER
+        case _unclassified_reason:
+            return FinishReason.STOP
+
 
 class CohereGeneration(BaseModel):
     id: str
+    index: int
     text: str
-    finish_reason: str
+    finish_reason: CohereFinishReason
 
 
 class CohereResponse(ResponseWithInvocationMetricsMixin):
