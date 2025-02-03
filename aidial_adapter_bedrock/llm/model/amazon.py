@@ -2,7 +2,6 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
-from typing_extensions import override
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -12,15 +11,31 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     post_process_completion_stream,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    PseudoChatModel,
+    ChatCompletionAdapter,
+    TextCompletionAdapter,
+    default_preprocess_messages,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
+from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
+    tools_emulator_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
+    truncate_prompt_decorator,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
     default_tools_emulator,
 )
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class AmazonResult(BaseModel):
@@ -104,33 +119,40 @@ async def response_to_stream(
     yield resp.content()
 
 
-class AmazonAdapter(PseudoChatModel):
+def _preprocess_amazon_messages(
+    messages: List[Message],
+) -> ListProjection[Message]:
+    ret = default_preprocess_messages(messages)
+
+    # AWS Titan doesn't support empty messages,
+    # so we replace it with a single space.
+    for msg in ret.raw_list:
+        msg.content = msg.content or " "
+
+    return ret
+
+
+def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
+    return compose_decorators(
+        preprocess_messages_decorator(_preprocess_amazon_messages),
+        truncate_prompt_decorator(
+            keep_message=keep_last_and_system_messages,
+            partitioner=trivial_partitioner,
+        ),
+        replicator_decorator(),
+        tools_emulator_decorator(default_tools_emulator),
+    )(
+        # TODO: To use conversational mode on Titan, you can use the format of User: {{}} \n Bot: when prompting the model.
+        # See the note at the end of: https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-a-prompt.html
+        pseudo_chat_adapter(default_emulator)(
+            AmazonAdapter(client=client, model=model)
+        )
+    )
+
+
+class AmazonAdapter(TextCompletionAdapter):
     model: str
     client: Bedrock
-
-    @classmethod
-    def create(cls, client: Bedrock, model: str):
-        return cls(
-            client=client,
-            model=model,
-            tokenize_string=default_tokenize_string,
-            # TODO: To use conversational mode on Titan, you can use the format of User: {{}} \n Bot: when prompting the model.
-            # See the note at the end of: https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-a-prompt.html
-            chat_emulator=default_emulator,
-            tools_emulator=default_tools_emulator,
-            partitioner=trivial_partitioner,
-        )
-
-    @override
-    def preprocess_messages(self, messages: List[Message]) -> List[Message]:
-        messages = super().preprocess_messages(messages)
-
-        # AWS Titan doesn't support empty messages,
-        # so we replace it with a single space.
-        for msg in messages:
-            msg.content = msg.content or " "
-
-        return messages
 
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
@@ -149,7 +171,7 @@ class AmazonAdapter(PseudoChatModel):
             stream = response_to_stream(response, usage)
 
         stream = post_process_completion_stream(
-            params, self.chat_emulator, stream
+            params, default_emulator, stream
         )
 
         async for content in stream:
@@ -157,3 +179,11 @@ class AmazonAdapter(PseudoChatModel):
         consumer.close_content()
 
         consumer.add_usage(usage)
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return default_tokenize_string(string)
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, prompt: str
+    ) -> int:
+        return default_tokenize_string(prompt)

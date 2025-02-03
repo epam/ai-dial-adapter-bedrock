@@ -7,10 +7,25 @@ from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import default_emulator
 from aidial_adapter_bedrock.llm.chat_model import (
-    PseudoChatModel,
+    ChatCompletionAdapter,
+    TextCompletionAdapter,
+    default_preprocess_messages,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
+from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
+    tools_emulator_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
+    truncate_prompt_decorator,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AI21
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
@@ -104,20 +119,25 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
-class AI21Adapter(PseudoChatModel):
+def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
+    return compose_decorators(
+        preprocess_messages_decorator(default_preprocess_messages),
+        truncate_prompt_decorator(
+            keep_message=keep_last_and_system_messages,
+            partitioner=trivial_partitioner,
+        ),
+        replicator_decorator(),
+        tools_emulator_decorator(default_tools_emulator),
+    )(
+        pseudo_chat_adapter(default_emulator)(
+            AI21Adapter(client=client, model=model)
+        )
+    )
+
+
+class AI21Adapter(TextCompletionAdapter):
     model: str
     client: Bedrock
-
-    @classmethod
-    def create(cls, client: Bedrock, model: str):
-        return cls(
-            client=client,
-            model=model,
-            tokenize_string=default_tokenize_string,
-            tools_emulator=default_tools_emulator,
-            chat_emulator=default_emulator,
-            partitioner=trivial_partitioner,
-        )
 
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
@@ -132,3 +152,11 @@ class AI21Adapter(PseudoChatModel):
         consumer.append_content(resp.content())
         consumer.close_content()
         consumer.add_usage(resp.usage())
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return default_tokenize_string(string)
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, prompt: str
+    ) -> int:
+        return default_tokenize_string(prompt)

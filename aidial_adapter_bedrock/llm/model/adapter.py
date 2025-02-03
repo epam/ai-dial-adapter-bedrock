@@ -1,5 +1,11 @@
 from typing import assert_never
 
+import aidial_adapter_bedrock.llm.model.ai21 as ai21
+import aidial_adapter_bedrock.llm.model.amazon as amazon
+import aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter as claude_v1_v2
+import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
+import aidial_adapter_bedrock.llm.model.cohere as cohere
+import aidial_adapter_bedrock.llm.model.stability.v1 as stability_v1
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
     AdapterEmbeddingsDeployment,
@@ -31,16 +37,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
 )
-from aidial_adapter_bedrock.llm.model.ai21 import AI21Adapter
-from aidial_adapter_bedrock.llm.model.amazon import AmazonAdapter
-from aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter import (
-    Adapter as Claude_V1_V2,
-)
-from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
-    Adapter as Claude_V3,
-)
-from aidial_adapter_bedrock.llm.model.cohere import CohereAdapter
-from aidial_adapter_bedrock.llm.model.stability.v1 import StabilityV1Adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 
 
@@ -74,17 +71,18 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
         ):
-            return Claude_V3.create(
+            return claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
                 api_key,
                 aws_client_config,
             )
+
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1
         ):
-            return await Claude_V1_V2.create(
+            return await claude_v1_v2.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
@@ -93,28 +91,29 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.AI21_J2_MID_V1
             | ChatCompletionDeployment.AI21_J2_ULTRA_V1
         ):
-            return AI21Adapter.create(
+            return ai21.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
             ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
-            return StabilityV1Adapter.create(
+            return stability_v1.create_adapter(
                 await Bedrock.acreate(aws_client_config), model, api_key
             )
         case (
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
         ):
-            return StabilityV2Adapter.create(
+            model = StabilityV2Adapter.create(
                 await Bedrock.acreate(aws_client_config),
                 model,
                 api_key,
                 image_to_image_supported=False,
             )
+            return replicator_decorator()(model)
         case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
-            return StabilityV2Adapter.create(
+            model = StabilityV2Adapter.create(
                 await Bedrock.acreate(aws_client_config),
                 model,
                 api_key,
@@ -122,15 +121,16 @@ async def get_bedrock_adapter(
                 image_width_constraints=(640, 1536),
                 image_height_constraints=(640, 1536),
             )
+            return replicator_decorator()(model)
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
-            return AmazonAdapter.create(
+            return amazon.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
             ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
             | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
         ):
-            return CohereAdapter.create(
+            return cohere.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (

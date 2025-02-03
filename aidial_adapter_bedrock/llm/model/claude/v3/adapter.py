@@ -38,10 +38,16 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
+    default_preprocess_messages,
     keep_last,
     turn_based_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import parse_dial_message
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
@@ -92,6 +98,18 @@ class UsageEventHandler(AsyncMessageStream):
 class ClaudeRequest:
     params: ClaudeParameters
     messages: ListProjection[ClaudeMessage]
+
+
+def create_adapter(
+    deployment: AdapterDeployment[Claude3Deployment],
+    api_key: str,
+    aws_client_config: AWSClientConfig,
+) -> ChatCompletionAdapter:
+    model = Adapter.create(deployment, api_key, aws_client_config)
+    return compose_decorators(
+        preprocess_messages_decorator(default_preprocess_messages),
+        replicator_decorator(),
+    )(model)
 
 
 class Adapter(ChatCompletionAdapter):
