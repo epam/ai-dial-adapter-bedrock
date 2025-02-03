@@ -26,7 +26,7 @@ MessageContentSpecialized = (
 class ModelParameters(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
-    n: Optional[int] = None
+    n: int = 1
     stop: List[str] = []
     max_tokens: Optional[int] = None
     max_prompt_tokens: Optional[int] = None
@@ -48,7 +48,7 @@ class ModelParameters(BaseModel):
         return cls(
             temperature=request.temperature,
             top_p=request.top_p,
-            n=request.n,
+            n=request.n or 1,
             stop=stop,
             max_tokens=request.max_tokens,
             max_prompt_tokens=request.max_prompt_tokens,

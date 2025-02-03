@@ -16,10 +16,25 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     CueMapping,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    PseudoChatModel,
+    ChatCompletionAdapter,
+    TextCompletionAdapter,
+    default_preprocess_messages,
+    keep_last_and_system_messages,
     trivial_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.pseudo_chat import pseudo_chat_adapter
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
+from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
+    tools_emulator_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
+    truncate_prompt_decorator,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.claude_emulator import (
     legacy_tools_emulator,
@@ -91,36 +106,39 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
     )
 
 
-class Adapter(PseudoChatModel):
+async def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
+    is_claude_v2_1 = (
+        model == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1.value
+    )
+
+    tools_emulator = (
+        legacy_tools_emulator if is_claude_v2_1 else default_tools_emulator
+    )
+
+    chat_emulator = get_anthropic_emulator(
+        is_system_message_supported=is_claude_v2_1
+    )
+
+    return compose_decorators(
+        preprocess_messages_decorator(default_preprocess_messages),
+        truncate_prompt_decorator(
+            keep_message=keep_last_and_system_messages,
+            partitioner=trivial_partitioner,
+        ),
+        replicator_decorator(),
+        tools_emulator_decorator(tools_emulator),
+    )(pseudo_chat_adapter(chat_emulator)(await Adapter.create(client, model)))
+
+
+class Adapter(TextCompletionAdapter):
     model: str
     client: Bedrock
     tokenizer: Tokenizer
-    is_claude_v2_1: bool
 
     @classmethod
     async def create(cls, client: Bedrock, model: str):
-        is_claude_v2_1 = (
-            model == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1.value
-        )
-
-        chat_emulator = get_anthropic_emulator(
-            is_system_message_supported=is_claude_v2_1
-        )
-
-        tools_emulator = (
-            legacy_tools_emulator if is_claude_v2_1 else default_tools_emulator
-        )
-
-        tokenizer = await async_get_tokenizer()
         return cls(
-            client=client,
-            model=model,
-            tokenize_string=lambda text: len(tokenizer.encode(text).ids),
-            chat_emulator=chat_emulator,
-            tools_emulator=tools_emulator,
-            partitioner=trivial_partitioner,
-            is_claude_v2_1=is_claude_v2_1,
-            tokenizer=tokenizer,
+            client=client, model=model, tokenizer=await async_get_tokenizer()
         )
 
     async def predict(
@@ -154,3 +172,11 @@ class Adapter(PseudoChatModel):
             prompt_tokens=len(batch[0].ids),
             completion_tokens=len(batch[1].ids),
         )
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, prompt: str
+    ) -> int:
+        return len(self.tokenizer.encode(prompt).ids)
+
+    async def count_completion_tokens(self, string: str) -> int:
+        return len(self.tokenizer.encode(string).ids)

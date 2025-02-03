@@ -76,7 +76,7 @@ async def process_streaming(
                 match params.tools_mode:
                     case ToolsMode.TOOLS:
                         consumer.create_function_tool_call(
-                            tool_call=DialToolCall(
+                            call=DialToolCall(
                                 type="function",
                                 id=current_tool_use["toolUseId"],
                                 index=None,
@@ -90,7 +90,7 @@ async def process_streaming(
                         # ignoring multiple function calls in one response
                         if not consumer.has_function_call:
                             consumer.create_function_call(
-                                function_call=DialFunctionCall(
+                                call=DialFunctionCall(
                                     name=current_tool_use["name"],
                                     arguments=current_tool_use["input"],
                                 )
@@ -125,7 +125,7 @@ def process_non_streaming(
             match params.tools_mode:
                 case ToolsMode.TOOLS:
                     consumer.create_function_tool_call(
-                        tool_call=DialToolCall(
+                        call=DialToolCall(
                             type="function",
                             id=content_block["toolUse"]["toolUseId"],
                             index=None,
@@ -141,7 +141,7 @@ def process_non_streaming(
                     # ignoring multiple function calls in one response
                     if not consumer.has_function_call:
                         consumer.create_function_call(
-                            function_call=DialFunctionCall(
+                            call=DialFunctionCall(
                                 name=content_block["toolUse"]["name"],
                                 arguments=json.dumps(
                                     content_block["toolUse"]["input"]

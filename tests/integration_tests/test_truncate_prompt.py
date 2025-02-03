@@ -14,6 +14,7 @@ from tests.utils.json import match_objects
 from tests.utils.openai import (
     ai,
     sanitize_test_name,
+    sys,
     tokenize,
     truncate_prompt,
     user,
@@ -167,6 +168,23 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
         max_prompt_tokens=DynamicMaxPromptTokens([user("hello world")]),
         expected={
             "outputs": [{"status": "success", "discarded_messages": [0, 1]}]
+        },
+    )
+
+    test_case(
+        name="empty sys + keep last user message",
+        messages=[
+            sys(""),
+            sys(""),
+            user("ping"),
+            ai("pong"),
+            user("hello world"),
+        ],
+        max_prompt_tokens=DynamicMaxPromptTokens([user("hello world")]),
+        expected={
+            "outputs": [
+                {"status": "success", "discarded_messages": [0, 1, 2, 3]}
+            ]
         },
     )
 

@@ -11,14 +11,28 @@ from aidial_adapter_bedrock.dial_api.storage import (
     create_file_storage,
 )
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.chat_model import (
+    ChatCompletionAdapter,
+    default_preprocess_messages,
+)
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
+from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
+    tools_emulator_decorator,
+)
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,
 )
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
+from aidial_adapter_bedrock.llm.tools.default_emulator import (
+    default_tools_emulator,
+)
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
@@ -77,6 +91,16 @@ class StabilityResponse(BaseModel):
 
 def create_request(prompt: str) -> Dict[str, Any]:
     return {"text_prompts": [{"text": prompt}]}
+
+
+def create_adapter(
+    client: Bedrock, model: str, api_key: str
+) -> ChatCompletionAdapter:
+    return compose_decorators(
+        preprocess_messages_decorator(default_preprocess_messages),
+        replicator_decorator(),
+        tools_emulator_decorator(default_tools_emulator),
+    )(StabilityV1Adapter.create(client, model, api_key))
 
 
 class StabilityV1Adapter(ChatCompletionAdapter):
