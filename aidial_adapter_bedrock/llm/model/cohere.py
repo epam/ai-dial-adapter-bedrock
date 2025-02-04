@@ -1,15 +1,7 @@
 # Adapter for Cohere models.
 # See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
 
-from typing import (
-    Any,
-    AsyncIterator,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    assert_never,
-)
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aidial_sdk.chat_completion import FinishReason, Message
 from aidial_sdk.exceptions import InternalServerError
@@ -54,14 +46,12 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 )
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
-CohereFinishReason = Literal["COMPLETE", "MAX_TOKENS", "ERROR", "ERROR_TOXIC"]
-
 
 class CohereGeneration(BaseModel):
     id: str
     index: int | None = None
     text: str
-    finish_reason: CohereFinishReason | None = None
+    finish_reason: str | None = None
 
 
 class CohereResponse(ResponseWithInvocationMetricsMixin):
@@ -73,7 +63,7 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
         return self.generations[0].text
 
 
-def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
+def _cohere_finish_reason_to_dial(reason: str) -> FinishReason | None:
     match reason:
         case "COMPLETE":
             return FinishReason.STOP
@@ -84,7 +74,7 @@ def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
         case "ERROR":
             raise InternalServerError("The model returned an error.")
         case _:
-            assert_never(reason)
+            return None
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
@@ -114,7 +104,8 @@ def _add_finish_reasons(
     for generation in resp.generations:
         if finish_reason := generation.finish_reason:
             index = generation.index or 0
-            finish_reasons[index] = _cohere_finish_reason_to_dial(finish_reason)
+            if reason := _cohere_finish_reason_to_dial(finish_reason):
+                finish_reasons[index] = reason
 
 
 async def chunks_to_stream(

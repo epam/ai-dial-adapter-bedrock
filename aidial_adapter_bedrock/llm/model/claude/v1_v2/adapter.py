@@ -1,7 +1,7 @@
 from typing import Any, AsyncIterator, Dict
 
 import anthropic
-from aidial_sdk.chat_completion import Message, Role
+from aidial_sdk.chat_completion import FinishReason, Message, Role
 from anthropic._tokenizers import async_get_tokenizer
 from tokenizers import Tokenizer
 
@@ -44,6 +44,16 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 )
 
 
+def _claude_finish_reason_to_dial(reason: str) -> FinishReason | None:
+    match reason:
+        case "stop_sequence":
+            return FinishReason.STOP
+        case "max_tokens":
+            return FinishReason.LENGTH
+        case _:
+            return None
+
+
 # NOTE: See https://docs.anthropic.com/claude/reference/complete_post
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
     ret = {}
@@ -71,14 +81,28 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
+def _add_finish_reasons(
+    resp: dict, finish_reasons: Dict[int, FinishReason]
+) -> None:
+    if finish_reason := resp.get("stop_reason"):
+        if reason := _claude_finish_reason_to_dial(finish_reason):
+            finish_reasons[0] = reason
+
+
 async def chunks_to_stream(
     chunks: AsyncIterator[dict],
+    finish_reasons: Dict[int, FinishReason],
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
+        _add_finish_reasons(chunk, finish_reasons)
         yield chunk["completion"]
 
 
-async def response_to_stream(response: dict) -> AsyncIterator[str]:
+async def response_to_stream(
+    response: dict,
+    finish_reasons: Dict[int, FinishReason],
+) -> AsyncIterator[str]:
+    _add_finish_reasons(response, finish_reasons)
     yield response["completion"]
 
 
@@ -146,14 +170,16 @@ class Adapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
+        finish_reasons: Dict[int, FinishReason] = {}
+
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks)
+            stream = chunks_to_stream(chunks, finish_reasons)
         else:
             response, _headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response)
+            stream = response_to_stream(response, finish_reasons)
 
         stream = stream_utils.lstrip(stream)
 
@@ -161,7 +187,9 @@ class Adapter(TextCompletionAdapter):
         async for content in stream:
             completion += content
             consumer.append_content(content)
-        consumer.close_content()
+
+        finish_reason = next((r for r in finish_reasons.values()), None)
+        consumer.close_content(finish_reason)
 
         consumer.add_usage(self._compute_usage(prompt, completion))
 
