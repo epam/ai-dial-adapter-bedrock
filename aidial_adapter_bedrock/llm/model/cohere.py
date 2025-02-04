@@ -89,7 +89,7 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
         # Choosing reasonable default
         ret["max_tokens"] = DEFAULT_MAX_TOKENS_COHERE
 
-    ret["num_generations"] = params.n
+    # NOTE: num_generations is supported
 
     return ret
 
