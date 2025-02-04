@@ -1,9 +1,18 @@
 # Adapter for Cohere models.
 # See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
 
-from typing import Any, AsyncIterator, Dict, List, Literal, Optional
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    assert_never,
+)
 
 from aidial_sdk.chat_completion import FinishReason, Message
+from aidial_sdk.exceptions import InternalServerError
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import (
@@ -13,7 +22,6 @@ from aidial_adapter_bedrock.bedrock import (
     usage_from_headers,
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
@@ -46,28 +54,28 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 )
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
-CohereFinishReason = (
-    Literal["COMPLETE", "MAX_TOKENS", "ERROR", "ERROR_TOXIC"] | str
-)
+CohereFinishReason = Literal["COMPLETE", "MAX_TOKENS", "ERROR", "ERROR_TOXIC"]
 
 
 def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
     match reason:
-        case "COMPLETE" | "ERROR":
+        case "COMPLETE":
             return FinishReason.STOP
         case "MAX_TOKENS":
             return FinishReason.LENGTH
         case "ERROR_TOXIC":
             return FinishReason.CONTENT_FILTER
-        case _unclassified_reason:
-            return FinishReason.STOP
+        case "ERROR":
+            raise InternalServerError("The model returned an error.")
+        case _:
+            assert_never(reason)
 
 
 class CohereGeneration(BaseModel):
     id: str
-    index: int
+    index: int | None = None
     text: str
-    finish_reason: CohereFinishReason
+    finish_reason: CohereFinishReason | None = None
 
 
 class CohereResponse(ResponseWithInvocationMetricsMixin):
@@ -100,20 +108,36 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
+def _add_finish_reasons(
+    resp: CohereResponse, finish_reasons: Dict[int, FinishReason]
+) -> None:
+    for generation in resp.generations:
+        if finish_reason := generation.finish_reason:
+            index = generation.index or 0
+            finish_reasons[index] = _cohere_finish_reason_to_dial(finish_reason)
+
+
 async def chunks_to_stream(
-    chunks: AsyncIterator[dict], usage: TokenUsage
+    consumer: Consumer,
+    chunks: AsyncIterator[dict],
+    finish_reasons: Dict[int, FinishReason],
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         resp = CohereResponse.parse_obj(chunk)
-        usage.accumulate(resp.usage_from_metrics())
+        consumer.add_usage(resp.usage_from_metrics())
+        _add_finish_reasons(resp, finish_reasons)
         yield resp.content()
 
 
 async def response_to_stream(
-    response_body: dict, response_headers: Headers, usage: TokenUsage
+    consumer: Consumer,
+    response_body: dict,
+    response_headers: Headers,
+    finish_reasons: Dict[int, FinishReason],
 ) -> AsyncIterator[str]:
     resp = CohereResponse.parse_obj(response_body)
-    usage.accumulate(usage_from_headers(response_headers))
+    consumer.add_usage(usage_from_headers(response_headers))
+    _add_finish_reasons(resp, finish_reasons)
     yield resp.content()
 
 
@@ -169,24 +193,26 @@ class CohereAdapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        usage = TokenUsage()
+        finish_reasons: Dict[int, FinishReason] = {}
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks, usage)
+            stream = chunks_to_stream(consumer, chunks, finish_reasons)
         else:
             response, headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, headers, usage)
+            stream = response_to_stream(
+                consumer, response, headers, finish_reasons
+            )
 
         stream = post_process_completion_stream(params, cohere_emulator, stream)
 
         async for content in stream:
             consumer.append_content(content)
-        consumer.close_content()
 
-        consumer.add_usage(usage)
+        finish_reason = next((r for r in finish_reasons.values()), None)
+        consumer.close_content(finish_reason)
 
     async def count_completion_tokens(self, string: str) -> int:
         return default_tokenize_string(string)
