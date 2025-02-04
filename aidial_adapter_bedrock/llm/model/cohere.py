@@ -63,7 +63,7 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
         return self.generations[0].text
 
 
-def _cohere_finish_reason_to_dial(reason: str) -> FinishReason | None:
+def _to_dial_finish_reason(reason: str) -> FinishReason | None:
     match reason:
         case "COMPLETE":
             return FinishReason.STOP
@@ -98,20 +98,23 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
+FinishReasons = Dict[int, FinishReason]
+
+
 def _add_finish_reasons(
-    resp: CohereResponse, finish_reasons: Dict[int, FinishReason]
+    resp: CohereResponse, finish_reasons: FinishReasons
 ) -> None:
     for generation in resp.generations:
         if finish_reason := generation.finish_reason:
             index = generation.index or 0
-            if reason := _cohere_finish_reason_to_dial(finish_reason):
+            if reason := _to_dial_finish_reason(finish_reason):
                 finish_reasons[index] = reason
 
 
 async def chunks_to_stream(
     consumer: Consumer,
     chunks: AsyncIterator[dict],
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         resp = CohereResponse.parse_obj(chunk)
@@ -124,7 +127,7 @@ async def response_to_stream(
     consumer: Consumer,
     response_body: dict,
     response_headers: Headers,
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     resp = CohereResponse.parse_obj(response_body)
     consumer.add_usage(usage_from_headers(response_headers))
@@ -184,7 +187,7 @@ class CohereAdapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        finish_reasons: Dict[int, FinishReason] = {}
+        finish_reasons: FinishReasons = {}
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)

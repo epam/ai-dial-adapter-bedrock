@@ -44,7 +44,7 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 )
 
 
-def _claude_finish_reason_to_dial(reason: str) -> FinishReason | None:
+def _to_dial_finish_reason(reason: str) -> FinishReason | None:
     match reason:
         case "stop_sequence":
             return FinishReason.STOP
@@ -81,17 +81,18 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
-def _add_finish_reasons(
-    resp: dict, finish_reasons: Dict[int, FinishReason]
-) -> None:
+FinishReasons = Dict[int, FinishReason]
+
+
+def _add_finish_reasons(resp: dict, finish_reasons: FinishReasons) -> None:
     if finish_reason := resp.get("stop_reason"):
-        if reason := _claude_finish_reason_to_dial(finish_reason):
+        if reason := _to_dial_finish_reason(finish_reason):
             finish_reasons[0] = reason
 
 
 async def chunks_to_stream(
     chunks: AsyncIterator[dict],
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         _add_finish_reasons(chunk, finish_reasons)
@@ -100,7 +101,7 @@ async def chunks_to_stream(
 
 async def response_to_stream(
     response: dict,
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     _add_finish_reasons(response, finish_reasons)
     yield response["completion"]
@@ -170,7 +171,7 @@ class Adapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        finish_reasons: Dict[int, FinishReason] = {}
+        finish_reasons: FinishReasons = {}
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)

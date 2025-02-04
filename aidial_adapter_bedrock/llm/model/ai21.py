@@ -119,7 +119,7 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
     return ret
 
 
-def _ai21_finish_reason_to_dial(reason: str) -> DialFinishReason | None:
+def _to_dial_finish_reason(reason: str) -> DialFinishReason | None:
     match reason:
         case "length":
             return DialFinishReason.LENGTH
@@ -163,7 +163,7 @@ class AI21Adapter(TextCompletionAdapter):
 
         consumer.append_content(resp.content())
         consumer.close_content(
-            _ai21_finish_reason_to_dial(resp.completions[0].finishReason.reason)
+            _to_dial_finish_reason(resp.completions[0].finishReason.reason)
         )
 
         consumer.add_usage(resp.usage())

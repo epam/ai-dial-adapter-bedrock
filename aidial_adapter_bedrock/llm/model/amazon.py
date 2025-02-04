@@ -64,7 +64,7 @@ class AmazonResponse(BaseModel):
         )
 
 
-def _amazon_finish_reason_to_dial(reason: str) -> FinishReason | None:
+def _to_dial_finish_reason(reason: str) -> FinishReason | None:
     match reason:
         case "FINISHED" | "STOP_CRITERIA_MET":
             return FinishReason.STOP
@@ -104,10 +104,13 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"inputText": prompt, "textGenerationConfig": params}
 
 
+FinishReasons = Dict[int, FinishReason]
+
+
 async def chunks_to_stream(
     chunks: AsyncIterator[dict],
     usage: TokenUsage,
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         input_tokens = chunk.get("inputTextTokenCount")
@@ -119,7 +122,7 @@ async def chunks_to_stream(
             usage.completion_tokens = output_tokens
 
         if completionReason := chunk.get("completionReason"):
-            finish_reason = _amazon_finish_reason_to_dial(completionReason)
+            finish_reason = _to_dial_finish_reason(completionReason)
             index = chunk.get("index") or 0
             if finish_reason:
                 finish_reasons[index] = finish_reason
@@ -130,15 +133,13 @@ async def chunks_to_stream(
 async def response_to_stream(
     response: dict,
     usage: TokenUsage,
-    finish_reasons: Dict[int, FinishReason],
+    finish_reasons: FinishReasons,
 ) -> AsyncIterator[str]:
     resp = AmazonResponse.parse_obj(response)
 
     for idx, result in enumerate(resp.results):
         if result.completionReason:
-            finish_reason = _amazon_finish_reason_to_dial(
-                result.completionReason
-            )
+            finish_reason = _to_dial_finish_reason(result.completionReason)
             if finish_reason:
                 finish_reasons[idx] = finish_reason
 
@@ -190,7 +191,7 @@ class AmazonAdapter(TextCompletionAdapter):
         args = create_request(prompt, convert_params(params))
 
         usage = TokenUsage()
-        finish_reasons: Dict[int, FinishReason] = {}
+        finish_reasons: FinishReasons = {}
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
