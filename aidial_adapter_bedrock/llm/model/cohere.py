@@ -57,20 +57,6 @@ from aidial_adapter_bedrock.utils.list_projection import ListProjection
 CohereFinishReason = Literal["COMPLETE", "MAX_TOKENS", "ERROR", "ERROR_TOXIC"]
 
 
-def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
-    match reason:
-        case "COMPLETE":
-            return FinishReason.STOP
-        case "MAX_TOKENS":
-            return FinishReason.LENGTH
-        case "ERROR_TOXIC":
-            return FinishReason.CONTENT_FILTER
-        case "ERROR":
-            raise InternalServerError("The model returned an error.")
-        case _:
-            assert_never(reason)
-
-
 class CohereGeneration(BaseModel):
     id: str
     index: int | None = None
@@ -85,6 +71,20 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
 
     def content(self) -> str:
         return self.generations[0].text
+
+
+def _cohere_finish_reason_to_dial(reason: CohereFinishReason) -> FinishReason:
+    match reason:
+        case "COMPLETE":
+            return FinishReason.STOP
+        case "MAX_TOKENS":
+            return FinishReason.LENGTH
+        case "ERROR_TOXIC":
+            return FinishReason.CONTENT_FILTER
+        case "ERROR":
+            raise InternalServerError("The model returned an error.")
+        case _:
+            assert_never(reason)
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:

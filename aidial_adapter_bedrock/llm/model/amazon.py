@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from aidial_sdk.chat_completion import Message
+from aidial_sdk.chat_completion import FinishReason, Message
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -64,6 +64,18 @@ class AmazonResponse(BaseModel):
         )
 
 
+def _amazon_finish_reason_to_dial(reason: str) -> FinishReason | None:
+    match reason:
+        case "FINISHED" | "STOP_CRITERIA_MET":
+            return FinishReason.STOP
+        case "LENGTH":
+            return FinishReason.LENGTH
+        case "CONTENT_FILTERED":
+            return FinishReason.CONTENT_FILTER
+        case _:
+            return None
+
+
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
     ret = {}
 
@@ -93,7 +105,9 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def chunks_to_stream(
-    chunks: AsyncIterator[dict], usage: TokenUsage
+    chunks: AsyncIterator[dict],
+    usage: TokenUsage,
+    finish_reasons: Dict[int, FinishReason],
 ) -> AsyncIterator[str]:
     async for chunk in chunks:
         input_tokens = chunk.get("inputTextTokenCount")
@@ -104,13 +118,29 @@ async def chunks_to_stream(
         if output_tokens is not None:
             usage.completion_tokens = output_tokens
 
+        if completionReason := chunk.get("completionReason"):
+            finish_reason = _amazon_finish_reason_to_dial(completionReason)
+            index = chunk.get("index") or 0
+            if finish_reason:
+                finish_reasons[index] = finish_reason
+
         yield chunk["outputText"]
 
 
 async def response_to_stream(
-    response: dict, usage: TokenUsage
+    response: dict,
+    usage: TokenUsage,
+    finish_reasons: Dict[int, FinishReason],
 ) -> AsyncIterator[str]:
     resp = AmazonResponse.parse_obj(response)
+
+    for idx, result in enumerate(resp.results):
+        if result.completionReason:
+            finish_reason = _amazon_finish_reason_to_dial(
+                result.completionReason
+            )
+            if finish_reason:
+                finish_reasons[idx] = finish_reason
 
     token_usage = resp.usage()
     usage.completion_tokens = token_usage.completion_tokens
@@ -160,15 +190,16 @@ class AmazonAdapter(TextCompletionAdapter):
         args = create_request(prompt, convert_params(params))
 
         usage = TokenUsage()
+        finish_reasons: Dict[int, FinishReason] = {}
 
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks, usage)
+            stream = chunks_to_stream(chunks, usage, finish_reasons)
         else:
             response, _headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, usage)
+            stream = response_to_stream(response, usage, finish_reasons)
 
         stream = post_process_completion_stream(
             params, default_emulator, stream
@@ -176,7 +207,9 @@ class AmazonAdapter(TextCompletionAdapter):
 
         async for content in stream:
             consumer.append_content(content)
-        consumer.close_content()
+
+        finish_reason = next((r for r in finish_reasons.values()), None)
+        consumer.close_content(finish_reason)
 
         consumer.add_usage(usage)
 
