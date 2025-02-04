@@ -1,5 +1,9 @@
+# Adapter for AI21 models.
+# See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jurassic2.html
+
 from typing import Any, Dict, List, Optional
 
+from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -115,6 +119,14 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
     return ret
 
 
+def _ai21_finish_reason_to_dial(reason: str) -> DialFinishReason | None:
+    match reason:
+        case "length":
+            return DialFinishReason.LENGTH
+        case _:
+            return None
+
+
 def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
@@ -150,7 +162,10 @@ class AI21Adapter(TextCompletionAdapter):
         resp = AI21Response.parse_obj(response)
 
         consumer.append_content(resp.content())
-        consumer.close_content()
+        consumer.close_content(
+            _ai21_finish_reason_to_dial(resp.completions[0].finishReason.reason)
+        )
+
         consumer.add_usage(resp.usage())
 
     async def count_completion_tokens(self, string: str) -> int:
