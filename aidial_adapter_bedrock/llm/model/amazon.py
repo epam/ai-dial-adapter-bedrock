@@ -49,19 +49,25 @@ class AmazonResponse(BaseModel):
     results: List[AmazonResult]
 
     def content(self) -> str:
-        assert (
-            len(self.results) == 1
-        ), "AmazonResponse should only have one result"
-        return self.results[0].outputText
+        return self.result.outputText
 
     def usage(self) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=self.inputTextTokenCount,
+            completion_tokens=self.result.tokenCount,
+        )
+
+    def finish_reason(self) -> FinishReason | None:
+        if self.result.completionReason:
+            return _to_dial_finish_reason(self.result.completionReason)
+        return None
+
+    @property
+    def result(self) -> AmazonResult:
         assert (
             len(self.results) == 1
         ), "AmazonResponse should only have one result"
-        return TokenUsage(
-            prompt_tokens=self.inputTextTokenCount,
-            completion_tokens=self.results[0].tokenCount,
-        )
+        return self.results[0]
 
 
 def _to_dial_finish_reason(reason: str) -> FinishReason | None:
@@ -137,11 +143,8 @@ async def response_to_stream(
 ) -> AsyncIterator[str]:
     resp = AmazonResponse.parse_obj(response)
 
-    for idx, result in enumerate(resp.results):
-        if result.completionReason:
-            finish_reason = _to_dial_finish_reason(result.completionReason)
-            if finish_reason:
-                finish_reasons[idx] = finish_reason
+    if finish_reason := resp.finish_reason():
+        finish_reasons[0] = finish_reason
 
     token_usage = resp.usage()
     usage.completion_tokens = token_usage.completion_tokens
