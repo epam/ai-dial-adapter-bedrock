@@ -1,10 +1,11 @@
 # Adapter for AI21 models.
-# See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jurassic2.html
+# See the API documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jurassic2.html and https://docs.ai21.com/reference/j2-complete-api-ref
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from pydantic import BaseModel
+from typing_extensions import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -60,8 +61,7 @@ class TextAndTokens(BaseModel):
 
 
 class FinishReason(BaseModel):
-    reason: str  # Literal["length", "endoftext"]
-    length: Optional[int]
+    reason: Literal["length", "endoftext", "stop"]
 
 
 class Completion(BaseModel):
@@ -119,12 +119,16 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
     return ret
 
 
-def _to_dial_finish_reason(reason: str) -> DialFinishReason | None:
+def _to_dial_finish_reason(
+    reason: Literal["length", "endoftext", "stop"]
+) -> DialFinishReason:
     match reason:
         case "length":
             return DialFinishReason.LENGTH
+        case "endoftext" | "stop":
+            return DialFinishReason.STOP
         case _:
-            return None
+            assert_never(reason)
 
 
 def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
