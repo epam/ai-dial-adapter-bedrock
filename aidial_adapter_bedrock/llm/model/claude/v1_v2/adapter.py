@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, Tuple
 
 import anthropic
 from aidial_sdk.chat_completion import FinishReason, Message, Role
@@ -34,6 +34,10 @@ from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
 )
 from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
     truncate_prompt_decorator,
+)
+from aidial_adapter_bedrock.llm.model.completion_state import (
+    CompletionState,
+    FinishReasons,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
 from aidial_adapter_bedrock.llm.tools.claude_emulator import (
@@ -81,30 +85,35 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
-FinishReasons = Dict[int, FinishReason]
-
-
-def _add_finish_reasons(resp: dict, finish_reasons: FinishReasons) -> None:
+def _collect_finish_reasons(resp: dict, finish_reasons: FinishReasons) -> None:
     if finish_reason := resp.get("stop_reason"):
         if reason := _to_dial_finish_reason(finish_reason):
             finish_reasons[0] = reason
 
 
-async def chunks_to_stream(
+def chunks_to_stream(
     chunks: AsyncIterator[dict],
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
-    async for chunk in chunks:
-        _add_finish_reasons(chunk, finish_reasons)
-        yield chunk["completion"]
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+
+    async def _gen():
+        async for chunk in chunks:
+            _collect_finish_reasons(chunk, state.finish_reasons)
+            yield chunk["completion"]
+
+    return _gen(), state
 
 
-async def response_to_stream(
+def response_to_stream(
     response: dict,
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
-    _add_finish_reasons(response, finish_reasons)
-    yield response["completion"]
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+    _collect_finish_reasons(response, state.finish_reasons)
+
+    async def _gen():
+        yield response["completion"]
+
+    return _gen(), state
 
 
 def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
@@ -171,16 +180,14 @@ class Adapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        finish_reasons: FinishReasons = {}
-
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks, finish_reasons)
+            stream, state = chunks_to_stream(chunks)
         else:
             response, _headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, finish_reasons)
+            stream, state = response_to_stream(response)
 
         stream = stream_utils.lstrip(stream)
 
@@ -189,9 +196,7 @@ class Adapter(TextCompletionAdapter):
             completion += content
             consumer.append_content(content)
 
-        finish_reason = next((r for r in finish_reasons.values()), None)
-        consumer.close_content(finish_reason)
-
+        consumer.close_content(state.get_single_finish_reason())
         consumer.add_usage(self._compute_usage(prompt, completion))
 
     def _compute_usage(self, prompt: str, completion: str) -> TokenUsage:

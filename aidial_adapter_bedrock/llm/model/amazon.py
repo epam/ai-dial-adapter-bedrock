@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from aidial_sdk.chat_completion import FinishReason, Message
 from pydantic import BaseModel
@@ -30,6 +30,7 @@ from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
 from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
     truncate_prompt_decorator,
 )
+from aidial_adapter_bedrock.llm.model.completion_state import CompletionState
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_AMAZON
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
@@ -110,47 +111,50 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"inputText": prompt, "textGenerationConfig": params}
 
 
-FinishReasons = Dict[int, FinishReason]
-
-
-async def chunks_to_stream(
+def chunks_to_stream(
     chunks: AsyncIterator[dict],
-    usage: TokenUsage,
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
-    async for chunk in chunks:
-        input_tokens = chunk.get("inputTextTokenCount")
-        if input_tokens is not None:
-            usage.prompt_tokens = input_tokens
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
 
-        output_tokens = chunk.get("totalOutputTextTokenCount")
-        if output_tokens is not None:
-            usage.completion_tokens = output_tokens
+    async def _gen():
+        async for chunk in chunks:
+            input_tokens = chunk.get("inputTextTokenCount")
+            if input_tokens is not None:
+                state.usage.prompt_tokens = input_tokens
 
-        if completionReason := chunk.get("completionReason"):
-            finish_reason = _to_dial_finish_reason(completionReason)
-            index = chunk.get("index") or 0
-            if finish_reason:
-                finish_reasons[index] = finish_reason
+            output_tokens = chunk.get("totalOutputTextTokenCount")
+            if output_tokens is not None:
+                state.usage.completion_tokens = output_tokens
+
+            if completionReason := chunk.get("completionReason"):
+                finish_reason = _to_dial_finish_reason(completionReason)
+                index = chunk.get("index") or 0
+                if finish_reason:
+                    state.finish_reasons[index] = finish_reason
 
         yield chunk["outputText"]
 
+    return _gen(), state
 
-async def response_to_stream(
+
+def response_to_stream(
     response: dict,
-    usage: TokenUsage,
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
+) -> Tuple[AsyncIterator[str], CompletionState]:
     resp = AmazonResponse.parse_obj(response)
 
+    state = CompletionState()
+
     if finish_reason := resp.finish_reason():
-        finish_reasons[0] = finish_reason
+        state.finish_reasons[0] = finish_reason
 
     token_usage = resp.usage()
-    usage.completion_tokens = token_usage.completion_tokens
-    usage.prompt_tokens = token_usage.prompt_tokens
+    state.usage.completion_tokens = token_usage.completion_tokens
+    state.usage.prompt_tokens = token_usage.prompt_tokens
 
-    yield resp.content()
+    async def _gen():
+        yield resp.content()
+
+    return _gen(), state
 
 
 def _preprocess_amazon_messages(
@@ -193,17 +197,14 @@ class AmazonAdapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        usage = TokenUsage()
-        finish_reasons: FinishReasons = {}
-
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks, usage, finish_reasons)
+            stream, state = chunks_to_stream(chunks)
         else:
             response, _headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, usage, finish_reasons)
+            stream, state = response_to_stream(response)
 
         stream = post_process_completion_stream(
             params, default_emulator, stream
@@ -212,10 +213,8 @@ class AmazonAdapter(TextCompletionAdapter):
         async for content in stream:
             consumer.append_content(content)
 
-        finish_reason = next((r for r in finish_reasons.values()), None)
-        consumer.close_content(finish_reason)
-
-        consumer.add_usage(usage)
+        consumer.close_content(state.get_single_finish_reason())
+        consumer.add_usage(state.usage)
 
     async def count_completion_tokens(self, string: str) -> int:
         return default_tokenize_string(string)

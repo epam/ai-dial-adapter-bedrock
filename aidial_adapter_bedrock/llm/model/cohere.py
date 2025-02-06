@@ -1,7 +1,7 @@
 # Adapter for Cohere models.
 # See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
 
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from aidial_sdk.chat_completion import FinishReason, Message
 from aidial_sdk.exceptions import InternalServerError
@@ -38,6 +38,10 @@ from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
 )
 from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
     truncate_prompt_decorator,
+)
+from aidial_adapter_bedrock.llm.model.completion_state import (
+    CompletionState,
+    FinishReasons,
 )
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -98,10 +102,7 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
-FinishReasons = Dict[int, FinishReason]
-
-
-def _add_finish_reasons(
+def _collect_finish_reasons(
     resp: CohereResponse, finish_reasons: FinishReasons
 ) -> None:
     for generation in resp.generations:
@@ -111,28 +112,34 @@ def _add_finish_reasons(
                 finish_reasons[index] = reason
 
 
-async def chunks_to_stream(
-    consumer: Consumer,
+def chunks_to_stream(
     chunks: AsyncIterator[dict],
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
-    async for chunk in chunks:
-        resp = CohereResponse.parse_obj(chunk)
-        consumer.add_usage(resp.usage_from_metrics())
-        _add_finish_reasons(resp, finish_reasons)
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+
+    async def _gen():
+        async for chunk in chunks:
+            resp = CohereResponse.parse_obj(chunk)
+            state.usage.accumulate(resp.usage_from_metrics())
+            _collect_finish_reasons(resp, state.finish_reasons)
+            yield resp.content()
+
+    return _gen(), state
+
+
+def response_to_stream(
+    response_body: dict, response_headers: Headers
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+
+    resp = CohereResponse.parse_obj(response_body)
+    state.usage.accumulate(usage_from_headers(response_headers))
+    _collect_finish_reasons(resp, state.finish_reasons)
+
+    async def _gen():
         yield resp.content()
 
-
-async def response_to_stream(
-    consumer: Consumer,
-    response_body: dict,
-    response_headers: Headers,
-    finish_reasons: FinishReasons,
-) -> AsyncIterator[str]:
-    resp = CohereResponse.parse_obj(response_body)
-    consumer.add_usage(usage_from_headers(response_headers))
-    _add_finish_reasons(resp, finish_reasons)
-    yield resp.content()
+    return _gen(), state
 
 
 cohere_emulator = BasicChatEmulator(
@@ -187,26 +194,22 @@ class CohereAdapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        finish_reasons: FinishReasons = {}
-
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(consumer, chunks, finish_reasons)
+            stream, state = chunks_to_stream(chunks)
         else:
             response, headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(
-                consumer, response, headers, finish_reasons
-            )
+            stream, state = response_to_stream(response, headers)
 
         stream = post_process_completion_stream(params, cohere_emulator, stream)
 
         async for content in stream:
             consumer.append_content(content)
 
-        finish_reason = next((r for r in finish_reasons.values()), None)
-        consumer.close_content(finish_reason)
+        consumer.close_content(state.get_single_finish_reason())
+        consumer.add_usage(state.usage)
 
     async def count_completion_tokens(self, string: str) -> int:
         return default_tokenize_string(string)
