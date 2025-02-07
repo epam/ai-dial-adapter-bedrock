@@ -177,6 +177,10 @@ class ChatCompletionResult(BaseModel):
         ]
 
     @property
+    def finish_reasons(self) -> List[str]:
+        return [choice.finish_reason for choice in self.response.choices]
+
+    @property
     def usage(self) -> CompletionUsage | None:
         return self.response.usage
 

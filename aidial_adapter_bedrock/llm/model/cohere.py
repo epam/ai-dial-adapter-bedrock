@@ -1,7 +1,11 @@
-from typing import Any, AsyncIterator, Dict, List, Optional
+# Adapter for Cohere models.
+# See the documentation at https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
 
-from aidial_sdk.chat_completion import Message
-from pydantic import BaseModel, Field
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+
+from aidial_sdk.chat_completion import FinishReason, Message
+from aidial_sdk.exceptions import InternalServerError
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import (
     Bedrock,
@@ -10,7 +14,6 @@ from aidial_adapter_bedrock.bedrock import (
     usage_from_headers,
 )
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
     CueMapping,
@@ -36,6 +39,10 @@ from aidial_adapter_bedrock.llm.decorator.tools_emulator import (
 from aidial_adapter_bedrock.llm.decorator.truncate_prompt import (
     truncate_prompt_decorator,
 )
+from aidial_adapter_bedrock.llm.model.completion_state import (
+    CompletionState,
+    FinishReasons,
+)
 from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_COHERE
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.tools.default_emulator import (
@@ -44,23 +51,11 @@ from aidial_adapter_bedrock.llm.tools.default_emulator import (
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class CohereResult(BaseModel):
-    tokenCount: int
-    outputText: str
-    completionReason: Optional[str]
-
-
-class Likelihood(BaseModel):
-    likelihood: float
-    token: str
-
-
 class CohereGeneration(BaseModel):
     id: str
+    index: int | None = None
     text: str
-    likelihood: float
-    finish_reason: str
-    token_likelihoods: List[Likelihood] = Field(repr=False)
+    finish_reason: str | None = None
 
 
 class CohereResponse(ResponseWithInvocationMetricsMixin):
@@ -71,10 +66,19 @@ class CohereResponse(ResponseWithInvocationMetricsMixin):
     def content(self) -> str:
         return self.generations[0].text
 
-    @property
-    def tokens(self) -> List[str]:
-        """Includes prompt and completion tokens"""
-        return [lh.token for lh in self.generations[0].token_likelihoods]
+
+def _to_dial_finish_reason(reason: str) -> FinishReason | None:
+    match reason:
+        case "COMPLETE":
+            return FinishReason.STOP
+        case "MAX_TOKENS":
+            return FinishReason.LENGTH
+        case "ERROR_TOXIC":
+            return FinishReason.CONTENT_FILTER
+        case "ERROR":
+            raise InternalServerError("The model returned an error.")
+        case _:
+            return None
 
 
 def convert_params(params: ModelParameters) -> Dict[str, Any]:
@@ -89,8 +93,6 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
         # Choosing reasonable default
         ret["max_tokens"] = DEFAULT_MAX_TOKENS_COHERE
 
-    ret["return_likelihoods"] = "ALL"
-
     # NOTE: num_generations is supported
 
     return ret
@@ -100,21 +102,44 @@ def create_request(prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
     return {"prompt": prompt, **params}
 
 
-async def chunks_to_stream(
-    chunks: AsyncIterator[dict], usage: TokenUsage
-) -> AsyncIterator[str]:
-    async for chunk in chunks:
-        resp = CohereResponse.parse_obj(chunk)
-        usage.accumulate(resp.usage_from_metrics())
+def _collect_finish_reasons(
+    resp: CohereResponse, finish_reasons: FinishReasons
+) -> None:
+    for generation in resp.generations:
+        if finish_reason := generation.finish_reason:
+            index = generation.index or 0
+            if reason := _to_dial_finish_reason(finish_reason):
+                finish_reasons[index] = reason
+
+
+def chunks_to_stream(
+    chunks: AsyncIterator[dict],
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+
+    async def _gen():
+        async for chunk in chunks:
+            resp = CohereResponse.parse_obj(chunk)
+            state.usage.accumulate(resp.usage_from_metrics())
+            _collect_finish_reasons(resp, state.finish_reasons)
+            yield resp.content()
+
+    return _gen(), state
+
+
+def response_to_stream(
+    response_body: dict, response_headers: Headers
+) -> Tuple[AsyncIterator[str], CompletionState]:
+    state = CompletionState()
+
+    resp = CohereResponse.parse_obj(response_body)
+    state.usage.accumulate(usage_from_headers(response_headers))
+    _collect_finish_reasons(resp, state.finish_reasons)
+
+    async def _gen():
         yield resp.content()
 
-
-async def response_to_stream(
-    response_body: dict, response_headers: Headers, usage: TokenUsage
-) -> AsyncIterator[str]:
-    resp = CohereResponse.parse_obj(response_body)
-    usage.accumulate(usage_from_headers(response_headers))
-    yield resp.content()
+    return _gen(), state
 
 
 cohere_emulator = BasicChatEmulator(
@@ -169,24 +194,22 @@ class CohereAdapter(TextCompletionAdapter):
     ):
         args = create_request(prompt, convert_params(params))
 
-        usage = TokenUsage()
-
         if params.stream:
             chunks = self.client.ainvoke_streaming(self.model, args)
-            stream = chunks_to_stream(chunks, usage)
+            stream, state = chunks_to_stream(chunks)
         else:
             response, headers = await self.client.ainvoke_non_streaming(
                 self.model, args
             )
-            stream = response_to_stream(response, headers, usage)
+            stream, state = response_to_stream(response, headers)
 
         stream = post_process_completion_stream(params, cohere_emulator, stream)
 
         async for content in stream:
             consumer.append_content(content)
-        consumer.close_content()
 
-        consumer.add_usage(usage)
+        consumer.close_content(state.get_single_finish_reason())
+        consumer.add_usage(state.usage)
 
     async def count_completion_tokens(self, string: str) -> int:
         return default_tokenize_string(string)
