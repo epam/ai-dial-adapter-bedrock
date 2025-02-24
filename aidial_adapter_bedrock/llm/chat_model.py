@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Set, Tuple
+from typing import Any, List, Set, Tuple, Type
 
 from aidial_sdk.chat_completion import Message, Role
 from pydantic import BaseModel
@@ -26,6 +26,9 @@ class ChatCompletionAdapter(ABC, BaseModel):
         messages: List[Message],
     ) -> None:
         pass
+
+    async def configuration(self) -> Type[BaseModel]:
+        raise NotImplementedError
 
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]

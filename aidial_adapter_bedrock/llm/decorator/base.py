@@ -19,6 +19,9 @@ class ChatCompletionDecorator(ChatCompletionAdapter):
     ) -> None:
         await self.adapter.chat(consumer, params, messages)
 
+    async def configuration(self) -> type:
+        return await self.adapter.configuration()
+
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
     ) -> int:
