@@ -93,11 +93,17 @@ AspectRatios = Literal[
 
 
 class StabilityImageConfiguration(BaseModel):
+    class Config:
+        extra = "allow"
+
     aspect_ratio: AspectRatios | str | None = None
     negative_prompt: str | None = None
 
 
 class StabilityV3Configuration(StabilityImageConfiguration):
+    class Config:
+        extra = "allow"
+
     cfg_scale: float | None = None
 
 
