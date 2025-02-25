@@ -32,6 +32,7 @@ class ModelParameters(BaseModel):
     top_p: Optional[float] = None
     n: int = 1
     stop: List[str] = []
+    seed: Optional[int] = None
     max_tokens: Optional[int] = None
     max_prompt_tokens: Optional[int] = None
     stream: bool = False
@@ -61,6 +62,7 @@ class ModelParameters(BaseModel):
             top_p=request.top_p,
             n=request.n or 1,
             stop=stop,
+            seed=request.seed,
             max_tokens=request.max_tokens,
             max_prompt_tokens=request.max_prompt_tokens,
             stream=request.stream,

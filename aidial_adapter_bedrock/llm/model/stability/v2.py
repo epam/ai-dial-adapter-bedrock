@@ -48,36 +48,6 @@ async def _download_resource(
         )
 
 
-def _validate_image_size(
-    image: Resource,
-    width_constraints: Tuple[int, int] | None,
-    height_constraints: Tuple[int, int] | None,
-) -> None:
-    if width_constraints is None and height_constraints is None:
-        return
-
-    with Image.open(BytesIO(image.data)) as img:
-        width, height = img.size
-
-        for constraints, value, name in [
-            (width_constraints, width, "width"),
-            (height_constraints, height, "height"),
-        ]:
-            if constraints is None:
-                continue
-            min_value, max_value = constraints
-            if not (min_value <= value <= max_value):
-                error_msg = (
-                    f"Image {name} is {value}, but should be "
-                    f"between {min_value} and {max_value}"
-                )
-                raise RequestValidationError(
-                    message=error_msg,
-                    display_message=error_msg,
-                    code="invalid_argument",
-                )
-
-
 class StabilityV2Response(BaseModel):
     seeds: List[int]
     images: List[str]
@@ -121,31 +91,10 @@ AspectRatios = Literal[
     "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
 ]
 
-Styles = Literal[
-    "3d-model",
-    "analog-film",
-    "anime",
-    "cinematic",
-    "comic-book",
-    "digital-art",
-    "enhance",
-    "fantasy-art",
-    "isometric",
-    "line-art",
-    "low-poly",
-    "modeling-compound",
-    "neon-punk",
-    "origami",
-    "photographic",
-    "pixel-art",
-    "tile-texture",
-]
-
 
 class StabilityImageConfiguration(BaseModel):
     aspect_ratio: AspectRatios | str | None = None
     negative_prompt: str | None = None
-    style_preset: Styles | str | None = None
 
 
 class StabilityV3Configuration(StabilityImageConfiguration):
@@ -161,9 +110,34 @@ Stability_V2_V3 = Literal[
 
 class Spec(BaseModel):
     image_to_image_supported: bool
-    width_constraints: Tuple[int, int] | None = None
-    height_constraints: Tuple[int, int] | None = None
+    width_constraints: Tuple[int, int] | None
+    height_constraints: Tuple[int, int] | None
     configuration_cls: Type[BaseModel]
+
+    def validate_image(self, image: Resource) -> None:
+        if self.width_constraints is None and self.height_constraints is None:
+            return
+
+        with Image.open(BytesIO(image.data)) as img:
+            width, height = img.size
+
+            for constraints, value, name in [
+                (self.width_constraints, width, "width"),
+                (self.height_constraints, height, "height"),
+            ]:
+                if constraints is None:
+                    continue
+                min_value, max_value = constraints
+                if not (min_value <= value <= max_value):
+                    error_msg = (
+                        f"Image {name} is {value}, but should be "
+                        f"between {min_value} and {max_value}"
+                    )
+                    raise RequestValidationError(
+                        message=error_msg,
+                        display_message=error_msg,
+                        code="invalid_argument",
+                    )
 
 
 def _get_spec(deployment: Stability_V2_V3) -> Spec:
@@ -174,6 +148,8 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
         ):
             return Spec(
                 image_to_image_supported=False,
+                width_constraints=None,
+                height_constraints=None,
                 configuration_cls=StabilityImageConfiguration,
             )
         case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
@@ -243,11 +219,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             image_resource = await _download_resource(
                 image_resources[0], self.storage
             )
-            _validate_image_size(
-                image_resource,
-                self.spec.width_constraints,
-                self.spec.height_constraints,
-            )
+            self.spec.validate_image(image_resource)
         else:
             image_resource = None
 
@@ -270,6 +242,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
                     # where 0 means that output will be identical to input image and 1 means that model will ignore input image
                     # Since there is no recommended default value, we use 0.5 as a middle ground
                     "strength": 0.5 if image_resource else None,
+                    "seed": params.seed,
                     **configuration_dict,
                 }
             ),
