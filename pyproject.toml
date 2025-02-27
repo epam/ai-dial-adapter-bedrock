@@ -20,7 +20,7 @@ anthropic = { version = "0.28.1", extras = ["bedrock"] }
 fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
-pydantic = "1.10.13"
+pydantic = "1.10.17"
 defusedxml = "^0.7.1"
 numpy = "^2.0.0"
 pillow = "^10.4.0"
