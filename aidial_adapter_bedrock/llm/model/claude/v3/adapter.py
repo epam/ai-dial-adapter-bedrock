@@ -21,7 +21,10 @@ from anthropic.types.message_create_params import ToolChoice
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
-from aidial_adapter_bedrock.deployments import Claude3Deployment
+from aidial_adapter_bedrock.deployments import (
+    ChatCompletionDeployment,
+    Claude3Deployment,
+)
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters as DialParameters,
 )
@@ -44,7 +47,13 @@ from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
 from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import parse_dial_message
+from aidial_adapter_bedrock.llm.model.attachment_processor import (
+    AttachmentProcessors,
+)
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
+    IMAGE_ATTACHMENT_PROCESSOR,
+    PDF_ATTACHMENT_PROCESSOR,
+    TEXT_ATTACHMENT_PROCESSOR,
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
@@ -97,6 +106,34 @@ class Adapter(ChatCompletionAdapter):
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
+    @property
+    def attachment_processors(
+        self,
+    ) -> AttachmentProcessors:
+        # Document support: https://docs.anthropic.com/en/docs/build-with-claude/pdf-support#supported-platforms-and-models
+        supports_documents = self.deployment.reference_deployment_id in {
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
+        }
+
+        return AttachmentProcessors(
+            attachment_processors=(
+                [IMAGE_ATTACHMENT_PROCESSOR]
+                + (
+                    [PDF_ATTACHMENT_PROCESSOR, TEXT_ATTACHMENT_PROCESSOR]
+                    if supports_documents
+                    else []
+                )
+            ),
+            file_storage=self.storage,
+        )
+
     async def _prepare_claude_request(
         self, params: DialParameters, messages: List[DialMessage]
     ) -> ClaudeRequest:
@@ -111,6 +148,7 @@ class Adapter(ChatCompletionAdapter):
                 for tool_function in tool_config.functions
             ]
 
+            # FIXME: support choice of a particular tool
             tool_choice = (
                 {"type": "any"} if tool_config.required else {"type": "auto"}
             )
@@ -125,7 +163,7 @@ class Adapter(ChatCompletionAdapter):
         ]
 
         system_prompt, claude_messages = await to_claude_messages(
-            parsed_messages, self.storage
+            self.attachment_processors, parsed_messages
         )
 
         claude_params = ClaudeParameters(

@@ -1,16 +1,14 @@
 import json
 from typing import List, Literal, Optional, Set, Tuple, assert_never, cast
 
-from aidial_sdk.chat_completion import (
-    FinishReason,
-    Function,
-    MessageContentImagePart,
-    MessageContentTextPart,
-    ToolCall,
-)
+from aidial_sdk.chat_completion import FinishReason, Function, ToolCall
 from anthropic.types import (
+    Base64PDFSourceParam,
+    CitationsConfigParam,
+    DocumentBlockParam,
     ImageBlockParam,
     MessageParam,
+    PlainTextSourceParam,
     TextBlockParam,
     ToolParam,
     ToolResultBlockParam,
@@ -18,14 +16,7 @@ from anthropic.types import (
 )
 from anthropic.types.image_block_param import Source
 
-from aidial_adapter_bedrock.dial_api.resource import (
-    AttachmentResource,
-    DialResource,
-    UnsupportedContentType,
-    URLResource,
-)
-from aidial_adapter_bedrock.dial_api.storage import FileStorage
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
+from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
     AIToolCallMessage,
@@ -34,23 +25,21 @@ from aidial_adapter_bedrock.llm.message import (
     HumanToolResultMessage,
     SystemMessage,
 )
+from aidial_adapter_bedrock.llm.model.attachment_processor import (
+    AttachmentProcessor,
+    AttachmentProcessors,
+)
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.utils.concurrency import aiter_to_list
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.resource import Resource
 
-ClaudeFinishReason = Literal[
+_ClaudeFinishReason = Literal[
     "end_turn", "max_tokens", "stop_sequence", "tool_use"
 ]
-ImageMediaType = Literal["image/png", "image/jpeg", "image/gif", "image/webp"]
-IMAGE_MEDIA_TYPES: List[str] = [
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-]
 
-FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
+_ImageMediaType = Literal["image/png", "image/jpeg", "image/gif", "image/webp"]
 
 
 def _create_text_block(text: str) -> TextBlockParam:
@@ -61,68 +50,61 @@ def _create_image_block(resource: Resource) -> ImageBlockParam:
     return ImageBlockParam(
         source=Source(
             data=resource.data_base64,
-            media_type=cast(ImageMediaType, resource.type),
+            media_type=cast(_ImageMediaType, resource.type),
             type="base64",
         ),
         type="image",
     )
 
 
-async def _collect_image_block(
-    file_storage: FileStorage | None, dial_resource: DialResource
-) -> ImageBlockParam:
-    try:
-        resource = await dial_resource.download(file_storage)
-    except UnsupportedContentType as e:
-        raise UserError(
-            f"Unsupported media type: {e.type}",
-            get_usage_message(FILE_EXTENSIONS),
-        )
-
-    return _create_image_block(resource)
+_CITATIONS_ENABLED = True
 
 
-async def _to_claude_message(
-    file_storage: FileStorage | None,
-    message: AIRegularMessage | HumanRegularMessage,
-) -> List[TextBlockParam | ImageBlockParam]:
-    ret: List[TextBlockParam | ImageBlockParam] = []
+def _create_text_document_block(resource: Resource) -> DocumentBlockParam:
+    return DocumentBlockParam(
+        source=PlainTextSourceParam(
+            data=resource.data.decode("utf-8"),
+            media_type=resource.type,  # type: ignore
+            type="text",
+        ),
+        type="document",
+        citations=CitationsConfigParam(enabled=_CITATIONS_ENABLED),
+        title="",  # FIXME
+    )
 
-    for attachment in message.attachments:
-        dial_resource = AttachmentResource(
-            attachment=attachment,
-            entity_name="image attachment",
-            supported_types=IMAGE_MEDIA_TYPES,
-        )
-        ret.append(await _collect_image_block(file_storage, dial_resource))
 
-    content = message.content
+def _create_pdf_document_block(resource: Resource) -> DocumentBlockParam:
+    return DocumentBlockParam(
+        source=Base64PDFSourceParam(
+            data=resource.data_base64,
+            media_type=resource.type,  # type: ignore
+            type="base64",
+        ),
+        type="document",
+        citations=CitationsConfigParam(enabled=_CITATIONS_ENABLED),
+        title="",  # FIXME
+    )
 
-    match content:
-        case str():
-            ret.append(_create_text_block(content))
-        case list():
-            for part in content:
-                match part:
-                    case MessageContentTextPart(text=text):
-                        ret.append(_create_text_block(text))
-                    case MessageContentImagePart(image_url=image_url):
-                        dial_resource = URLResource(
-                            url=image_url.url,
-                            entity_name="image url",
-                            supported_types=IMAGE_MEDIA_TYPES,
-                        )
-                        ret.append(
-                            await _collect_image_block(
-                                file_storage, dial_resource
-                            )
-                        )
-                    case _:
-                        assert_never(part)
-        case _:
-            assert_never(content)
 
-    return ret
+IMAGE_ATTACHMENT_PROCESSOR = AttachmentProcessor(
+    supported_types={
+        "image/png": {"png"},
+        "image/jpeg": {"jpeg", "jpg"},
+        "image/gif": {"gif"},
+        "image/webp": {"webp"},
+    },
+    handler=_create_image_block,
+)
+
+PDF_ATTACHMENT_PROCESSOR = AttachmentProcessor(
+    supported_types={"application/pdf": {"pdf"}},
+    handler=_create_pdf_document_block,
+)
+
+TEXT_ATTACHMENT_PROCESSOR = AttachmentProcessor(
+    supported_types={"text/plain": {"txt"}},
+    handler=_create_text_document_block,
+)
 
 
 def _to_claude_tool_call(call: ToolCall) -> ToolUseBlockParam:
@@ -178,8 +160,10 @@ def _merge_messages_with_same_role(
 
 
 async def to_claude_messages(
+    handlers: AttachmentProcessors[
+        TextBlockParam | ImageBlockParam | DocumentBlockParam
+    ],
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
-    file_storage: Optional[FileStorage],
 ) -> Tuple[Optional[str], ListProjection[MessageParam]]:
 
     system_prompt: str | None = None
@@ -192,19 +176,18 @@ async def to_claude_messages(
     ret: ListProjection[MessageParam] = ListProjection()
     for idx, message in enumerate(messages, start=idx_offset):
         match message:
-            case HumanRegularMessage():
-                ret.append(
-                    MessageParam(
-                        role="user",
-                        content=await _to_claude_message(file_storage, message),
-                    ),
-                    idx,
+            case HumanRegularMessage() | AIRegularMessage():
+                role = (
+                    "user"
+                    if isinstance(message, HumanRegularMessage)
+                    else "assistant"
                 )
-            case AIRegularMessage():
+                blocks = handlers.process_attachments(
+                    _create_text_block, message
+                )
                 ret.append(
                     MessageParam(
-                        role="assistant",
-                        content=await _to_claude_message(file_storage, message),
+                        role=role, content=await aiter_to_list(blocks)
                     ),
                     idx,
                 )
@@ -241,7 +224,7 @@ async def to_claude_messages(
 
 
 def to_dial_finish_reason(
-    finish_reason: Optional[ClaudeFinishReason],
+    finish_reason: Optional[_ClaudeFinishReason],
     tools_mode: ToolsMode | None,
 ) -> FinishReason:
     if finish_reason is None:
@@ -278,16 +261,3 @@ def to_claude_tool_config(function_call: Function) -> ToolParam:
         name=function_call.name,
         description=function_call.description or "",
     )
-
-
-def get_usage_message(supported_exts: List[str]) -> str:
-    return f"""
-The application answers queries about attached images.
-Attach images and ask questions about them in the same message.
-
-Supported image types: {', '.join(supported_exts)}.
-
-Examples of queries:
-- "Describe this picture" for one image,
-- "What are in these images? Is there any difference between them?" for multiple images.
-""".strip()
