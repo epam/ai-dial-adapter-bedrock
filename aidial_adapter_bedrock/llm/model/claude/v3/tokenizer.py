@@ -49,8 +49,15 @@ from anthropic.types import (
     ToolResultBlockParam,
     ToolUseBlockParam,
 )
+from anthropic.types.document_block_param import DocumentBlockParam
 from anthropic.types.image_block_param import Source
+from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
+from anthropic.types.redacted_thinking_block_param import (
+    RedactedThinkingBlockParam,
+)
 from anthropic.types.text_block import TextBlock
+from anthropic.types.thinking_block import ThinkingBlock
+from anthropic.types.thinking_block_param import ThinkingBlockParam
 from anthropic.types.tool_use_block import ToolUseBlock
 from PIL import Image
 
@@ -91,9 +98,12 @@ def _tokenize_tool_use(id: str, input: object, name: str) -> int:
 
 async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
     tokens: int = tokenize_text(message["tool_use_id"])
-    if "content" in message:
-        for sub_message in message["content"]:
-            tokens += await _tokenize_sub_message(sub_message)
+    if (content := message.get("content")) is not None:
+        if isinstance(content, str):
+            tokens += tokenize_text(content)
+        else:
+            for sub_message in content:
+                tokens += await _tokenize_sub_message(sub_message)
     return tokens
 
 
@@ -103,6 +113,9 @@ async def _tokenize_sub_message(
         ImageBlockParam,
         ToolUseBlockParam,
         ToolResultBlockParam,
+        DocumentBlockParam,
+        ThinkingBlockParam,
+        RedactedThinkingBlockParam,
         ContentBlock,
     ]
 ) -> int:
@@ -118,6 +131,12 @@ async def _tokenize_sub_message(
                 )
             case "tool_result":
                 return await _tokenize_tool_result(message)
+            case "document":
+                return tokenize_text(json.dumps(message))
+            case "thinking":
+                return tokenize_text(message["thinking"])
+            case "redacted_thinking":
+                return tokenize_text(message["data"])
             case _:
                 assert_never(message["type"])
     else:
@@ -128,6 +147,10 @@ async def _tokenize_sub_message(
                 return _tokenize_tool_use(
                     message.id, message.input, message.name
                 )
+            case ThinkingBlock(thinking=thinking):
+                return tokenize_text(thinking)
+            case RedactedThinkingBlock(data=data):
+                return tokenize_text(data)
             case _:
                 assert_never(message)
 
@@ -231,6 +254,8 @@ async def _tokenize(
 
 # TODO: use the official tokenizer:
 # https://docs.anthropic.com/en/docs/build-with-claude/token-counting
+# once it's supported in Bedrock:
+# https://github.com/anthropics/anthropic-sdk-python/blob/599f2b9a9501b8c98fb3132043c3ec71e3026f84/src/anthropic/lib/bedrock/_client.py#L61-L62
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:

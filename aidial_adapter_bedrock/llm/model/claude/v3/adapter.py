@@ -10,6 +10,11 @@ from anthropic.lib.streaming import (
     InputJsonEvent,
     TextEvent,
 )
+from anthropic.lib.streaming._types import (
+    CitationEvent,
+    SignatureEvent,
+    ThinkingEvent,
+)
 from anthropic.types import (
     ContentBlockDeltaEvent,
     ContentBlockStartEvent,
@@ -18,6 +23,8 @@ from anthropic.types import (
 from anthropic.types import MessageParam as ClaudeMessage
 from anthropic.types import MessageStartEvent, TextBlock, ToolUseBlock
 from anthropic.types.message_create_params import ToolChoice
+from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
+from anthropic.types.thinking_block import ThinkingBlock
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -260,6 +267,10 @@ class Adapter(ChatCompletionAdapter):
                             case TextBlock():
                                 # Already handled in TextEvent
                                 pass
+                            case ThinkingBlock():
+                                pass  # FIXME
+                            case RedactedThinkingBlock():
+                                pass  # FIXME
                             case _:
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
@@ -268,6 +279,9 @@ class Adapter(ChatCompletionAdapter):
                         InputJsonEvent()
                         | ContentBlockStartEvent()
                         | ContentBlockDeltaEvent()
+                        | CitationEvent()  # FIXME
+                        | ThinkingEvent()  # FIXME
+                        | SignatureEvent()  # FIXME
                     ):
                         pass
                     case _:
@@ -316,6 +330,10 @@ class Adapter(ChatCompletionAdapter):
                     consumer.append_content(text)
                 case ToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
+                case ThinkingBlock():
+                    pass  # FIXME
+                case RedactedThinkingBlock():
+                    pass  # FIXME
                 case _:
                     assert_never(content)
 
