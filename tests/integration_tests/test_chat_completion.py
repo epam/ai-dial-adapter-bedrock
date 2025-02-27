@@ -116,6 +116,7 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US: _EAST,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -153,6 +154,7 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
@@ -170,6 +172,7 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
         not in [
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
         ]
@@ -216,6 +219,7 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
     ]
 
 

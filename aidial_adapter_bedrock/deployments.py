@@ -42,6 +42,9 @@ class ChatCompletionDeployment(Enum):
     )
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_OPUS_US = "us.anthropic.claude-3-opus-20240229-v1:0"
+    ANTHROPIC_CLAUDE_V3_7_SONNET_US = (
+        "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    )
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -86,6 +89,7 @@ Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
 ]
 
 

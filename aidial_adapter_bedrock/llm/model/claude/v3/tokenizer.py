@@ -175,6 +175,7 @@ def _tokenize_tool_system_message(
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
         ):
             return 346 if tool_choice == "auto" else 313
         case (
@@ -228,6 +229,8 @@ async def _tokenize(
     return tokens
 
 
+# TODO: use the official tokenizer:
+# https://docs.anthropic.com/en/docs/build-with-claude/token-counting
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:

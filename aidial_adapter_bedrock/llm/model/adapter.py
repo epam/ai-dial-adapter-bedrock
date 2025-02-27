@@ -70,6 +70,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
         ):
             return claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
