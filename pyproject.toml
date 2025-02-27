@@ -15,12 +15,12 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.35.41"
 botocore = "1.35.41"
-aidial-sdk = { version = "0.17.0", extras = ["telemetry"] }
+aidial-sdk = { version = "0.19.0", extras = ["telemetry"] }
 anthropic = { version = "0.28.1", extras = ["bedrock"] }
 fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
-pydantic = "1.10.13"
+pydantic = "1.10.17"
 defusedxml = "^0.7.1"
 numpy = "^2.0.0"
 pillow = "^10.4.0"
@@ -50,11 +50,13 @@ generate_report_on_test = true
 env_override_existing_values = 1
 # muting warnings coming from opentelemetry package
 filterwarnings = [
+  "error",
   "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
 ]
 
 [tool.pyright]
 typeCheckingMode = "basic"
+reportDeprecated = "error"
 reportUnusedVariable = "error"
 reportIncompatibleMethodOverride = "error"
 exclude = [".git", ".venv", ".nox", "**/__pycache__"]

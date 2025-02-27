@@ -18,8 +18,6 @@ def match_objects(expected: Any, actual: Any) -> None:
     elif callable(expected):
         assert expected(actual)
     elif isinstance(expected, re.Pattern) and isinstance(actual, str):
-        assert expected.match(
-            actual
-        ), f"Expected {expected!r}, actual {actual!r}"
+        assert expected.match(actual)
     else:
-        assert expected == actual, f"Expected {expected!r}, actual {actual!r}"
+        assert expected == actual
