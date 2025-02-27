@@ -3,7 +3,6 @@ from typing import List, assert_never
 from aidial_sdk.chat_completion import (
     ChatCompletion,
     ConfigurationRequest,
-    ConfigurationResponse,
     Request,
     Response,
 )
@@ -68,7 +67,7 @@ class BedrockChatCompletion(ChatCompletion):
     async def configuration(self, request: ConfigurationRequest):
         model = await self._get_model(request)
         cls = await model.configuration()
-        return ConfigurationResponse(**cls.schema())
+        return cls.schema()
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
