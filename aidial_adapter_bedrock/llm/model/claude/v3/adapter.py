@@ -165,8 +165,8 @@ class Adapter(ChatCompletionAdapter):
         self, params: DialParameters, messages: List[DialMessage]
     ) -> ClaudeRequest:
         # FIXME revert
-        params.configuration = ThinkingConfigEnabled(
-            budget_tokens=1024, type="enabled"
+        params.configuration = Configuration(
+            thinking=ThinkingConfigEnabled(budget_tokens=1024, type="enabled")
         ).dict()
 
         configuration = await self._parse_configuration(params)
@@ -468,6 +468,9 @@ class Adapter(ChatCompletionAdapter):
         # FIXME: revert
         deployment.reference_deployment_id = (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+        )
+        deployment.upstream_deployment_id = (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US.value
         )
 
         storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
