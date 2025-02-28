@@ -164,6 +164,11 @@ class Adapter(ChatCompletionAdapter):
     async def _prepare_claude_request(
         self, params: DialParameters, messages: List[DialMessage]
     ) -> ClaudeRequest:
+        # FIXME revert
+        params.configuration = ThinkingConfigEnabled(
+            budget_tokens=1024, type="enabled"
+        ).dict()
+
         configuration = await self._parse_configuration(params)
 
         if len(messages) == 0:
@@ -460,6 +465,11 @@ class Adapter(ChatCompletionAdapter):
         api_key: str,
         aws_client_config: AWSClientConfig,
     ):
+        # FIXME: revert
+        deployment.reference_deployment_id = (
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+        )
+
         storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
         client_kwargs = aws_client_config.get_anthropic_bedrock_client_kwargs()
         return cls(
