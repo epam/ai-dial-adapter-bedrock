@@ -211,15 +211,21 @@ class Adapter(ChatCompletionAdapter):
         if configuration.thinking is not None:
             thinking = configuration.thinking.to_claude()
 
+        temperature = NOT_GIVEN
+        if params.temperature is not None:
+            # Mapping OpenAI temp [0,2] range to Anthropic temp [0,1] range
+            temperature = params.temperature / 2
+
+        if not isinstance(thinking, NotGiven) and thinking["type"] == "enabled":
+            # Thinking isn’t compatible with temperature, top_p, or top_k
+            # modifications as well as forced tool use.
+            temperature = NOT_GIVEN
+
         claude_params = ClaudeParameters(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=params.stop,
             system=system_prompt or NOT_GIVEN,
-            temperature=(
-                NOT_GIVEN
-                if params.temperature is None
-                else params.temperature / 2
-            ),
+            temperature=temperature,
             top_p=params.top_p or NOT_GIVEN,
             tools=tools,
             tool_choice=tool_choice,
