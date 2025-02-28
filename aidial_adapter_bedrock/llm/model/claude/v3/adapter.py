@@ -3,6 +3,7 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
+from aidial_sdk.chat_completion import Stage
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
@@ -302,6 +303,20 @@ class Adapter(ChatCompletionAdapter):
             prompt_tokens = 0
             completion_tokens = 0
             stop_reason = None
+
+            thinking_stage: Stage | None = None
+
+            def report_thinking(content: str):
+                nonlocal thinking_stage
+                if thinking_stage is None:
+                    stage = thinking_stage = consumer.choice.create_stage(
+                        "Thinking"
+                    )
+                    stage.open()
+                else:
+                    stage = thinking_stage
+                stage.append_content(content)
+
             async for event in stream:
                 if log.isEnabledFor(DEBUG):
                     log.debug(f"response event: {json_dumps_short(event)}")
@@ -311,6 +326,10 @@ class Adapter(ChatCompletionAdapter):
                         prompt_tokens += message.usage.input_tokens
                     case TextEvent(text=text):
                         consumer.append_content(text)
+                    case ThinkingEvent(thinking=thinking):
+                        report_thinking(thinking)
+                    case SignatureEvent():
+                        pass
                     case MessageDeltaEvent(usage=usage):
                         completion_tokens += usage.output_tokens
                     case ContentBlockStopEvent(content_block=content_block):
@@ -321,11 +340,11 @@ class Adapter(ChatCompletionAdapter):
                                 )
                             case TextBlock():
                                 # Already handled in TextEvent
-                                pass
+                                pass  # FIXME save to state
                             case ThinkingBlock():
-                                pass  # FIXME
+                                pass  # FIXME save to state
                             case RedactedThinkingBlock():
-                                pass  # FIXME
+                                pass  # FIXME save to state
                             case _:
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
@@ -334,8 +353,6 @@ class Adapter(ChatCompletionAdapter):
                         InputJsonEvent()
                         | ContentBlockStartEvent()
                         | ContentBlockDeltaEvent()
-                        | ThinkingEvent()  # FIXME
-                        | SignatureEvent()  # FIXME
                         # NOTE: the document understanding isn't supported in Bedrock yet:
                         # https://github.com/epam/ai-dial-adapter-bedrock/pull/227
                         | CitationEvent()
@@ -343,6 +360,9 @@ class Adapter(ChatCompletionAdapter):
                         pass
                     case _:
                         assert_never(event)
+
+            if thinking_stage is not None:
+                thinking_stage.close()
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
@@ -385,12 +405,15 @@ class Adapter(ChatCompletionAdapter):
             match content:
                 case TextBlock(text=text):
                     consumer.append_content(text)
+                    # FIXME save to state
                 case ToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
-                case ThinkingBlock():
-                    pass  # FIXME
+                case ThinkingBlock(thinking=thinking):
+                    with consumer.choice.create_stage("Thinking") as stage:
+                        stage.append_content(thinking)
+                    # FIXME save to state
                 case RedactedThinkingBlock():
-                    pass  # FIXME
+                    pass  # FIXME save to state
                 case _:
                     assert_never(content)
 
