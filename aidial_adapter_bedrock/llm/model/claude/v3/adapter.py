@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from logging import DEBUG
-from typing import List, Optional, Tuple, assert_never
+from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
@@ -32,10 +32,14 @@ from anthropic.types import (
 from anthropic.types.message_create_params import ToolChoice
 from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
 from anthropic.types.thinking_block import ThinkingBlock
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
-from aidial_adapter_bedrock.deployments import Claude3Deployment
+from aidial_adapter_bedrock.deployments import (
+    ChatCompletionDeployment,
+    Claude3Deployment,
+)
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters as DialParameters,
 )
@@ -106,14 +110,49 @@ def create_adapter(
     )(model)
 
 
+class ThinkingConfigEnabled(BaseModel):
+    budget_tokens: int
+    type: Literal["enabled"]
+
+
+class ThinkingConfigDisabled(BaseModel):
+    type: Literal["disabled"]
+
+
+class Configuration(BaseModel):
+    # NOTE: once migrated to Pydantic v2 we could use TypeAdapter over
+    # the anthropic's ThinkingConfigParam class directly.
+    thinking: ThinkingConfigEnabled | ThinkingConfigDisabled | None = None
+
+
 class Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Claude3Deployment]
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
+    async def configuration(self) -> Type[Configuration]:
+        if (
+            self.deployment.reference_deployment_id
+            == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+        ):
+            return Configuration
+        raise NotImplementedError
+
+    async def _parse_configuration(
+        self, params: DialParameters
+    ) -> Configuration:
+        try:
+            conf_cls = await self.configuration()
+        except NotImplementedError:
+            return Configuration()
+
+        return params.parse_configuration(conf_cls)
+
     async def _prepare_claude_request(
         self, params: DialParameters, messages: List[DialMessage]
     ) -> ClaudeRequest:
+        configuration = await self._parse_configuration(params)
+
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
@@ -162,6 +201,7 @@ class Adapter(ChatCompletionAdapter):
             top_p=params.top_p or NOT_GIVEN,
             tools=tools,
             tool_choice=tool_choice,
+            thinking=configuration.thinking.dict() or NOT_GIVEN,  # type: ignore
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
