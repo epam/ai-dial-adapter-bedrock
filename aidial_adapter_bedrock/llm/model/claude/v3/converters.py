@@ -8,8 +8,9 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     ToolCall,
 )
+from anthropic.types import ContentBlock, ImageBlockParam
+from anthropic.types import Message as ClaudeMessage
 from anthropic.types import (
-    ImageBlockParam,
     MessageParam,
     TextBlockParam,
     ToolParam,
@@ -17,6 +18,7 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 from anthropic.types.image_block_param import Source
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -51,6 +53,28 @@ IMAGE_MEDIA_TYPES: List[str] = [
 ]
 
 FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
+
+
+class MessageState(BaseModel):
+    claude_message: ClaudeMessage
+
+    def to_dict(self) -> dict:
+        # FIXME: ugly hack
+        return self.dict(
+            exclude={"claude_message": {"content": {"__all__": {"__json_buf"}}}}
+        )
+
+
+def _get_message_content_from_state(
+    message: AIRegularMessage,
+) -> List[ContentBlock] | None:
+    if (cc := message.custom_content) is not None and (
+        state_dict := cc.state
+    ) is not None:
+        state = MessageState.parse_obj(state_dict)
+        return state.claude_message.content
+
+    return None
 
 
 def _create_text_block(text: str) -> TextBlockParam:
@@ -201,11 +225,16 @@ async def to_claude_messages(
                     idx,
                 )
             case AIRegularMessage():
+                # Take the message content from the state if possible,
+                # since it may include certain content blocks that
+                # are missing from the DIAL message itself,
+                # such as thinking signatures and redacted thinking blocks.
+                bot_content = _get_message_content_from_state(
+                    message
+                ) or await _to_claude_message(file_storage, message)
+
                 ret.append(
-                    MessageParam(
-                        role="assistant",
-                        content=await _to_claude_message(file_storage, message),
-                    ),
+                    MessageParam(role="assistant", content=bot_content),
                     idx,
                 )
             case AIToolCallMessage():
@@ -216,10 +245,7 @@ async def to_claude_messages(
                     content.insert(0, _create_text_block(message.content))
 
                 ret.append(
-                    MessageParam(
-                        role="assistant",
-                        content=content,
-                    ),
+                    MessageParam(role="assistant", content=content),
                     idx,
                 )
             case HumanToolResultMessage():

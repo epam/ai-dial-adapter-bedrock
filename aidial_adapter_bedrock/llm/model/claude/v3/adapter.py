@@ -21,10 +21,11 @@ from anthropic.types import (
     ContentBlockStartEvent,
     MessageDeltaEvent,
 )
-from anthropic.types import MessageParam as ClaudeMessage
+from anthropic.types import MessageParam as ClaudeMessageParam
 from anthropic.types import (
     MessageStartEvent,
     TextBlock,
+    ThinkingConfigParam,
     ToolChoiceAnyParam,
     ToolChoiceAutoParam,
     ToolChoiceToolParam,
@@ -64,6 +65,7 @@ from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import parse_dial_message
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
+    MessageState,
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
@@ -89,14 +91,14 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 # NOTE: it's not pydantic BaseModel, because
-# ClaudeMessage.content is of Iterable type and
+# anthropic.types.MessageParam.content is of Iterable type and
 # pydantic automatically converts lists into
 # list iterators following the type.
 # See https://github.com/anthropics/anthropic-sdk-python/issues/656 for details.
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
-    messages: ListProjection[ClaudeMessage]
+    messages: ListProjection[ClaudeMessageParam]
 
 
 def create_adapter(
@@ -115,9 +117,15 @@ class ThinkingConfigEnabled(BaseModel):
     budget_tokens: int
     type: Literal["enabled"]
 
+    def to_claude(self) -> ThinkingConfigParam:
+        return {"budget_tokens": self.budget_tokens, "type": "enabled"}
+
 
 class ThinkingConfigDisabled(BaseModel):
     type: Literal["disabled"]
+
+    def to_claude(self) -> ThinkingConfigParam:
+        return {"type": "disabled"}
 
 
 class Configuration(BaseModel):
@@ -190,6 +198,10 @@ class Adapter(ChatCompletionAdapter):
             parsed_messages, self.storage
         )
 
+        thinking: ThinkingConfigParam | NotGiven = NOT_GIVEN
+        if configuration.thinking is not None:
+            thinking = configuration.thinking.to_claude()
+
         claude_params = ClaudeParameters(
             max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
             stop_sequences=params.stop,
@@ -202,7 +214,7 @@ class Adapter(ChatCompletionAdapter):
             top_p=params.top_p or NOT_GIVEN,
             tools=tools,
             tool_choice=tool_choice,
-            thinking=configuration.thinking.dict() or NOT_GIVEN,  # type: ignore
+            thinking=thinking,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
@@ -340,15 +352,18 @@ class Adapter(ChatCompletionAdapter):
                                 )
                             case TextBlock():
                                 # Already handled in TextEvent
-                                pass  # FIXME save to state
+                                pass
                             case ThinkingBlock():
-                                pass  # FIXME save to state
+                                pass
                             case RedactedThinkingBlock():
-                                pass  # FIXME save to state
+                                pass
                             case _:
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
                         stop_reason = message.stop_reason
+                        consumer.choice.set_state(
+                            MessageState(claude_message=message).to_dict()
+                        )
                     case (
                         InputJsonEvent()
                         | ContentBlockStartEvent()
@@ -405,17 +420,19 @@ class Adapter(ChatCompletionAdapter):
             match content:
                 case TextBlock(text=text):
                     consumer.append_content(text)
-                    # FIXME save to state
                 case ToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
                 case ThinkingBlock(thinking=thinking):
                     with consumer.choice.create_stage("Thinking") as stage:
                         stage.append_content(thinking)
-                    # FIXME save to state
                 case RedactedThinkingBlock():
-                    pass  # FIXME save to state
+                    pass
                 case _:
                     assert_never(content)
+
+        consumer.choice.set_state(
+            MessageState(claude_message=message).to_dict()
+        )
 
         consumer.close_content(
             to_dial_finish_reason(message.stop_reason, tools_mode)

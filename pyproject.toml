@@ -50,11 +50,12 @@ nox = "^2023.4.22"
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html"
 generate_report_on_test = true
 env_override_existing_values = 1
-# muting warnings coming from opentelemetry package
 filterwarnings = [
   "error",
+  # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
+  "ignore::ResourceWarning:",
   "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
-]
+] # muting warnings coming from opentelemetry package
 
 [tool.pyright]
 typeCheckingMode = "basic"
