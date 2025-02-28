@@ -234,8 +234,7 @@ async def to_claude_messages(
                 ) or await _to_claude_message(file_storage, message)
 
                 ret.append(
-                    MessageParam(role="assistant", content=bot_content),
-                    idx,
+                    MessageParam(role="assistant", content=bot_content), idx
                 )
             case AIToolCallMessage():
                 content: List[TextBlockParam | ToolUseBlockParam] = [
@@ -244,10 +243,7 @@ async def to_claude_messages(
                 if message.content is not None:
                     content.insert(0, _create_text_block(message.content))
 
-                ret.append(
-                    MessageParam(role="assistant", content=content),
-                    idx,
-                )
+                ret.append(MessageParam(role="assistant", content=content), idx)
             case HumanToolResultMessage():
                 ret.append(
                     MessageParam(

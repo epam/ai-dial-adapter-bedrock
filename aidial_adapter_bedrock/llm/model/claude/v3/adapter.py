@@ -139,11 +139,15 @@ class Adapter(ChatCompletionAdapter):
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock
 
-    async def configuration(self) -> Type[Configuration]:
-        if (
+    @property
+    def supports_thinking(self) -> bool:
+        return (
             self.deployment.reference_deployment_id
             == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
-        ):
+        )
+
+    async def configuration(self) -> Type[Configuration]:
+        if self.supports_thinking:
             return Configuration
         raise NotImplementedError
 
@@ -361,9 +365,10 @@ class Adapter(ChatCompletionAdapter):
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
                         stop_reason = message.stop_reason
-                        consumer.choice.set_state(
-                            MessageState(claude_message=message).to_dict()
-                        )
+                        if self.supports_thinking:
+                            consumer.choice.set_state(
+                                MessageState(claude_message=message).to_dict()
+                            )
                     case (
                         InputJsonEvent()
                         | ContentBlockStartEvent()
@@ -430,9 +435,10 @@ class Adapter(ChatCompletionAdapter):
                 case _:
                     assert_never(content)
 
-        consumer.choice.set_state(
-            MessageState(claude_message=message).to_dict()
-        )
+        if self.supports_thinking:
+            consumer.choice.set_state(
+                MessageState(claude_message=message).to_dict()
+            )
 
         consumer.close_content(
             to_dial_finish_reason(message.stop_reason, tools_mode)
