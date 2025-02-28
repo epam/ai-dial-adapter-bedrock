@@ -35,6 +35,7 @@ python-dotenv = "1.0.0"
 pytest-dotenv = "^0.5.2"
 pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
+pytest-sugar = "^1.0.0"
 
 [tool.poetry.group.lint.dependencies]
 pyright = "1.1.389"
