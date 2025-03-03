@@ -640,14 +640,14 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
     async def run_chat_completion() -> ChatCompletionResult:
         return await chat_completion(
             client,
-            test.messages,
-            test.streaming,
-            test.stop,
-            test.max_tokens,
-            test.n,
-            test.functions,
-            test.tools,
-            test.temperature,
+            messages=test.messages,
+            stream=test.streaming,
+            stop=test.stop,
+            max_tokens=test.max_tokens,
+            n=test.n,
+            functions=test.functions,
+            tools=test.tools,
+            temperature=test.temperature,
         )
 
     if isinstance(test.expected, ExpectedException):

@@ -19,6 +19,7 @@ from anthropic.types import (
 )
 from anthropic.types.image_block_param import Source
 from pydantic import BaseModel
+from pydantic import ValidationError as PydValidationError
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -39,6 +40,7 @@ from aidial_adapter_bedrock.llm.message import (
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.resource import Resource
 
 ClaudeFinishReason = Literal[
@@ -59,20 +61,32 @@ class MessageState(BaseModel):
     claude_message: ClaudeMessage
 
     def to_dict(self) -> dict:
-        # FIXME: ugly hack
         return self.dict(
-            exclude={"claude_message": {"content": {"__all__": {"__json_buf"}}}}
+            # FIXME: ugly hack to exclude the private __json_buf field
+            exclude={
+                "claude_message": {"content": {"__all__": {"__json_buf"}}}
+            },
+            # Excluding `citations: null`, since they could not be even parsed
+            # currently by the Bedrock.
+            exclude_none=True,
         )
 
 
 def _get_message_content_from_state(
+    idx: int,
     message: AIRegularMessage,
 ) -> List[ContentBlock] | None:
     if (cc := message.custom_content) is not None and (
         state_dict := cc.state
     ) is not None:
-        state = MessageState.parse_obj(state_dict)
-        return state.claude_message.content
+        try:
+            state = MessageState.parse_obj(state_dict)
+            return state.claude_message.content
+        except PydValidationError as e:
+            log.error(
+                f"Invalid state at the path 'messages[{idx}].custom_content.state': {e}"
+            )
+            return None
 
     return None
 
@@ -230,7 +244,7 @@ async def to_claude_messages(
                 # are missing from the DIAL message itself,
                 # such as thinking signatures and redacted thinking blocks.
                 bot_content = _get_message_content_from_state(
-                    message
+                    idx, message
                 ) or await _to_claude_message(file_storage, message)
 
                 ret.append(
