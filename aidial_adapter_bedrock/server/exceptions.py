@@ -18,6 +18,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 """
 
 import json
+import re
 from enum import Enum
 from functools import wraps
 from typing import assert_never
@@ -50,7 +51,28 @@ def _get_anthropic_error_message(e: APIStatusError) -> str:
     return e.message
 
 
-def create_error(status_code: int, message: str) -> DialException:
+def _parse_anthropic_streaming_error(text: str) -> DialException | None:
+    # Unfortunately, anthropic SDK obscures the original error message:
+    # https://github.com/anthropics/anthropic-sdk-python/blob/8b244157a7d03766bec645b0e1dc213c6d462165/src/anthropic/lib/bedrock/_stream_decoder.py#L57-L58
+    # So we have to parse it manually.
+
+    prefix = "Bad response code, expected 200: "
+    if not text.startswith(prefix):
+        return None
+    text = text.removeprefix(prefix)
+
+    code_pattern = re.search(r"['\"]status_code['\"]:\s*(\d+)", text)
+    message_pattern = re.search(r"['\"]message['\"]:\s*['\"](.*?)['\"]", text)
+
+    code = int(code_pattern.group(1)) if code_pattern else None
+    message = str(message_pattern.group(1)) if message_pattern else None
+
+    if code and message:
+        return _create_error(code, message)
+    return None
+
+
+def _create_error(status_code: int, message: str) -> DialException:
     return DialException(
         status_code=status_code,
         type=_get_exception_type(status_code),
@@ -137,11 +159,11 @@ def to_dial_exception(e: Exception) -> DialException:
             or 500
         )
 
-        return create_error(status_code, str(e))
+        return _create_error(status_code, str(e))
 
     if isinstance(e, APIStatusError):
         message = _get_anthropic_error_message(e)
-        return create_error(e.status_code, message)
+        return _create_error(e.status_code, message)
 
     if isinstance(e, ValidationError):
         return e.to_dial_exception()
@@ -151,6 +173,11 @@ def to_dial_exception(e: Exception) -> DialException:
 
     if isinstance(e, DialException):
         return e
+
+    if isinstance(e, ValueError):
+        exc = _parse_anthropic_streaming_error(str(e))
+        if exc is not None:
+            return exc
 
     return InternalServerError(str(e))
 
