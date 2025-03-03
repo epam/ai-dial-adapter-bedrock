@@ -38,8 +38,4 @@ async def test_anthropic_error(get_openai_client, streaming: bool):
 
     assert isinstance(exc, openai.RateLimitError)
     assert exc.status_code == 429
-    assert exc.body == {
-        "code": "429",
-        "type": "runtime_error",
-        "message": "Too Many Requests",
-    }
+    assert exc.body == {"code": "429", "message": "Too Many Requests"}

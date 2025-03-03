@@ -19,14 +19,13 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 
 import json
 from enum import Enum
-from functools import cache, wraps
-from typing import List, Type, assert_never
+from functools import wraps
+from typing import assert_never
 
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
     InternalServerError,
     InvalidRequestError,
-    RequestValidationError,
     ResourceNotFoundError,
 )
 from anthropic import APIStatusError
@@ -35,20 +34,13 @@ from botocore.exceptions import ClientError
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_DIAL_EXCEPTIONS: List[Type[DialException]] = [
-    InvalidRequestError,  # 400
-    ResourceNotFoundError,  # 404
-    RequestValidationError,  # 422
-    InternalServerError,  # 500
-]
 
-
-@cache
-def _get_error_factory(status_code: int) -> Type[DialException]:
-    for cls in _DIAL_EXCEPTIONS:
-        if cls("dummy").status_code == status_code:
-            return cls
-    return DialException
+def _get_exception_type(status_code: int) -> str | None:
+    if status_code in {400, 422}:
+        return "invalid_request_error"
+    if status_code == 500:
+        return "internal_server_error"
+    return None
 
 
 def _get_anthropic_error_message(e: APIStatusError) -> str:
@@ -59,8 +51,9 @@ def _get_anthropic_error_message(e: APIStatusError) -> str:
 
 
 def create_error(status_code: int, message: str) -> DialException:
-    return _get_error_factory(status_code)(
+    return DialException(
         status_code=status_code,
+        type=_get_exception_type(status_code),
         message=message,
     )
 
