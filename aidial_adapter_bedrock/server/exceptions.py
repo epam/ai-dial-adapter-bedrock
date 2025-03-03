@@ -19,13 +19,14 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.htm
 
 import json
 from enum import Enum
-from functools import wraps
-from typing import assert_never
+from functools import cache, wraps
+from typing import List, Type, assert_never
 
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
     InternalServerError,
     InvalidRequestError,
+    RequestValidationError,
     ResourceNotFoundError,
 )
 from anthropic import APIStatusError
@@ -34,12 +35,33 @@ from botocore.exceptions import ClientError
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
+_DIAL_EXCEPTIONS: List[Type[DialException]] = [
+    InvalidRequestError,  # 400
+    ResourceNotFoundError,  # 404
+    RequestValidationError,  # 422
+    InternalServerError,  # 500
+]
+
+
+@cache
+def _get_error_factory(status_code: int) -> Type[DialException]:
+    for cls in _DIAL_EXCEPTIONS:
+        if cls("dummy").status_code == status_code:
+            return cls
+    return DialException
+
+
+def _get_anthropic_error_message(e: APIStatusError) -> str:
+    if isinstance(body := e.body, dict):
+        if isinstance((msg := body.get("message")), str):
+            return msg
+    return e.message
+
 
 def create_error(status_code: int, message: str) -> DialException:
-    return (
-        InvalidRequestError(message)
-        if status_code < 500
-        else InternalServerError(message)
+    return _get_error_factory(status_code)(
+        status_code=status_code,
+        message=message,
     )
 
 
@@ -125,7 +147,8 @@ def to_dial_exception(e: Exception) -> DialException:
         return create_error(status_code, str(e))
 
     if isinstance(e, APIStatusError):
-        return create_error(e.status_code, e.message)
+        message = _get_anthropic_error_message(e)
+        return create_error(e.status_code, message)
 
     if isinstance(e, ValidationError):
         return e.to_dial_exception()
