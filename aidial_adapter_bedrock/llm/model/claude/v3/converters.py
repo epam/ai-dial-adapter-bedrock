@@ -62,7 +62,7 @@ class MessageState(BaseModel):
 
     def to_dict(self) -> dict:
         return self.dict(
-            # FIXME: ugly hack to exclude the private __json_buf field
+            # FIXME: a hack to exclude the private __json_buf field
             exclude={"claude_message_content": {"__all__": {"__json_buf"}}},
             # Excluding `citations: null`, since they could not be even parsed
             # currently by the Bedrock.
