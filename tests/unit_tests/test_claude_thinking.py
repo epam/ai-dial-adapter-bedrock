@@ -22,7 +22,7 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
         for stream in [False, True]
     ],
 )
-async def test_claude_non_redacted_thinking(
+async def test_claude_thinking(
     get_openai_client,
     deployment: ChatCompletionDeployment,
     region: str,
@@ -50,7 +50,7 @@ async def test_claude_non_redacted_thinking(
     bot_message1 = response1.response.choices[0].message
     state_dict1 = bot_message1.custom_content["state"]  # type: ignore
     state1 = MessageState.parse_obj(state_dict1)
-    assert len(state1.claude_message.content) == 2
+    assert len(state1.claude_message_content) == 2
 
     messages.append(bot_message1.dict())  # type: ignore
     messages.append(user("5+5=?"))
@@ -62,7 +62,7 @@ async def test_claude_non_redacted_thinking(
     bot_message2 = response2.response.choices[0].message
     state_dict2 = bot_message2.custom_content["state"]  # type: ignore
     state2 = MessageState.parse_obj(state_dict2)
-    assert len(state2.claude_message.content) == 2
+    assert len(state2.claude_message_content) == 2
 
 
 # NOTE: according to the Anthropic docs,

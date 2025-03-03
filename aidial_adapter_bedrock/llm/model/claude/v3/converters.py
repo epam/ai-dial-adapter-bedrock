@@ -8,9 +8,9 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     ToolCall,
 )
-from anthropic.types import ContentBlock, ImageBlockParam
-from anthropic.types import Message as ClaudeMessage
 from anthropic.types import (
+    ContentBlock,
+    ImageBlockParam,
     MessageParam,
     TextBlockParam,
     ToolParam,
@@ -58,14 +58,12 @@ FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
 
 
 class MessageState(BaseModel):
-    claude_message: ClaudeMessage
+    claude_message_content: List[ContentBlock]
 
     def to_dict(self) -> dict:
         return self.dict(
             # FIXME: ugly hack to exclude the private __json_buf field
-            exclude={
-                "claude_message": {"content": {"__all__": {"__json_buf"}}}
-            },
+            exclude={"claude_message_content": {"__all__": {"__json_buf"}}},
             # Excluding `citations: null`, since they could not be even parsed
             # currently by the Bedrock.
             exclude_none=True,
@@ -73,15 +71,14 @@ class MessageState(BaseModel):
 
 
 def _get_message_content_from_state(
-    idx: int,
-    message: AIRegularMessage,
+    idx: int, message: AIRegularMessage
 ) -> List[ContentBlock] | None:
     if (cc := message.custom_content) is not None and (
         state_dict := cc.state
     ) is not None:
         try:
             state = MessageState.parse_obj(state_dict)
-            return state.claude_message.content
+            return state.claude_message_content
         except PydValidationError as e:
             log.error(
                 f"Invalid state at the path 'messages[{idx}].custom_content.state': {e}"

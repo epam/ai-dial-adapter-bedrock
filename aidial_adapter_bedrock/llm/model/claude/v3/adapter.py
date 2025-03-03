@@ -378,7 +378,9 @@ class Adapter(ChatCompletionAdapter):
                         stop_reason = message.stop_reason
                         if self.supports_thinking:
                             consumer.choice.set_state(
-                                MessageState(claude_message=message).to_dict()
+                                MessageState(
+                                    claude_message_content=message.content
+                                ).to_dict()
                             )
                     case (
                         InputJsonEvent()
@@ -448,7 +450,7 @@ class Adapter(ChatCompletionAdapter):
 
         if self.supports_thinking:
             consumer.choice.set_state(
-                MessageState(claude_message=message).to_dict()
+                MessageState(claude_message_content=message.content).to_dict()
             )
 
         consumer.close_content(
