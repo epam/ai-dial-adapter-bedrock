@@ -96,43 +96,47 @@ class TestCase:
         )
 
 
-_EAST = "us-east-1"
-_WEST = "us-west-2"
+_EAST_1 = "us-east-1"
+_WEST_2 = "us-west-2"
+_EAST_2 = "us-east-2"
 
 chat_deployments: Mapping[ChatCompletionDeployment, str] = {
-    ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST,
-    ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST,
-    ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST,
-    ChatCompletionDeployment.AI21_J2_MID_V1: _EAST,
-    ChatCompletionDeployment.AI21_J2_ULTRA_V1: _EAST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US: _EAST,
-    ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
+    ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST_2,
+    ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
+    ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
+    ChatCompletionDeployment.AI21_J2_MID_V1: _EAST_1,
+    ChatCompletionDeployment.AI21_J2_ULTRA_V1: _EAST_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST_2,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US: _EAST_1,
+    ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US: _EAST_2,
     # Llama 3.2 1B is too unstable in responses for integration tests
     # Sometimes it cannot calculate 2+2
-    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
-    ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
-    ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST,
-    ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST,
-    ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST,
+    ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _WEST_2,
+    ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST_2,
+    ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST_2,
+    ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
+    ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
+    ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
 }
 
 
@@ -156,8 +160,11 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
         # ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
@@ -174,7 +181,9 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
@@ -187,11 +196,14 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
     ]
 
 
