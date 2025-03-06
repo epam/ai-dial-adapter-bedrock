@@ -153,24 +153,8 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
 
 
 def supports_tools(deployment: ChatCompletionDeployment) -> bool:
-    return deployment in [
+    return is_claude3(deployment) or deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
@@ -183,6 +167,10 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
     ]
+
+
+def supports_forced_tool_choice(deployment: ChatCompletionDeployment) -> bool:
+    return supports_tools(deployment) and is_claude3(deployment)
 
 
 def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
@@ -509,23 +497,26 @@ def get_test_cases(
     )
 
     if supports_tools(deployment):
-        test_case(
-            name="forced tool call",
-            messages=[user("Hi, I'm living in Glasgow")],
-            tools=[function_to_tool(GET_WEATHER_FUNCTION)],
-            tool_choice={
-                "type": "function",
-                "function": {"name": GET_WEATHER_FUNCTION["name"]},
-            },
-            expected=lambda s: is_valid_function_call(
-                s.function_call,
-                fun_name,
-                {
-                    "location": lambda s: "Glasgow" in s,
-                    "format": "celsius",
+        if supports_forced_tool_choice(deployment):
+            test_case(
+                name="forced tool call",
+                messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
+                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": GET_WEATHER_FUNCTION["name"]},
                 },
-            ),
-        )
+                expected=lambda s: is_valid_tool_call(
+                    s.tool_calls,
+                    0,
+                    lambda _: True,
+                    GET_WEATHER_FUNCTION["name"],
+                    {
+                        "location": lambda s: "Glasgow" in s,
+                        "format": "celsius",
+                    },
+                ),
+            )
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -690,14 +681,15 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
     async def run_chat_completion() -> ChatCompletionResult:
         return await chat_completion(
             client,
-            test.messages,
-            test.streaming,
-            test.stop,
-            test.max_tokens,
-            test.n,
-            test.functions,
-            test.tools,
-            test.temperature,
+            messages=test.messages,
+            stream=test.streaming,
+            stop=test.stop,
+            max_tokens=test.max_tokens,
+            n=test.n,
+            functions=test.functions,
+            tools=test.tools,
+            tool_choice=test.tool_choice,
+            temperature=test.temperature,
         )
 
     if isinstance(test.expected, ExpectedException):

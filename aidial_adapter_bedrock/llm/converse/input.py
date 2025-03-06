@@ -64,9 +64,9 @@ def to_converse_role(role: DialRole) -> ConverseRole:
             assert_never(role)
 
 
-def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
+def to_converse_tools(tool_config: ToolsConfig) -> ConverseTools:
     tools: list[ConverseToolSpec] = []
-    for function in tools_config.functions:
+    for function in tool_config.functions:
         tools.append(
             {
                 "toolSpec": {
@@ -80,10 +80,17 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    return {
-        "tools": tools,
-        "toolChoice": ({"any": {}} if tools_config.required else {"auto": {}}),
-    }
+    match (tool_config.required, tool_config.functions):
+        case (True, [func]):
+            tool_choice = {"tool": {"name": func.name}}
+        case (True, _):
+            tool_choice = {"any": {}}
+        case (False, _):
+            tool_choice = {"auto": {}}
+        case _:
+            assert_never(tool_config)
+
+    return {"tools": tools, "toolChoice": tool_choice}
 
 
 def function_call_to_content_part(

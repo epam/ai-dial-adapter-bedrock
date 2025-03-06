@@ -31,6 +31,7 @@ async def test_anthropic_error_immediate(get_openai_client, streaming: bool):
             None,
             None,
             None,
+            None,
             0,
         )
 
@@ -64,6 +65,7 @@ async def test_anthropic_error_streaming(get_openai_client, streaming: bool):
             client,
             [user("test")],
             streaming,
+            None,
             None,
             None,
             None,
