@@ -382,13 +382,9 @@ def get_test_cases(
     expected_empty_message_error = expected_success
     if is_claude3(deployment):
         expected_empty_message_error = ExpectedException(
-            type=(
-                openai.InternalServerError
-                if streaming
-                else openai.BadRequestError
-            ),
+            type=openai.BadRequestError,
             message="messages: text content blocks must be non-empty",
-            status_code=500 if streaming else 400,
+            status_code=400,
         )
     elif is_cohere(deployment):
         expected_empty_message_error = cohere_invalid_request_error
@@ -409,13 +405,9 @@ def get_test_cases(
     expected_whitespace_message = expected_success
     if is_claude3(deployment):
         expected_whitespace_message = ExpectedException(
-            type=(
-                openai.InternalServerError
-                if streaming
-                else openai.BadRequestError
-            ),
+            type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
-            status_code=500 if streaming else 400,
+            status_code=400,
         )
     elif is_cohere(deployment):
         expected_whitespace_message = cohere_invalid_request_error
