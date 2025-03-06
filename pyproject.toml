@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aidial-adapter-bedrock"
-version = "0.23.0rc"
+version = "0.24.0rc"
 description = "DIAL adapter for AWS Bedrock"
 authors = ["EPAM RAIL <SpecialEPM-DIALDevTeam@epam.com>"]
 homepage = "https://epam-rail.com"
@@ -36,6 +36,7 @@ pytest-dotenv = "^0.5.2"
 pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
 pytest-sugar = "^1.0.0"
+respx = "^0.22.0"
 
 [tool.poetry.group.lint.dependencies]
 pyright = "1.1.389"
@@ -55,8 +56,9 @@ filterwarnings = [
   "error",
   # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
   "ignore::ResourceWarning:",
+  # muting warnings coming from opentelemetry package
   "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
-] # muting warnings coming from opentelemetry package
+]
 
 [tool.pyright]
 typeCheckingMode = "basic"

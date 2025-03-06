@@ -159,7 +159,10 @@ async def get_bedrock_adapter(
             return await converse_adapter.create()
         case (
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US
             | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US
+            | ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1
         ):
             return await converse_adapter.create(
                 tools_support=ToolsSupport.NON_STREAMING_ONLY,
@@ -173,7 +176,7 @@ async def get_bedrock_adapter(
                 supported_image_types=ConverseImageType.all(),
             )
         case _:
-            assert_never(deployment)
+            assert_never(deployment.reference_deployment_id)
 
 
 async def get_embeddings_model(
