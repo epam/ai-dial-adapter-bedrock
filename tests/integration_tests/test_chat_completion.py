@@ -7,6 +7,7 @@ import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
 from openai.types.chat import (
     ChatCompletionMessageParam,
+    ChatCompletionToolChoiceOptionParam,
     ChatCompletionToolParam,
 )
 from openai.types.chat.completion_create_params import Function
@@ -72,6 +73,7 @@ class TestCase:
 
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float = 0.0
 
     def get_id(self):
@@ -79,6 +81,15 @@ class TestCase:
         stop = f"stop:{self.stop}" if self.stop else None
         n = f"n:{self.n}" if self.n else None
         temp = f"temp:{self.temperature}" if self.temperature else None
+        tools = None
+        if self.tools is not None:
+            tools = "tools"
+            if self.tool_choice is not None:
+                if isinstance(self.tool_choice, str):
+                    tools += f":{self.tool_choice}"
+                else:
+                    tools += ":forced"
+
         return sanitize_test_name(
             "/".join(
                 str(part)
@@ -89,6 +100,7 @@ class TestCase:
                     stop,
                     n,
                     temp,
+                    tools,
                     self.name,
                 ]
                 if part is not None
@@ -300,6 +312,7 @@ def get_test_cases(
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
         tools: List[ChatCompletionToolParam] | None = None,
+        tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
         temperature: float = 0.0,
     ) -> None:
         test_cases.append(
@@ -315,6 +328,7 @@ def get_test_cases(
                 n,
                 functions,
                 tools,
+                tool_choice,
                 temperature,
             )
         )
@@ -495,6 +509,23 @@ def get_test_cases(
     )
 
     if supports_tools(deployment):
+        test_case(
+            name="forced tool call",
+            messages=[user("Hi, I'm living in Glasgow")],
+            tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+            tool_choice={
+                "type": "function",
+                "function": {"name": GET_WEATHER_FUNCTION["name"]},
+            },
+            expected=lambda s: is_valid_function_call(
+                s.function_call,
+                fun_name,
+                {
+                    "location": lambda s: "Glasgow" in s,
+                    "format": "celsius",
+                },
+            ),
+        )
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -511,6 +542,7 @@ def get_test_cases(
                 ai("5"),
                 user(query),
             ]
+
             # Llama 3 works badly with system messages along tools
             if not is_llama3(deployment):
                 init_messages.insert(0, sys("act as a helpful assistant"))

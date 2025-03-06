@@ -91,9 +91,12 @@ def _tokenize_tool_use(id: str, input: object, name: str) -> int:
 
 async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
     tokens: int = tokenize_text(message["tool_use_id"])
-    if "content" in message:
-        for sub_message in message["content"]:
-            tokens += await _tokenize_sub_message(sub_message)
+    if (content := message.get("content")) is not None:
+        if isinstance(content, str):
+            tokens += tokenize_text(content)
+        else:
+            for sub_message in content:
+                tokens += await _tokenize_sub_message(sub_message)
     return tokens
 
 
@@ -104,7 +107,7 @@ async def _tokenize_sub_message(
         ToolUseBlockParam,
         ToolResultBlockParam,
         ContentBlock,
-    ]
+    ],
 ) -> int:
     if isinstance(message, dict):
         match message["type"]:
