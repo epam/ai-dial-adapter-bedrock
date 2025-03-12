@@ -1,9 +1,10 @@
 import json
 from logging import DEBUG
-from typing import Any, AsyncIterator, Dict, assert_never
+from typing import Any, AsyncIterator, Callable, Dict, assert_never
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
+from aidial_sdk.chat_completion import Stage
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
 from aidial_sdk.exceptions import RuntimeServerError
 
@@ -29,12 +30,27 @@ def to_dial_finish_reason(
     return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
+def create_add_thinking(consumer: Consumer) -> Callable[[str], None]:
+    stage: Stage | None = None
+
+    def add_thinking(text: str) -> None:
+        nonlocal stage
+        if stage is None:
+            stage = consumer.choice.create_stage("Thinking")
+            stage.open()
+        stage.append_content(text)
+
+    return add_thinking
+
+
 async def process_streaming(
     params: ModelParameters,
     stream: AsyncIterator[Any],
     consumer: Consumer,
 ) -> None:
     current_tool_use = None
+
+    add_thinking = create_add_thinking(consumer)
 
     async for event in stream:
         if log.isEnabledFor(DEBUG):
@@ -57,19 +73,25 @@ async def process_streaming(
                 raise ValueError("Tool use already started")
             current_tool_use = {"input": ""} | tool_use
 
-        elif content_block := event.get("contentBlockDelta"):
-            delta = content_block.get("delta", {})
+        elif (content_block := event.get("contentBlockDelta")) and (
+            delta := content_block.get("delta")
+        ):
 
             if message := delta.get("text"):
                 consumer.append_content(message)
 
-            if "toolUse" in delta:
+            if tool_use := delta.get("toolUse"):
                 if current_tool_use is None:
                     raise ValueError("Received tool delta before start block")
                 else:
-                    current_tool_use["input"] += delta["toolUse"].get(
-                        "input", ""
-                    )
+                    current_tool_use["input"] += tool_use.get("input") or ""
+
+            # NOTE: reasoningContent.(redactedContent, signature) aren't yet supported.
+            # They are only relevant for Claude 3.7 that we call via anthropic sdk anyway.
+            if (reasoning_content := delta.get("reasoningContent")) and (
+                text := reasoning_content.get("text")
+            ):
+                add_thinking(text)
 
         elif event.get("contentBlockStop"):
             if current_tool_use:
@@ -117,23 +139,31 @@ def process_non_streaming(
     if log.isEnabledFor(DEBUG):
         log.debug(f"response: {json_dumps_short(response)}")
 
+    add_thinking = create_add_thinking(consumer)
+
     message = response["output"]["message"]
-    for content_block in message.get("content", []):
-        if "text" in content_block:
-            consumer.append_content(content_block["text"])
-        if "toolUse" in content_block:
+    for content_block in message.get("content") or []:
+        if text := content_block.get("text"):
+            consumer.append_content(text)
+
+        # NOTE: reasoningContent.readactedContent and reasoningContent.reasoningText.signature
+        # are ignored since they are only relevant for Claude 3.7
+        if reasoning_content := content_block.get("reasoningContent"):
+            if reasoning_text := reasoning_content.get("reasoningText"):
+                if text := reasoning_text.get("text"):
+                    add_thinking(text)
+
+        if tool_use := content_block.get("toolUse"):
             match params.tools_mode:
                 case ToolsMode.TOOLS:
                     consumer.create_function_tool_call(
                         call=DialToolCall(
                             type="function",
-                            id=content_block["toolUse"]["toolUseId"],
+                            id=tool_use["toolUseId"],
                             index=None,
                             function=DialFunctionCall(
-                                name=content_block["toolUse"]["name"],
-                                arguments=json.dumps(
-                                    content_block["toolUse"]["input"]
-                                ),
+                                name=tool_use["name"],
+                                arguments=json.dumps(tool_use["input"]),
                             ),
                         )
                     )
@@ -142,10 +172,8 @@ def process_non_streaming(
                     if not consumer.has_function_call:
                         consumer.create_function_call(
                             call=DialFunctionCall(
-                                name=content_block["toolUse"]["name"],
-                                arguments=json.dumps(
-                                    content_block["toolUse"]["input"]
-                                ),
+                                name=tool_use["name"],
+                                arguments=json.dumps(tool_use["input"]),
                             )
                         )
                 case None:
