@@ -1,8 +1,28 @@
 from enum import Enum
-from typing import Dict, List, Literal
+from typing import Dict, Literal, Protocol
+
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
-_REGIONS: List[str] = ["us", "eu", "apac"]
+class InferenceRegion(Enum):
+    US = "us"
+    EU = "eu"
+    APAC = "apac"
+
+
+class EnumLike(Protocol):
+    @property
+    def value(self) -> str: ...
+
+
+class FakeEnum:
+    _value: str
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    @property
+    def value(self) -> str:
+        return self._value
 
 
 class ChatCompletionDeployment(Enum):
@@ -21,33 +41,14 @@ class ChatCompletionDeployment(Enum):
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
 
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_SONNET_US = "us.anthropic.claude-3-sonnet-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_SONNET_EU = "eu.anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-    ANTHROPIC_CLAUDE_V3_5_SONNET_US = (
-        "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
-    )
-    ANTHROPIC_CLAUDE_V3_5_SONNET_EU = (
-        "eu.anthropic.claude-3-5-sonnet-20240620-v1:0"
-    )
     ANTHROPIC_CLAUDE_V3_5_SONNET_V2 = (
         "anthropic.claude-3-5-sonnet-20241022-v2:0"
     )
-    ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US = (
-        "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-    )
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
-    ANTHROPIC_CLAUDE_V3_HAIKU_US = "us.anthropic.claude-3-haiku-20240307-v1:0"
-    ANTHROPIC_CLAUDE_V3_HAIKU_EU = "eu.anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_5_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
-    ANTHROPIC_CLAUDE_V3_5_HAIKU_US = (
-        "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    )
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_OPUS_US = "us.anthropic.claude-3-opus-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_7_SONNET_US = (
-        "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-    )
+    ANTHROPIC_CLAUDE_V3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -60,23 +61,42 @@ class ChatCompletionDeployment(Enum):
     META_LLAMA3_70B_INSTRUCT_V1 = "meta.llama3-70b-instruct-v1:0"
     META_LLAMA3_1_8B_INSTRUCT_V1 = "meta.llama3-1-8b-instruct-v1:0"
     META_LLAMA3_1_70B_INSTRUCT_V1 = "meta.llama3-1-70b-instruct-v1:0"
-    META_LLAMA3_1_70B_INSTRUCT_V1_US = "us.meta.llama3-1-70b-instruct-v1:0"
     META_LLAMA3_1_405B_INSTRUCT_V1 = "meta.llama3-1-405b-instruct-v1:0"
-    META_LLAMA3_1_405B_INSTRUCT_V1_US = "us.meta.llama3-1-405b-instruct-v1:0"
-    META_LLAMA3_2_1B_INSTRUCT_V1 = "us.meta.llama3-2-1b-instruct-v1:0"
-    META_LLAMA3_2_3B_INSTRUCT_V1 = "us.meta.llama3-2-3b-instruct-v1:0"
-    META_LLAMA3_2_11B_INSTRUCT_V1 = "us.meta.llama3-2-11b-instruct-v1:0"
-    META_LLAMA3_2_90B_INSTRUCT_V1 = "us.meta.llama3-2-90b-instruct-v1:0"
+    META_LLAMA3_2_1B_INSTRUCT_V1 = "meta.llama3-2-1b-instruct-v1:0"
+    META_LLAMA3_2_3B_INSTRUCT_V1 = "meta.llama3-2-3b-instruct-v1:0"
+    META_LLAMA3_2_11B_INSTRUCT_V1 = "meta.llama3-2-11b-instruct-v1:0"
+    META_LLAMA3_2_90B_INSTRUCT_V1 = "meta.llama3-2-90b-instruct-v1:0"
     META_LLAMA3_3_70B_INSTRUCT_V1 = "meta.llama3-3-70b-instruct-v1:0"
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
+    @property
+    def US(self) -> EnumLike:
+        return FakeEnum(self._get_region_variant(InferenceRegion.US))
+
+    @property
+    def EU(self) -> EnumLike:
+        return FakeEnum(self._get_region_variant(InferenceRegion.EU))
+
+    @property
+    def APAC(self) -> EnumLike:
+        return FakeEnum(self._get_region_variant(InferenceRegion.APAC))
+
+    def _get_region_variant(self, region: InferenceRegion) -> str:
+        return f"{region.value}.{self.value}"
+
+    def _is_region_variant(self, region: InferenceRegion) -> bool:
+        return self.value.startswith(f"{region.value}.")
+
     def _cross_region_inference_mapping(self) -> Dict[str, str]:
-        if any(self.value.startswith(f"{region}.") for region in _REGIONS):
+        if any(self._is_region_variant(region) for region in InferenceRegion):
             return {}
 
-        return {f"{region}.{self.value}": self.value for region in _REGIONS}
+        return {
+            self._get_region_variant(region): self.value
+            for region in InferenceRegion
+        }
 
     @classmethod
     def create_cross_region_inference_mapping(cls) -> Dict[str, str]:
@@ -95,21 +115,12 @@ CHAT_COMPLETION_REDIRECTS = {
 
 Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
 ]
 
 

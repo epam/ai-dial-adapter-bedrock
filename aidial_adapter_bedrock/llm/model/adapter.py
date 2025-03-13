@@ -56,21 +56,12 @@ async def get_bedrock_adapter(
     match deployment.reference_deployment_id:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
         ):
             return claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
@@ -159,9 +150,7 @@ async def get_bedrock_adapter(
             return await converse_adapter.create()
         case (
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US
             | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
-            | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US
             | ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1
         ):
             return await converse_adapter.create(

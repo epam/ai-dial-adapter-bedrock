@@ -5,7 +5,7 @@ import respx
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.utils.openai import chat_completion, user
 
-_DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+_DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
 _REGION = "us-east-1"
 
 

@@ -104,7 +104,7 @@ async def _tokenize_sub_message(
         ToolUseBlockParam,
         ToolResultBlockParam,
         ContentBlock,
-    ]
+    ],
 ) -> int:
     if isinstance(message, dict):
         match message["type"]:
@@ -166,37 +166,22 @@ def _tokenize_tool_system_message(
     tool_choice: Literal["auto", "any", "tool"],
 ) -> int:
     match deployment:
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
             return 294 if tool_choice == "auto" else 261
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
         ):
             return 346 if tool_choice == "auto" else 313
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
             return 530 if tool_choice == "auto" else 281
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET:
             return 159 if tool_choice == "auto" else 235
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             # Actually token usage for Haiku 3.5 is unknown
             # temporary using tha same as for Haiku 3
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
         ):
             return 264 if tool_choice == "auto" else 340
         case _:
