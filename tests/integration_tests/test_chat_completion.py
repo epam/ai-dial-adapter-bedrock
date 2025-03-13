@@ -45,6 +45,7 @@ from tests.utils.openai import (
 class ExpectedException(BaseModel):
     type: type[APIError]
     message: str
+    display_message: str | None = None
     status_code: int | None = None
 
 
@@ -138,6 +139,16 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
 }
+
+
+def is_retired(deployment: ChatCompletionDeployment) -> bool:
+    # Keep at least one model in the list to test how the adapter handles retired models
+    return deployment in [
+        ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_MID_V1,
+        ChatCompletionDeployment.AI21_J2_ULTRA_V1,
+    ]
 
 
 def supports_tools(deployment: ChatCompletionDeployment) -> bool:
@@ -318,6 +329,20 @@ def get_test_cases(
                 temperature,
             )
         )
+
+    if is_retired(deployment):
+        test_case(
+            name="retired",
+            messages=[user("test")],
+            max_tokens=1,
+            expected=ExpectedException(
+                type=openai.NotFoundError,
+                status_code=404,
+                message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
+                display_message="This model version has reached the end of its life",
+            ),
+        )
+        return test_cases
 
     test_case(
         name="dialog recall",
@@ -677,9 +702,13 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
         assert isinstance(
             actual_exc, test.expected.type
         ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
+
         actual_status_code = getattr(actual_exc, "status_code", None)
         assert actual_status_code == test.expected.status_code
+
         assert re.search(test.expected.message, str(actual_exc))
+
+        assert (actual_exc.body or {}).get("display_message") == test.expected.display_message  # type: ignore
     else:
         actual_output = await run_chat_completion()
         assert test.expected(

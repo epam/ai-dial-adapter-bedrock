@@ -28,6 +28,7 @@ from aidial_sdk.exceptions import (
     InternalServerError,
     InvalidRequestError,
     ResourceNotFoundError,
+    DeploymentNotFoundError,
 )
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
@@ -131,6 +132,27 @@ def _get_response_error_code(response: dict) -> int | None:
         return None
 
 
+def _get_status_code(response: dict) -> int:
+    return (
+        _get_response_error_code(response)
+        or _get_meta_status_code(response)
+        or 500
+    )
+
+
+def _get_end_of_life_error(response: dict) -> DialException | None:
+    eol_message = "This model version has reached the end of its life"
+    if (
+        (message := response.get("message"))
+        and eol_message in message
+        and _get_status_code(response) == 404
+    ):
+        return DeploymentNotFoundError(
+            message=message, display_message=eol_message, type=None
+        )
+    return None
+
+
 def _get_content_filter_error(response: dict) -> DialException | None:
     if (
         message := response.get("message")
@@ -153,12 +175,10 @@ def to_dial_exception(e: Exception) -> DialException:
         if error := _get_content_filter_error(response):
             return error
 
-        status_code = (
-            _get_response_error_code(response)
-            or _get_meta_status_code(response)
-            or 500
-        )
+        if error := _get_end_of_life_error(response):
+            return error
 
+        status_code = _get_status_code(response)
         return _create_error(status_code, str(e))
 
     if isinstance(e, APIStatusError):
