@@ -1,5 +1,8 @@
 from enum import Enum
-from typing import Literal
+from typing import Dict, List, Literal
+
+# https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
+_REGIONS: List[str] = ["us", "eu", "apac"]
 
 
 class ChatCompletionDeployment(Enum):
@@ -68,6 +71,20 @@ class ChatCompletionDeployment(Enum):
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
+
+    def _cross_region_inference_mapping(self) -> Dict[str, str]:
+        if any(self.value.startswith(f"{region}.") for region in _REGIONS):
+            return {}
+
+        return {f"{region}.{self.value}": self.value for region in _REGIONS}
+
+    @classmethod
+    def create_cross_region_inference_mapping(cls) -> Dict[str, str]:
+        return {
+            k: v
+            for deployment in cls
+            for k, v in deployment._cross_region_inference_mapping().items()
+        }
 
 
 # Redirect Stability model without version to the earliest non-deprecated version (V1)
