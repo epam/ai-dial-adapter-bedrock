@@ -23,12 +23,12 @@ from enum import Enum
 from functools import wraps
 from typing import assert_never
 
+from aidial_sdk.exceptions import DeploymentNotFoundError
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
     InternalServerError,
     InvalidRequestError,
     ResourceNotFoundError,
-    DeploymentNotFoundError,
 )
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
