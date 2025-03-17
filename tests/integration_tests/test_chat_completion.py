@@ -724,12 +724,9 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
         assert isinstance(
             actual_exc, test.expected.type
         ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
-
         actual_status_code = getattr(actual_exc, "status_code", None)
         assert actual_status_code == test.expected.status_code
-
         assert re.search(test.expected.message, str(actual_exc))
-
         assert (actual_exc.body or {}).get("display_message") == test.expected.display_message  # type: ignore
     else:
         actual_output = await run_chat_completion()
