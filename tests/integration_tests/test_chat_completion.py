@@ -137,7 +137,7 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1.US: _EAST_2,
+    ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
