@@ -58,7 +58,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 #### Cross-region inference
 
-The adapter supports cross-region inference for US, EU and APAC for the listed models.
+The adapter supports cross-region inference for US, EU and APAC regions for the listed models.
 
 E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment names:
 
