@@ -1,45 +1,14 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, Generic, Literal, Protocol, TypeVar
+from typing import Literal
+
+from aidial_adapter_bedrock.utils.region_deployment import (
+    RegionInferenceDeployment,
+)
 
 
-# https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
-class InferenceRegion(Enum):
-    US = "us"
-    EU = "eu"
-    APAC = "apac"
-
-
-_Origin = TypeVar("_Origin", bound=Enum, covariant=True)
-
-
-class RegionDeployment(Protocol, Generic[_Origin]):
-    @property
-    def origin(self) -> _Origin: ...
-
-    @property
-    def value(self) -> str: ...
-
-
-class DeploymentVariant(Generic[_Origin]):
-    _origin: _Origin
-    _value: str
-
-    def __init__(self, origin: _Origin, value: str) -> None:
-        self._origin = origin
-        self._value = value
-
-    @property
-    def origin(self) -> _Origin:
-        return self._origin
-
-    @property
-    def value(self) -> str:
-        return self._value
-
-
-class ChatCompletionDeployment(Enum):
+class ChatCompletionDeployment(RegionInferenceDeployment):
     AMAZON_NOVA_PRO = "amazon.nova-pro-v1:0"
     AMAZON_NOVA_LITE = "amazon.nova-lite-v1:0"
     AMAZON_NOVA_MICRO = "amazon.nova-micro-v1:0"
@@ -84,50 +53,6 @@ class ChatCompletionDeployment(Enum):
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
-
-    @property
-    def origin(self) -> ChatCompletionDeployment:
-        return self
-
-    @property
-    def US(self) -> RegionDeployment[ChatCompletionDeployment]:
-        return self._create_region_variant(InferenceRegion.US)
-
-    @property
-    def EU(self) -> RegionDeployment[ChatCompletionDeployment]:
-        return self._create_region_variant(InferenceRegion.EU)
-
-    @property
-    def APAC(self) -> RegionDeployment[ChatCompletionDeployment]:
-        return self._create_region_variant(InferenceRegion.APAC)
-
-    def _create_region_variant(
-        self, region: InferenceRegion
-    ) -> RegionDeployment[ChatCompletionDeployment]:
-        return DeploymentVariant(self, self._get_region_variant(region))
-
-    def _get_region_variant(self, region: InferenceRegion) -> str:
-        return f"{region.value}.{self.value}"
-
-    def _is_region_variant(self, region: InferenceRegion) -> bool:
-        return self.value.startswith(f"{region.value}.")
-
-    def _cross_region_inference_mapping(self) -> Dict[str, str]:
-        if any(self._is_region_variant(region) for region in InferenceRegion):
-            return {}
-
-        return {
-            self._get_region_variant(region): self.value
-            for region in InferenceRegion
-        }
-
-    @classmethod
-    def create_cross_region_inference_mapping(cls) -> Dict[str, str]:
-        return {
-            k: v
-            for deployment in cls
-            for k, v in deployment._cross_region_inference_mapping().items()
-        }
 
 
 # Redirect Stability model without version to the earliest non-deprecated version (V1)

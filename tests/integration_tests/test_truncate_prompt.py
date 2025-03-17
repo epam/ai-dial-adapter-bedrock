@@ -8,7 +8,7 @@ import pytest
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.deployments import RegionDeployment
+from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.test_chat_completion import chat_deployments
 from tests.utils.json import match_objects
 from tests.utils.openai import (

@@ -16,10 +16,8 @@ from aidial_adapter_bedrock.aws_client_config import (
     AWSClientConfigFactory,
     UpstreamConfig,
 )
-from aidial_adapter_bedrock.deployments import (
-    ChatCompletionDeployment,
-    RegionDeployment,
-)
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
