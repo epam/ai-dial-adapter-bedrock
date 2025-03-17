@@ -149,6 +149,7 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
+    ChatCompletionDeployment.DEEPSEEK_R1_V2_US: _EAST_1,
 }
 
 
@@ -166,6 +167,10 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        # DeepSeek via Converse API doesn't support tools even though
+        # tool support is claimed in the official documentation:
+        # https://api-docs.deepseek.com/guides/function_calling
+        # ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
 
 
@@ -240,6 +245,18 @@ def is_nova(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
+    ]
+
+
+def is_reasoning_model(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
+    ]
+
+
+def is_deepseek(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
     ]
 
 
@@ -328,7 +345,9 @@ def get_test_cases(
             ai("Hello"),
             user("What city did I mention earlier?"),
         ],
-        max_tokens=32,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=32 if not is_reasoning_model(deployment) else 512,
         expected=lambda s: "paris" in s.content.lower(),
     )
 
@@ -353,7 +372,9 @@ def get_test_cases(
 
     test_case(
         name="multiple candidates",
-        max_tokens=10,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=10 if not is_reasoning_model(deployment) else 512,
         n=5,
         messages=[user("2+7=?. Reply with a single number")],
         expected=for_all_choices(lambda s: "9" in s, 5),
@@ -381,43 +402,37 @@ def get_test_cases(
         ),
     )
 
-    expected_empty_message_error = expected_success
-    if is_claude3(deployment):
-        expected_empty_message_error = ExpectedException(
-            type=openai.BadRequestError,
-            message="messages: text content blocks must be non-empty",
-            status_code=400,
-        )
-    elif is_cohere(deployment):
-        expected_empty_message_error = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
-        expected_empty_message_error = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
-            status_code=400,
-        )
-
-    test_case(
-        name="empty user message",
-        max_tokens=1,
-        messages=[user("")],
-        expected=expected_empty_message_error,
-    )
-
-    expected_whitespace_message = expected_success
+    expected_whitespace_message = expected_empty_message = expected_success
     if is_claude3(deployment):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
             status_code=400,
         )
-    elif is_cohere(deployment):
-        expected_whitespace_message = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
-        expected_whitespace_message = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
+        expected_empty_message = ExpectedException(
+            type=openai.BadRequestError,
+            message="messages: text content blocks must be non-empty",
             status_code=400,
+        )
+    elif is_cohere(deployment):
+        expected_whitespace_message = expected_empty_message = (
+            cohere_invalid_request_error
+        )
+    elif is_llama3(deployment) or is_nova(deployment):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="Add text to the text field, and try again.",
+                status_code=400,
+            )
+        )
+    elif is_deepseek(deployment):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again.",
+                status_code=400,
+            )
         )
 
     test_case(
@@ -425,6 +440,13 @@ def get_test_cases(
         max_tokens=1,
         messages=[user(" ")],
         expected=expected_whitespace_message,
+    )
+
+    test_case(
+        name="empty user message",
+        max_tokens=1,
+        messages=[user("")],
+        expected=expected_empty_message,
     )
 
     if is_vision_model(deployment):
