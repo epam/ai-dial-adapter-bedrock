@@ -54,6 +54,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
+    DEEPSEEK_R1_V2_US = "us.deepseek.r1-v1:0"
+
 
 # Redirect Stability model without version to the earliest non-deprecated version (V1)
 CHAT_COMPLETION_REDIRECTS = {

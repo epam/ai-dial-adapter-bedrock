@@ -46,6 +46,7 @@ from tests.utils.openai import (
 class ExpectedException(BaseModel):
     type: type[APIError]
     message: str
+    display_message: str | None = None
     status_code: int | None = None
 
 
@@ -142,7 +143,18 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
+    ChatCompletionDeployment.DEEPSEEK_R1_V2_US: _EAST_1,
 }
+
+
+def is_retired(deployment: ChatCompletionDeployment) -> bool:
+    # Keep at least one model in the list to test how the adapter handles retired models
+    return deployment in [
+        ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_MID_V1,
+        ChatCompletionDeployment.AI21_J2_ULTRA_V1,
+    ]
 
 
 def supports_tools(deployment: ChatCompletionDeployment) -> bool:
@@ -164,6 +176,10 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        # DeepSeek via Converse API doesn't support tools even though
+        # tool support is claimed in the official documentation:
+        # https://api-docs.deepseek.com/guides/function_calling
+        # ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
 
 
@@ -220,6 +236,18 @@ def is_nova(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
+    ]
+
+
+def is_reasoning_model(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
+    ]
+
+
+def is_deepseek(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
     ]
 
 
@@ -300,6 +328,20 @@ def get_test_cases(
             )
         )
 
+    if is_retired(origin):
+        test_case(
+            name="retired",
+            messages=[user("test")],
+            max_tokens=1,
+            expected=ExpectedException(
+                type=openai.NotFoundError,
+                status_code=404,
+                message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
+                display_message="This model version has reached the end of its life",
+            ),
+        )
+        return test_cases
+
     test_case(
         name="dialog recall",
         messages=[
@@ -307,7 +349,9 @@ def get_test_cases(
             ai("Hello"),
             user("What city did I mention earlier?"),
         ],
-        max_tokens=32,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=32 if not is_reasoning_model(origin) else 512,
         expected=lambda s: "paris" in s.content.lower(),
     )
 
@@ -332,7 +376,9 @@ def get_test_cases(
 
     test_case(
         name="multiple candidates",
-        max_tokens=10,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=10 if not is_reasoning_model(origin) else 512,
         n=5,
         messages=[user("2+7=?. Reply with a single number")],
         expected=for_all_choices(lambda s: "9" in s, 5),
@@ -360,43 +406,37 @@ def get_test_cases(
         ),
     )
 
-    expected_empty_message_error = expected_success
-    if is_claude3(origin):
-        expected_empty_message_error = ExpectedException(
-            type=openai.BadRequestError,
-            message="messages: text content blocks must be non-empty",
-            status_code=400,
-        )
-    elif is_cohere(origin):
-        expected_empty_message_error = cohere_invalid_request_error
-    elif is_llama3(origin) or is_nova(origin):
-        expected_empty_message_error = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
-            status_code=400,
-        )
-
-    test_case(
-        name="empty user message",
-        max_tokens=1,
-        messages=[user("")],
-        expected=expected_empty_message_error,
-    )
-
-    expected_whitespace_message = expected_success
+    expected_whitespace_message = expected_empty_message = expected_success
     if is_claude3(origin):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
             status_code=400,
         )
-    elif is_cohere(origin):
-        expected_whitespace_message = cohere_invalid_request_error
-    elif is_llama3(origin) or is_nova(origin):
-        expected_whitespace_message = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
+        expected_empty_message = ExpectedException(
+            type=openai.BadRequestError,
+            message="messages: text content blocks must be non-empty",
             status_code=400,
+        )
+    elif is_cohere(origin):
+        expected_whitespace_message = expected_empty_message = (
+            cohere_invalid_request_error
+        )
+    elif is_llama3(origin) or is_nova(origin):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="Add text to the text field, and try again.",
+                status_code=400,
+            )
+        )
+    elif is_deepseek(origin):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again.",
+                status_code=400,
+            )
         )
 
     test_case(
@@ -404,6 +444,13 @@ def get_test_cases(
         max_tokens=1,
         messages=[user(" ")],
         expected=expected_whitespace_message,
+    )
+
+    test_case(
+        name="empty user message",
+        max_tokens=1,
+        messages=[user("")],
+        expected=expected_empty_message,
     )
 
     if is_vision_model(origin):
@@ -661,6 +708,7 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
         actual_status_code = getattr(actual_exc, "status_code", None)
         assert actual_status_code == test.expected.status_code
         assert re.search(test.expected.message, str(actual_exc))
+        assert (actual_exc.body or {}).get("display_message") == test.expected.display_message  # type: ignore
     else:
         actual_output = await run_chat_completion()
         assert test.expected(
