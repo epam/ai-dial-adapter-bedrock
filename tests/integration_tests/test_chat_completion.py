@@ -18,7 +18,7 @@ from aidial_adapter_bedrock.aws_client_config import (
 )
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
-    EnumLike,
+    RegionDeployment,
 )
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.utils.openai import (
@@ -55,13 +55,16 @@ def expected_success(*args, **kwargs):
     return True
 
 
+Deployment = RegionDeployment[ChatCompletionDeployment]
+
+
 @dataclass
 class TestCase:
     __test__ = False
 
     name: str
     region: str
-    deployment: EnumLike
+    deployment: Deployment
     streaming: bool
 
     messages: List[ChatCompletionMessageParam]
@@ -103,7 +106,8 @@ _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
 
-chat_deployments: Mapping[EnumLike, str] = {
+
+chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST,
     ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
@@ -143,31 +147,20 @@ chat_deployments: Mapping[EnumLike, str] = {
 }
 
 
-def supports_tools(deployment: EnumLike) -> bool:
+def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1.US,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
         # ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
@@ -176,69 +169,55 @@ def supports_tools(deployment: EnumLike) -> bool:
     ]
 
 
-def supports_parallel_tool_calls(deployment: EnumLike) -> bool:
+def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
     return (
         deployment
         not in [
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
     )
 
 
-def is_llama3(deployment: EnumLike) -> bool:
+def is_llama3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1.US,
+        ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
     ]
 
 
-def is_cohere(deployment: EnumLike) -> bool:
+def is_cohere(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14,
         ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
     ]
 
 
-def is_claude3(deployment: EnumLike) -> bool:
+def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU.EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS.US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
     ]
 
 
-def is_nova(deployment: EnumLike) -> bool:
+def is_nova(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
@@ -246,7 +225,7 @@ def is_nova(deployment: EnumLike) -> bool:
     ]
 
 
-def is_ai21(deployment: EnumLike) -> bool:
+def is_ai21(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
         ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
@@ -260,10 +239,10 @@ cohere_invalid_request_error = ExpectedException(
 )
 
 
-def is_vision_model(deployment: EnumLike) -> bool:
+def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     allowed_models = [
-        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US,
+        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
+        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
     ]
@@ -272,7 +251,6 @@ def is_vision_model(deployment: EnumLike) -> bool:
     # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
     excluded_models = {
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US,
     }
 
     is_allowed_model = is_claude3(deployment) or deployment in allowed_models
@@ -281,15 +259,17 @@ def is_vision_model(deployment: EnumLike) -> bool:
     return is_allowed_model and not is_excluded_model
 
 
-def are_tools_emulated(deployment: EnumLike) -> bool:
+def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
     ]
 
 
 def get_test_cases(
-    deployment: EnumLike, region: str, streaming: bool
+    deployment: Deployment, region: str, streaming: bool
 ) -> List[TestCase]:
+    origin = deployment.origin
+
     test_cases: List[TestCase] = []
 
     def test_case(
@@ -361,7 +341,7 @@ def get_test_cases(
     )
 
     query = 'Reply with "Hello"'
-    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
+    if origin == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     test_case(
@@ -383,15 +363,15 @@ def get_test_cases(
     )
 
     expected_empty_message_error = expected_success
-    if is_claude3(deployment):
+    if is_claude3(origin):
         expected_empty_message_error = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must be non-empty",
             status_code=400,
         )
-    elif is_cohere(deployment):
+    elif is_cohere(origin):
         expected_empty_message_error = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
+    elif is_llama3(origin) or is_nova(origin):
         expected_empty_message_error = ExpectedException(
             type=BadRequestError,
             message="Add text to the text field, and try again.",
@@ -406,15 +386,15 @@ def get_test_cases(
     )
 
     expected_whitespace_message = expected_success
-    if is_claude3(deployment):
+    if is_claude3(origin):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
             status_code=400,
         )
-    elif is_cohere(deployment):
+    elif is_cohere(origin):
         expected_whitespace_message = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
+    elif is_llama3(origin) or is_nova(origin):
         expected_whitespace_message = ExpectedException(
             type=BadRequestError,
             message="Add text to the text field, and try again.",
@@ -428,7 +408,7 @@ def get_test_cases(
         expected=expected_whitespace_message,
     )
 
-    if is_vision_model(deployment):
+    if is_vision_model(origin):
         content = "describe the image"
         for idx, user_message in enumerate(
             [
@@ -455,7 +435,7 @@ def get_test_cases(
     )
 
     # ai21 models do not support more than one stop word
-    if is_ai21(deployment):
+    if is_ai21(origin):
         stop = ["John"]
     else:
         stop = ["John", "john"]
@@ -467,7 +447,7 @@ def get_test_cases(
         expected=lambda s: "John" not in s.content.lower(),
     )
 
-    if is_llama3(deployment):
+    if is_llama3(origin):
 
         test_case(
             name="out_of_turn",
@@ -493,11 +473,11 @@ def get_test_cases(
 
     city_config = (
         [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]
-        if supports_parallel_tool_calls(deployment)
+        if supports_parallel_tool_calls(origin)
         else [[("Glasgow", 15)]]
     )
 
-    if supports_tools(deployment):
+    if supports_tools(origin):
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -515,7 +495,7 @@ def get_test_cases(
                 user(query),
             ]
             # Llama 3 works badly with system messages along tools
-            if not is_llama3(deployment):
+            if not is_llama3(origin):
                 init_messages.insert(0, sys("act as a helpful assistant"))
 
             def create_fun_args(city: str):
@@ -584,14 +564,14 @@ def get_test_cases(
                 def _check(id: str) -> bool:
                     return (
                         f"{fun_name}_{idx+1}" == id
-                        if are_tools_emulated(deployment)
+                        if are_tools_emulated(origin)
                         else True
                     )
 
                 return _check
 
             expected_city_names = (
-                city_names[:1] if are_tools_emulated(deployment) else city_names
+                city_names[:1] if are_tools_emulated(origin) else city_names
             )
 
             test_case(

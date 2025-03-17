@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import Dict, Literal, Protocol
+from typing import Dict, Generic, Literal, Protocol, TypeVar
 
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
@@ -9,16 +11,28 @@ class InferenceRegion(Enum):
     APAC = "apac"
 
 
-class EnumLike(Protocol):
+_Origin = TypeVar("_Origin", bound=Enum, covariant=True)
+
+
+class RegionDeployment(Protocol, Generic[_Origin]):
+    @property
+    def origin(self) -> _Origin: ...
+
     @property
     def value(self) -> str: ...
 
 
-class FakeEnum:
+class DeploymentVariant(Generic[_Origin]):
+    _origin: _Origin
     _value: str
 
-    def __init__(self, value: str) -> None:
+    def __init__(self, origin: _Origin, value: str) -> None:
+        self._origin = origin
         self._value = value
+
+    @property
+    def origin(self) -> _Origin:
+        return self._origin
 
     @property
     def value(self) -> str:
@@ -72,16 +86,25 @@ class ChatCompletionDeployment(Enum):
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
 
     @property
-    def US(self) -> EnumLike:
-        return FakeEnum(self._get_region_variant(InferenceRegion.US))
+    def origin(self) -> ChatCompletionDeployment:
+        return self
 
     @property
-    def EU(self) -> EnumLike:
-        return FakeEnum(self._get_region_variant(InferenceRegion.EU))
+    def US(self) -> RegionDeployment[ChatCompletionDeployment]:
+        return self._create_region_variant(InferenceRegion.US)
 
     @property
-    def APAC(self) -> EnumLike:
-        return FakeEnum(self._get_region_variant(InferenceRegion.APAC))
+    def EU(self) -> RegionDeployment[ChatCompletionDeployment]:
+        return self._create_region_variant(InferenceRegion.EU)
+
+    @property
+    def APAC(self) -> RegionDeployment[ChatCompletionDeployment]:
+        return self._create_region_variant(InferenceRegion.APAC)
+
+    def _create_region_variant(
+        self, region: InferenceRegion
+    ) -> RegionDeployment[ChatCompletionDeployment]:
+        return DeploymentVariant(self, self._get_region_variant(region))
 
     def _get_region_variant(self, region: InferenceRegion) -> str:
         return f"{region.value}.{self.value}"

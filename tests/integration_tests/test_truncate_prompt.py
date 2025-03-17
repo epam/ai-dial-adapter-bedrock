@@ -8,7 +8,7 @@ import pytest
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.deployments import EnumLike
+from aidial_adapter_bedrock.deployments import RegionDeployment
 from tests.integration_tests.test_chat_completion import chat_deployments
 from tests.utils.json import match_objects
 from tests.utils.openai import (
@@ -51,7 +51,7 @@ class TestCase:
     __test__ = False
 
     name: str
-    deployment: EnumLike
+    deployment: RegionDeployment
     messages: List[ChatCompletionMessageParam]
     expected: dict | Callable[[dict], bool] | ExpectedException
     max_prompt_tokens: DynamicMaxPromptTokens | int | None
@@ -69,7 +69,7 @@ class TestCase:
         )
 
 
-def get_test_cases(deployment: EnumLike) -> List[TestCase]:
+def get_test_cases(deployment: RegionDeployment) -> List[TestCase]:
     test_cases: List[TestCase] = []
 
     def test_case(
