@@ -19,6 +19,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|[us.\|eu.]anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|
 |Anthropic|Claude 3.5 Haiku|[us.]anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|
 |Anthropic|Claude 3 Opus|[us.]anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
+|DeepSeek|DeepSeek R1|us.deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
