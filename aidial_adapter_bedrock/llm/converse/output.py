@@ -1,6 +1,6 @@
 import json
 from logging import DEBUG
-from typing import Any, AsyncIterator, Callable, Dict, assert_never
+from typing import Any, AsyncIterator, Dict, assert_never
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
@@ -30,17 +30,25 @@ def to_dial_finish_reason(
     return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
-def create_add_thinking(consumer: Consumer) -> Callable[[str], None]:
-    stage: Stage | None = None
+class LazyStage:
+    title: str
+    consumer: Consumer
 
-    def add_thinking(text: str) -> None:
-        nonlocal stage
-        if stage is None:
-            stage = consumer.choice.create_stage("Thinking")
-            stage.open()
-        stage.append_content(text)
+    _stage: Stage | None = None
 
-    return add_thinking
+    def __init__(self, consumer: Consumer, title: str):
+        self.consumer = consumer
+        self.title = title
+
+    def append_content(self, text: str) -> None:
+        if self._stage is None:
+            self._stage = self.consumer.choice.create_stage(self.title)
+            self._stage.open()
+        self._stage.append_content(text)
+
+    def close(self) -> None:
+        if self._stage is not None:
+            self._stage.close()
 
 
 async def process_streaming(
@@ -50,7 +58,7 @@ async def process_streaming(
 ) -> None:
     current_tool_use = None
 
-    add_thinking = create_add_thinking(consumer)
+    thinking_stage = LazyStage(consumer, "Thinking")
 
     async for event in stream:
         if log.isEnabledFor(DEBUG):
@@ -91,7 +99,7 @@ async def process_streaming(
             if (reasoning_content := delta.get("reasoningContent")) and (
                 text := reasoning_content.get("text")
             ):
-                add_thinking(text)
+                thinking_stage.append_content(text)
 
         elif event.get("contentBlockStop"):
             if current_tool_use:
@@ -130,6 +138,8 @@ async def process_streaming(
         ):
             consumer.close_content(to_dial_finish_reason(stop_reason))
 
+    thinking_stage.close()
+
 
 def process_non_streaming(
     params: ModelParameters,
@@ -139,7 +149,7 @@ def process_non_streaming(
     if log.isEnabledFor(DEBUG):
         log.debug(f"response: {json_dumps_short(response)}")
 
-    add_thinking = create_add_thinking(consumer)
+    thinking_stage = LazyStage(consumer, "Thinking")
 
     message = response["output"]["message"]
     for content_block in message.get("content") or []:
@@ -151,7 +161,7 @@ def process_non_streaming(
         if reasoning_content := content_block.get("reasoningContent"):
             if reasoning_text := reasoning_content.get("reasoningText"):
                 if text := reasoning_text.get("text"):
-                    add_thinking(text)
+                    thinking_stage.append_content(text)
 
         if tool_use := content_block.get("toolUse"):
             match params.tools_mode:
@@ -180,6 +190,8 @@ def process_non_streaming(
                     raise RuntimeError("Tool use received without tools mode")
                 case _:
                     assert_never(params.tools_mode)
+
+    thinking_stage.close()
 
     if usage := response.get("usage"):
         consumer.add_usage(
