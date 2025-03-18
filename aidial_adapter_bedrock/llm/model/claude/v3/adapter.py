@@ -3,7 +3,6 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from aidial_sdk.chat_completion import Stage
 from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
@@ -306,27 +305,17 @@ class Adapter(ChatCompletionAdapter):
             )
             log.debug(f"request: {msg}")
 
-        async with self.client.messages.stream(
-            messages=request.messages.raw_list,
-            model=self.deployment.upstream_deployment_id,
-            **request.params,
-        ) as stream:
+        async with (
+            self.client.messages.stream(
+                messages=request.messages.raw_list,
+                model=self.deployment.upstream_deployment_id,
+                **request.params,
+            ) as stream,
+            consumer.create_stage("Thinking") as thinking_stage,
+        ):
             prompt_tokens = 0
             completion_tokens = 0
             stop_reason = None
-
-            thinking_stage: Stage | None = None
-
-            def report_thinking(content: str):
-                nonlocal thinking_stage
-                if thinking_stage is None:
-                    stage = thinking_stage = consumer.choice.create_stage(
-                        "Thinking"
-                    )
-                    stage.open()
-                else:
-                    stage = thinking_stage
-                stage.append_content(content)
 
             async for event in stream:
                 if log.isEnabledFor(DEBUG):
@@ -338,7 +327,7 @@ class Adapter(ChatCompletionAdapter):
                     case TextEvent(text=text):
                         consumer.append_content(text)
                     case ThinkingEvent(thinking=thinking):
-                        report_thinking(thinking)
+                        thinking_stage.append_content(thinking)
                     case SignatureEvent():
                         pass
                     case MessageDeltaEvent(usage=usage):
@@ -377,9 +366,6 @@ class Adapter(ChatCompletionAdapter):
                         pass
                     case _:
                         assert_never(event)
-
-            if thinking_stage is not None:
-                thinking_stage.close()
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
@@ -425,7 +411,7 @@ class Adapter(ChatCompletionAdapter):
                 case ToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
                 case ThinkingBlock(thinking=thinking):
-                    with consumer.choice.create_stage("Thinking") as stage:
+                    with consumer.create_stage("Thinking") as stage:
                         stage.append_content(thinking)
                 case RedactedThinkingBlock():
                     pass
