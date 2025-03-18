@@ -57,7 +57,12 @@ class Consumer(ContextManager, ABC):
     def has_function_call(self) -> bool: ...
 
     def create_stage(self, title: str) -> LazyStage:
-        return LazyStage(self.choice.create_stage, title)
+        # NOTE: eta conversion to `factory = self.choice.create_stage`
+        # is invalid, since `self.choice` must be created lazily.
+        def factory(content: str):
+            return self.choice.create_stage(content)
+
+        return LazyStage(factory, title)
 
 
 class ChoiceConsumer(Consumer):
