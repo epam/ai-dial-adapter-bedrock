@@ -17,6 +17,7 @@ from aidial_adapter_bedrock.aws_client_config import (
     UpstreamConfig,
 )
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
@@ -53,13 +54,16 @@ def expected_success(*args, **kwargs):
     return True
 
 
+Deployment = RegionDeployment[ChatCompletionDeployment]
+
+
 @dataclass
 class TestCase:
     __test__ = False
 
     name: str
     region: str
-    deployment: ChatCompletionDeployment
+    deployment: Deployment
     streaming: bool
 
     messages: List[ChatCompletionMessageParam]
@@ -101,7 +105,8 @@ _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
 
-chat_deployments: Mapping[ChatCompletionDeployment, str] = {
+
+chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST,
     ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
@@ -111,27 +116,27 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US: _EAST_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US: _EAST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US: _EAST_2,
     # Llama 3.2 1B is too unstable in responses for integration tests
     # Sometimes it cannot calculate 2+2
-    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1: _WEST_2,
-    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST,
+    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1.US: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1.US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
@@ -156,25 +161,14 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
@@ -194,12 +188,9 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
         deployment
         not in [
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
@@ -212,9 +203,7 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
@@ -233,21 +222,12 @@ def is_cohere(deployment: ChatCompletionDeployment) -> bool:
 def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
     ]
 
 
@@ -297,7 +277,6 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
     excluded_models = {
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
     }
 
     is_allowed_model = is_claude3(deployment) or deployment in allowed_models
@@ -313,8 +292,10 @@ def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
 
 
 def get_test_cases(
-    deployment: ChatCompletionDeployment, region: str, streaming: bool
+    deployment: Deployment, region: str, streaming: bool
 ) -> List[TestCase]:
+    origin = deployment.origin
+
     test_cases: List[TestCase] = []
 
     def test_case(
@@ -347,7 +328,7 @@ def get_test_cases(
             )
         )
 
-    if is_retired(deployment):
+    if is_retired(origin):
         test_case(
             name="retired",
             messages=[user("test")],
@@ -370,7 +351,7 @@ def get_test_cases(
         ],
         # It could take hundreds of tokens for a reasoning model
         # to come up with an answer to a simple question like this.
-        max_tokens=32 if not is_reasoning_model(deployment) else 512,
+        max_tokens=32 if not is_reasoning_model(origin) else 512,
         expected=lambda s: "paris" in s.content.lower(),
     )
 
@@ -397,14 +378,14 @@ def get_test_cases(
         name="multiple candidates",
         # It could take hundreds of tokens for a reasoning model
         # to come up with an answer to a simple question like this.
-        max_tokens=10 if not is_reasoning_model(deployment) else 512,
+        max_tokens=10 if not is_reasoning_model(origin) else 512,
         n=5,
         messages=[user("2+7=?. Reply with a single number")],
         expected=for_all_choices(lambda s: "9" in s, 5),
     )
 
     query = 'Reply with "Hello"'
-    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
+    if origin == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     test_case(
@@ -426,7 +407,7 @@ def get_test_cases(
     )
 
     expected_whitespace_message = expected_empty_message = expected_success
-    if is_claude3(deployment):
+    if is_claude3(origin):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
@@ -437,11 +418,11 @@ def get_test_cases(
             message="messages: text content blocks must be non-empty",
             status_code=400,
         )
-    elif is_cohere(deployment):
+    elif is_cohere(origin):
         expected_whitespace_message = expected_empty_message = (
             cohere_invalid_request_error
         )
-    elif is_llama3(deployment) or is_nova(deployment):
+    elif is_llama3(origin) or is_nova(origin):
         expected_whitespace_message = expected_empty_message = (
             ExpectedException(
                 type=BadRequestError,
@@ -449,7 +430,7 @@ def get_test_cases(
                 status_code=400,
             )
         )
-    elif is_deepseek(deployment):
+    elif is_deepseek(origin):
         expected_whitespace_message = expected_empty_message = (
             ExpectedException(
                 type=BadRequestError,
@@ -472,7 +453,7 @@ def get_test_cases(
         expected=expected_empty_message,
     )
 
-    if is_vision_model(deployment):
+    if is_vision_model(origin):
         content = "describe the image"
         for idx, user_message in enumerate(
             [
@@ -499,7 +480,7 @@ def get_test_cases(
     )
 
     # ai21 models do not support more than one stop word
-    if is_ai21(deployment):
+    if is_ai21(origin):
         stop = ["John"]
     else:
         stop = ["John", "john"]
@@ -511,7 +492,7 @@ def get_test_cases(
         expected=lambda s: "John" not in s.content.lower(),
     )
 
-    if is_llama3(deployment):
+    if is_llama3(origin):
 
         test_case(
             name="out_of_turn",
@@ -537,11 +518,11 @@ def get_test_cases(
 
     city_config = (
         [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]
-        if supports_parallel_tool_calls(deployment)
+        if supports_parallel_tool_calls(origin)
         else [[("Glasgow", 15)]]
     )
 
-    if supports_tools(deployment):
+    if supports_tools(origin):
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -559,7 +540,7 @@ def get_test_cases(
                 user(query),
             ]
             # Llama 3 works badly with system messages along tools
-            if not is_llama3(deployment):
+            if not is_llama3(origin):
                 init_messages.insert(0, sys("act as a helpful assistant"))
 
             def create_fun_args(city: str):
@@ -628,14 +609,14 @@ def get_test_cases(
                 def _check(id: str) -> bool:
                     return (
                         f"{fun_name}_{idx+1}" == id
-                        if are_tools_emulated(deployment)
+                        if are_tools_emulated(origin)
                         else True
                     )
 
                 return _check
 
             expected_city_names = (
-                city_names[:1] if are_tools_emulated(deployment) else city_names
+                city_names[:1] if are_tools_emulated(origin) else city_names
             )
 
             test_case(

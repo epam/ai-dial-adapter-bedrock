@@ -13,13 +13,13 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|
 |---|---|---|---|---|---|---|
 |Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet|[us.\|eu.]anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet 2.0|[us.]anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Sonnet|[us.\|eu.]anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Haiku|[us.\|eu.]anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Haiku|[us.]anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Opus|[us.]anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|DeepSeek|DeepSeek R1|us.deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
+|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
@@ -28,8 +28,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|
 |Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.1 405B Instruct|[us.]meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.1 70B Instruct|[us.]meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
 |Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
@@ -55,6 +55,19 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
 |🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|
 |❌|Not supported|Not supported|
+
+#### Cross-region inference
+
+The adapter supports cross-region inference for US, EU and APAC regions for the listed models.
+
+E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment names:
+
+1. `anthropic.claude-3-5-sonnet-20241022-v2:0`
+2. `us.anthropic.claude-3-5-sonnet-20241022-v2:0`
+3. `eu.anthropic.claude-3-5-sonnet-20241022-v2:0`
+4. `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`
+
+Check that you AWS Bedrock account supports cross-region inference for a particular model before using it.
 
 ### Embedding models
 
