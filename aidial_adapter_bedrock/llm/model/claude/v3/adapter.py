@@ -140,7 +140,7 @@ class Adapter(ChatCompletionAdapter):
     def supports_thinking(self) -> bool:
         return (
             self.deployment.reference_deployment_id
-            == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+            == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
         )
 
     async def configuration(self) -> Type[Configuration]:

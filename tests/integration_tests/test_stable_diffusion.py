@@ -34,7 +34,7 @@ IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
         _WEST,
     ),
 ]
-VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
+VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US
 
 
 def is_base64(s: bytes) -> bool:
