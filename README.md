@@ -83,7 +83,7 @@ E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment 
 3. `eu.anthropic.claude-3-5-sonnet-20241022-v2:0`
 4. `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`
 
-Check that you AWS Bedrock account supports cross-region inference for a particular model before using it.
+[Check](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html#inference-profiles-support-system) that your AWS Bedrock account supports cross-region inference for a particular model before using it.
 
 ### Embedding models
 
