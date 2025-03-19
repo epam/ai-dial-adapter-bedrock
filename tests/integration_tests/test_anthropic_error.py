@@ -5,7 +5,7 @@ import respx
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.utils.openai import chat_completion, user
 
-_DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+_DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US
 _REGION = "us-east-1"
 
 
@@ -22,18 +22,7 @@ async def test_anthropic_error_immediate(get_openai_client, streaming: bool):
     ).respond(status_code=429, json={"message": "Too Many Requests"})
 
     with pytest.raises(Exception) as exc_info:
-        await chat_completion(
-            client,
-            [user("test")],
-            streaming,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,
-        )
+        await chat_completion(client, messages=[user("test")], stream=streaming)
 
     exc = exc_info.value
 
@@ -61,18 +50,7 @@ async def test_anthropic_error_streaming(get_openai_client, streaming: bool):
     )
 
     with pytest.raises(Exception) as exc_info:
-        await chat_completion(
-            client,
-            [user("test")],
-            streaming,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,
-        )
+        await chat_completion(client, messages=[user("test")], stream=streaming)
 
     exc = exc_info.value
 

@@ -214,15 +214,17 @@ def for_all_choices(
 
 async def chat_completion(
     client: AsyncAzureOpenAI,
+    *,
     messages: List[ChatCompletionMessageParam],
-    stream: bool,
-    stop: Optional[List[str]],
-    max_tokens: Optional[int],
-    n: Optional[int],
-    functions: List[Function] | None,
-    tools: List[ChatCompletionToolParam] | None,
+    stream: bool = False,
+    stop: List[str] | None = None,
+    max_tokens: int | None = None,
+    n: int | None = None,
+    functions: List[Function] | None = None,
+    tools: List[ChatCompletionToolParam] | None = None,
     tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
-    temperature: float = 0.0,
+    temperature: float | None = None,
+    extra_body: dict | None = None,
 ) -> ChatCompletionResult:
     async def get_response() -> ChatCompletion:
         response = await client.chat.completions.create(
@@ -237,6 +239,7 @@ async def chat_completion(
             functions=functions or NOT_GIVEN,
             tools=tools or NOT_GIVEN,
             tool_choice=tool_choice or NOT_GIVEN,
+            extra_body=extra_body,
         )
 
         if isinstance(response, AsyncStream):

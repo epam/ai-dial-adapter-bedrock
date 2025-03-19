@@ -2,8 +2,7 @@ from typing import Any, AsyncIterator, Dict, Tuple
 
 import anthropic
 from aidial_sdk.chat_completion import FinishReason, Message, Role
-from anthropic._tokenizers import async_get_tokenizer
-from tokenizers import Tokenizer
+from anthropic_bedrock._tokenizers import sync_get_tokenizer
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -164,16 +163,16 @@ async def create_adapter(client: Bedrock, model: str) -> ChatCompletionAdapter:
     )(pseudo_chat_adapter(chat_emulator)(await Adapter.create(client, model)))
 
 
+_tokenizer = sync_get_tokenizer()
+
+
 class Adapter(TextCompletionAdapter):
     model: str
     client: Bedrock
-    tokenizer: Tokenizer
 
     @classmethod
     async def create(cls, client: Bedrock, model: str):
-        return cls(
-            client=client, model=model, tokenizer=await async_get_tokenizer()
-        )
+        return cls(client=client, model=model)
 
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str
@@ -200,7 +199,7 @@ class Adapter(TextCompletionAdapter):
         consumer.add_usage(self._compute_usage(prompt, completion))
 
     def _compute_usage(self, prompt: str, completion: str) -> TokenUsage:
-        batch = self.tokenizer.encode_batch([prompt, completion])
+        batch = _tokenizer.encode_batch([prompt, completion])
 
         return TokenUsage(
             prompt_tokens=len(batch[0].ids),
@@ -210,7 +209,7 @@ class Adapter(TextCompletionAdapter):
     async def count_prompt_tokens(
         self, params: ModelParameters, prompt: str
     ) -> int:
-        return len(self.tokenizer.encode(prompt).ids)
+        return len(_tokenizer.encode(prompt).ids)
 
     async def count_completion_tokens(self, string: str) -> int:
-        return len(self.tokenizer.encode(string).ids)
+        return len(_tokenizer.encode(string).ids)

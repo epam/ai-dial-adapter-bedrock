@@ -82,7 +82,7 @@ async def test_remove_prefix(test):
     (prefix, xs) = test
     steam = remove_prefix(list_to_stream(xs), prefix)
     actual: str = await stream_to_string(steam)
-    expected: str = string.remove_prefix(prefix, "".join(xs))
+    expected: str = "".join(xs).removeprefix(prefix)
     assert actual == expected
 
 

@@ -69,6 +69,10 @@ class AdapterDeployments(BaseModel):
 
     @classmethod
     def create(cls, *, compat_mapping: Dict[str, str]) -> "AdapterDeployments":
+        cross_region_mapping = (
+            ChatCompletionDeployment.create_cross_region_inference_mapping()
+        )
+        compat_mapping = cross_region_mapping | compat_mapping
 
         chat_completions = {e.value for e in ChatCompletionDeployment}
         embeddings = {e.value for e in EmbeddingsDeployment}
