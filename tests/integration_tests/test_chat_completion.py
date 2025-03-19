@@ -12,10 +12,6 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.aws_client_config import (
-    AWSClientConfigFactory,
-    UpstreamConfig,
-)
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
@@ -660,14 +656,6 @@ def get_test_cases(
     return test_cases
 
 
-def get_extra_headers(region: str) -> Mapping[str, str]:
-    return {
-        AWSClientConfigFactory.UPSTREAM_CONFIG_HEADER_NAME: UpstreamConfig(
-            region=region
-        ).json()
-    }
-
-
 @pytest.mark.parametrize(
     "test",
     [
@@ -679,21 +667,19 @@ def get_extra_headers(region: str) -> Mapping[str, str]:
     ids=lambda test: test.get_id(),
 )
 async def test_chat_completion_openai(get_openai_client, test: TestCase):
-    client = get_openai_client(
-        test.deployment.value, get_extra_headers(test.region)
-    )
+    client = get_openai_client(test.deployment.value, region=test.region)
 
     async def run_chat_completion() -> ChatCompletionResult:
         return await chat_completion(
             client,
-            test.messages,
-            test.streaming,
-            test.stop,
-            test.max_tokens,
-            test.n,
-            test.functions,
-            test.tools,
-            test.temperature,
+            messages=test.messages,
+            stream=test.streaming,
+            stop=test.stop,
+            max_tokens=test.max_tokens,
+            n=test.n,
+            functions=test.functions,
+            tools=test.tools,
+            temperature=test.temperature,
         )
 
     if isinstance(test.expected, ExpectedException):

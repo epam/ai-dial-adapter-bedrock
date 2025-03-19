@@ -1,6 +1,11 @@
 from typing import List, assert_never
 
-from aidial_sdk.chat_completion import ChatCompletion, Request, Response
+from aidial_sdk.chat_completion import (
+    ChatCompletion,
+    ConfigurationRequest,
+    Request,
+    Response,
+)
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
 from aidial_sdk.deployment.tokenize import (
@@ -55,6 +60,14 @@ class BedrockChatCompletion(ChatCompletion):
             api_key=request.api_key,
             aws_client_config=aws_client_config,
         )
+
+    @override
+    @dial_exception_decorator
+    @not_implemented_handler
+    async def configuration(self, request: ConfigurationRequest):
+        model = await self._get_model(request)
+        cls = await model.configuration()
+        return cls.schema()
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):

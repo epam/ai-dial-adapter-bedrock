@@ -4,7 +4,6 @@ from typing import Any, AsyncIterator, Dict, assert_never
 
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
-from aidial_sdk.chat_completion import Stage
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
 from aidial_sdk.exceptions import RuntimeServerError
 
@@ -30,27 +29,6 @@ def to_dial_finish_reason(
     return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
-class LazyStage:
-    title: str
-    consumer: Consumer
-
-    _stage: Stage | None = None
-
-    def __init__(self, consumer: Consumer, title: str):
-        self.consumer = consumer
-        self.title = title
-
-    def append_content(self, text: str) -> None:
-        if self._stage is None:
-            self._stage = self.consumer.choice.create_stage(self.title)
-            self._stage.open()
-        self._stage.append_content(text)
-
-    def close(self) -> None:
-        if self._stage is not None:
-            self._stage.close()
-
-
 async def process_streaming(
     params: ModelParameters,
     stream: AsyncIterator[Any],
@@ -58,7 +36,7 @@ async def process_streaming(
 ) -> None:
     current_tool_use = None
 
-    thinking_stage = LazyStage(consumer, "Thinking")
+    thinking_stage = consumer.create_stage("Thinking")
 
     async for event in stream:
         if log.isEnabledFor(DEBUG):
@@ -149,7 +127,7 @@ def process_non_streaming(
     if log.isEnabledFor(DEBUG):
         log.debug(f"response: {json_dumps_short(response)}")
 
-    thinking_stage = LazyStage(consumer, "Thinking")
+    thinking_stage = consumer.create_stage("Thinking")
 
     message = response["output"]["message"]
     for content_block in message.get("content") or []:

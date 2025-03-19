@@ -15,12 +15,14 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 python = "^3.11,<4.0"
 boto3 = "1.37.11"
 botocore = "1.37.11"
-aidial-sdk = { version = "0.17.0", extras = ["telemetry"] }
-anthropic = { version = "0.28.1", extras = ["bedrock"] }
+aidial-sdk = { version = "0.19.0", extras = ["telemetry"] }
+anthropic = { version = "0.47.2", extras = ["bedrock"] }
+# Only for the tokenizer for Claude v1/v2 models
+anthropic_bedrock = "0.8.0"
 fastapi = "0.115.2"
 openai = "1.13.3"
 uvicorn = "0.23.2"
-pydantic = "1.10.13"
+pydantic = "1.10.17"
 defusedxml = "^0.7.1"
 numpy = "^2.0.0"
 pillow = "^10.4.0"
@@ -33,6 +35,7 @@ python-dotenv = "1.0.0"
 pytest-dotenv = "^0.5.2"
 pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
+pytest-sugar = "^1.0.0"
 respx = "^0.22.0"
 
 [tool.poetry.group.lint.dependencies]
@@ -49,13 +52,17 @@ nox = "^2023.4.22"
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html"
 generate_report_on_test = true
 env_override_existing_values = 1
-# muting warnings coming from opentelemetry package
 filterwarnings = [
+  "error",
+  # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
+  "ignore::ResourceWarning:",
+  # muting warnings coming from opentelemetry package
   "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
 ]
 
 [tool.pyright]
 typeCheckingMode = "basic"
+reportDeprecated = "error"
 reportUnusedVariable = "error"
 reportIncompatibleMethodOverride = "error"
 exclude = [".git", ".venv", ".nox", "**/__pycache__"]
