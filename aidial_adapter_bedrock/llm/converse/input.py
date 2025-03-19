@@ -64,9 +64,9 @@ def to_converse_role(role: DialRole) -> ConverseRole:
             assert_never(role)
 
 
-def to_converse_tools(tool_config: ToolsConfig) -> ConverseTools:
+def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
     tools: list[ConverseToolSpec] = []
-    for function in tool_config.functions:
+    for function in tools_config.functions:
         tools.append(
             {
                 "toolSpec": {
@@ -80,7 +80,7 @@ def to_converse_tools(tool_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    match (tool_config.required, tool_config.functions):
+    match (tools_config.required, tools_config.functions):
         case (True, [func]):
             tool_choice = {"tool": {"name": func.name}}
         case (True, _):
@@ -88,7 +88,7 @@ def to_converse_tools(tool_config: ToolsConfig) -> ConverseTools:
         case (False, _):
             tool_choice = {"auto": {}}
         case _:
-            assert_never(tool_config)
+            assert_never(tools_config)
 
     return {"tools": tools, "toolChoice": tool_choice}
 
