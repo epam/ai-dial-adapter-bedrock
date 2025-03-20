@@ -80,10 +80,17 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    return {
-        "tools": tools,
-        "toolChoice": ({"any": {}} if tools_config.required else {"auto": {}}),
-    }
+    match (tools_config.required, tools_config.functions):
+        case (True, [func]):
+            tool_choice = {"tool": {"name": func.name}}
+        case (True, _):
+            tool_choice = {"any": {}}
+        case (False, _):
+            tool_choice = {"auto": {}}
+        case _:
+            assert_never(tools_config)
+
+    return {"tools": tools, "toolChoice": tool_choice}
 
 
 def function_call_to_content_part(

@@ -7,6 +7,7 @@ import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
 from openai.types.chat import (
     ChatCompletionMessageParam,
+    ChatCompletionToolChoiceOptionParam,
     ChatCompletionToolParam,
 )
 from openai.types.chat.completion_create_params import Function
@@ -73,6 +74,7 @@ class TestCase:
 
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float = 0.0
 
     def get_id(self):
@@ -80,6 +82,15 @@ class TestCase:
         stop = f"stop:{self.stop}" if self.stop else None
         n = f"n:{self.n}" if self.n else None
         temp = f"temp:{self.temperature}" if self.temperature else None
+        tools = None
+        if self.tools is not None:
+            tools = "tools"
+            if self.tool_choice is not None:
+                if isinstance(self.tool_choice, str):
+                    tools += f":{self.tool_choice}"
+                else:
+                    tools += ":forced"
+
         return sanitize_test_name(
             "/".join(
                 str(part)
@@ -90,6 +101,7 @@ class TestCase:
                     stop,
                     n,
                     temp,
+                    tools,
                     self.name,
                 ]
                 if part is not None
@@ -154,15 +166,8 @@ def is_retired(deployment: ChatCompletionDeployment) -> bool:
 
 
 def supports_tools(deployment: ChatCompletionDeployment) -> bool:
-    return deployment in [
+    return is_claude3(deployment) or deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
@@ -177,6 +182,10 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         # https://api-docs.deepseek.com/guides/function_calling
         # ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
+
+
+def supports_forced_tool_choice(deployment: ChatCompletionDeployment) -> bool:
+    return supports_tools(deployment) and is_claude3(deployment)
 
 
 def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
@@ -305,6 +314,7 @@ def get_test_cases(
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
         tools: List[ChatCompletionToolParam] | None = None,
+        tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
         temperature: float = 0.0,
     ) -> None:
         test_cases.append(
@@ -320,6 +330,7 @@ def get_test_cases(
                 n,
                 functions,
                 tools,
+                tool_choice,
                 temperature,
             )
         )
@@ -519,6 +530,26 @@ def get_test_cases(
     )
 
     if supports_tools(origin):
+        if supports_forced_tool_choice(origin):
+            test_case(
+                name="forced tool call",
+                messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
+                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": GET_WEATHER_FUNCTION["name"]},
+                },
+                expected=lambda s: is_valid_tool_call(
+                    s.tool_calls,
+                    0,
+                    lambda _: True,
+                    GET_WEATHER_FUNCTION["name"],
+                    {
+                        "location": lambda s: "Glasgow" in s,
+                        "format": "celsius",
+                    },
+                ),
+            )
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -535,6 +566,7 @@ def get_test_cases(
                 ai("5"),
                 user(query),
             ]
+
             # Llama 3 works badly with system messages along tools
             if not is_llama3(origin):
                 init_messages.insert(0, sys("act as a helpful assistant"))
@@ -679,6 +711,7 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
             n=test.n,
             functions=test.functions,
             tools=test.tools,
+            tool_choice=test.tool_choice,
             temperature=test.temperature,
         )
 
