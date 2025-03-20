@@ -9,6 +9,7 @@ from aidial_sdk.chat_completion import (
     ToolCall,
 )
 from anthropic.types import (
+    ContentBlock,
     ImageBlockParam,
     MessageParam,
     TextBlockParam,
@@ -17,6 +18,8 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 from anthropic.types.image_block_param import Source
+from pydantic import BaseModel
+from pydantic import ValidationError as PydValidationError
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -37,6 +40,7 @@ from aidial_adapter_bedrock.llm.message import (
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.resource import Resource
 
 ClaudeFinishReason = Literal[
@@ -51,6 +55,37 @@ IMAGE_MEDIA_TYPES: List[str] = [
 ]
 
 FILE_EXTENSIONS = ["png", "jpeg", "jpg", "gif", "webp"]
+
+
+class MessageState(BaseModel):
+    claude_message_content: List[ContentBlock]
+
+    def to_dict(self) -> dict:
+        return self.dict(
+            # FIXME: a hack to exclude the private __json_buf field
+            exclude={"claude_message_content": {"__all__": {"__json_buf"}}},
+            # Excluding `citations: null`, since they could not be even parsed
+            # currently by the Bedrock.
+            exclude_none=True,
+        )
+
+
+def _get_message_content_from_state(
+    idx: int, message: AIRegularMessage
+) -> List[ContentBlock] | None:
+    if (cc := message.custom_content) is not None and (
+        state_dict := cc.state
+    ) is not None:
+        try:
+            state = MessageState.parse_obj(state_dict)
+            return state.claude_message_content
+        except PydValidationError as e:
+            log.error(
+                f"Invalid state at the path 'messages[{idx}].custom_content.state': {e}"
+            )
+            return None
+
+    return None
 
 
 def _create_text_block(text: str) -> TextBlockParam:
@@ -201,12 +236,16 @@ async def to_claude_messages(
                     idx,
                 )
             case AIRegularMessage():
+                # Take the message content from the state if possible,
+                # since it may include certain content blocks that
+                # are missing from the DIAL message itself,
+                # such as thinking signatures and redacted thinking blocks.
+                bot_content = _get_message_content_from_state(
+                    idx, message
+                ) or await _to_claude_message(file_storage, message)
+
                 ret.append(
-                    MessageParam(
-                        role="assistant",
-                        content=await _to_claude_message(file_storage, message),
-                    ),
-                    idx,
+                    MessageParam(role="assistant", content=bot_content), idx
                 )
             case AIToolCallMessage():
                 content: List[TextBlockParam | ToolUseBlockParam] = [
@@ -215,13 +254,7 @@ async def to_claude_messages(
                 if message.content is not None:
                     content.insert(0, _create_text_block(message.content))
 
-                ret.append(
-                    MessageParam(
-                        role="assistant",
-                        content=content,
-                    ),
-                    idx,
-                )
+                ret.append(MessageParam(role="assistant", content=content), idx)
             case HumanToolResultMessage():
                 ret.append(
                     MessageParam(

@@ -1,8 +1,12 @@
 from enum import Enum
 from typing import Literal
 
+from aidial_adapter_bedrock.utils.region_deployment import (
+    RegionInferenceDeployment,
+)
 
-class ChatCompletionDeployment(Enum):
+
+class ChatCompletionDeployment(RegionInferenceDeployment):
     AMAZON_NOVA_PRO = "amazon.nova-pro-v1:0"
     AMAZON_NOVA_LITE = "amazon.nova-lite-v1:0"
     AMAZON_NOVA_MICRO = "amazon.nova-micro-v1:0"
@@ -18,33 +22,14 @@ class ChatCompletionDeployment(Enum):
     ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
 
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_SONNET_US = "us.anthropic.claude-3-sonnet-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_SONNET_EU = "eu.anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-    ANTHROPIC_CLAUDE_V3_5_SONNET_US = (
-        "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
-    )
-    ANTHROPIC_CLAUDE_V3_5_SONNET_EU = (
-        "eu.anthropic.claude-3-5-sonnet-20240620-v1:0"
-    )
     ANTHROPIC_CLAUDE_V3_5_SONNET_V2 = (
         "anthropic.claude-3-5-sonnet-20241022-v2:0"
     )
-    ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US = (
-        "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-    )
     ANTHROPIC_CLAUDE_V3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
-    ANTHROPIC_CLAUDE_V3_HAIKU_US = "us.anthropic.claude-3-haiku-20240307-v1:0"
-    ANTHROPIC_CLAUDE_V3_HAIKU_EU = "eu.anthropic.claude-3-haiku-20240307-v1:0"
     ANTHROPIC_CLAUDE_V3_5_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
-    ANTHROPIC_CLAUDE_V3_5_HAIKU_US = (
-        "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    )
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_OPUS_US = "us.anthropic.claude-3-opus-20240229-v1:0"
-    ANTHROPIC_CLAUDE_V3_7_SONNET_US = (
-        "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-    )
+    ANTHROPIC_CLAUDE_V3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -58,13 +43,16 @@ class ChatCompletionDeployment(Enum):
     META_LLAMA3_1_8B_INSTRUCT_V1 = "meta.llama3-1-8b-instruct-v1:0"
     META_LLAMA3_1_70B_INSTRUCT_V1 = "meta.llama3-1-70b-instruct-v1:0"
     META_LLAMA3_1_405B_INSTRUCT_V1 = "meta.llama3-1-405b-instruct-v1:0"
-    META_LLAMA3_2_1B_INSTRUCT_V1 = "us.meta.llama3-2-1b-instruct-v1:0"
-    META_LLAMA3_2_3B_INSTRUCT_V1 = "us.meta.llama3-2-3b-instruct-v1:0"
-    META_LLAMA3_2_11B_INSTRUCT_V1 = "us.meta.llama3-2-11b-instruct-v1:0"
-    META_LLAMA3_2_90B_INSTRUCT_V1 = "us.meta.llama3-2-90b-instruct-v1:0"
+    META_LLAMA3_2_1B_INSTRUCT_V1 = "meta.llama3-2-1b-instruct-v1:0"
+    META_LLAMA3_2_3B_INSTRUCT_V1 = "meta.llama3-2-3b-instruct-v1:0"
+    META_LLAMA3_2_11B_INSTRUCT_V1 = "meta.llama3-2-11b-instruct-v1:0"
+    META_LLAMA3_2_90B_INSTRUCT_V1 = "meta.llama3-2-90b-instruct-v1:0"
+    META_LLAMA3_3_70B_INSTRUCT_V1 = "meta.llama3-3-70b-instruct-v1:0"
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
+
+    DEEPSEEK_R1_V2_US = "us.deepseek.r1-v1:0"
 
 
 # Redirect Stability model without version to the earliest non-deprecated version (V1)
@@ -75,21 +63,12 @@ CHAT_COMPLETION_REDIRECTS = {
 
 Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
 ]
 
 

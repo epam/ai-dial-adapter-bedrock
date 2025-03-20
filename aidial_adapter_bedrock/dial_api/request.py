@@ -79,13 +79,16 @@ class ModelParameters(BaseModel):
             return self.tool_config.tools_mode
         return None
 
-    def parse_configuration(self, cls: Type[_Model]) -> _Model | None:
+    def parse_configuration(self, cls: Type[_Model]) -> _Model:
         try:
             return cls.parse_obj(self.configuration or {})
         except PydanticValidationError as e:
-            error = e.errors()[0]
-            path = ".".join(map(str, error["loc"]))
-            msg = f"Invalid request. Path: 'custom_field.configuration.{path}', error: {error['msg']}"
+            if self.configuration is None:
+                msg = "The configuration at path 'custom_fields.configuration' is missing."
+            else:
+                error = e.errors()[0]
+                path = ".".join(map(str, error["loc"]))
+                msg = f"Invalid request. Path: 'custom_fields.configuration.{path}', error: {error['msg']}"
 
             raise RequestValidationError(msg)
 

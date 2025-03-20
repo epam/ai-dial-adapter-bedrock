@@ -14,6 +14,7 @@ from aidial_sdk.chat_completion import (
 )
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
+from aidial_adapter_bedrock.llm.lazy_stage import LazyStage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
@@ -54,6 +55,14 @@ class Consumer(ContextManager, ABC):
     @property
     @abstractmethod
     def has_function_call(self) -> bool: ...
+
+    def create_stage(self, title: str) -> LazyStage:
+        # NOTE: eta conversion to `factory = self.choice.create_stage`
+        # is invalid, since `self.choice` must be created lazily.
+        def factory(content: str):
+            return self.choice.create_stage(content)
+
+        return LazyStage(factory, title)
 
 
 class ChoiceConsumer(Consumer):

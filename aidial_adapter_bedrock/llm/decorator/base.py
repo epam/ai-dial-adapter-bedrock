@@ -1,6 +1,7 @@
 from typing import Callable, List
 
 from aidial_sdk.chat_completion import Message
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
@@ -19,7 +20,7 @@ class ChatCompletionDecorator(ChatCompletionAdapter):
     ) -> None:
         await self.adapter.chat(consumer, params, messages)
 
-    async def configuration(self) -> type:
+    async def configuration(self) -> type[BaseModel]:
         return await self.adapter.configuration()
 
     async def count_prompt_tokens(
