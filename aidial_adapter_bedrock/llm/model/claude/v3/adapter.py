@@ -25,6 +25,9 @@ from anthropic.types import (
     MessageStartEvent,
     TextBlock,
     ThinkingConfigParam,
+    ToolChoiceAnyParam,
+    ToolChoiceAutoParam,
+    ToolChoiceToolParam,
     ToolUseBlock,
 )
 from anthropic.types.message_create_params import ToolChoice
@@ -173,9 +176,17 @@ class Adapter(ChatCompletionAdapter):
                 for tool_function in tool_config.functions
             ]
 
-            tool_choice = (
-                {"type": "any"} if tool_config.required else {"type": "auto"}
-            )
+            match (tool_config.required, tool_config.functions):
+                case (True, [func]):
+                    tool_choice = ToolChoiceToolParam(
+                        type="tool", name=func.name
+                    )
+                case (True, _):
+                    tool_choice = ToolChoiceAnyParam(type="any")
+                case (False, _):
+                    tool_choice = ToolChoiceAutoParam(type="auto")
+                case _:
+                    assert_never(tool_config)
 
             # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
             # by older Claude3 versions, so we limit the number of generated function calls

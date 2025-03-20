@@ -425,7 +425,7 @@ TEST_CASES = [
                         }
                     }
                 ],
-                "toolChoice": {"any": {}},
+                "toolChoice": {"tool": {"name": "get_weather"}},
             },
             messages=ListProjection(
                 list=[
