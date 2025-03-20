@@ -44,8 +44,8 @@ class AWSClientConfig(BaseModel):
 
 class UpstreamConfig(BaseModel):
     region: str = Field(default_factory=get_aws_default_region)
-    aws_access_key_id: str | None = None
-    aws_secret_access_key: str | None = None
+    aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_assume_role_arn: str | None = os.environ.get("AWS_ASSUME_ROLE_ARN")
 
 
