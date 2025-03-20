@@ -34,9 +34,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
 |Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|❌|
-|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|❌|
-|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|❌|
+|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|
+|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|
+|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|
 |Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
 |Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
@@ -71,6 +71,13 @@ The model accepts optional configuration that enables [thinking feature](https:/
 |---|---|
 |`{"thinking": {"type": "enabled", "budget_tokens": 1024}}`|Thinking enabled with the given limit on reasoning tokens|
 |`{"thinking": {"type": "disabled"}}`|Thinking disabled|
+
+##### Stability AI models
+
+The models accept optional configuration with the following fields:
+
+* `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
+* `negative_prompt: str` - a prompt to be used for negative examples
 
 #### Cross-region inference
 
