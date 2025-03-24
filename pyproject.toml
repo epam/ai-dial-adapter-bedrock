@@ -37,6 +37,7 @@ pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
 pytest-sugar = "^1.0.0"
 respx = "^0.22.0"
+allure-pytest = "^2.13.5"
 
 [tool.poetry.group.lint.dependencies]
 pyright = "1.1.389"
@@ -49,7 +50,7 @@ flake8 = "6.0.0"
 nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
-addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html"
+addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results"
 generate_report_on_test = true
 env_override_existing_values = 1
 filterwarnings = [
