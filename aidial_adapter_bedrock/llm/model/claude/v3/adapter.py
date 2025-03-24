@@ -21,6 +21,13 @@ from anthropic.types import (
     MessageDeltaEvent,
 )
 from anthropic.types import MessageParam as ClaudeMessageParam
+from anthropic.types.beta import (
+    BetaMessage,
+    BetaTextBlock,
+    BetaToolUseBlock,
+    BetaThinkingBlock,
+    BetaRedactedThinkingBlock,
+)
 from anthropic.types import (
     MessageStartEvent,
     TextBlock,
@@ -405,11 +412,12 @@ class Adapter(ChatCompletionAdapter):
             )
             log.debug(f"request: {msg}")
 
-        message = await self.client.messages.create(
+        message: BetaMessage = await self.client.beta.messages.create(
             messages=request.messages.raw_list,
             model=self.deployment.upstream_deployment_id,
             **request.params,
             stream=False,
+            betas=["token-efficient-tools-2025-02-19"],
         )
 
         if log.isEnabledFor(DEBUG):
@@ -417,14 +425,14 @@ class Adapter(ChatCompletionAdapter):
 
         for content in message.content:
             match content:
-                case TextBlock(text=text):
+                case TextBlock(text=text) | BetaTextBlock(text=text):
                     consumer.append_content(text)
-                case ToolUseBlock():
+                case ToolUseBlock() | BetaToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
                 case ThinkingBlock(thinking=thinking):
                     with consumer.create_stage("Thinking") as stage:
                         stage.append_content(thinking)
-                case RedactedThinkingBlock():
+                case RedactedThinkingBlock() | BetaRedactedThinkingBlock():
                     pass
                 case _:
                     assert_never(content)

@@ -19,13 +19,16 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from anthropic.types.beta import BetaToolUseBlock
 
 
-def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
+def to_dial_function_call(
+    block: ToolUseBlock | BetaToolUseBlock,
+) -> FunctionCall:
     return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
-def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
+def to_dial_tool_call(block: ToolUseBlock | BetaToolUseBlock) -> ToolCall:
     return ToolCall(
         index=None,
         id=block.id,
@@ -35,7 +38,9 @@ def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
 
 
 def process_tools_block(
-    consumer: Consumer, block: ToolUseBlock, tools_mode: ToolsMode | None
+    consumer: Consumer,
+    block: ToolUseBlock | BetaToolUseBlock,
+    tools_mode: ToolsMode | None,
 ):
     match tools_mode:
         case ToolsMode.TOOLS:
