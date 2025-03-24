@@ -7,16 +7,14 @@ import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
 from openai.types.chat import (
     ChatCompletionMessageParam,
+    ChatCompletionToolChoiceOptionParam,
     ChatCompletionToolParam,
 )
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.aws_client_config import (
-    AWSClientConfigFactory,
-    UpstreamConfig,
-)
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
@@ -45,11 +43,15 @@ from tests.utils.openai import (
 class ExpectedException(BaseModel):
     type: type[APIError]
     message: str
+    display_message: str | None = None
     status_code: int | None = None
 
 
 def expected_success(*args, **kwargs):
     return True
+
+
+Deployment = RegionDeployment[ChatCompletionDeployment]
 
 
 @dataclass
@@ -58,7 +60,7 @@ class TestCase:
 
     name: str
     region: str
-    deployment: ChatCompletionDeployment
+    deployment: Deployment
     streaming: bool
 
     messages: List[ChatCompletionMessageParam]
@@ -72,6 +74,7 @@ class TestCase:
 
     functions: List[Function] | None
     tools: List[ChatCompletionToolParam] | None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float = 0.0
 
     def get_id(self):
@@ -79,6 +82,15 @@ class TestCase:
         stop = f"stop:{self.stop}" if self.stop else None
         n = f"n:{self.n}" if self.n else None
         temp = f"temp:{self.temperature}" if self.temperature else None
+        tools = None
+        if self.tools is not None:
+            tools = "tools"
+            if self.tool_choice is not None:
+                if isinstance(self.tool_choice, str):
+                    tools += f":{self.tool_choice}"
+                else:
+                    tools += ":forced"
+
         return sanitize_test_name(
             "/".join(
                 str(part)
@@ -89,6 +101,7 @@ class TestCase:
                     stop,
                     n,
                     temp,
+                    tools,
                     self.name,
                 ]
                 if part is not None
@@ -100,7 +113,8 @@ _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
 
-chat_deployments: Mapping[ChatCompletionDeployment, str] = {
+
+chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST,
     ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
@@ -110,59 +124,52 @@ chat_deployments: Mapping[ChatCompletionDeployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US: _EAST_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US: _EAST_2,
+    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US: _EAST_2,
     # Llama 3.2 1B is too unstable in responses for integration tests
     # Sometimes it cannot calculate 2+2
-    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1: _WEST_2,
-    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1: _WEST,
+    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1.US: _WEST_2,
+    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1.US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
+    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
     ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
+    ChatCompletionDeployment.DEEPSEEK_R1_V2_US: _EAST_1,
 }
 
 
-def supports_tools(deployment: ChatCompletionDeployment) -> bool:
+def is_retired(deployment: ChatCompletionDeployment) -> bool:
+    # Keep at least one model in the list to test how the adapter handles retired models
     return deployment in [
+        ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+        ChatCompletionDeployment.AI21_J2_MID_V1,
+        ChatCompletionDeployment.AI21_J2_ULTRA_V1,
+    ]
+
+
+def supports_tools(deployment: ChatCompletionDeployment) -> bool:
+    return is_claude3(deployment) or deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
@@ -170,7 +177,15 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        # DeepSeek via Converse API doesn't support tools even though
+        # tool support is claimed in the official documentation:
+        # https://api-docs.deepseek.com/guides/function_calling
+        # ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
+
+
+def supports_forced_tool_choice(deployment: ChatCompletionDeployment) -> bool:
+    return supports_tools(deployment) and is_claude3(deployment)
 
 
 def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
@@ -178,12 +193,9 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
         deployment
         not in [
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
@@ -196,9 +208,7 @@ def is_llama3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1_US,
         ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
@@ -217,21 +227,12 @@ def is_cohere(deployment: ChatCompletionDeployment) -> bool:
 def is_claude3(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
     ]
 
 
@@ -240,6 +241,18 @@ def is_nova(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.AMAZON_NOVA_MICRO,
         ChatCompletionDeployment.AMAZON_NOVA_PRO,
         ChatCompletionDeployment.AMAZON_NOVA_LITE,
+    ]
+
+
+def is_reasoning_model(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
+    ]
+
+
+def is_deepseek(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
     ]
 
 
@@ -269,7 +282,6 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
     excluded_models = {
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US,
     }
 
     is_allowed_model = is_claude3(deployment) or deployment in allowed_models
@@ -285,8 +297,10 @@ def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
 
 
 def get_test_cases(
-    deployment: ChatCompletionDeployment, region: str, streaming: bool
+    deployment: Deployment, region: str, streaming: bool
 ) -> List[TestCase]:
+    origin = deployment.origin
+
     test_cases: List[TestCase] = []
 
     def test_case(
@@ -300,6 +314,7 @@ def get_test_cases(
         stop: List[str] | None = None,
         functions: List[Function] | None = None,
         tools: List[ChatCompletionToolParam] | None = None,
+        tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
         temperature: float = 0.0,
     ) -> None:
         test_cases.append(
@@ -315,9 +330,24 @@ def get_test_cases(
                 n,
                 functions,
                 tools,
+                tool_choice,
                 temperature,
             )
         )
+
+    if is_retired(origin):
+        test_case(
+            name="retired",
+            messages=[user("test")],
+            max_tokens=1,
+            expected=ExpectedException(
+                type=openai.NotFoundError,
+                status_code=404,
+                message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
+                display_message="This model version has reached the end of its life",
+            ),
+        )
+        return test_cases
 
     test_case(
         name="dialog recall",
@@ -326,7 +356,9 @@ def get_test_cases(
             ai("Hello"),
             user("What city did I mention earlier?"),
         ],
-        max_tokens=32,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=32 if not is_reasoning_model(origin) else 512,
         expected=lambda s: "paris" in s.content.lower(),
     )
 
@@ -351,14 +383,16 @@ def get_test_cases(
 
     test_case(
         name="multiple candidates",
-        max_tokens=10,
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=10 if not is_reasoning_model(origin) else 512,
         n=5,
         messages=[user("2+7=?. Reply with a single number")],
         expected=for_all_choices(lambda s: "9" in s, 5),
     )
 
     query = 'Reply with "Hello"'
-    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
+    if origin == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     test_case(
@@ -379,43 +413,37 @@ def get_test_cases(
         ),
     )
 
-    expected_empty_message_error = expected_success
-    if is_claude3(deployment):
-        expected_empty_message_error = ExpectedException(
-            type=openai.BadRequestError,
-            message="messages: text content blocks must be non-empty",
-            status_code=400,
-        )
-    elif is_cohere(deployment):
-        expected_empty_message_error = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
-        expected_empty_message_error = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
-            status_code=400,
-        )
-
-    test_case(
-        name="empty user message",
-        max_tokens=1,
-        messages=[user("")],
-        expected=expected_empty_message_error,
-    )
-
-    expected_whitespace_message = expected_success
-    if is_claude3(deployment):
+    expected_whitespace_message = expected_empty_message = expected_success
+    if is_claude3(origin):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
             status_code=400,
         )
-    elif is_cohere(deployment):
-        expected_whitespace_message = cohere_invalid_request_error
-    elif is_llama3(deployment) or is_nova(deployment):
-        expected_whitespace_message = ExpectedException(
-            type=BadRequestError,
-            message="Add text to the text field, and try again.",
+        expected_empty_message = ExpectedException(
+            type=openai.BadRequestError,
+            message="messages: text content blocks must be non-empty",
             status_code=400,
+        )
+    elif is_cohere(origin):
+        expected_whitespace_message = expected_empty_message = (
+            cohere_invalid_request_error
+        )
+    elif is_llama3(origin) or is_nova(origin):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="Add text to the text field, and try again.",
+                status_code=400,
+            )
+        )
+    elif is_deepseek(origin):
+        expected_whitespace_message = expected_empty_message = (
+            ExpectedException(
+                type=BadRequestError,
+                message="The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again.",
+                status_code=400,
+            )
         )
 
     test_case(
@@ -425,7 +453,14 @@ def get_test_cases(
         expected=expected_whitespace_message,
     )
 
-    if is_vision_model(deployment):
+    test_case(
+        name="empty user message",
+        max_tokens=1,
+        messages=[user("")],
+        expected=expected_empty_message,
+    )
+
+    if is_vision_model(origin):
         content = "describe the image"
         for idx, user_message in enumerate(
             [
@@ -452,7 +487,7 @@ def get_test_cases(
     )
 
     # ai21 models do not support more than one stop word
-    if is_ai21(deployment):
+    if is_ai21(origin):
         stop = ["John"]
     else:
         stop = ["John", "john"]
@@ -464,7 +499,7 @@ def get_test_cases(
         expected=lambda s: "John" not in s.content.lower(),
     )
 
-    if is_llama3(deployment):
+    if is_llama3(origin):
 
         test_case(
             name="out_of_turn",
@@ -490,11 +525,31 @@ def get_test_cases(
 
     city_config = (
         [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]
-        if supports_parallel_tool_calls(deployment)
+        if supports_parallel_tool_calls(origin)
         else [[("Glasgow", 15)]]
     )
 
-    if supports_tools(deployment):
+    if supports_tools(origin):
+        if supports_forced_tool_choice(origin):
+            test_case(
+                name="forced tool call",
+                messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
+                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": GET_WEATHER_FUNCTION["name"]},
+                },
+                expected=lambda s: is_valid_tool_call(
+                    s.tool_calls,
+                    0,
+                    lambda _: True,
+                    GET_WEATHER_FUNCTION["name"],
+                    {
+                        "location": lambda s: "Glasgow" in s,
+                        "format": "celsius",
+                    },
+                ),
+            )
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
@@ -511,8 +566,9 @@ def get_test_cases(
                 ai("5"),
                 user(query),
             ]
+
             # Llama 3 works badly with system messages along tools
-            if not is_llama3(deployment):
+            if not is_llama3(origin):
                 init_messages.insert(0, sys("act as a helpful assistant"))
 
             def create_fun_args(city: str):
@@ -581,14 +637,14 @@ def get_test_cases(
                 def _check(id: str) -> bool:
                     return (
                         f"{fun_name}_{idx+1}" == id
-                        if are_tools_emulated(deployment)
+                        if are_tools_emulated(origin)
                         else True
                     )
 
                 return _check
 
             expected_city_names = (
-                city_names[:1] if are_tools_emulated(deployment) else city_names
+                city_names[:1] if are_tools_emulated(origin) else city_names
             )
 
             test_case(
@@ -632,14 +688,6 @@ def get_test_cases(
     return test_cases
 
 
-def get_extra_headers(region: str) -> Mapping[str, str]:
-    return {
-        AWSClientConfigFactory.UPSTREAM_CONFIG_HEADER_NAME: UpstreamConfig(
-            region=region
-        ).json()
-    }
-
-
 @pytest.mark.parametrize(
     "test",
     [
@@ -651,21 +699,20 @@ def get_extra_headers(region: str) -> Mapping[str, str]:
     ids=lambda test: test.get_id(),
 )
 async def test_chat_completion_openai(get_openai_client, test: TestCase):
-    client = get_openai_client(
-        test.deployment.value, get_extra_headers(test.region)
-    )
+    client = get_openai_client(test.deployment.value, region=test.region)
 
     async def run_chat_completion() -> ChatCompletionResult:
         return await chat_completion(
             client,
-            test.messages,
-            test.streaming,
-            test.stop,
-            test.max_tokens,
-            test.n,
-            test.functions,
-            test.tools,
-            test.temperature,
+            messages=test.messages,
+            stream=test.streaming,
+            stop=test.stop,
+            max_tokens=test.max_tokens,
+            n=test.n,
+            functions=test.functions,
+            tools=test.tools,
+            tool_choice=test.tool_choice,
+            temperature=test.temperature,
         )
 
     if isinstance(test.expected, ExpectedException):
@@ -680,6 +727,7 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
         actual_status_code = getattr(actual_exc, "status_code", None)
         assert actual_status_code == test.expected.status_code
         assert re.search(test.expected.message, str(actual_exc))
+        assert (actual_exc.body or {}).get("display_message") == test.expected.display_message  # type: ignore
     else:
         actual_output = await run_chat_completion()
         assert test.expected(

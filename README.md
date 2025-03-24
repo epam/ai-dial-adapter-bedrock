@@ -10,50 +10,87 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 Note that a model supports `/truncate_prompt` endpoint if and only if it supports `max_prompt_tokens` request parameter.
 
-|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|
-|---|---|---|---|---|---|---|
-|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet|[us.\|eu.]anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet 2.0|[us.]anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Sonnet|[us.\|eu.]anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Haiku|[us.\|eu.]anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Haiku|[us.]anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Opus|[us.]anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.1 405B Instruct|[us.]meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.1 70B Instruct|[us.]meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|
-|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|
-|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
-|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|
-|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|
-|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|
-|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|
+|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|
+|---|---|---|---|---|---|---|---|
+|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|
+|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|
+|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|
+|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|
+|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|
+|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|
+|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|
+|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|
+|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|
+|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
+|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
+|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|❌|
+|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|❌|
+|AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|❌|
+|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|❌|
+|AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|❌|
+|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|
+|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 
-||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
-|---|---|---|
-|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
-|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|
-|❌|Not supported|Not supported|
+||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
+|---|---|---|---|
+|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|Configurable via the `/configuration` endpoint|
+|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
+|❌|Not supported|Not supported|Not configurable|
+
+#### Configurable models
+
+Certain models support configuration via the `/configuration` endpoint.
+GET request to this endpoint returns the schema of the model configuration in [JSON Schema](https://json-schema.org/) format.
+Such models expect that `custom_fields.configuration` field of the `chat/completions` request will contain a JSON value that conforms to the schema.
+The `custom_fields.configuration` field is optional iff each field in the schema is optional too.
+
+##### Claude 3.7 Sonnet
+
+The model accepts optional configuration that enables [thinking feature](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking):
+
+|Configuration|Comment|
+|---|---|
+|`{"thinking": {"type": "enabled", "budget_tokens": 1024}}`|Thinking enabled with the given limit on reasoning tokens|
+|`{"thinking": {"type": "disabled"}}`|Thinking disabled|
+
+##### Stability AI models
+
+The models accept optional configuration with the following fields:
+
+* `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
+* `negative_prompt: str` - a prompt to be used for negative examples
+
+#### Cross-region inference
+
+The adapter supports cross-region inference for US, EU and APAC regions for the listed models.
+
+E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment names:
+
+1. `anthropic.claude-3-5-sonnet-20241022-v2:0`
+2. `us.anthropic.claude-3-5-sonnet-20241022-v2:0`
+3. `eu.anthropic.claude-3-5-sonnet-20241022-v2:0`
+4. `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`
+
+[Check](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html#inference-profiles-support-system) that your AWS Bedrock account supports cross-region inference for a particular model before using it.
 
 ### Embedding models
 
@@ -112,7 +149,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AWS_ACCESS_KEY_ID|NA|AWS credentials with access to Bedrock service|
 |AWS_SECRET_ACCESS_KEY|NA|AWS credentials with access to Bedrock service|
 |AWS_DEFAULT_REGION||AWS region e.g. `us-east-1`|
-|AWS_ASSUME_ROLE_ARN|| AWS assume role arn e.g. `arn:aws:iam::123456789012:role/RoleName`|
+|AWS_ASSUME_ROLE_ARN|| AWS assume role ARN e.g. `arn:aws:iam::123456789012:role/RoleName`|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
 |DIAL_URL||URL of the core DIAL server. If defined, images generated by Stability are uploaded to the DIAL file storage and attachments are returned with URLs pointing to the images. Otherwise, the images are returned as base64 encoded strings.|
@@ -189,12 +226,14 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
 }
 ```
 
-Supported `extraData` fields:
+The fields in the extra data override the corresponding environment variables:
 
-- `region`
-- `aws_access_key_id`
-- `aws_secret_access_key`
-- `aws_assume_role_arn`
+|`extraData` field|Env variable|
+|---|---|
+|`region`|`AWS_DEFAULT_REGION`|
+|`aws_access_key_id`|`AWS_ACCESS_KEY_ID`|
+|`aws_secret_access_key`|`AWS_SECRET_ACCESS_KEY`|
+|`aws_assume_role_arn`|`AWS_ASSUME_ROLE_ARN`|
 
 ### Docker
 
