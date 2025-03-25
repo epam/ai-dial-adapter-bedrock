@@ -43,7 +43,6 @@ from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
-from anthropic.types.beta.beta_message_param import BetaMessageParam
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
@@ -108,7 +107,7 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
-    messages: ListProjection[ClaudeMessageParam | BetaMessageParam]
+    messages: ListProjection[ClaudeMessageParam]
 
 
 def create_adapter(

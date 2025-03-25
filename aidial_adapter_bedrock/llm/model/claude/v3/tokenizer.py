@@ -43,7 +43,7 @@ from typing import (
 from anthropic._types import Base64FileInput
 from anthropic.types.beta import BetaContentBlock as ContentBlock
 from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
-from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
+from anthropic.types.beta import BetaMessageParam as ClaudeMessage
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
@@ -166,7 +166,7 @@ async def _tokenize_sub_message(
                 assert_never(message)
 
 
-async def _tokenize_message(message: ClaudeMessageParam) -> int:
+async def _tokenize_message(message: ClaudeMessage) -> int:
     tokens: int = 0
 
     content = message["content"]
@@ -181,7 +181,7 @@ async def _tokenize_message(message: ClaudeMessageParam) -> int:
     return tokens
 
 
-async def _tokenize_messages(messages: List[ClaudeMessageParam]) -> int:
+async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
     # A rough estimation
     per_message_tokens = 5
 
@@ -225,7 +225,7 @@ def _tokenize_tool_system_message(
 async def _tokenize(
     deployment: Claude3Deployment,
     params: ClaudeParameters,
-    messages: List[ClaudeMessageParam],
+    messages: List[ClaudeMessage],
 ) -> int:
     tokens: int = 0
 
@@ -254,7 +254,7 @@ async def _tokenize(
 # https://github.com/anthropics/anthropic-sdk-python/blob/599f2b9a9501b8c98fb3132043c3ec71e3026f84/src/anthropic/lib/bedrock/_client.py#L61-L62
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
-) -> Callable[[List[Tuple[ClaudeMessageParam, Any]]], Awaitable[int]]:
+) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
     async def _tokenizer(messages) -> int:
         return await _tokenize(deployment, params, [msg for msg, _ in messages])
 

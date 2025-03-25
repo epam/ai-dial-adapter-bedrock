@@ -2,8 +2,7 @@ import json
 from typing import assert_never
 
 from aidial_sdk.chat_completion import FunctionCall, ToolCall
-from anthropic.types import ToolUseBlock
-from anthropic.types.beta import BetaToolUseBlock
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -22,13 +21,11 @@ from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
-def to_dial_function_call(
-    block: ToolUseBlock | BetaToolUseBlock,
-) -> FunctionCall:
+def to_dial_function_call(block: ToolUseBlock) -> FunctionCall:
     return FunctionCall(name=block.name, arguments=json.dumps(block.input))
 
 
-def to_dial_tool_call(block: ToolUseBlock | BetaToolUseBlock) -> ToolCall:
+def to_dial_tool_call(block: ToolUseBlock) -> ToolCall:
     return ToolCall(
         index=None,
         id=block.id,
@@ -38,9 +35,7 @@ def to_dial_tool_call(block: ToolUseBlock | BetaToolUseBlock) -> ToolCall:
 
 
 def process_tools_block(
-    consumer: Consumer,
-    block: ToolUseBlock | BetaToolUseBlock,
-    tools_mode: ToolsMode | None,
+    consumer: Consumer, block: ToolUseBlock, tools_mode: ToolsMode | None
 ):
     match tools_mode:
         case ToolsMode.TOOLS:
