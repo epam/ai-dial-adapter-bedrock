@@ -421,7 +421,6 @@ class Adapter(ChatCompletionAdapter):
             model=self.deployment.upstream_deployment_id,
             **request.params,
             stream=False,
-            betas=["token-efficient-tools-2025-02-19"],
         )
 
         if log.isEnabledFor(DEBUG):
