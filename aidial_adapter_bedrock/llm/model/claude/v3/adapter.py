@@ -4,6 +4,7 @@ from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
 from anthropic import NOT_GIVEN, NotGiven
+from anthropic._resource import AsyncAPIResource
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     BetaContentBlockStopEvent as ContentBlockStopEvent,
@@ -22,6 +23,7 @@ from anthropic.lib.streaming._beta_types import (
 from anthropic.lib.streaming._beta_types import (
     BetaThinkingEvent as ThinkingEvent,
 )
+from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
 from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
 from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
 from anthropic.types.beta import (
@@ -97,6 +99,17 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+
+
+# Beta AsyncMessages in Bedrock doesn't provide stream and count_tokens,
+# so we enabled it via the adapter.
+class _AsyncMessagesAdapter(AsyncAPIResource):
+    create = FirstPartyAsyncMessagesAPI.create
+    stream = FirstPartyAsyncMessagesAPI.stream
+    count_tokens = FirstPartyAsyncMessagesAPI.count_tokens
+
+    def __init__(self, resource: AsyncAPIResource):
+        super().__init__(resource._client)
 
 
 # NOTE: it's not pydantic BaseModel, because
@@ -327,7 +340,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"request: {msg}")
 
         async with (
-            self.client.beta.messages.stream(  # type: ignore
+            _AsyncMessagesAdapter(self.client.beta.messages).stream(
                 messages=request.messages.raw_list,
                 model=self.deployment.upstream_deployment_id,
                 **request.params,
