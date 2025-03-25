@@ -116,6 +116,7 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error tokenizing string")
             return TokenizeError(error=str(e))
 
     async def _tokenize_request(
@@ -131,6 +132,7 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error tokenizing request")
             return TokenizeError(error=str(e))
 
     @override
@@ -165,4 +167,5 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error truncating prompt")
             return TruncatePromptError(error=str(e))

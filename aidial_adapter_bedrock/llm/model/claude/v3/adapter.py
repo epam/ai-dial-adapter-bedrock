@@ -3,37 +3,50 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
+from anthropic import NOT_GIVEN, NotGiven
+from anthropic._resource import AsyncAPIResource
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
-    ContentBlockStopEvent,
-    InputJsonEvent,
-    TextEvent,
+    BetaContentBlockStopEvent as ContentBlockStopEvent,
 )
-from anthropic.lib.streaming._types import (
-    CitationEvent,
-    SignatureEvent,
-    ThinkingEvent,
+from anthropic.lib.streaming import BetaInputJsonEvent as InputJsonEvent
+from anthropic.lib.streaming import BetaTextEvent as TextEvent
+from anthropic.lib.streaming._beta_types import (
+    BetaCitationEvent as CitationEvent,
 )
-from anthropic.types import (
-    ContentBlockDeltaEvent,
-    ContentBlockStartEvent,
-    MessageDeltaEvent,
+from anthropic.lib.streaming._beta_types import (
+    BetaMessageStopEvent as MessageStopEvent,
 )
-from anthropic.types import MessageParam as ClaudeMessageParam
-from anthropic.types import (
-    MessageStartEvent,
-    TextBlock,
-    ThinkingConfigParam,
-    ToolChoiceAnyParam,
-    ToolChoiceAutoParam,
-    ToolChoiceToolParam,
-    ToolUseBlock,
+from anthropic.lib.streaming._beta_types import (
+    BetaSignatureEvent as SignatureEvent,
 )
-from anthropic.types.message_create_params import ToolChoice
-from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
-from anthropic.types.thinking_block import ThinkingBlock
-from pydantic import BaseModel
+from anthropic.lib.streaming._beta_types import (
+    BetaThinkingEvent as ThinkingEvent,
+)
+from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
+from anthropic.types.anthropic_beta_param import AnthropicBetaParam
+from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
+from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
+from anthropic.types.beta import (
+    BetaRawContentBlockDeltaEvent as ContentBlockDeltaEvent,
+)
+from anthropic.types.beta import (
+    BetaRawContentBlockStartEvent as ContentBlockStartEvent,
+)
+from anthropic.types.beta import BetaRawMessageDeltaEvent as MessageDeltaEvent
+from anthropic.types.beta import BetaRawMessageStartEvent as MessageStartEvent
+from anthropic.types.beta import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
+from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
+from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
+from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
+from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
+from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
+from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -89,6 +102,20 @@ from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
+# Beta AsyncMessages in Bedrock doesn't provide stream and count_tokens,
+# so we enabled it via the adapter.
+class _AsyncMessagesAdapter(AsyncAPIResource):
+    create = FirstPartyAsyncMessagesAPI.create
+    stream = FirstPartyAsyncMessagesAPI.stream
+
+    # NOTE: count_tokens is still not supported by Bedrock.
+    # The endpoint returns 200 {"Output":{"__type":"com.amazon.coral.service#UnknownOperationException"},"Version":"1.0"}
+    # count_tokens = FirstPartyAsyncMessagesAPI.count_tokens
+
+    def __init__(self, resource: AsyncAPIResource):
+        super().__init__(resource._client)
+
+
 # NOTE: it's not pydantic BaseModel, because
 # anthropic.types.MessageParam.content is of Iterable type and
 # pydantic automatically converts lists into
@@ -127,10 +154,20 @@ class ThinkingConfigDisabled(BaseModel):
         return {"type": "disabled"}
 
 
-class Configuration(BaseModel):
+class BetaConfiguration(BaseModel):
+    betas: List[AnthropicBetaParam] | None = Field(
+        default=None,
+        description="List of beta features to enable. Make sure to check if the given feature is supported by the Claude deployment you are using.",
+    )
+
+
+class ThinkingConfiguration(BetaConfiguration):
     # NOTE: once migrated to Pydantic v2 we could use TypeAdapter over
     # the anthropic's ThinkingConfigParam class directly.
     thinking: ThinkingConfigEnabled | ThinkingConfigDisabled | None = None
+
+
+Configuration = BetaConfiguration | ThinkingConfiguration
 
 
 class Adapter(ChatCompletionAdapter):
@@ -147,8 +184,9 @@ class Adapter(ChatCompletionAdapter):
 
     async def configuration(self) -> Type[Configuration]:
         if self.supports_thinking:
-            return Configuration
-        raise NotImplementedError
+            return ThinkingConfiguration
+        else:
+            return BetaConfiguration
 
     async def _parse_configuration(
         self, params: DialParameters
@@ -156,7 +194,7 @@ class Adapter(ChatCompletionAdapter):
         try:
             conf_cls = await self.configuration()
         except NotImplementedError:
-            return Configuration()
+            return BetaConfiguration()
 
         return params.parse_configuration(conf_cls)
 
@@ -202,7 +240,10 @@ class Adapter(ChatCompletionAdapter):
         )
 
         thinking: ThinkingConfigParam | NotGiven = NOT_GIVEN
-        if configuration.thinking is not None:
+        if (
+            isinstance(configuration, ThinkingConfiguration)
+            and configuration.thinking is not None
+        ):
             thinking = configuration.thinking.to_claude()
 
         temperature = NOT_GIVEN
@@ -224,6 +265,7 @@ class Adapter(ChatCompletionAdapter):
             tools=tools,
             tool_choice=tool_choice,
             thinking=thinking,
+            betas=configuration.betas or NOT_GIVEN,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
@@ -317,7 +359,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"request: {msg}")
 
         async with (
-            self.client.messages.stream(
+            _AsyncMessagesAdapter(self.client.beta.messages).stream(
                 messages=request.messages.raw_list,
                 model=self.deployment.upstream_deployment_id,
                 **request.params,
@@ -405,7 +447,7 @@ class Adapter(ChatCompletionAdapter):
             )
             log.debug(f"request: {msg}")
 
-        message = await self.client.messages.create(
+        message: ClaudeResponseMessage = await self.client.beta.messages.create(
             messages=request.messages.raw_list,
             model=self.deployment.upstream_deployment_id,
             **request.params,
