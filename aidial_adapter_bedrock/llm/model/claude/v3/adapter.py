@@ -1,4 +1,3 @@
-import typing
 from dataclasses import dataclass
 from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
@@ -155,15 +154,10 @@ class ThinkingConfigDisabled(BaseModel):
         return {"type": "disabled"}
 
 
-_beta_parameters = ", ".join(
-    list(typing.get_args(typing.get_args(AnthropicBetaParam)[1]))
-)
-
-
 class BetaConfiguration(BaseModel):
-    betas: List[str] | None = Field(
+    betas: List[AnthropicBetaParam] | None = Field(
         default=None,
-        description=f"List of beta features to enable. Available features are: {_beta_parameters}. Make sure to check if the given feature is supported by the Claude deployment you are using.",
+        description="List of beta features to enable. Make sure to check if the given feature is supported by the Claude deployment you are using.",
     )
 
 
