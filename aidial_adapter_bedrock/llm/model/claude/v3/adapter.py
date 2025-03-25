@@ -106,7 +106,10 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 class _AsyncMessagesAdapter(AsyncAPIResource):
     create = FirstPartyAsyncMessagesAPI.create
     stream = FirstPartyAsyncMessagesAPI.stream
-    count_tokens = FirstPartyAsyncMessagesAPI.count_tokens
+
+    # NOTE: count_tokens is still not supported by Bedrock.
+    # The endpoint returns 200 {"Output":{"__type":"com.amazon.coral.service#UnknownOperationException"},"Version":"1.0"}
+    # count_tokens = FirstPartyAsyncMessagesAPI.count_tokens
 
     def __init__(self, resource: AsyncAPIResource):
         super().__init__(resource._client)
