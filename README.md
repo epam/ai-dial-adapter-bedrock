@@ -13,12 +13,12 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|
 |---|---|---|---|---|---|---|---|
 |Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
-|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|❌|
-|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
-|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
-|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|❌|
-|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|❌|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|
@@ -71,6 +71,19 @@ The model accepts optional configuration that enables [thinking feature](https:/
 |---|---|
 |`{"thinking": {"type": "enabled", "budget_tokens": 1024}}`|Thinking enabled with the given limit on reasoning tokens|
 |`{"thinking": {"type": "disabled"}}`|Thinking disabled|
+
+##### Claude models
+
+The Claude models accept an optional list of beta feature flags.
+The whole list of flags could be found in the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python/blob/main/src/anthropic/types/anthropic_beta_param.py).
+
+|Configuration example|
+|---|
+|`{"betas": ["token-efficient-tools-2025-02-19"]}`|
+
+Not every model supports all flags. Refer to the official documentation before utilizing any flags.
+
+E.g. currently, `token-efficient-tools-2025-02-19` enables [Token-efficient tool use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/token-efficient-tool-use) for Claude 3.7 Sonnet only.
 
 ##### Stability AI models
 

@@ -1,6 +1,7 @@
 from typing import List, TypedDict
 
 from anthropic import NotGiven
+from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolParam as ToolParam
@@ -20,3 +21,4 @@ class ClaudeParameters(TypedDict):
     tools: List[ToolParam] | NotGiven
     tool_choice: ToolChoice | NotGiven
     thinking: ThinkingConfigParam | NotGiven
+    betas: List[AnthropicBetaParam] | NotGiven

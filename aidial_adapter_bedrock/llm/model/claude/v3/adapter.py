@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass
 from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
@@ -24,6 +25,7 @@ from anthropic.lib.streaming._beta_types import (
     BetaThinkingEvent as ThinkingEvent,
 )
 from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
+from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
 from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
 from anthropic.types.beta import (
@@ -45,7 +47,7 @@ from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -153,10 +155,25 @@ class ThinkingConfigDisabled(BaseModel):
         return {"type": "disabled"}
 
 
-class Configuration(BaseModel):
+_beta_parameters = ", ".join(
+    list(typing.get_args(typing.get_args(AnthropicBetaParam)[1]))
+)
+
+
+class BetaConfiguration(BaseModel):
+    betas: List[str] | None = Field(
+        default=None,
+        description=f"List of beta features to enable. Available features are: {_beta_parameters}. Make sure to check if the given feature is supported by the Claude deployment you are using.",
+    )
+
+
+class ThinkingConfiguration(BetaConfiguration):
     # NOTE: once migrated to Pydantic v2 we could use TypeAdapter over
     # the anthropic's ThinkingConfigParam class directly.
     thinking: ThinkingConfigEnabled | ThinkingConfigDisabled | None = None
+
+
+Configuration = BetaConfiguration | ThinkingConfiguration
 
 
 class Adapter(ChatCompletionAdapter):
@@ -173,8 +190,9 @@ class Adapter(ChatCompletionAdapter):
 
     async def configuration(self) -> Type[Configuration]:
         if self.supports_thinking:
-            return Configuration
-        raise NotImplementedError
+            return ThinkingConfiguration
+        else:
+            return BetaConfiguration
 
     async def _parse_configuration(
         self, params: DialParameters
@@ -182,7 +200,7 @@ class Adapter(ChatCompletionAdapter):
         try:
             conf_cls = await self.configuration()
         except NotImplementedError:
-            return Configuration()
+            return BetaConfiguration()
 
         return params.parse_configuration(conf_cls)
 
@@ -228,7 +246,10 @@ class Adapter(ChatCompletionAdapter):
         )
 
         thinking: ThinkingConfigParam | NotGiven = NOT_GIVEN
-        if configuration.thinking is not None:
+        if (
+            isinstance(configuration, ThinkingConfiguration)
+            and configuration.thinking is not None
+        ):
             thinking = configuration.thinking.to_claude()
 
         temperature = NOT_GIVEN
@@ -250,6 +271,7 @@ class Adapter(ChatCompletionAdapter):
             tools=tools,
             tool_choice=tool_choice,
             thinking=thinking,
+            betas=configuration.betas or NOT_GIVEN,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
