@@ -3,43 +3,47 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from anthropic import NOT_GIVEN, MessageStopEvent, NotGiven
+from anthropic import NOT_GIVEN, NotGiven
 from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
-    ContentBlockStopEvent,
-    InputJsonEvent,
-    TextEvent,
+    BetaContentBlockStopEvent as ContentBlockStopEvent,
 )
-from anthropic.lib.streaming._types import (
-    CitationEvent,
-    SignatureEvent,
-    ThinkingEvent,
+from anthropic.lib.streaming import BetaInputJsonEvent as InputJsonEvent
+from anthropic.lib.streaming import BetaTextEvent as TextEvent
+from anthropic.lib.streaming._beta_types import (
+    BetaCitationEvent as CitationEvent,
 )
-from anthropic.types import (
-    ContentBlockDeltaEvent,
-    ContentBlockStartEvent,
-    MessageDeltaEvent,
+from anthropic.lib.streaming._beta_types import (
+    BetaMessageStopEvent as MessageStopEvent,
 )
-from anthropic.types import MessageParam as ClaudeMessageParam
+from anthropic.lib.streaming._beta_types import (
+    BetaSignatureEvent as SignatureEvent,
+)
+from anthropic.lib.streaming._beta_types import (
+    BetaThinkingEvent as ThinkingEvent,
+)
+from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
+from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
 from anthropic.types.beta import (
-    BetaMessage,
-    BetaTextBlock,
-    BetaToolUseBlock,
-    BetaThinkingBlock,
-    BetaRedactedThinkingBlock,
+    BetaRawContentBlockDeltaEvent as ContentBlockDeltaEvent,
 )
-from anthropic.types import (
-    MessageStartEvent,
-    TextBlock,
-    ThinkingConfigParam,
-    ToolChoiceAnyParam,
-    ToolChoiceAutoParam,
-    ToolChoiceToolParam,
-    ToolUseBlock,
+from anthropic.types.beta import (
+    BetaRawContentBlockStartEvent as ContentBlockStartEvent,
 )
-from anthropic.types.message_create_params import ToolChoice
-from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
-from anthropic.types.thinking_block import ThinkingBlock
+from anthropic.types.beta import BetaRawMessageDeltaEvent as MessageDeltaEvent
+from anthropic.types.beta import BetaRawMessageStartEvent as MessageStartEvent
+from anthropic.types.beta import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
+from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
+from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
+from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
+from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
+from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
+from anthropic.types.beta.beta_message_param import BetaMessageParam
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
@@ -104,7 +108,7 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 @dataclass
 class ClaudeRequest:
     params: ClaudeParameters
-    messages: ListProjection[ClaudeMessageParam]
+    messages: ListProjection[ClaudeMessageParam | BetaMessageParam]
 
 
 def create_adapter(
@@ -324,7 +328,7 @@ class Adapter(ChatCompletionAdapter):
             log.debug(f"request: {msg}")
 
         async with (
-            self.client.messages.stream(
+            self.client.beta.messages.stream(  # type: ignore
                 messages=request.messages.raw_list,
                 model=self.deployment.upstream_deployment_id,
                 **request.params,
@@ -412,7 +416,7 @@ class Adapter(ChatCompletionAdapter):
             )
             log.debug(f"request: {msg}")
 
-        message: BetaMessage = await self.client.beta.messages.create(
+        message: ClaudeResponseMessage = await self.client.beta.messages.create(
             messages=request.messages.raw_list,
             model=self.deployment.upstream_deployment_id,
             **request.params,
@@ -425,14 +429,14 @@ class Adapter(ChatCompletionAdapter):
 
         for content in message.content:
             match content:
-                case TextBlock(text=text) | BetaTextBlock(text=text):
+                case TextBlock(text=text):
                     consumer.append_content(text)
-                case ToolUseBlock() | BetaToolUseBlock():
+                case ToolUseBlock():
                     process_tools_block(consumer, content, tools_mode)
                 case ThinkingBlock(thinking=thinking):
                     with consumer.create_stage("Thinking") as stage:
                         stage.append_content(thinking)
-                case RedactedThinkingBlock() | BetaRedactedThinkingBlock():
+                case RedactedThinkingBlock():
                     pass
                 case _:
                     assert_never(content)

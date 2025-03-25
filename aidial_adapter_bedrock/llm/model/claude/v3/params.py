@@ -1,8 +1,9 @@
 from typing import List, TypedDict
 
 from anthropic import NotGiven
-from anthropic.types import ThinkingConfigParam, ToolParam
-from anthropic.types.message_create_params import ToolChoice
+from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
+from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
+from anthropic.types.beta import BetaToolParam as ToolParam
 
 
 class ClaudeParameters(TypedDict):

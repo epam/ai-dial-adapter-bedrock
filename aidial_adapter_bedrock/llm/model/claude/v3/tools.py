@@ -3,6 +3,7 @@ from typing import assert_never
 
 from aidial_sdk.chat_completion import FunctionCall, ToolCall
 from anthropic.types import ToolUseBlock
+from anthropic.types.beta import BetaToolUseBlock
 
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -19,7 +20,6 @@ from aidial_adapter_bedrock.llm.message import (
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-from anthropic.types.beta import BetaToolUseBlock
 
 
 def to_dial_function_call(

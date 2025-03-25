@@ -8,16 +8,17 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     ToolCall,
 )
-from anthropic.types import (
-    ContentBlock,
-    ImageBlockParam,
-    MessageParam,
-    TextBlockParam,
-    ToolParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
+from anthropic.types.beta import BetaContentBlock as ContentBlock
+from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
+from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
+from anthropic.types.beta import BetaMessageParam as MessageParam
+from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaToolParam as ToolParam
+from anthropic.types.beta import (
+    BetaToolResultBlockParam as ToolResultBlockParam,
 )
-from anthropic.types.image_block_param import Source
+from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
+from anthropic.types.beta.beta_image_block_param import Source
 from pydantic import BaseModel
 from pydantic import ValidationError as PydValidationError
 
@@ -212,6 +213,14 @@ def _merge_messages_with_same_role(
     return ListProjection(group_by(messages.list, _key, lambda x: x, _merge))
 
 
+def _to_block_param(
+    block: ContentBlock | ContentBlockParam,
+) -> ContentBlockParam:
+    if isinstance(block, dict):
+        return block
+    return block.to_dict()  # type: ignore
+
+
 async def to_claude_messages(
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
     file_storage: Optional[FileStorage],
@@ -244,8 +253,9 @@ async def to_claude_messages(
                     idx, message
                 ) or await _to_claude_message(file_storage, message)
 
+                message_content = list(map(_to_block_param, bot_content))
                 ret.append(
-                    MessageParam(role="assistant", content=bot_content), idx
+                    MessageParam(role="assistant", content=message_content), idx
                 )
             case AIToolCallMessage():
                 content: List[TextBlockParam | ToolUseBlockParam] = [
