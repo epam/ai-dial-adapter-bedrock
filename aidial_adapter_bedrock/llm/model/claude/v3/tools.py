@@ -2,7 +2,7 @@ import json
 from typing import assert_never
 
 from aidial_sdk.chat_completion import FunctionCall, ToolCall
-from anthropic.types import ToolUseBlock
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError

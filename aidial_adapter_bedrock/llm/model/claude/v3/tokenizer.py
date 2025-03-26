@@ -41,24 +41,35 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
-from anthropic.types import ContentBlock, ImageBlockParam
-from anthropic.types import MessageParam as ClaudeMessage
-from anthropic.types import (
-    TextBlockParam,
-    ToolParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
+from anthropic.types.beta import BetaContentBlock as ContentBlock
+from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
+from anthropic.types.beta import BetaMessageParam as ClaudeMessage
+from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaToolParam as ToolParam
+from anthropic.types.beta import (
+    BetaToolResultBlockParam as ToolResultBlockParam,
 )
-from anthropic.types.document_block_param import DocumentBlockParam
-from anthropic.types.image_block_param import Source
-from anthropic.types.redacted_thinking_block import RedactedThinkingBlock
-from anthropic.types.redacted_thinking_block_param import (
-    RedactedThinkingBlockParam,
+from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
+from anthropic.types.beta.beta_base64_pdf_block_param import (
+    BetaBase64PDFBlockParam as DocumentBlockParam,
 )
-from anthropic.types.text_block import TextBlock
-from anthropic.types.thinking_block import ThinkingBlock
-from anthropic.types.thinking_block_param import ThinkingBlockParam
-from anthropic.types.tool_use_block import ToolUseBlock
+from anthropic.types.beta.beta_image_block_param import Source
+from anthropic.types.beta.beta_redacted_thinking_block import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta.beta_redacted_thinking_block_param import (
+    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
+)
+from anthropic.types.beta.beta_text_block import BetaTextBlock as TextBlock
+from anthropic.types.beta.beta_thinking_block import (
+    BetaThinkingBlock as ThinkingBlock,
+)
+from anthropic.types.beta.beta_thinking_block_param import (
+    BetaThinkingBlockParam as ThinkingBlockParam,
+)
+from anthropic.types.beta.beta_tool_use_block import (
+    BetaToolUseBlock as ToolUseBlock,
+)
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
