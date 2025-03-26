@@ -196,6 +196,7 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
+            ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
@@ -546,7 +547,7 @@ def get_test_cases(
                     GET_WEATHER_FUNCTION["name"],
                     {
                         "location": lambda s: "Glasgow" in s,
-                        "format": "celsius",
+                        "unit": "celsius",
                     },
                 ),
             )
@@ -559,7 +560,7 @@ def get_test_cases(
             city_names = [name for name, _ in cities]
             city_temps = [temp for _, temp in cities]
 
-            query = f"What's the temperature in {' and in '.join(city_names)} in celsius?"
+            query = f"Tell me what's the temperature in {' and in '.join(city_names)} in celsius?"
 
             init_messages = [
                 user("2+3=?"),
@@ -574,13 +575,13 @@ def get_test_cases(
             def create_fun_args(city: str):
                 return {
                     "location": city,
-                    "format": "celsius",
+                    "unit": "celsius",
                 }
 
             def check_fun_args(city: str):
                 return {
                     "location": lambda s: city.lower() in s.lower(),
-                    "format": "celsius",
+                    "unit": "celsius",
                 }
 
             test_name_suffix = " ".join(city_names)
