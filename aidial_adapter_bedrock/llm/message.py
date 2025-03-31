@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.dial_api.request import (
     collect_text_content,
     is_plain_text_content,
+    is_system_role,
     is_text_content,
     to_message_content,
 )
@@ -37,16 +38,17 @@ class BaseMessageABC(MessageABC):
 
 class SystemMessage(BaseMessageABC):
     content: str | List[MessageContentTextPart]
+    is_developer: bool = False
 
     def to_message(self) -> DialMessage:
         return DialMessage(
-            role=Role.SYSTEM,
+            role=Role.DEVELOPER if self.is_developer else Role.SYSTEM,
             content=to_message_content(self.content),
         )
 
     @classmethod
     def from_message(cls, message: DialMessage) -> Self | None:
-        if message.role != Role.SYSTEM:
+        if not is_system_role(message.role):
             return None
 
         content = message.content
@@ -56,7 +58,10 @@ class SystemMessage(BaseMessageABC):
                 "System message is expected to be a string or a list of text content parts"
             )
 
-        return cls(content=content)
+        return cls(
+            is_developer=message.role == Role.DEVELOPER,
+            content=content,
+        )
 
     @property
     def text_content(self) -> str:

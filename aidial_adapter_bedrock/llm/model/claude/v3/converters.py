@@ -8,6 +8,7 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     ToolCall,
 )
+from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from anthropic.types.beta import BetaContentBlock as ContentBlock
 from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
 from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
@@ -152,6 +153,10 @@ async def _to_claude_message(
                             await _collect_image_block(
                                 file_storage, dial_resource
                             )
+                        )
+                    case MessageContentRefusalPart():
+                        raise ValidationError(
+                            "Refusal message aren't supported"
                         )
                     case _:
                         assert_never(part)

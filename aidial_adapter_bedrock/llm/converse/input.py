@@ -12,9 +12,10 @@ from aidial_sdk.chat_completion import (
 )
 from aidial_sdk.chat_completion import Role as DialRole
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
+from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
-from aidial_adapter_bedrock.dial_api.request import ToolsConfig
+from aidial_adapter_bedrock.dial_api.request import ToolsConfig, is_system_role
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     UnsupportedContentType,
@@ -47,6 +48,7 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.resource import Resource
+from aidial_adapter_bedrock.utils.text import capitalize
 
 
 def to_converse_role(role: DialRole) -> ConverseRole:
@@ -58,8 +60,10 @@ def to_converse_role(role: DialRole) -> ConverseRole:
             return ConverseRole.USER
         case DialRole.ASSISTANT:
             return ConverseRole.ASSISTANT
-        case DialRole.SYSTEM:
-            raise ValidationError("System messages are not allowed")
+        case DialRole.SYSTEM | DialRole.DEVELOPER:
+            raise ValidationError(
+                "System or developer messages are not allowed"
+            )
         case _:
             assert_never(role)
 
@@ -266,6 +270,12 @@ async def _get_converse_message_content(
                                     e.type
                                 )
                             )
+                    case MessageContentRefusalPart():
+                        raise ValidationError(
+                            "Refusal messages aren't supported"
+                        )
+                    case _:
+                        assert_never(part)
 
         case None:
             pass
@@ -341,10 +351,10 @@ def extract_converse_system_prompt(
     non_system_messages = []
 
     for msg in messages:
-        if msg.role == DialRole.SYSTEM:
+        if is_system_role(msg.role):
             if found_non_system:
                 raise ValidationError(
-                    "A system message can only follow another system message"
+                    f"A {msg.role.value} message can only follow system or developer message"
                 )
             system_messages_count += 1
             match msg.content:
@@ -357,8 +367,18 @@ def extract_converse_system_prompt(
                                 system_msgs.append(part.text)
                             case MessageContentImagePart():
                                 raise ValidationError(
-                                    "System messages cannot contain images"
+                                    capitalize(
+                                        f"{msg.role.value} messages cannot contain images"
+                                    )
                                 )
+                            case MessageContentRefusalPart():
+                                raise ValidationError(
+                                    capitalize(
+                                        f"{msg.role.value} messages cannot contain refusals"
+                                    )
+                                )
+                            case _:
+                                assert_never(part)
                 case None:
                     pass
                 case _:
@@ -366,7 +386,9 @@ def extract_converse_system_prompt(
         else:
             found_non_system = True
             non_system_messages.append(msg)
+
     combined = "\n\n".join(msg for msg in system_msgs if msg)
+
     return ExtractSystemPromptResult(
         system_prompt=ConverseTextPart(text=combined) if combined else None,
         system_message_count=system_messages_count,
