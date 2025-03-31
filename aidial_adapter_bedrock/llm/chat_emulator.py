@@ -47,7 +47,7 @@ class BasicChatEmulator(ChatEmulator):
                 return self.cues["human"]
             case Role.ASSISTANT:
                 return self.cues["ai"]
-            case Role.SYSTEM:
+            case Role.SYSTEM | Role.DEVELOPER:
                 return self.cues["system"]
             case _:
                 raise ValueError(f"Unexpected message type: {message.role}")

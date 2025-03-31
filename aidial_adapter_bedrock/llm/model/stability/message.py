@@ -6,7 +6,10 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
     Role,
 )
-from aidial_sdk.chat_completion.request import ImageURL
+from aidial_sdk.chat_completion.request import (
+    ImageURL,
+    MessageContentRefusalPart,
+)
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -37,6 +40,10 @@ def parse_message(
                             URLResource(
                                 url=url, supported_types=supported_types
                             )
+                        )
+                    case MessageContentRefusalPart():
+                        raise ValidationError(
+                            "Refusal messages aren't supported"
                         )
                     case _:
                         assert_never(part)

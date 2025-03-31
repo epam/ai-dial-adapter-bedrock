@@ -1,13 +1,16 @@
 from typing import Any, AsyncIterator, Dict, Tuple
 
 import anthropic
-from aidial_sdk.chat_completion import FinishReason, Message, Role
+from aidial_sdk.chat_completion import FinishReason, Message
 from anthropic_bedrock._tokenizers import sync_get_tokenizer
 
 import aidial_adapter_bedrock.utils.stream as stream_utils
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.dial_api.request import (
+    ModelParameters,
+    is_system_role,
+)
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_emulator import (
     BasicChatEmulator,
@@ -119,7 +122,7 @@ def get_anthropic_emulator(is_system_message_supported: bool) -> ChatEmulator:
     def add_cue(message: Message, idx: int) -> bool:
         if (
             idx == 0
-            and message.role == Role.SYSTEM
+            and is_system_role(message.role)
             and is_system_message_supported
         ):
             return False

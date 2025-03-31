@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Set, Tuple, Type
 
-from aidial_sdk.chat_completion import Message, Role
+from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters,
     collect_text_content,
+    is_system_role,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -76,7 +77,7 @@ def default_preprocess_messages(
 ) -> ListProjection[Message]:
     def _is_empty_system_message(msg: Message) -> bool:
         return (
-            msg.role == Role.SYSTEM
+            is_system_role(msg.role)
             and collect_text_content(msg.content).strip() == ""
         )
 
@@ -101,7 +102,7 @@ def keep_last(messages: List[Any], idx: int) -> bool:
 
 
 def keep_last_and_system_messages(messages: List[Message], idx: int) -> bool:
-    return messages[idx].role == Role.SYSTEM or keep_last(messages, idx)
+    return is_system_role(messages[idx].role) or keep_last(messages, idx)
 
 
 def trivial_partitioner(messages: List[Any]) -> List[int]:

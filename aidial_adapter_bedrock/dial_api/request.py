@@ -1,11 +1,23 @@
-from typing import List, Optional, Type, TypeGuard, TypeVar, assert_never
+from typing import (
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeGuard,
+    TypeVar,
+    assert_never,
+)
 
 from aidial_sdk.chat_completion import (
     MessageContentImagePart,
     MessageContentPart,
     MessageContentTextPart,
+    Role,
 )
-from aidial_sdk.chat_completion.request import ChatCompletionRequest
+from aidial_sdk.chat_completion.request import (
+    ChatCompletionRequest,
+    MessageContentRefusalPart,
+)
 from aidial_sdk.exceptions import RequestValidationError
 from aidial_sdk.pydantic_v1 import ValidationError as PydanticValidationError
 from pydantic import BaseModel
@@ -111,6 +123,10 @@ def collect_text_content(
                         raise ValidationError(
                             "Can't extract text from an image content part"
                         )
+                    case MessageContentRefusalPart():
+                        raise ValidationError(
+                            "Can't extract text from a refusal content part"
+                        )
                     case _:
                         assert_never(part)
             return delimiter.join(texts)
@@ -146,3 +162,9 @@ def is_text_content(
 
 def is_plain_text_content(content: MessageContent) -> TypeGuard[str | None]:
     return content is None or isinstance(content, str)
+
+
+def is_system_role(
+    role: Role,
+) -> TypeGuard[Literal[Role.SYSTEM, Role.DEVELOPER]]:
+    return role in [Role.SYSTEM, Role.DEVELOPER]

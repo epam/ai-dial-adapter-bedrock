@@ -282,7 +282,7 @@ TEST_CASES = [
         params=ModelParameters(tool_config=None),
         expected_error=ExpectedException(
             type=ValidationError,
-            message="A system message can only follow another system message",
+            message="A system message can only follow system or developer message",
         ),
     ),
     TestCase(
