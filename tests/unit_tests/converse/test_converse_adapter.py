@@ -297,9 +297,8 @@ TEST_CASES = [
         expected_output=ConverseRequestWrapper(
             inferenceConfig=default_inference_config,
             system=[
-                ConverseTextPart(
-                    text="You are a helpful assistant.\n\nYou are also very friendly."
-                ),
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
                 list=[
@@ -334,9 +333,8 @@ TEST_CASES = [
         expected_output=ConverseRequestWrapper(
             inferenceConfig=default_inference_config,
             system=[
-                ConverseTextPart(
-                    text="You are a helpful assistant.\n\nYou are also very friendly."
-                ),
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
                 list=[

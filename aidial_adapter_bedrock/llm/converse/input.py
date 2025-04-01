@@ -29,6 +29,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     IMAGE_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
+    CachePoint,
+    CachePointPart,
     ConverseContentPart,
     ConverseDocumentPart,
     ConverseDocumentPartConfig,
@@ -338,15 +340,21 @@ async def to_converse_message(
 
 @dataclass
 class ExtractSystemPromptResult:
-    system_prompt: ConverseTextPart | None
+    system_messages: List[ConverseTextPart | CachePointPart]
     system_message_count: int
     non_system_messages: List[DialMessage]
+
+
+def _get_cache_point(message: DialMessage) -> CachePointPart | None:
+    if not (cf := message.custom_fields) or not cf.cache_breakpoint:
+        return None
+    return CachePointPart(cachePoint=CachePoint(type="default"))
 
 
 def extract_converse_system_prompt(
     messages: List[DialMessage],
 ) -> ExtractSystemPromptResult:
-    system_msgs = []
+    system_messages: List[ConverseTextPart | CachePointPart] = []
     found_non_system = False
     system_messages_count = 0
     non_system_messages = []
@@ -358,14 +366,17 @@ def extract_converse_system_prompt(
                     f"A {msg.role.value} message can only follow system or developer message"
                 )
             system_messages_count += 1
+
             match msg.content:
                 case str():
-                    system_msgs.append(msg.content)
+                    system_messages.append(ConverseTextPart(text=msg.content))
                 case list():
                     for part in msg.content:
                         match part:
                             case MessageContentTextPart():
-                                system_msgs.append(part.text)
+                                system_messages.append(
+                                    ConverseTextPart(text=part.text)
+                                )
                             case MessageContentImagePart():
                                 raise ValidationError(
                                     capitalize(
@@ -384,14 +395,16 @@ def extract_converse_system_prompt(
                     pass
                 case _:
                     assert_never(msg.content)
+
+            if cache_point := _get_cache_point(msg):
+                system_messages.append(cache_point)
+
         else:
             found_non_system = True
             non_system_messages.append(msg)
 
-    combined = "\n\n".join(msg for msg in system_msgs if msg)
-
     return ExtractSystemPromptResult(
-        system_prompt=ConverseTextPart(text=combined) if combined else None,
+        system_messages=system_messages,
         system_message_count=system_messages_count,
         non_system_messages=non_system_messages,
     )

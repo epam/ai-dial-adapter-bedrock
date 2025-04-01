@@ -20,6 +20,14 @@ class ConverseTextPart(TypedDict):
     text: str
 
 
+class CachePoint(TypedDict):
+    type: Literal["default"]
+
+
+class CachePointPart(TypedDict):
+    cachePoint: CachePoint
+
+
 class ConverseJsonPart(TypedDict):
     json: dict
 
@@ -123,7 +131,7 @@ class InferenceConfig(TypedDict, total=False):
 
 class ConverseRequest(TypedDict, total=False):
     messages: Required[list[ConverseMessage]]
-    system: list[ConverseTextPart]
+    system: list[ConverseTextPart | CachePointPart]
     inferenceConfig: InferenceConfig
     toolConfig: ConverseTools
 
@@ -131,7 +139,7 @@ class ConverseRequest(TypedDict, total=False):
 @dataclass
 class ConverseRequestWrapper:
     messages: ListProjection[ConverseMessage]
-    system: list[ConverseTextPart] | None = None
+    system: list[ConverseTextPart | CachePointPart] | None = None
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
 
