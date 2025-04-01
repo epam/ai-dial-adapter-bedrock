@@ -355,12 +355,17 @@ def to_dial_finish_reason(
 
 
 def to_claude_tool_config(tool: Tool) -> ToolParam:
+    cache_control = None
+    if tool.custom_fields and tool.custom_fields.cache_breakpoint:
+        cache_control = CacheControlEphemeralParam(type="ephemeral")
+
     function = tool.function
     return ToolParam(
         input_schema=function.parameters
         or {"type": "object", "properties": {}},
         name=function.name,
         description=function.description or "",
+        cache_control=cache_control,
     )
 
 
