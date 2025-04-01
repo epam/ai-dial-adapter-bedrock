@@ -615,9 +615,7 @@ TEST_CASES = [
 @pytest.mark.parametrize(
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
-async def test_converse_adapter(
-    test_case: TestCase,
-):
+async def test_converse_adapter(test_case: TestCase):
     adapter = ConverseAdapter(
         deployment="test",
         bedrock=await Bedrock.acreate(AWSClientConfig(region="us-east-1")),

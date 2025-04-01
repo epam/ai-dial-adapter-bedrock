@@ -132,6 +132,25 @@ async def _collect_image_block(
     return _create_image_block(resource)
 
 
+def _add_cache_control(
+    message: BaseMessage | HumanToolResultMessage | AIToolCallMessage,
+    claude_content: Iterable[ContentBlockParam],
+) -> Iterable[ContentBlockParam]:
+
+    if message.cache_breakpoint is not None:
+        for block in reversed(list(claude_content)):
+            if (
+                block["type"] != "thinking"
+                and block["type"] != "redacted_thinking"
+            ):
+                block["cache_control"] = CacheControlEphemeralParam(  # type: ignore
+                    type="ephemeral"
+                )
+                break
+
+    return claude_content
+
+
 def _to_message_param(
     dial_message: (
         AIRegularMessage
@@ -148,18 +167,6 @@ def _to_message_param(
             role = "user"
         case _:
             assert_never(dial_message)
-
-    if dial_message.cache_breakpoint is not None:
-        for block in reversed(list(claude_content)):
-            if (
-                block["type"] != "thinking"
-                and block["type"] != "redacted_thinking"
-            ):
-                block["cache_control"] = CacheControlEphemeralParam(
-                    type="ephemeral"
-                )
-                break
-
     return MessageParam(role=role, content=claude_content)
 
 
@@ -278,16 +285,19 @@ async def to_claude_messages(
 ) -> Tuple[List[TextBlockParam], ListProjection[MessageParam]]:
 
     idx_offset: int = 0
-    system_prompt: List[TextBlockParam] = []
-    while messages and isinstance(messages[0], SystemMessage):
-        system_prompt.extend(
-            await _to_claude_message(file_storage, messages[0])
-        )
-        messages = messages[1:]
-        idx_offset += 1
+    system_messages: List[TextBlockParam] = []
+
+    for message in messages:
+        if isinstance(message, SystemMessage):
+            idx_offset += 1
+            content = await _to_claude_message(file_storage, message)
+            content = _add_cache_control(message, content)
+            system_messages.extend(content)  # type: ignore
+        else:
+            break
 
     ret: ListProjection[MessageParam] = ListProjection()
-    for idx, message in enumerate(messages, start=idx_offset):
+    for idx, message in enumerate(messages[idx_offset:], start=idx_offset):
 
         match message:
             case HumanRegularMessage():
@@ -317,10 +327,12 @@ async def to_claude_messages(
             case _:
                 assert_never(message)
 
-        claude_message = _to_message_param(message, content)
+        claude_message = _to_message_param(
+            message, _add_cache_control(message, content)
+        )
         ret.append(claude_message, idx)
 
-    return system_prompt, _merge_messages_with_same_role(ret)
+    return system_messages, _merge_messages_with_same_role(ret)
 
 
 def to_dial_finish_reason(
