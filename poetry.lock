@@ -2,36 +2,40 @@
 
 [[package]]
 name = "aidial-sdk"
-version = "0.20.0"
+version = "0.21.0rc"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
-python-versions = "<4.0,>=3.8.1"
-files = [
-    {file = "aidial_sdk-0.20.0-py3-none-any.whl", hash = "sha256:9fe9715a994b3f486a2b93d6c3545d01f486eb11dc5e4cb53cf2f7683c606372"},
-    {file = "aidial_sdk-0.20.0.tar.gz", hash = "sha256:8bb7a065d9f25d9bf68b78279a02a63252a5688cb8f2887cc9c5d2c92d1b02f4"},
-]
+python-versions = ">=3.8.1,<4.0"
+files = []
+develop = false
 
 [package.dependencies]
 fastapi = ">=0.51,<1.0"
-opentelemetry-api = {version = ">=1.22.0,<2.0.0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-exporter-otlp-proto-grpc = {version = ">=1.22.0,<2.0.0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-exporter-prometheus = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-aiohttp-client = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-fastapi = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-httpx = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-logging = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-requests = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-system-metrics = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-instrumentation-urllib = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
-opentelemetry-sdk = {version = ">=1.22.0,<2.0.0", optional = true, markers = "extra == \"telemetry\""}
-prometheus-client = {version = ">=0.17.1,<=0.21", optional = true, markers = "extra == \"telemetry\""}
-pydantic = ">=1.10,<3"
+opentelemetry-api = {version = "^1.22.0", optional = true}
+opentelemetry-exporter-otlp-proto-grpc = {version = "^1.22.0", optional = true}
+opentelemetry-exporter-prometheus = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-aiohttp-client = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-fastapi = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-httpx = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-logging = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-requests = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-system-metrics = {version = ">=0.43b0", optional = true}
+opentelemetry-instrumentation-urllib = {version = ">=0.43b0", optional = true}
+opentelemetry-sdk = {version = "^1.22.0", optional = true}
+prometheus-client = {version = ">=0.17.1,<=0.21", optional = true}
+pydantic = ">=1.10.17,<3"
 uvicorn = ">=0.19,<1.0"
 wrapt = ">=1.10,<2"
 
 [package.extras]
 httpx = ["httpx (>=0.25.0,<1)"]
 telemetry = ["opentelemetry-api (>=1.22.0,<2.0.0)", "opentelemetry-exporter-otlp-proto-grpc (>=1.22.0,<2.0.0)", "opentelemetry-exporter-prometheus (>=0.43b0)", "opentelemetry-instrumentation-aiohttp-client (>=0.43b0)", "opentelemetry-instrumentation-fastapi (>=0.43b0)", "opentelemetry-instrumentation-httpx (>=0.43b0)", "opentelemetry-instrumentation-logging (>=0.43b0)", "opentelemetry-instrumentation-requests (>=0.43b0)", "opentelemetry-instrumentation-system-metrics (>=0.43b0)", "opentelemetry-instrumentation-urllib (>=0.43b0)", "opentelemetry-sdk (>=1.22.0,<2.0.0)", "prometheus-client (>=0.17.1,<=0.21)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/epam/ai-dial-sdk.git"
+reference = "feat/add-headers-to-response"
+resolved_reference = "28f6bd3f3ef8916a29b705d4477dbd02da980a26"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -2838,4 +2842,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "dd56c6f0b0a560bef162eb634b5bab116bdb4955e382fde703d70b4fa3f3505e"
+content-hash = "51e1d092fe5380ec33b13145a33caaa7d96d0592435f18af83a30aee41b545fe"
