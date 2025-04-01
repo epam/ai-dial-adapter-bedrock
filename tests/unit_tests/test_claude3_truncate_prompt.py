@@ -163,17 +163,14 @@ async def test_one_turn_overflow(mock_tokenize_text):
 
 async def test_multiple_system_messages(mock_tokenize_text):
     messages = [
-        sys("system1"),
-        sys("system2"),
-        user("user"),
+        sys("11"),
+        sys("22"),
+        user("33"),
     ]
 
-    with pytest.raises(ValidationError) as exc_info:
-        await compute_discarded_messages(messages, 3)
+    expected_tokens = (11 + 22) + (_PER_MESSAGE_TOKENS + 33)
 
-        assert exc_info.value.message == (
-            "System message is only allowed as the first message"
-        )
+    assert await tokenize(messages) == expected_tokens
 
 
 async def test_truncate_first_turn(mock_tokenize_text):

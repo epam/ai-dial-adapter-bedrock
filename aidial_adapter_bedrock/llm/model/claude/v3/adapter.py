@@ -140,11 +140,11 @@ def create_adapter(
 
 
 class ThinkingConfigEnabled(BaseModel):
-    budget_tokens: int
     type: Literal["enabled"]
+    budget_tokens: int
 
     def to_claude(self) -> ThinkingConfigParam:
-        return {"budget_tokens": self.budget_tokens, "type": "enabled"}
+        return {"type": "enabled", "budget_tokens": self.budget_tokens}
 
 
 class ThinkingConfigDisabled(BaseModel):

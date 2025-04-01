@@ -91,6 +91,10 @@ The models accept optional configuration with the following fields:
 * `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
 * `negative_prompt: str` - a prompt to be used for negative examples
 
+#### Prompt caching
+
+FIXME: describe how to enable prompt caching: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+
 #### Cross-region inference
 
 The adapter supports cross-region inference for US, EU and APAC regions for the listed models.

@@ -27,7 +27,7 @@ class ToolsMode(Enum):
 
 
 class ToolsConfig(BaseModel):
-    functions: List[Function]
+    functions: List[Function]  # FIXME: migrate to Tool
     """
     List of functions/tools.
     """
