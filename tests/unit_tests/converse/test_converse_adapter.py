@@ -4,7 +4,9 @@ from typing import Any, List
 import pytest
 from aidial_sdk.chat_completion.request import (
     Attachment,
+    CacheBreakpoint,
     CustomContent,
+    CustomMessageFields,
     Function,
     FunctionCall,
     ImageURL,
@@ -26,6 +28,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     DOCUMENT_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
+    CachePoint,
+    CachePointPart,
     ConverseDocumentPart,
     ConverseDocumentPartConfig,
     ConverseDocumentType,
@@ -335,6 +339,46 @@ TEST_CASES = [
             system=[
                 ConverseTextPart(text="You are a helpful assistant."),
                 ConverseTextPart(text="You are also very friendly."),
+            ],
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[ConverseTextPart(text="Hello!")],
+                        ),
+                        {1},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="system_messages_with_cache_breakpoint",
+        messages=[
+            Message(
+                role=Role.SYSTEM,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="You are a helpful assistant."
+                    ),
+                    MessageContentTextPart(
+                        type="text", text="You are also very friendly."
+                    ),
+                ],
+                custom_fields=CustomMessageFields(
+                    cache_breakpoint=CacheBreakpoint(expire_at="whatever")
+                ),
+            ),
+            Message(role=Role.USER, content="Hello!"),
+        ],
+        params=ModelParameters(tool_config=None),
+        expected_output=ConverseRequestWrapper(
+            inferenceConfig=default_inference_config,
+            system=[
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
+                CachePointPart(cachePoint=CachePoint(type="default")),
             ],
             messages=ListProjection(
                 list=[
