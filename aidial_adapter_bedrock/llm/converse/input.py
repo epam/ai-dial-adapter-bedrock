@@ -70,7 +70,8 @@ def to_converse_role(role: DialRole) -> ConverseRole:
 
 def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
     tools: list[ConverseToolSpec] = []
-    for function in tools_config.functions:
+    for tool in tools_config.tools:
+        function = tool.function
         tools.append(
             {
                 "toolSpec": {
@@ -84,9 +85,9 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    match (tools_config.required, tools_config.functions):
-        case (True, [func]):
-            tool_choice = {"tool": {"name": func.name}}
+    match (tools_config.required, tools_config.tools):
+        case (True, [tool]):
+            tool_choice = {"tool": {"name": tool.function.name}}
         case (True, _):
             tool_choice = {"any": {}}
         case (False, _):

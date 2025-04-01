@@ -209,15 +209,12 @@ class Adapter(ChatCompletionAdapter):
         tools = NOT_GIVEN
         tool_choice: ToolChoice | NotGiven = NOT_GIVEN
         if (tool_config := params.tool_config) is not None:
-            tools = [
-                to_claude_tool_config(tool_function)
-                for tool_function in tool_config.functions
-            ]
+            tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
-            match (tool_config.required, tool_config.functions):
-                case (True, [func]):
+            match (tool_config.required, tool_config.tools):
+                case (True, [tool]):
                     tool_choice = ToolChoiceToolParam(
-                        type="tool", name=func.name
+                        type="tool", name=tool.function.name
                     )
                 case (True, _):
                     tool_choice = ToolChoiceAnyParam(type="any")

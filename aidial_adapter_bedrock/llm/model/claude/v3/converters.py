@@ -13,9 +13,9 @@ from typing import (
 
 from aidial_sdk.chat_completion import (
     FinishReason,
-    Function,
     MessageContentImagePart,
     MessageContentTextPart,
+    Tool,
     ToolCall,
 )
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
@@ -354,12 +354,13 @@ def to_dial_finish_reason(
             assert_never(finish_reason)
 
 
-def to_claude_tool_config(function_call: Function) -> ToolParam:
+def to_claude_tool_config(tool: Tool) -> ToolParam:
+    function = tool.function
     return ToolParam(
-        input_schema=function_call.parameters
+        input_schema=function.parameters
         or {"type": "object", "properties": {}},
-        name=function_call.name,
-        description=function_call.description or "",
+        name=function.name,
+        description=function.description or "",
     )
 
 

@@ -12,6 +12,7 @@ from aidial_sdk.chat_completion.request import (
     MessageContentImagePart,
     MessageContentTextPart,
     Role,
+    Tool,
     ToolCall,
 )
 
@@ -400,11 +401,14 @@ TEST_CASES = [
         ],
         params=ModelParameters(
             tool_config=ToolsConfig(
-                functions=[
-                    Function(
-                        name="get_weather",
-                        description="Get the weather",
-                        parameters={"type": "object", "properties": {}},
+                tools=[
+                    Tool(
+                        type="function",
+                        function=Function(
+                            name="get_weather",
+                            description="Get the weather",
+                            parameters={"type": "object", "properties": {}},
+                        ),
                     )
                 ],
                 required=True,

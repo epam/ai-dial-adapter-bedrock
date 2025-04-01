@@ -68,7 +68,7 @@ class Claude2_1_ToolsEmulator(ToolsEmulator):
     @property
     def _tool_declarations(self) -> Optional[str]:
         return self.tool_config and print_tool_declarations(
-            self.tool_config.functions
+            self.tool_config.tools
         )
 
     def add_tool_declarations(

@@ -1,6 +1,6 @@
 import json
 
-from aidial_sdk.chat_completion import Function, FunctionCall
+from aidial_sdk.chat_completion import Function, FunctionCall, Tool
 
 from aidial_adapter_bedrock.llm.tools.claude_protocol import (
     _parse_function_call,
@@ -8,6 +8,11 @@ from aidial_adapter_bedrock.llm.tools.claude_protocol import (
     print_tool_declarations,
 )
 from aidial_adapter_bedrock.utils.xml import parse_xml
+
+
+def function_to_tool(function: Function) -> Tool:
+    return Tool(type="function", function=function)
+
 
 TOOL_ARITY_2 = Function(
     name="func_arity_2",
@@ -84,7 +89,12 @@ FUNCTION_CALL_STR = """
 def test_print_tool_decls():
     assert (
         print_tool_declarations(
-            [TOOL_ARITY_2, TOOL_ARITY_0, TOOL_ENUM_PARAM, TOOL_ARRAY_PARAM]
+            [
+                function_to_tool(TOOL_ARITY_2),
+                function_to_tool(TOOL_ARITY_0),
+                function_to_tool(TOOL_ENUM_PARAM),
+                function_to_tool(TOOL_ARRAY_PARAM),
+            ]
         )
         == """
 <tools>

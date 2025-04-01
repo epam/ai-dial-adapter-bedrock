@@ -20,14 +20,14 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 
 class ToolsMode(Enum):
     TOOLS = "TOOLS"
-    """
-    Functions are deprecated instrument, that came before tools
-    """
     FUNCTIONS = "FUNCTIONS"
+    """
+    Functions are deprecated instrument that came before tools
+    """
 
 
 class ToolsConfig(BaseModel):
-    functions: List[Function]  # FIXME: migrate to Tool
+    tools: List[Tool]
     """
     List of functions/tools.
     """
@@ -53,7 +53,7 @@ class ToolsConfig(BaseModel):
             return ToolsMode.FUNCTIONS
 
     def not_supported(self) -> None:
-        if self.functions:
+        if self.tools:
             if self.tools_mode == ToolsMode.TOOLS:
                 raise ValidationError("The tools aren't supported")
             else:
@@ -81,83 +81,84 @@ class ToolsConfig(BaseModel):
         return tool_name
 
     @staticmethod
-    def filter_functions(
-        function_call: Literal["auto", "none", "required"] | FunctionChoice,
-        functions: List[Function],
-    ) -> Tuple[bool, List[Function]]:
-        match function_call:
+    def filter_tools(
+        tool_choice: Literal["auto", "none", "required"] | ToolChoice,
+        tools: List[Tool],
+    ) -> Tuple[bool, List[Tool]]:
+        match tool_choice:
             case "none":
                 return False, []
             case "auto":
-                return False, functions
+                return False, tools
             case "required":
-                return True, functions
-            case FunctionChoice(name=name):
-                new_functions = [
-                    func for func in functions if func.name == name
-                ]
-                if not new_functions:
-                    raise ValidationError(
-                        f"Function {name!r} is not on the list of available functions"
-                    )
-                return True, new_functions
-            case _:
-                assert_never(function_call)
-
-    @staticmethod
-    def tool_choice_to_function_call(
-        tool_choice: Literal["auto", "none", "required"] | ToolChoice | None,
-    ) -> Literal["auto", "none", "required"] | FunctionChoice | None:
-        match tool_choice:
+                return True, tools
             case ToolChoice(function=FunctionChoice(name=name)):
-                return FunctionChoice(name=name)
+                new_tools = [
+                    tool for tool in tools if tool.function.name == name
+                ]
+                if not new_tools:
+                    raise ValidationError(
+                        f"Tool {name!r} is not on the list of available tools"
+                    )
+                return True, new_tools
             case _:
-                return tool_choice
+                assert_never(tool_choice)
 
     @staticmethod
-    def _get_function_from_tool(tool: Tool | StaticTool) -> Function:
-        if isinstance(tool, Tool):
-            return tool.function
-        elif isinstance(tool, StaticTool):
+    def _function_call_to_tool_choice(
+        function_call: Literal["auto", "none"] | FunctionChoice | None,
+    ) -> Literal["auto", "none", "required"] | ToolChoice | None:
+        match function_call:
+            case FunctionChoice():
+                return ToolChoice(type="function", function=function_call)
+            case _:
+                return function_call
+
+    @staticmethod
+    def _get_tool_from_function(tool: Function | Tool | StaticTool) -> Tool:
+        if isinstance(tool, StaticTool):
             raise ValidationError("Static tools aren't supported")
+        if isinstance(tool, Function):
+            return Tool(type="function", function=tool)
         else:
-            assert_never(tool)
+            return tool
 
     @classmethod
     def from_request(cls, request: AzureChatCompletionRequest) -> Self | None:
         validate_messages(request)
 
         if request.functions is not None:
-            functions = request.functions
-            function_call = request.function_call
+            tools = [
+                ToolsConfig._get_tool_from_function(tool)
+                for tool in request.functions
+            ]
+            tool_call = ToolsConfig._function_call_to_tool_choice(
+                request.function_call
+            )
             tool_ids = None
 
         elif request.tools is not None:
-            functions = [
-                ToolsConfig._get_function_from_tool(tool)
+            tools = [
+                ToolsConfig._get_tool_from_function(tool)
                 for tool in request.tools
             ]
-            function_call = ToolsConfig.tool_choice_to_function_call(
-                request.tool_choice
-            )
-            tool_ids = collect_tool_ids(request.messages)
+            tool_call = request.tool_choice
+            tool_ids = _collect_tool_ids(request.messages)
 
         else:
-            functions = []
-            function_call = None
+            tools = []
+            tool_call = None
             tool_ids = None
 
-        if function_call is None:
-            function_call = "auto" if functions else "none"
+        if tool_call is None:
+            tool_call = "auto" if tools else "none"
 
-        required, selected = ToolsConfig.filter_functions(
-            function_call, functions
-        )
+        required, selected = ToolsConfig.filter_tools(tool_call, tools)
 
         if selected == []:
             return None
 
-        return cls(functions=selected, required=required, tool_ids=tool_ids)
+        return cls(tools=selected, required=required, tool_ids=tool_ids)
 
 
 def validate_messages(request: AzureChatCompletionRequest) -> None:
@@ -192,7 +193,7 @@ def validate_messages(request: AzureChatCompletionRequest) -> None:
                 )
 
 
-def collect_tool_ids(messages: List[Message]) -> Dict[str, str]:
+def _collect_tool_ids(messages: List[Message]) -> Dict[str, str]:
     ret: Dict[str, str] = {}
 
     for message in messages:
