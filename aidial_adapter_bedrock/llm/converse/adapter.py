@@ -142,10 +142,11 @@ class ConverseAdapter(ChatCompletionAdapter):
                         "temperature": params.temperature,
                         "topP": params.top_p,
                         "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop,
+                        "stopSequences": params.stop or None,
                     }
                 )
-            ),
+            )
+            or None,
             toolConfig=self.get_tool_config(params),
         )
 
