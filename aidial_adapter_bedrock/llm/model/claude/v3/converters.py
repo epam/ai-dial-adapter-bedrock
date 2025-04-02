@@ -32,6 +32,7 @@ from anthropic.types.beta import (
     BetaToolResultBlockParam as ToolResultBlockParam,
 )
 from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
+from anthropic.types.beta import BetaUsage as Usage
 from anthropic.types.beta.beta_image_block_param import Source
 from pydantic import BaseModel
 from pydantic import ValidationError as PydValidationError
@@ -43,6 +44,7 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
@@ -364,6 +366,17 @@ def to_dial_finish_reason(
 
         case _:
             assert_never(finish_reason)
+
+
+def to_dial_usage(usage: Usage) -> TokenUsage:
+    read = usage.cache_creation_input_tokens or 0
+    write = usage.cache_read_input_tokens or 0
+    return TokenUsage(
+        completion_tokens=usage.output_tokens,
+        prompt_tokens=usage.input_tokens + read + write,
+        cache_write_input_tokens=read,
+        cache_read_input_tokens=write,
+    )
 
 
 def to_claude_tool_config(tool: Tool) -> ToolParam:

@@ -61,7 +61,6 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
 )
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     default_preprocess_messages,
@@ -81,6 +80,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
+    to_dial_usage,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
@@ -363,7 +363,6 @@ class Adapter(ChatCompletionAdapter):
             ) as stream,
             consumer.create_stage("Thinking") as thinking_stage,
         ):
-            dial_usage = TokenUsage()
             stop_reason = None
 
             async for event in stream:
@@ -371,22 +370,14 @@ class Adapter(ChatCompletionAdapter):
                     log.debug(f"response event: {json_dumps_short(event)}")
 
                 match event:
-                    case MessageStartEvent(message=message):
-                        dial_usage.prompt_tokens += message.usage.input_tokens
-                        dial_usage.cache_write_input_tokens += (
-                            message.usage.cache_creation_input_tokens or 0
-                        )
-                        dial_usage.cache_read_input_tokens += (
-                            message.usage.cache_read_input_tokens or 0
-                        )
+                    case MessageStartEvent():
+                        pass
                     case TextEvent(text=text):
                         consumer.append_content(text)
                     case ThinkingEvent(thinking=thinking):
                         thinking_stage.append_content(thinking)
-                    case SignatureEvent():
+                    case SignatureEvent() | MessageDeltaEvent():
                         pass
-                    case MessageDeltaEvent(usage=usage):
-                        dial_usage.completion_tokens += usage.output_tokens
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
                             case ToolUseBlock():
@@ -403,6 +394,7 @@ class Adapter(ChatCompletionAdapter):
                             case _:
                                 assert_never(content_block)
                     case MessageStopEvent(message=message):
+                        consumer.add_usage(to_dial_usage(message.usage))
                         stop_reason = message.stop_reason
                         if self.supports_thinking:
                             consumer.choice.set_state(
@@ -425,8 +417,6 @@ class Adapter(ChatCompletionAdapter):
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
             )
-
-            consumer.add_usage(dial_usage)
 
             consumer.set_discarded_messages(discarded_messages)
 
@@ -477,16 +467,7 @@ class Adapter(ChatCompletionAdapter):
             to_dial_finish_reason(message.stop_reason, tools_mode)
         )
 
-        usage = message.usage
-        dial_usage = TokenUsage(
-            prompt_tokens=usage.input_tokens,
-            completion_tokens=usage.output_tokens,
-            cache_read_input_tokens=usage.cache_read_input_tokens or 0,
-            cache_write_input_tokens=usage.cache_creation_input_tokens or 0,
-        )
-
-        consumer.add_usage(dial_usage)
-
+        consumer.add_usage(to_dial_usage(message.usage))
         consumer.set_discarded_messages(discarded_messages)
 
     @classmethod

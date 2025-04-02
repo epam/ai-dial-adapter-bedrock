@@ -32,12 +32,13 @@ def to_dial_finish_reason(
 def to_dial_usage(
     converse_usage: Dict[str, Any],
 ) -> TokenUsage:
+    write = converse_usage.get("cacheWriteInputTokens") or 0
+    read = converse_usage.get("cacheReadInputTokens") or 0
     return TokenUsage(
-        prompt_tokens=converse_usage.get("inputTokens") or 0,
+        prompt_tokens=(converse_usage.get("inputTokens") or 0) + read + write,
         completion_tokens=converse_usage.get("outputTokens") or 0,
-        cache_read_input_tokens=converse_usage.get("cacheReadInputTokens") or 0,
-        cache_write_input_tokens=converse_usage.get("cacheWriteInputTokens")
-        or 0,
+        cache_read_input_tokens=read,
+        cache_write_input_tokens=write,
     )
 
 
