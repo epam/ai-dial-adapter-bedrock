@@ -93,7 +93,97 @@ The models accept optional configuration with the following fields:
 
 #### Prompt caching
 
-FIXME: describe how to enable prompt caching: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+Certain chat completion models support prompt caching via cache breakpoint inserted in tool definitions or request messages.
+
+The adapter supports cache breakpoint for models based on Converse API and Claude 3 model.
+
+<details><summary>System cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Long system prompt",
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Message cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Tools cache breakpoint</summary>
+
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_weather",
+      "description": "Get current temperature for a given location.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City and country e.g. Bogotá, Colombia"
+          }
+        },
+        "required": [
+          "location"
+        ]
+      },
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+> [!NOTE]
+> Not every model supports prompt caching. Refer to the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models) before utilizing any cache breakpoints.
 
 #### Cross-region inference
 
