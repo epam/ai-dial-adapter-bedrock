@@ -363,8 +363,7 @@ class Adapter(ChatCompletionAdapter):
             ) as stream,
             consumer.create_stage("Thinking") as thinking_stage,
         ):
-            prompt_tokens = 0
-            completion_tokens = 0
+            dial_usage = TokenUsage()
             stop_reason = None
 
             async for event in stream:
@@ -373,7 +372,13 @@ class Adapter(ChatCompletionAdapter):
 
                 match event:
                     case MessageStartEvent(message=message):
-                        prompt_tokens += message.usage.input_tokens
+                        dial_usage.prompt_tokens += message.usage.input_tokens
+                        dial_usage.cache_write_input_tokens += (
+                            message.usage.cache_creation_input_tokens or 0
+                        )
+                        dial_usage.cache_read_input_tokens += (
+                            message.usage.cache_read_input_tokens or 0
+                        )
                     case TextEvent(text=text):
                         consumer.append_content(text)
                     case ThinkingEvent(thinking=thinking):
@@ -381,7 +386,7 @@ class Adapter(ChatCompletionAdapter):
                     case SignatureEvent():
                         pass
                     case MessageDeltaEvent(usage=usage):
-                        completion_tokens += usage.output_tokens
+                        dial_usage.completion_tokens += usage.output_tokens
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
                             case ToolUseBlock():
@@ -421,12 +426,7 @@ class Adapter(ChatCompletionAdapter):
                 to_dial_finish_reason(stop_reason, tools_mode)
             )
 
-            consumer.add_usage(
-                TokenUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                )
-            )
+            consumer.add_usage(dial_usage)
 
             consumer.set_discarded_messages(discarded_messages)
 
@@ -477,12 +477,15 @@ class Adapter(ChatCompletionAdapter):
             to_dial_finish_reason(message.stop_reason, tools_mode)
         )
 
-        consumer.add_usage(
-            TokenUsage(
-                prompt_tokens=message.usage.input_tokens,
-                completion_tokens=message.usage.output_tokens,
-            )
+        usage = message.usage
+        dial_usage = TokenUsage(
+            prompt_tokens=usage.input_tokens,
+            completion_tokens=usage.output_tokens,
+            cache_read_input_tokens=usage.cache_read_input_tokens or 0,
+            cache_write_input_tokens=usage.cache_creation_input_tokens or 0,
         )
+
+        consumer.add_usage(dial_usage)
 
         consumer.set_discarded_messages(discarded_messages)
 

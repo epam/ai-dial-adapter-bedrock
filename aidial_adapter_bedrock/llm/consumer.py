@@ -113,8 +113,11 @@ class ChoiceConsumer(Consumer):
         if self._root is None:
             if self.usage is not None:
                 self.response.set_usage(
-                    self.usage.prompt_tokens,
-                    self.usage.completion_tokens,
+                    prompt_tokens=self.usage.prompt_tokens,
+                    completion_tokens=self.usage.completion_tokens,
+                    prompt_tokens_details={
+                        "cached_tokens": self.usage.cache_read_input_tokens
+                    },
                 )
 
             if self.discarded_messages is not None:

@@ -29,6 +29,18 @@ def to_dial_finish_reason(
     return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
+def to_dial_usage(
+    converse_usage: Dict[str, Any],
+) -> TokenUsage:
+    return TokenUsage(
+        prompt_tokens=converse_usage.get("inputTokens") or 0,
+        completion_tokens=converse_usage.get("outputTokens") or 0,
+        cache_read_input_tokens=converse_usage.get("cacheReadInputTokens") or 0,
+        cache_write_input_tokens=converse_usage.get("cacheWriteInputTokens")
+        or 0,
+    )
+
+
 async def process_streaming(
     params: ModelParameters,
     stream: AsyncIterator[Any],
@@ -45,12 +57,7 @@ async def process_streaming(
         if (metadata := event.get("metadata")) and (
             usage := metadata.get("usage")
         ):
-            consumer.add_usage(
-                TokenUsage(
-                    prompt_tokens=usage.get("inputTokens") or 0,
-                    completion_tokens=usage.get("outputTokens") or 0,
-                )
-            )
+            consumer.add_usage(to_dial_usage(usage))
 
         if (content_block_start := event.get("contentBlockStart")) and (
             tool_use := content_block_start.get("start", {}).get("toolUse")
@@ -172,12 +179,7 @@ def process_non_streaming(
     thinking_stage.close()
 
     if usage := response.get("usage"):
-        consumer.add_usage(
-            TokenUsage(
-                prompt_tokens=usage.get("inputTokens", 0),
-                completion_tokens=usage.get("outputTokens", 0),
-            )
-        )
+        consumer.add_usage(to_dial_usage(usage))
 
     if stop_reason := response.get("stopReason"):
         consumer.close_content(to_dial_finish_reason(stop_reason))
