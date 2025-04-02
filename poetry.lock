@@ -35,7 +35,7 @@ telemetry = ["opentelemetry-api (>=1.22.0,<2.0.0)", "opentelemetry-exporter-otlp
 type = "git"
 url = "https://github.com/epam/ai-dial-sdk.git"
 reference = "feat/add-headers-to-response"
-resolved_reference = "28f6bd3f3ef8916a29b705d4477dbd02da980a26"
+resolved_reference = "4ac49012264be346cdd0fdc8c9414828b06b091f"
 
 [[package]]
 name = "aiohappyeyeballs"

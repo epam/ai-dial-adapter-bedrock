@@ -5,13 +5,13 @@ from aidial_sdk.chat_completion import (
     Attachment,
     CacheBreakpoint,
     CustomContent,
-    CustomMessageFields,
     FunctionCall,
 )
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
     MessageContentPart,
     MessageContentTextPart,
+    MessageCustomFields,
     Role,
     ToolCall,
 )
@@ -29,6 +29,12 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 
 class MessageABC(ABC, BaseModel):
     cache_breakpoint: CacheBreakpoint | None = None
+
+    @property
+    def custom_fields(self) -> MessageCustomFields | None:
+        if self.cache_breakpoint:
+            return MessageCustomFields(cache_breakpoint=self.cache_breakpoint)
+        return None
 
     @abstractmethod
     def to_message(self) -> DialMessage: ...
@@ -58,9 +64,7 @@ class SystemMessage(BaseMessageABC):
         return DialMessage(
             role=Role.DEVELOPER if self.is_developer else Role.SYSTEM,
             content=to_message_content(self.content),
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -95,9 +99,7 @@ class HumanRegularMessage(BaseMessageABC):
             role=Role.USER,
             content=self.content,
             custom_content=self.custom_content,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -137,9 +139,7 @@ class HumanToolResultMessage(MessageABC):
             role=Role.TOOL,
             tool_call_id=self.id,
             content=self.content,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -173,9 +173,7 @@ class HumanFunctionResultMessage(MessageABC):
             role=Role.FUNCTION,
             name=self.name,
             content=self.content,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -209,9 +207,7 @@ class AIRegularMessage(BaseMessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             custom_content=self.custom_content,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -258,9 +254,7 @@ class AIToolCallMessage(MessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             tool_calls=self.calls,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -292,9 +286,7 @@ class AIFunctionCallMessage(MessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             function_call=self.call,
-            custom_fields=CustomMessageFields(
-                cache_breakpoint=self.cache_breakpoint
-            ),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod

@@ -6,17 +6,17 @@ from aidial_sdk.chat_completion.request import (
     Attachment,
     CacheBreakpoint,
     CustomContent,
-    CustomMessageFields,
-    CustomToolFields,
     Function,
     FunctionCall,
     ImageURL,
     Message,
     MessageContentImagePart,
     MessageContentTextPart,
+    MessageCustomFields,
     Role,
     Tool,
     ToolCall,
+    ToolCustomFields,
 )
 
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -77,10 +77,10 @@ class UndefinedValue(str):
 
 UNDEFINED = UndefinedValue()
 
-DIAL_MESSAGE_CACHE_POINT = CustomMessageFields(
+DIAL_MESSAGE_CACHE_POINT = MessageCustomFields(
     cache_breakpoint=CacheBreakpoint(expire_at=None)
 )
-DIAL_TOOL_CACHE_POINT = CustomToolFields(
+DIAL_TOOL_CACHE_POINT = ToolCustomFields(
     cache_breakpoint=CacheBreakpoint(expire_at=None)
 )
 
