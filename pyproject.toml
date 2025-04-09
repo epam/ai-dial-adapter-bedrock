@@ -66,7 +66,7 @@ typeCheckingMode = "basic"
 reportDeprecated = "error"
 reportUnusedVariable = "error"
 reportIncompatibleMethodOverride = "error"
-exclude = [".git", ".venv", ".nox", "**/__pycache__"]
+exclude = [".git", ".venv", ".nox", "**/__pycache__", "allure-results"]
 
 [tool.black]
 line-length = 80
@@ -76,6 +76,7 @@ exclude = '''
   | \.venv
   | \.nox
   | \.__pycache__
+  | allure-results
 )/
 '''
 
@@ -89,4 +90,4 @@ remove_all_unused_imports = true
 in_place = true
 recursive = true
 quiet = true
-exclude = ["\\.venv", "\\.nox"]
+exclude = ["\\.venv", "\\.nox", "allure-results"]
