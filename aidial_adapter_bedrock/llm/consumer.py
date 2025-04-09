@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import ContextManager, Optional
+from typing import ContextManager, Optional, Protocol, Self
 
 from aidial_sdk.chat_completion import (
     Attachment,
@@ -16,6 +16,10 @@ from aidial_sdk.chat_completion import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.lazy_stage import LazyStage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
+
+
+class ToolUseMessage(Protocol):
+    def append_arguments(self, arguments: str) -> Self: ...
 
 
 class Consumer(ContextManager, ABC):
@@ -47,10 +51,10 @@ class Consumer(ContextManager, ABC):
     def get_discarded_messages(self) -> Optional[DiscardedMessages]: ...
 
     @abstractmethod
-    def create_function_tool_call(self, call: ToolCall): ...
+    def create_function_tool_call(self, call: ToolCall) -> ToolUseMessage: ...
 
     @abstractmethod
-    def create_function_call(self, call: FunctionCall): ...
+    def create_function_call(self, call: FunctionCall) -> ToolUseMessage: ...
 
     @property
     @abstractmethod
@@ -153,15 +157,15 @@ class ChoiceConsumer(Consumer):
         else:
             return self.discarded_messages
 
-    def create_function_tool_call(self, call: ToolCall):
-        self.choice.create_function_tool_call(
+    def create_function_tool_call(self, call: ToolCall) -> ToolUseMessage:
+        return self.choice.create_function_tool_call(
             id=call.id,
             name=call.function.name,
             arguments=call.function.arguments,
         )
 
-    def create_function_call(self, call: FunctionCall):
-        self.choice.create_function_call(
+    def create_function_call(self, call: FunctionCall) -> ToolUseMessage:
+        return self.choice.create_function_call(
             name=call.name,
             arguments=call.arguments,
         )
@@ -215,11 +219,11 @@ class ConsumerDecorator(Consumer):
     def get_discarded_messages(self) -> Optional[DiscardedMessages]:
         return self.consumer.get_discarded_messages()
 
-    def create_function_tool_call(self, call: ToolCall):
-        self.consumer.create_function_tool_call(call)
+    def create_function_tool_call(self, call: ToolCall) -> ToolUseMessage:
+        return self.consumer.create_function_tool_call(call)
 
-    def create_function_call(self, call: FunctionCall):
-        self.consumer.create_function_call(call)
+    def create_function_call(self, call: FunctionCall) -> ToolUseMessage:
+        return self.consumer.create_function_call(call)
 
     @property
     def has_function_call(self) -> bool:
