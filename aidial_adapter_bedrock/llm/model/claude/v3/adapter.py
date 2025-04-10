@@ -390,7 +390,7 @@ class Adapter(ChatCompletionAdapter):
 
                     case ContentBlockStartEvent(content_block=content_block):
                         if isinstance(content_block, ToolUseBlock):
-                            tool = tool or process_tools_block(
+                            tool = process_tools_block(
                                 consumer,
                                 content_block,
                                 tools_mode,
