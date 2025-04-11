@@ -45,6 +45,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|❌|
 |AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|❌|
 |AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|❌|
+|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
+|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
 |Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|
 |Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|
 

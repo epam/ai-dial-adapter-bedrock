@@ -148,6 +148,8 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
     ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
+    ChatCompletionDeployment.COHERE_COMMAND_R_V1: _WEST,
+    ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1: _WEST,
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
@@ -181,6 +183,8 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
         # ChatCompletionDeployment.DEEPSEEK_R1_V2,
+        ChatCompletionDeployment.COHERE_COMMAND_R_V1,
+        ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1,
     ]
 
 
@@ -222,6 +226,13 @@ def is_cohere(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14,
         ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
+    ]
+
+
+def is_cohere_command_plus(deployment: ChatCompletionDeployment) -> bool:
+    return deployment in [
+        ChatCompletionDeployment.COHERE_COMMAND_R_V1,
+        ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1,
     ]
 
 
@@ -438,7 +449,7 @@ def get_test_cases(
                 status_code=400,
             )
         )
-    elif is_deepseek(origin):
+    elif is_deepseek(origin) or is_cohere_command_plus(origin):
         expected_whitespace_message = expected_empty_message = (
             ExpectedException(
                 type=BadRequestError,

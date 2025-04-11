@@ -116,6 +116,14 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
+            ChatCompletionDeployment.COHERE_COMMAND_R_V1
+            | ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
+                supported_document_types=ConverseDocumentType.all(),
+            )
+        case (
             ChatCompletionDeployment.AMAZON_NOVA_MICRO
             | ChatCompletionDeployment.AMAZON_NOVA_PRO
             | ChatCompletionDeployment.AMAZON_NOVA_LITE
