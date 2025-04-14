@@ -36,6 +36,7 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
 
     STABILITY_STABLE_IMAGE_CORE_V1 = "stability.stable-image-core-v1:0"
     STABILITY_STABLE_DIFFUSION_3_LARGE_V1 = "stability.sd3-large-v1:0"
+    STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1 = "stability.sd3-5-large-v1:0"
     STABILITY_STABLE_IMAGE_ULTRA_V1 = "stability.stable-image-ultra-v1:0"
 
     META_LLAMA3_8B_INSTRUCT_V1 = "meta.llama3-8b-instruct-v1:0"

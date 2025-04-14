@@ -29,10 +29,8 @@ TEXT_TO_IMAGE_ONLY_MODELS = [
 ]
 
 IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
-    (
-        ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
-        _WEST,
-    ),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1, _WEST),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, _WEST),
 ]
 VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US
 

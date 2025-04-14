@@ -97,6 +97,7 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1
+            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1
         ):
             adapter = StabilityV2Adapter.create(
                 await Bedrock.acreate(aws_client_config),
