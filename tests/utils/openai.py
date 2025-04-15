@@ -348,8 +348,11 @@ def is_valid_tool_call(
     expected_name: str,
     expected_args: dict,
 ) -> bool:
-    assert calls is not None
+    assert calls is not None, "Tool calls are missing"
 
+    assert tool_call_idx < len(
+        calls
+    ), f"Tool call #{tool_call_idx+1} is missing. Generated {len(calls)} tool call(s)."
     call = calls[tool_call_idx]
 
     function = call.function

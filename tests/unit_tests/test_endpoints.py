@@ -44,6 +44,8 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.META_LLAMA3_2_90B_INSTRUCT_V1, True, True, False),
     (D.COHERE_COMMAND_TEXT_V14, True, True, False),
     (D.COHERE_COMMAND_LIGHT_TEXT_V14, True, True, False),
+    (D.COHERE_COMMAND_R_V1, True, True, False),
+    (D.COHERE_COMMAND_R_PLUS_V1, True, True, False),
     (D.DEEPSEEK_R1_V2_US, True, True, False),
 ]
 

@@ -43,6 +43,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|❌|
 |AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|❌|
 |AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|❌|
+|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
+|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
 |Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|
 |Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|
 
