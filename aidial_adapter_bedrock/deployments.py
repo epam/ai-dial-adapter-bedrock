@@ -51,6 +51,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
+    COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
+    COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 
     DEEPSEEK_R1_V2_US = "us.deepseek.r1-v1:0"
 
