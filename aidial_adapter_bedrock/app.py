@@ -6,14 +6,8 @@ from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.embeddings import BedrockEmbeddings
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.utils.env import (
-    get_aws_default_region,
-    get_str_dict,
-)
+from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import configure_loggers
-
-AWS_DEFAULT_REGION = get_aws_default_region()
-
 
 app = DIALApp(
     description="AWS Bedrock adapter for DIAL API",
