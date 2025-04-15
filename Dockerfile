@@ -1,4 +1,4 @@
-FROM python:3.11-alpine as builder
+FROM python:3.11-alpine AS builder
 
 RUN apk update && apk upgrade --no-cache libcrypto3 libssl3
 RUN apk add --no-cache alpine-sdk linux-headers
@@ -14,7 +14,7 @@ RUN poetry install --no-interaction --no-ansi --no-cache --no-root --no-director
 COPY . .
 RUN poetry install --no-interaction --no-ansi --no-cache --only main
 
-FROM python:3.11-alpine as server
+FROM python:3.11-alpine AS server
 
 RUN apk update && apk upgrade --no-cache libcrypto3 libssl3
 # fix CVE-2023-52425
