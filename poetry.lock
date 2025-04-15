@@ -2,13 +2,13 @@
 
 [[package]]
 name = "aidial-sdk"
-version = "0.20.0"
+version = "0.21.0"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "aidial_sdk-0.20.0-py3-none-any.whl", hash = "sha256:9fe9715a994b3f486a2b93d6c3545d01f486eb11dc5e4cb53cf2f7683c606372"},
-    {file = "aidial_sdk-0.20.0.tar.gz", hash = "sha256:8bb7a065d9f25d9bf68b78279a02a63252a5688cb8f2887cc9c5d2c92d1b02f4"},
+    {file = "aidial_sdk-0.21.0-py3-none-any.whl", hash = "sha256:880adfc46c16196556b28d6f82589281aac79527f4beabfdbc0e11e00b932eb7"},
+    {file = "aidial_sdk-0.21.0.tar.gz", hash = "sha256:6b658ba5143584a8f6e677efd455adfea1093cf2446e35e9fc3ae29255a8128c"},
 ]
 
 [package.dependencies]
@@ -25,7 +25,7 @@ opentelemetry-instrumentation-system-metrics = {version = ">=0.43b0", optional =
 opentelemetry-instrumentation-urllib = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
 opentelemetry-sdk = {version = ">=1.22.0,<2.0.0", optional = true, markers = "extra == \"telemetry\""}
 prometheus-client = {version = ">=0.17.1,<=0.21", optional = true, markers = "extra == \"telemetry\""}
-pydantic = ">=1.10,<3"
+pydantic = ">=1.10.17,<3"
 uvicorn = ">=0.19,<1.0"
 wrapt = ">=1.10,<2"
 
@@ -2838,4 +2838,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11,<4.0"
-content-hash = "dd56c6f0b0a560bef162eb634b5bab116bdb4955e382fde703d70b4fa3f3505e"
+content-hash = "7d9f5472e4cbed66b0388b75edcd1e7a76b925c44722db6c2d3f246810e1aa73"
