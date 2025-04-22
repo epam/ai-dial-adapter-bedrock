@@ -15,6 +15,8 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.AI21_J2_JUMBO_INSTRUCT, True, True, False),
     (D.AI21_J2_MID_V1, True, True, False),
     (D.AI21_J2_ULTRA_V1, True, True, False),
+    (D.AI21_JAMBA_1_5_LARGE_V1, True, True, False),
+    (D.AI21_JAMBA_1_5_MINI_V1, True, True, False),
     (D.ANTHROPIC_CLAUDE_INSTANT_V1, True, True, False),
     (D.ANTHROPIC_CLAUDE_V2, True, True, False),
     (D.ANTHROPIC_CLAUDE_V2_1, True, True, False),

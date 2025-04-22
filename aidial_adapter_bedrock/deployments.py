@@ -16,6 +16,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
     AI21_J2_MID_V1 = "ai21.j2-mid-v1"
     AI21_J2_ULTRA_V1 = "ai21.j2-ultra-v1"
+    AI21_JAMBA_1_5_LARGE_V1 = "ai21.jamba-1-5-large-v1:0"
+    AI21_JAMBA_1_5_MINI_V1 = "ai21.jamba-1-5-mini-v1:0"
 
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"

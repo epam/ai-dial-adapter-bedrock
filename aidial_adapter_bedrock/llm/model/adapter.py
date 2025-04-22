@@ -87,6 +87,14 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
+            ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1
+            | ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.NON_STREAMING_ONLY,
+                supported_document_types=ConverseDocumentType.all(),
+            )
+        case (
             ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
