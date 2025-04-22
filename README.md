@@ -42,10 +42,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
 |Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|
 |Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|❌|
-|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|❌|
-|AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|❌|
-|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|❌|
-|AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|❌|
+|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|❌|
+|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|❌|
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|
 |Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|

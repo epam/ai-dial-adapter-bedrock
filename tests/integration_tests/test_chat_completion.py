@@ -120,6 +120,8 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
     ChatCompletionDeployment.AI21_J2_MID_V1: _EAST_1,
     ChatCompletionDeployment.AI21_J2_ULTRA_V1: _EAST_1,
+    ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
+    ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
@@ -183,6 +185,9 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
         # ChatCompletionDeployment.DEEPSEEK_R1_V2,
+        ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
+        # Mini is very bad with tools
+        # ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
         ChatCompletionDeployment.COHERE_COMMAND_R_V1,
         ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1,
     ]
@@ -201,6 +206,8 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
+            ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
+            ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
@@ -272,6 +279,8 @@ def is_ai21(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
         ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
+        ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
+        ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
     ]
 
 
@@ -449,7 +458,9 @@ def get_test_cases(
                 status_code=400,
             )
         )
-    elif is_deepseek(origin) or is_cohere_command_plus(origin):
+    elif (
+        is_deepseek(origin) or is_ai21(origin) or is_cohere_command_plus(origin)
+    ):
         expected_whitespace_message = expected_empty_message = (
             ExpectedException(
                 type=BadRequestError,
@@ -498,15 +509,9 @@ def get_test_cases(
         and s.finish_reasons == ["length"],
     )
 
-    # ai21 models do not support more than one stop word
-    if is_ai21(origin):
-        stop = ["John"]
-    else:
-        stop = ["John", "john"]
-
     test_case(
         name="stop sequence",
-        stop=stop,
+        stop=["John", "john"],
         messages=[user('Reply with "John"')],
         expected=lambda s: "John" not in s.content.lower(),
     )
