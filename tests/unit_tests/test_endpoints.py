@@ -30,6 +30,7 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.STABILITY_STABLE_DIFFUSION_XL, False, True, False),
     (D.STABILITY_STABLE_DIFFUSION_XL_V1, False, True, False),
     (D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1, False, True, True),
+    (D.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, False, True, True),
     (D.STABILITY_STABLE_IMAGE_ULTRA_V1, False, True, True),
     (D.STABILITY_STABLE_IMAGE_CORE_V1, False, True, True),
     (D.META_LLAMA3_8B_INSTRUCT_V1, True, True, False),
