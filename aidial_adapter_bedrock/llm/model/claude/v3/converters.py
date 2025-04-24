@@ -134,6 +134,9 @@ async def _collect_image_block(
     return _create_image_block(resource)
 
 
+_claude_cache_breakpoint = CacheControlEphemeralParam(type="ephemeral")
+
+
 def _add_cache_control(
     message: BaseMessage | HumanToolResultMessage | AIToolCallMessage,
     claude_content: Iterable[ContentBlockParam],
@@ -145,9 +148,7 @@ def _add_cache_control(
                 block["type"] != "thinking"
                 and block["type"] != "redacted_thinking"
             ):
-                block["cache_control"] = CacheControlEphemeralParam(  # type: ignore
-                    type="ephemeral"
-                )
+                block["cache_control"] = _claude_cache_breakpoint
                 break
 
     return claude_content
@@ -380,18 +381,18 @@ def to_dial_usage(usage: Usage) -> TokenUsage:
 
 
 def to_claude_tool_config(tool: Tool) -> ToolParam:
-    cache_control = None
-    if tool.custom_fields and tool.custom_fields.cache_breakpoint:
-        cache_control = CacheControlEphemeralParam(type="ephemeral")
-
     function = tool.function
-    return ToolParam(
+    tool_param = ToolParam(
         input_schema=function.parameters
         or {"type": "object", "properties": {}},
         name=function.name,
         description=function.description or "",
-        cache_control=cache_control,
     )
+
+    if tool.custom_fields and tool.custom_fields.cache_breakpoint:
+        tool_param["cache_control"] = _claude_cache_breakpoint
+
+    return tool_param
 
 
 def get_usage_message(supported_exts: List[str]) -> str:
