@@ -16,6 +16,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     AI21_J2_JUMBO_INSTRUCT = "ai21.j2-jumbo-instruct"
     AI21_J2_MID_V1 = "ai21.j2-mid-v1"
     AI21_J2_ULTRA_V1 = "ai21.j2-ultra-v1"
+    AI21_JAMBA_1_5_LARGE_V1 = "ai21.jamba-1-5-large-v1:0"
+    AI21_JAMBA_1_5_MINI_V1 = "ai21.jamba-1-5-mini-v1:0"
 
     ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
     ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
@@ -36,6 +38,7 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
 
     STABILITY_STABLE_IMAGE_CORE_V1 = "stability.stable-image-core-v1:0"
     STABILITY_STABLE_DIFFUSION_3_LARGE_V1 = "stability.sd3-large-v1:0"
+    STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1 = "stability.sd3-5-large-v1:0"
     STABILITY_STABLE_IMAGE_ULTRA_V1 = "stability.stable-image-ultra-v1:0"
 
     META_LLAMA3_8B_INSTRUCT_V1 = "meta.llama3-8b-instruct-v1:0"
@@ -51,6 +54,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
 
     COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
     COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
+    COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
+    COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 
     DEEPSEEK_R1_V2_US = "us.deepseek.r1-v1:0"
 

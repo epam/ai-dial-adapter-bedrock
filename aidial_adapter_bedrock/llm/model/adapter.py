@@ -87,6 +87,14 @@ async def get_bedrock_adapter(
                 await Bedrock.acreate(aws_client_config), model
             )
         case (
+            ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1
+            | ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.NON_STREAMING_ONLY,
+                supported_document_types=ConverseDocumentType.all(),
+            )
+        case (
             ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
@@ -97,6 +105,7 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1
+            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1
         ):
             adapter = StabilityV2Adapter.create(
                 await Bedrock.acreate(aws_client_config),
@@ -114,6 +123,14 @@ async def get_bedrock_adapter(
         ):
             return cohere.create_adapter(
                 await Bedrock.acreate(aws_client_config), model
+            )
+        case (
+            ChatCompletionDeployment.COHERE_COMMAND_R_V1
+            | ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
+                supported_document_types=ConverseDocumentType.all(),
             )
         case (
             ChatCompletionDeployment.AMAZON_NOVA_MICRO

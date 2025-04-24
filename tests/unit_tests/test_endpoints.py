@@ -15,6 +15,8 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.AI21_J2_JUMBO_INSTRUCT, True, True, False),
     (D.AI21_J2_MID_V1, True, True, False),
     (D.AI21_J2_ULTRA_V1, True, True, False),
+    (D.AI21_JAMBA_1_5_LARGE_V1, True, True, False),
+    (D.AI21_JAMBA_1_5_MINI_V1, True, True, False),
     (D.ANTHROPIC_CLAUDE_INSTANT_V1, True, True, False),
     (D.ANTHROPIC_CLAUDE_V2, True, True, False),
     (D.ANTHROPIC_CLAUDE_V2_1, True, True, False),
@@ -28,6 +30,7 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.STABILITY_STABLE_DIFFUSION_XL, False, True, False),
     (D.STABILITY_STABLE_DIFFUSION_XL_V1, False, True, False),
     (D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1, False, True, True),
+    (D.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, False, True, True),
     (D.STABILITY_STABLE_IMAGE_ULTRA_V1, False, True, True),
     (D.STABILITY_STABLE_IMAGE_CORE_V1, False, True, True),
     (D.META_LLAMA3_8B_INSTRUCT_V1, True, True, False),
@@ -42,6 +45,8 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.META_LLAMA3_2_90B_INSTRUCT_V1, True, True, False),
     (D.COHERE_COMMAND_TEXT_V14, True, True, False),
     (D.COHERE_COMMAND_LIGHT_TEXT_V14, True, True, False),
+    (D.COHERE_COMMAND_R_V1, True, True, False),
+    (D.COHERE_COMMAND_R_PLUS_V1, True, True, False),
     (D.DEEPSEEK_R1_V2_US, True, True, False),
 ]
 

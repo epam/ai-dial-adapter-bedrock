@@ -67,7 +67,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,
 )
-from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.consumer import Consumer, ToolUseMessage
 from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
 from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
     preprocess_messages_decorator,
@@ -364,6 +364,7 @@ class Adapter(ChatCompletionAdapter):
             consumer.create_stage("Thinking") as thinking_stage,
         ):
             stop_reason = None
+            tool: ToolUseMessage | None = None
 
             async for event in stream:
                 if log.isEnabledFor(DEBUG):
@@ -374,16 +375,35 @@ class Adapter(ChatCompletionAdapter):
                         pass
                     case TextEvent(text=text):
                         consumer.append_content(text)
+
                     case ThinkingEvent(thinking=thinking):
                         thinking_stage.append_content(thinking)
+
                     case SignatureEvent() | MessageDeltaEvent():
                         pass
+
+                    case ContentBlockStartEvent(content_block=content_block):
+                        if isinstance(content_block, ToolUseBlock):
+                            tool = process_tools_block(
+                                consumer,
+                                content_block,
+                                tools_mode,
+                                streaming=True,
+                            )
+
+                    case InputJsonEvent(partial_json=partial_json):
+                        if tool:
+                            tool.append_arguments(partial_json)
+                        else:
+                            log.warning(
+                                "The model generated tool input before start using it"
+                            )
+
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
                             case ToolUseBlock():
-                                process_tools_block(
-                                    consumer, content_block, tools_mode
-                                )
+                                # Tool Use is processed in ContentBlockStartEvent and InputJsonEvent handlers
+                                pass
                             case TextBlock():
                                 # Already handled in TextEvent
                                 pass
@@ -393,6 +413,7 @@ class Adapter(ChatCompletionAdapter):
                                 pass
                             case _:
                                 assert_never(content_block)
+
                     case MessageStopEvent(message=message):
                         consumer.add_usage(to_dial_usage(message.usage))
                         stop_reason = message.stop_reason
@@ -402,15 +423,15 @@ class Adapter(ChatCompletionAdapter):
                                     claude_message_content=message.content
                                 ).to_dict()
                             )
+
                     case (
-                        InputJsonEvent()
-                        | ContentBlockStartEvent()
-                        | ContentBlockDeltaEvent()
+                        ContentBlockDeltaEvent()
                         # NOTE: the document understanding isn't supported in Bedrock yet:
                         # https://github.com/epam/ai-dial-adapter-bedrock/pull/227
                         | CitationEvent()
                     ):
                         pass
+
                     case _:
                         assert_never(event)
 
@@ -449,7 +470,9 @@ class Adapter(ChatCompletionAdapter):
                 case TextBlock(text=text):
                     consumer.append_content(text)
                 case ToolUseBlock():
-                    process_tools_block(consumer, content, tools_mode)
+                    process_tools_block(
+                        consumer, content, tools_mode, streaming=False
+                    )
                 case ThinkingBlock(thinking=thinking):
                     with consumer.create_stage("Thinking") as stage:
                         stage.append_content(thinking)
