@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, List, Mapping
 
+import httpx
 import openai
 import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
@@ -16,6 +17,9 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
+from tests.unit_tests.test_configuration import (
+    deployments_supporting_optimized_latency,
+)
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     ChatCompletionResult,
@@ -125,21 +129,15 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US: _EAST_2,
     # Llama 3.2 1B is too unstable in responses for integration tests
     # Sometimes it cannot calculate 2+2
@@ -153,7 +151,7 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.COHERE_COMMAND_R_V1: _WEST,
     ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1: _WEST,
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
-    ChatCompletionDeployment.AMAZON_NOVA_PRO: _EAST_1,
+    ChatCompletionDeployment.AMAZON_NOVA_PRO.US: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
     ChatCompletionDeployment.DEEPSEEK_R1_V2_US: _EAST_1,
 }
@@ -715,10 +713,27 @@ def get_test_cases(
     ],
     ids=lambda test: test.get_id(),
 )
-async def test_chat_completion_openai(get_openai_client, test: TestCase):
-    client = get_openai_client(test.deployment.value, region=test.region)
+async def test_chat_completion_openai(
+    test_http_client: httpx.AsyncClient, get_openai_client, test: TestCase
+):
+    deployment_id = test.deployment.value
+    client = get_openai_client(deployment_id, region=test.region)
 
     async def run_chat_completion() -> ChatCompletionResult:
+        extra_body = {}
+        low_latency_regions = (
+            deployments_supporting_optimized_latency.get(test.deployment.origin)
+            or []
+        )
+        if test.region in low_latency_regions:
+            extra_body = {
+                "custom_fields": {
+                    "configuration": {
+                        "performanceConfig": {"latency": "optimized"}
+                    }
+                }
+            }
+
         return await chat_completion(
             client,
             messages=test.messages,
@@ -730,6 +745,7 @@ async def test_chat_completion_openai(get_openai_client, test: TestCase):
             tools=test.tools,
             tool_choice=test.tool_choice,
             temperature=test.temperature,
+            extra_body=extra_body,
         )
 
     if isinstance(test.expected, ExpectedException):
