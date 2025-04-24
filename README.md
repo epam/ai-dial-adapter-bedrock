@@ -75,6 +75,7 @@ All models based on Bedrock Converse API accept a configuration parameter that e
 
 > [!NOTE]
 > Not all Bedrock models actually support the optimized latency mode. Check the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html) before use.
+
 > [!WARNING]
 > Currently **Claude 3** adapter is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that **doesn't** support optimized latency model.
 
