@@ -1,5 +1,5 @@
 from logging import DEBUG
-from typing import Any, Awaitable, Callable, List, Tuple
+from typing import Any, Awaitable, Callable, List, Tuple, Type
 
 from aidial_sdk.chat_completion import Message as DialMessage
 
@@ -11,6 +11,7 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,
 )
+from aidial_adapter_bedrock.llm.configuration import BaseBedrockConfiguration
 from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
@@ -29,6 +30,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseRequestWrapper,
     ConverseTools,
     InferenceConfig,
+    PerformanceConfig,
 )
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -60,6 +62,9 @@ class ConverseAdapter(ChatCompletionAdapter):
     partitioner: Callable[[ConverseMessages], List[int]] = (
         turn_based_partitioner
     )
+
+    async def configuration(self) -> Type[BaseBedrockConfiguration]:
+        return BaseBedrockConfiguration
 
     async def _discard_messages(
         self, params: ConverseRequestWrapper, max_prompt_tokens: int | None
@@ -121,6 +126,7 @@ class ConverseAdapter(ChatCompletionAdapter):
         messages: List[DialMessage],
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
+        configuration = params.parse_configuration(await self.configuration())
         system_prompt_extraction = extract_converse_system_prompt(messages)
         converse_messages = await to_converse_messages(
             system_prompt_extraction.non_system_messages,
@@ -132,6 +138,10 @@ class ConverseAdapter(ChatCompletionAdapter):
         system_message = system_prompt_extraction.system_prompt
         if not converse_messages.list:
             raise ValidationError("List of messages must not be empty")
+
+        performanceConfig: PerformanceConfig | None = None
+        if (pc := configuration.performanceConfig) and (latency := pc.latency):
+            performanceConfig = PerformanceConfig(latency=latency)
 
         return ConverseRequestWrapper(
             system=[system_message] if system_message else None,
@@ -147,6 +157,7 @@ class ConverseAdapter(ChatCompletionAdapter):
                 )
             ),
             toolConfig=self.get_tool_config(params),
+            performanceConfig=performanceConfig,
         )
 
     def is_stream(self, params: ModelParameters) -> bool:
