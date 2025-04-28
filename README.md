@@ -70,6 +70,21 @@ GET request to this endpoint returns the schema of the model configuration in [J
 Such models expect that `custom_fields.configuration` field of the `chat/completions` request will contain a JSON value that conforms to the schema.
 The `custom_fields.configuration` field is optional iff each field in the schema is optional too.
 
+##### Converse API models
+
+All models based on Bedrock Converse API accept a configuration parameter that enables the [optimized latency mode](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html):
+
+|Configuration|Comment|
+|---|---|
+|`{"performanceConfig": {"latency":"standard"}}`|Default latency|
+|`{"performanceConfig": {"latency":"optimized"}}`|Optimized latency|
+
+> [!NOTE]
+> Not all Bedrock models actually support the optimized latency mode. Check the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html) before use.
+
+> [!WARNING]
+> Currently **Claude 3** adapter is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that **doesn't** support optimized latency model.
+
 ##### Claude 3.7 Sonnet
 
 The model accepts optional configuration that enables [thinking feature](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking):

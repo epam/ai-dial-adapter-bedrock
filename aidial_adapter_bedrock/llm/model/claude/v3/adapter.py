@@ -188,20 +188,10 @@ class Adapter(ChatCompletionAdapter):
         else:
             return BetaConfiguration
 
-    async def _parse_configuration(
-        self, params: DialParameters
-    ) -> Configuration:
-        try:
-            conf_cls = await self.configuration()
-        except NotImplementedError:
-            return BetaConfiguration()
-
-        return params.parse_configuration(conf_cls)
-
     async def _prepare_claude_request(
         self, params: DialParameters, messages: List[DialMessage]
     ) -> ClaudeRequest:
-        configuration = await self._parse_configuration(params)
+        configuration = params.parse_configuration(await self.configuration())
 
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")

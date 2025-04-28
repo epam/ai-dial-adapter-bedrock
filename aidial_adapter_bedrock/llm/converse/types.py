@@ -130,11 +130,16 @@ class InferenceConfig(TypedDict, total=False):
     stopSequences: list[str]
 
 
+class PerformanceConfig(TypedDict, total=False):
+    latency: Literal["optimized", "standard"] | str
+
+
 class ConverseRequest(TypedDict, total=False):
     messages: Required[list[ConverseMessage]]
     system: list[ConverseTextPart | ConverseCachePointPart]
     inferenceConfig: InferenceConfig
     toolConfig: ConverseTools
+    performanceConfig: PerformanceConfig
 
 
 @dataclass
@@ -143,6 +148,7 @@ class ConverseRequestWrapper:
     system: list[ConverseTextPart | ConverseCachePointPart] | None = None
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
+    performanceConfig: PerformanceConfig | None = None
 
     def to_request(self) -> ConverseRequest:
         return ConverseRequest(
@@ -152,6 +158,7 @@ class ConverseRequestWrapper:
                     "inferenceConfig": self.inferenceConfig,
                     "toolConfig": self.toolConfig,
                     "system": self.system,
+                    "performanceConfig": self.performanceConfig,
                 }
             ),
         )

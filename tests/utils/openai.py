@@ -263,6 +263,18 @@ async def chat_completion(
     return ChatCompletionResult(response=response)
 
 
+async def configuration(client: httpx.AsyncClient, model: str) -> dict | None:
+    response = await client.get(
+        url=f"/openai/deployments/{model}/configuration"
+    )
+
+    if response.status_code == 404:
+        return None
+
+    response.raise_for_status()
+    return response.json()
+
+
 async def truncate_prompt(
     client: httpx.AsyncClient,
     model: str,
