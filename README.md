@@ -19,33 +19,33 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
-|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
+|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|Bedrock API|
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|Bedrock API|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|Bedrock API|
-|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|Conserve API|
-|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|❌|Conserve API|
-|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|❌|Conserve API|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
-|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
-|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|Conserve API|
-|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|❌|Conserve API|
-|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
-|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|❌|Conserve API|
+|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|Bedrock API|
 |Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|Bedrock API|
-|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|Converse API|
-|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|❌|Converse API|
-|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|❌|Converse API|
-|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|❌|Converse API|
-|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|❌|Converse API|
-|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|Converse API|
-|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|❌|Converse API|
+|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 
@@ -61,7 +61,7 @@ The model adapters differ in what SDKs/APIs they are based on:
 
 1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
 2. [Bedrock API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html) - the original Bedrock API for calling chat completion models
-3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Conserve API.
+3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Converse API.
 
 #### Configurable models
 
