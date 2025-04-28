@@ -1,9 +1,18 @@
 import json
 from abc import ABC
 from logging import DEBUG
-from typing import Any, AsyncIterator, Mapping, Optional, Tuple, Unpack
+from typing import (
+    Any,
+    AsyncIterator,
+    ClassVar,
+    Mapping,
+    Optional,
+    Tuple,
+    Unpack,
+)
 
 import boto3
+import botocore
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
@@ -22,6 +31,25 @@ Body = dict
 Headers = Mapping[str, str]
 
 
+class _BedrockClientFactory:
+    _clients: ClassVar[dict[str, Any]] = {}
+
+    @classmethod
+    async def get_client(cls, client_config: dict) -> Any:
+        key = json.dumps(client_config, sort_keys=True, separators=(",", ":"))
+
+        if client := cls._clients.get(key):
+            return client
+
+        config = botocore.client.Config(max_pool_connections=1000)  # type: ignore
+
+        client = await make_async(
+            lambda: boto3.Session().client(**client_config, config=config)
+        )
+        cls._clients[key] = client
+        return client
+
+
 class Bedrock:
     client: Any
 
@@ -32,9 +60,7 @@ class Bedrock:
     async def acreate(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
         client_kwargs = aws_client_config.get_boto_client_kwargs()
         client_kwargs["service_name"] = "bedrock-runtime"
-        client = await make_async(
-            lambda: boto3.Session().client(**client_kwargs)
-        )
+        client = await _BedrockClientFactory.get_client(client_kwargs)
         return cls(client)
 
     async def aconverse_non_streaming(
