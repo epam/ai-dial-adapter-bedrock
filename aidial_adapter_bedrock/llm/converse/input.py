@@ -11,6 +11,7 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
 )
 from aidial_sdk.chat_completion import Role as DialRole
+from aidial_sdk.chat_completion import Tool as DialTool
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
@@ -29,6 +30,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     IMAGE_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseCachePoint,
+    ConverseCachePointPart,
     ConverseContentPart,
     ConverseDocumentPart,
     ConverseDocumentPartConfig,
@@ -69,8 +72,9 @@ def to_converse_role(role: DialRole) -> ConverseRole:
 
 
 def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
-    tools: list[ConverseToolSpec] = []
-    for function in tools_config.functions:
+    tools: list[ConverseToolSpec | ConverseCachePointPart] = []
+    for tool in tools_config.tools:
+        function = tool.function
         tools.append(
             {
                 "toolSpec": {
@@ -84,9 +88,12 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    match (tools_config.required, tools_config.functions):
-        case (True, [func]):
-            tool_choice = {"tool": {"name": func.name}}
+        if cache_point_part := _get_cache_point_part(tool):
+            tools.append(cache_point_part)
+
+    match (tools_config.required, tools_config.tools):
+        case (True, [tool]):
+            tool_choice = {"tool": {"name": tool.function.name}}
         case (True, _):
             tool_choice = {"any": {}}
         case (False, _):
@@ -314,6 +321,9 @@ async def _get_converse_message_content(
             ]
         )
 
+    if cache_point_part := _get_cache_point_part(message):
+        content.append(cache_point_part)
+
     return content
 
 
@@ -337,15 +347,23 @@ async def to_converse_message(
 
 @dataclass
 class ExtractSystemPromptResult:
-    system_prompt: ConverseTextPart | None
+    system_messages: List[ConverseTextPart | ConverseCachePointPart]
     system_message_count: int
     non_system_messages: List[DialMessage]
+
+
+def _get_cache_point_part(
+    message: DialMessage | DialTool,
+) -> ConverseCachePointPart | None:
+    if not (cf := message.custom_fields) or not cf.cache_breakpoint:
+        return None
+    return ConverseCachePointPart(cachePoint=ConverseCachePoint(type="default"))
 
 
 def extract_converse_system_prompt(
     messages: List[DialMessage],
 ) -> ExtractSystemPromptResult:
-    system_msgs = []
+    system_messages: List[ConverseTextPart | ConverseCachePointPart] = []
     found_non_system = False
     system_messages_count = 0
     non_system_messages = []
@@ -357,14 +375,17 @@ def extract_converse_system_prompt(
                     f"A {msg.role.value} message can only follow system or developer message"
                 )
             system_messages_count += 1
+
             match msg.content:
                 case str():
-                    system_msgs.append(msg.content)
+                    system_messages.append(ConverseTextPart(text=msg.content))
                 case list():
                     for part in msg.content:
                         match part:
                             case MessageContentTextPart():
-                                system_msgs.append(part.text)
+                                system_messages.append(
+                                    ConverseTextPart(text=part.text)
+                                )
                             case MessageContentImagePart():
                                 raise ValidationError(
                                     capitalize(
@@ -383,14 +404,16 @@ def extract_converse_system_prompt(
                     pass
                 case _:
                     assert_never(msg.content)
+
+            if cache_point := _get_cache_point_part(msg):
+                system_messages.append(cache_point)
+
         else:
             found_non_system = True
             non_system_messages.append(msg)
 
-    combined = "\n\n".join(msg for msg in system_msgs if msg)
-
     return ExtractSystemPromptResult(
-        system_prompt=ConverseTextPart(text=combined) if combined else None,
+        system_messages=system_messages,
         system_message_count=system_messages_count,
         non_system_messages=non_system_messages,
     )

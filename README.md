@@ -10,44 +10,44 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 Note that a model supports `/truncate_prompt` endpoint if and only if it supports `max_prompt_tokens` request parameter.
 
-|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|
+|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|
-|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|
-|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|
-|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|
-|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|
-|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|
-|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|
-|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|
-|Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|
-|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|
-|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|
-|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|
-|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|
-|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|✅|
-|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|✅|
-|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|
-|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|
-|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|
-|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|
+|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|Bedrock API|
+|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|Bedrock API|
+|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|Bedrock API|
+|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|Bedrock API|
+|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|Bedrock API|
+|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
+|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 
@@ -56,6 +56,12 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|Configurable via the `/configuration` endpoint|
 |🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
 |❌|Not supported|Not supported|Not configurable|
+
+The model adapters differ in what SDKs/APIs they are based on:
+
+1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
+2. [Bedrock API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html) - the original Bedrock API for calling chat completion models
+3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Converse API.
 
 #### Configurable models
 
@@ -106,6 +112,100 @@ The models accept optional configuration with the following fields:
 
 * `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
 * `negative_prompt: str` - a prompt to be used for negative examples
+
+#### Prompt caching
+
+Certain chat completion models support prompt caching via cache breakpoint inserted in tool definitions or request messages.
+
+The adapter supports cache breakpoint for the models based on Converse API and Claude 3 models.
+
+<details><summary>System cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Long system prompt",
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Message cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Tools cache breakpoint</summary>
+
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_weather",
+      "description": "Get current temperature for a given location.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City and country e.g. Bogotá, Colombia"
+          }
+        },
+        "required": [
+          "location"
+        ]
+      },
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+> [!NOTE]
+> Not every model supports prompt caching. Refer to the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models) before utilizing any cache breakpoints.
 
 #### Cross-region inference
 

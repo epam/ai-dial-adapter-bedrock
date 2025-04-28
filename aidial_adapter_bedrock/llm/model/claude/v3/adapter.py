@@ -61,7 +61,6 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
 )
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     default_preprocess_messages,
@@ -81,6 +80,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
+    to_dial_usage,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
@@ -140,11 +140,11 @@ def create_adapter(
 
 
 class ThinkingConfigEnabled(BaseModel):
-    budget_tokens: int
     type: Literal["enabled"]
+    budget_tokens: int
 
     def to_claude(self) -> ThinkingConfigParam:
-        return {"budget_tokens": self.budget_tokens, "type": "enabled"}
+        return {"type": "enabled", "budget_tokens": self.budget_tokens}
 
 
 class ThinkingConfigDisabled(BaseModel):
@@ -199,15 +199,12 @@ class Adapter(ChatCompletionAdapter):
         tools = NOT_GIVEN
         tool_choice: ToolChoice | NotGiven = NOT_GIVEN
         if (tool_config := params.tool_config) is not None:
-            tools = [
-                to_claude_tool_config(tool_function)
-                for tool_function in tool_config.functions
-            ]
+            tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
-            match (tool_config.required, tool_config.functions):
-                case (True, [func]):
+            match (tool_config.required, tool_config.tools):
+                case (True, [tool]):
                     tool_choice = ToolChoiceToolParam(
-                        type="tool", name=func.name
+                        type="tool", name=tool.function.name
                     )
                 case (True, _):
                     tool_choice = ToolChoiceAnyParam(type="any")
@@ -356,8 +353,6 @@ class Adapter(ChatCompletionAdapter):
             ) as stream,
             consumer.create_stage("Thinking") as thinking_stage,
         ):
-            prompt_tokens = 0
-            completion_tokens = 0
             stop_reason = None
             tool: ToolUseMessage | None = None
 
@@ -366,16 +361,15 @@ class Adapter(ChatCompletionAdapter):
                     log.debug(f"response event: {json_dumps_short(event)}")
 
                 match event:
-                    case MessageStartEvent(message=message):
-                        prompt_tokens += message.usage.input_tokens
-
+                    case MessageStartEvent():
+                        pass
                     case TextEvent(text=text):
                         consumer.append_content(text)
 
                     case ThinkingEvent(thinking=thinking):
                         thinking_stage.append_content(thinking)
 
-                    case SignatureEvent():
+                    case SignatureEvent() | MessageDeltaEvent():
                         pass
 
                     case ContentBlockStartEvent(content_block=content_block):
@@ -395,9 +389,6 @@ class Adapter(ChatCompletionAdapter):
                                 "The model generated tool input before start using it"
                             )
 
-                    case MessageDeltaEvent(usage=usage):
-                        completion_tokens += usage.output_tokens
-
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
                             case ToolUseBlock():
@@ -414,6 +405,7 @@ class Adapter(ChatCompletionAdapter):
                                 assert_never(content_block)
 
                     case MessageStopEvent(message=message):
+                        consumer.add_usage(to_dial_usage(message.usage))
                         stop_reason = message.stop_reason
                         if self.supports_thinking:
                             consumer.choice.set_state(
@@ -435,13 +427,6 @@ class Adapter(ChatCompletionAdapter):
 
             consumer.close_content(
                 to_dial_finish_reason(stop_reason, tools_mode)
-            )
-
-            consumer.add_usage(
-                TokenUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                )
             )
 
             consumer.set_discarded_messages(discarded_messages)
@@ -495,13 +480,7 @@ class Adapter(ChatCompletionAdapter):
             to_dial_finish_reason(message.stop_reason, tools_mode)
         )
 
-        consumer.add_usage(
-            TokenUsage(
-                prompt_tokens=message.usage.input_tokens,
-                completion_tokens=message.usage.output_tokens,
-            )
-        )
-
+        consumer.add_usage(to_dial_usage(message.usage))
         consumer.set_discarded_messages(discarded_messages)
 
     @classmethod

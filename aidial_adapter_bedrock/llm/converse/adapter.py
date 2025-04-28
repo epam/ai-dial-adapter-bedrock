@@ -135,7 +135,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             supported_image_types=self.supported_image_types,
             supported_document_types=self.supported_document_types,
         )
-        system_message = system_prompt_extraction.system_prompt
+        system_messages = system_prompt_extraction.system_messages
         if not converse_messages.list:
             raise ValidationError("List of messages must not be empty")
 
@@ -144,7 +144,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             performanceConfig = PerformanceConfig(latency=latency)
 
         return ConverseRequestWrapper(
-            system=[system_message] if system_message else None,
+            system=system_messages or None,
             messages=converse_messages,
             inferenceConfig=InferenceConfig(
                 **remove_nones(
@@ -152,10 +152,11 @@ class ConverseAdapter(ChatCompletionAdapter):
                         "temperature": params.temperature,
                         "topP": params.top_p,
                         "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop,
+                        "stopSequences": params.stop or None,
                     }
                 )
-            ),
+            )
+            or None,
             toolConfig=self.get_tool_config(params),
             performanceConfig=performanceConfig,
         )

@@ -13,8 +13,8 @@ repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 
 [tool.poetry.dependencies]
 python = "^3.11,<4.0"
-boto3 = "1.37.11"
-botocore = "1.37.11"
+boto3 = "1.37.24"
+botocore = "1.37.24"
 aidial-sdk = { version = "0.21.0", extras = ["telemetry"] }
 anthropic = { version = "0.47.2", extras = ["bedrock"] }
 # Only for the tokenizer for Claude v1/v2 models
