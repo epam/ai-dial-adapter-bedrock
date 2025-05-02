@@ -76,8 +76,9 @@ class AdapterDeployments(BaseModel):
         for deployment_id, supported_id in compat_mapping.items():
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
-                    f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                    f"Remove {deployment_id!r} from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter."
+                    f"'{deployment_id}' deployment is already natively supported by the adapter, but it is also mapped to '{supported_id}' in the COMPATIBILITY_MAPPING variable. "
+                    f"To avoid this warning and ensure you retain all features of '{deployment_id}', remove it from the mapping. "
+                    f"Otherwise, you may lose features that exist in '{deployment_id}' but are missing in '{supported_id}'."
                 )
 
                 if (

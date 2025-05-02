@@ -66,6 +66,17 @@ class TestCase:
     checks: List[Checker] = field(default_factory=list)
 
 
+_CHAT_MODEL_1 = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
+_CHAT_MODEL_2 = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
+
+_EMBEDDING_MODEL = EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2
+
+_outdated_mapping_warning_message = (
+    "'{deployment_id}' deployment is already natively supported by the adapter, but it is also mapped to '{supported_id}' in the COMPATIBILITY_MAPPING variable. "
+    "To avoid this warning and ensure you retain all features of '{deployment_id}', remove it from the mapping. "
+    "Otherwise, you may lose features that exist in '{deployment_id}' but are missing in '{supported_id}'."
+)
+
 test_cases: List[TestCase] = [
     TestCase(
         desc="invalid compat",
@@ -76,80 +87,75 @@ test_cases: List[TestCase] = [
         desc="partially invalid compat",
         compat={
             "xxx": "yyy",
-            "zzz": ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
+            "zzz": _CHAT_MODEL_1.value,
         },
         error='None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
     ),
     TestCase(
-        desc="compat chat+embeddings",
-        compat={
-            "xxx": ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
-            "yyy": EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2.value,
-        },
+        desc="chat completion redirects",
+        compat={},
         checks=[
-            supported(ChatCompletionDeployment.AI21_J2_ULTRA_V1),
-            supported(EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2),
             supported(
                 ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL,
                 redirect=ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1,
             ),
-            compat("xxx", ChatCompletionDeployment.AI21_J2_ULTRA_V1),
-            compat("yyy", EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2),
         ],
     ),
     TestCase(
-        desc="compat supported deployment",
+        desc="compat chat+embeddings",
         compat={
-            ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL.value: ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
+            "xxx": _CHAT_MODEL_1.value,
+            "yyy": _EMBEDDING_MODEL.value,
         },
         checks=[
-            supported(ChatCompletionDeployment.AI21_J2_ULTRA_V1),
-            compat(
-                ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL.value,
-                ChatCompletionDeployment.AI21_J2_ULTRA_V1,
-            ),
+            supported(_CHAT_MODEL_1),
+            supported(_EMBEDDING_MODEL),
+            compat("xxx", _CHAT_MODEL_1),
+            compat("yyy", _EMBEDDING_MODEL),
         ],
     ),
     TestCase(
         desc="compat mismatching supported deployments #1",
         compat={
-            ChatCompletionDeployment.AI21_J2_ULTRA_V1.value: EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1.value,
+            _CHAT_MODEL_1.value: _EMBEDDING_MODEL.value,
         },
-        error="The chat completion deployment 'ai21.j2-ultra-v1' is mapped onto the embeddings deployment 'amazon.titan-embed-image-v1'",
+        error=(
+            f"The chat completion deployment {_CHAT_MODEL_1.value!r} is mapped"
+            f" onto the embeddings deployment {_EMBEDDING_MODEL.value!r}"
+        ),
     ),
     TestCase(
         desc="compat mismatching supported deployments #2",
         compat={
-            EmbeddingsDeployment.AMAZON_TITAN_EMBED_IMAGE_V1.value: ChatCompletionDeployment.AI21_J2_ULTRA_V1.value,
+            _EMBEDDING_MODEL.value: _CHAT_MODEL_1.value,
         },
-        error="The embeddings deployment 'amazon.titan-embed-image-v1' is mapped onto the chat completion deployment 'ai21.j2-ultra-v1'",
+        error=(
+            f"The embeddings deployment {_EMBEDDING_MODEL.value!r} is mapped"
+            f" onto the chat completion deployment {_CHAT_MODEL_1.value!r}"
+        ),
     ),
     TestCase(
         desc="outdated compatibility mapping (original)",
-        compat={
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value: ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.value
-        },
-        warning="'anthropic.claude-3-7-sonnet-20250219-v1:0' is one of the Bedrock deployments supported by the adapter already. Remove 'anthropic.claude-3-7-sonnet-20250219-v1:0' from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter.",
+        compat={_CHAT_MODEL_2.value: _CHAT_MODEL_1.value},
+        warning=_outdated_mapping_warning_message.format(
+            deployment_id=_CHAT_MODEL_2.value,
+            supported_id=_CHAT_MODEL_1.value,
+        ),
         checks=[
-            supported(ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU),
-            compat(
-                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value,
-                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-            ),
+            supported(_CHAT_MODEL_1),
+            compat(_CHAT_MODEL_2.value, _CHAT_MODEL_1),
         ],
     ),
     TestCase(
         desc="outdated compatibility mapping (regional)",
-        compat={
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US.value: ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.value
-        },
-        warning="'us.anthropic.claude-3-7-sonnet-20250219-v1:0' is one of the Bedrock deployments supported by the adapter already. Remove 'us.anthropic.claude-3-7-sonnet-20250219-v1:0' from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter.",
+        compat={_CHAT_MODEL_2.US.value: _CHAT_MODEL_1.value},
+        warning=_outdated_mapping_warning_message.format(
+            deployment_id=_CHAT_MODEL_2.US.value,
+            supported_id=_CHAT_MODEL_1.value,
+        ),
         checks=[
-            supported(ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU),
-            compat(
-                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US.value,
-                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-            ),
+            supported(_CHAT_MODEL_1),
+            compat(_CHAT_MODEL_2.US.value, _CHAT_MODEL_1),
         ],
     ),
 ]
