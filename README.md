@@ -301,7 +301,7 @@ The `COMPATIBILITY_MAPPING` env variable enables exactly this scenario.
 
 When it's defined like this:
 
-```json
+```
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
 ```
 
@@ -317,7 +317,7 @@ When a version of the Adapter supporting the v3 model is released, you may migra
 
 Note that a mapping such as this one would be ineffectual:
 
-```json
+```
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "stability.stable-image-ultra-v1:0"}
 ```
 

@@ -46,7 +46,7 @@ from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
@@ -100,6 +100,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 
 
 # Beta AsyncMessages in Bedrock doesn't provide stream and count_tokens,
@@ -140,7 +141,7 @@ def create_adapter(
 
 
 # FIXME: add validation of the extra configuration fields
-class ThinkingConfigEnabled(BaseModel):
+class ThinkingConfigEnabled(ExtraForbidModel):
     type: Literal["enabled"]
     budget_tokens: int
 
@@ -148,14 +149,14 @@ class ThinkingConfigEnabled(BaseModel):
         return {"type": "enabled", "budget_tokens": self.budget_tokens}
 
 
-class ThinkingConfigDisabled(BaseModel):
+class ThinkingConfigDisabled(ExtraForbidModel):
     type: Literal["disabled"]
 
     def to_claude(self) -> ThinkingConfigParam:
         return {"type": "disabled"}
 
 
-class BetaConfiguration(BaseModel):
+class BetaConfiguration(ExtraForbidModel):
     betas: List[AnthropicBetaParam] | None = Field(
         default=None,
         description="List of beta features to enable. Make sure to check if the given feature is supported by the Claude deployment you are using.",

@@ -224,8 +224,15 @@ async def chat_completion(
     tools: List[ChatCompletionToolParam] | None = None,
     tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
     temperature: float | None = None,
+    configuration: dict | None = None,
     extra_body: dict | None = None,
 ) -> ChatCompletionResult:
+    extra_body = extra_body or {}
+    if configuration:
+        extra_body = extra_body | {
+            "custom_fields": {"configuration": configuration}
+        }
+
     async def get_response() -> ChatCompletion:
         response = await client.chat.completions.create(
             model="dummy-model",
