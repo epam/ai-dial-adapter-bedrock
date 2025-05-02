@@ -153,7 +153,7 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_PRO.US: _EAST_1,
     ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
-    ChatCompletionDeployment.DEEPSEEK_R1_V2_US: _EAST_1,
+    ChatCompletionDeployment.DEEPSEEK_R1_V2.US: _EAST_1,
 }
 
 
@@ -263,13 +263,13 @@ def is_nova(deployment: ChatCompletionDeployment) -> bool:
 
 def is_reasoning_model(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
-        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
+        ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
 
 
 def is_deepseek(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
-        ChatCompletionDeployment.DEEPSEEK_R1_V2_US,
+        ChatCompletionDeployment.DEEPSEEK_R1_V2,
     ]
 
 

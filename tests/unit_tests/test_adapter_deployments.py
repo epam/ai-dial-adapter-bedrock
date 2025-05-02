@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Protocol
 
@@ -61,6 +62,7 @@ class TestCase:
     compat: Dict[str, str]
 
     error: str | None = None
+    warning: str | None = None
     checks: List[Checker] = field(default_factory=list)
 
 
@@ -122,17 +124,55 @@ test_cases: List[TestCase] = [
         },
         error="The embeddings deployment 'amazon.titan-embed-image-v1' is mapped onto the chat completion deployment 'ai21.j2-ultra-v1'",
     ),
+    TestCase(
+        desc="outdated compatibility mapping (original)",
+        compat={
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value: ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.value
+        },
+        warning="'anthropic.claude-3-7-sonnet-20250219-v1:0' is one of the Bedrock deployments supported by the adapter already. Remove 'anthropic.claude-3-7-sonnet-20250219-v1:0' from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter.",
+        checks=[
+            supported(ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU),
+            compat(
+                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value,
+                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+            ),
+        ],
+    ),
+    TestCase(
+        desc="outdated compatibility mapping (regional)",
+        compat={
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US.value: ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.value
+        },
+        warning="'us.anthropic.claude-3-7-sonnet-20250219-v1:0' is one of the Bedrock deployments supported by the adapter already. Remove 'us.anthropic.claude-3-7-sonnet-20250219-v1:0' from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter.",
+        checks=[
+            supported(ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU),
+            compat(
+                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US.value,
+                ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+            ),
+        ],
+    ),
 ]
 
 
 @pytest.mark.parametrize(
     "test_case", test_cases, ids=lambda t: t.desc.replace(" ", "_")
 )
-def test_compat_mapping(test_case: TestCase):
-    if test_case.error is not None:
-        with pytest.raises(ValueError, match=test_case.error):
-            AdapterDeployments.create(compat_mapping=test_case.compat)
-    else:
-        deployments = AdapterDeployments.create(compat_mapping=test_case.compat)
-        for checker in test_case.checks:
-            checker.check(deployments)
+def test_compat_mapping(caplog, test_case: TestCase):
+    with caplog.at_level(logging.WARNING):
+        if test_case.error is not None:
+            with pytest.raises(ValueError, match=test_case.error):
+                AdapterDeployments.create(compat_mapping=test_case.compat)
+        else:
+            deployments = AdapterDeployments.create(
+                compat_mapping=test_case.compat
+            )
+            for checker in test_case.checks:
+                checker.check(deployments)
+
+    log_records = caplog.record_tuples
+
+    if warn_message := test_case.warning:
+        assert len(log_records) == 1
+        _name, _level, message = log_records[0]
+        assert message == warn_message

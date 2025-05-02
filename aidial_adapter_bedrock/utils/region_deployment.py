@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Generic, Protocol, Self, TypeVar
+from typing import Dict, Generic, Iterable, List, Protocol, Self, TypeVar
 
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
@@ -62,22 +62,55 @@ class RegionInferenceDeployment(Enum):
     def _get_region_variant(self, region: InferenceRegion) -> str:
         return f"{region.value}.{self.value}"
 
-    def _is_region_variant(self, region: InferenceRegion) -> bool:
-        return self.value.startswith(f"{region.value}.")
+    def _get_region_variants(self) -> List[str]:
+        if self._is_region_variant():
+            return []
+        return [self._get_region_variant(region) for region in InferenceRegion]
+
+    def _is_region_variant(self) -> bool:
+        return any(
+            self.value.startswith(f"{region.value}.")
+            for region in InferenceRegion
+        )
 
     def _cross_region_inference_mapping(self) -> Dict[str, str]:
-        if any(self._is_region_variant(region) for region in InferenceRegion):
-            return {}
-
-        return {
-            self._get_region_variant(region): self.value
-            for region in InferenceRegion
-        }
+        """
+        Return the mapping from regional variants to the original deployment:
+            {   us.deployment: deployment,
+                eu.deployment: deployment,
+                apac.deployment: deployment
+            }
+        """
+        return {variant: self.value for variant in self._get_region_variants()}
 
     @classmethod
     def create_cross_region_inference_mapping(cls) -> Dict[str, str]:
+        """
+        Return the mapping from all regional variants to their respective original deployments.
+            {   us.deployment1: deployment1,
+                eu.deployment1: deployment1,
+                apac.deployment1: deployment1,
+                us.deployment2: deployment2,
+                eu.deployment2: deployment2,
+                apac.deployment2: deployment2,
+                ...
+            }
+        """
+
         return {
             k: v
             for deployment in cls
             for k, v in deployment._cross_region_inference_mapping().items()
         }
+
+    @classmethod
+    def deployments(cls) -> Iterable[str]:
+        """
+        Return a list of all regional and non-regional deployments:
+        [deployment1, us.deployment1, eu.deployment1, apac.deployment1, deployment2, ...]
+        """
+        ret: List[str] = []
+        for deployment in cls:
+            ret.append(deployment.value)
+            ret.extend(deployment._get_region_variants())
+        return ret

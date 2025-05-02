@@ -69,22 +69,15 @@ class AdapterDeployments(BaseModel):
 
     @classmethod
     def create(cls, *, compat_mapping: Dict[str, str]) -> "AdapterDeployments":
-        cross_region_mapping = (
-            ChatCompletionDeployment.create_cross_region_inference_mapping()
-        )
-        compat_mapping = cross_region_mapping | compat_mapping
 
-        chat_completions = {e.value for e in ChatCompletionDeployment}
-        embeddings = {e.value for e in EmbeddingsDeployment}
+        chat_completions = set(ChatCompletionDeployment.deployments())
+        embeddings = set(EmbeddingsDeployment.deployments())
 
-        # FIXME: take into account regional variants:
-        # Add a test for the mapping:
-        # {"anthropic.claude-3-7-sonnet-20250219-v1:0": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
         for deployment_id, supported_id in compat_mapping.items():
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
                     f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                    f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter."
+                    f"Remove {deployment_id!r} from the COMPATIBILITY_MAPPING variable to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter."
                 )
 
                 if (
@@ -102,6 +95,11 @@ class AdapterDeployments(BaseModel):
                     raise ValueError(
                         f"The embeddings deployment {deployment_id!r} is mapped onto the chat completion deployment {supported_id!r}"
                     )
+
+        cross_region_mapping = (
+            ChatCompletionDeployment.create_cross_region_inference_mapping()
+        )
+        compat_mapping = cross_region_mapping | compat_mapping
 
         compat_mapping, chat_completions = _create_deployments(
             compat_mapping,

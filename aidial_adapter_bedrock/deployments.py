@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal
+from typing import List, Literal
 
 from aidial_adapter_bedrock.utils.region_deployment import (
     RegionInferenceDeployment,
@@ -57,7 +57,7 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
     COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 
-    DEEPSEEK_R1_V2_US = "us.deepseek.r1-v1:0"
+    DEEPSEEK_R1_V2 = "deepseek.r1-v1:0"
 
 
 # Redirect Stability model without version to the earliest non-deprecated version (V1)
@@ -84,3 +84,7 @@ class EmbeddingsDeployment(Enum):
 
     COHERE_EMBED_ENGLISH_V3 = "cohere.embed-english-v3"
     COHERE_EMBED_MULTILINGUAL_V3 = "cohere.embed-multilingual-v3"
+
+    @classmethod
+    def deployments(cls) -> List[str]:
+        return [e.value for e in cls]

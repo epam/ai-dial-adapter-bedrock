@@ -153,7 +153,7 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1
-            | ChatCompletionDeployment.DEEPSEEK_R1_V2_US
+            | ChatCompletionDeployment.DEEPSEEK_R1_V2
         ):
             return await converse_adapter.create()
         case (
