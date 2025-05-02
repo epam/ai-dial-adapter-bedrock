@@ -139,6 +139,7 @@ def create_adapter(
     )(model)
 
 
+# FIXME: add validation of the extra configuration fields
 class ThinkingConfigEnabled(BaseModel):
     type: Literal["enabled"]
     budget_tokens: int
