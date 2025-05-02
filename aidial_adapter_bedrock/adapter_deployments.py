@@ -81,7 +81,7 @@ class AdapterDeployments(BaseModel):
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
                     f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                    f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning, otherwise you are losing the features present in the former deployment and missing from the latter."
+                    f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
                 )
 
                 if (
