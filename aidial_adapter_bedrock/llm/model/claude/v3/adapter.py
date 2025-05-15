@@ -91,7 +91,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
     process_tools_block,
     process_with_tools,
 )
-from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
@@ -243,8 +243,11 @@ class Adapter(ChatCompletionAdapter):
             # modifications as well as forced tool use.
             temperature = NOT_GIVEN
 
+        if (max_tokens := params.max_tokens) is None:
+            max_tokens = CLAUDE_DEFAULT_MAX_TOKENS
+
         claude_params = ClaudeParameters(
-            max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
+            max_tokens=max_tokens,
             stop_sequences=params.stop,
             system=system_prompt or NOT_GIVEN,
             temperature=temperature,
