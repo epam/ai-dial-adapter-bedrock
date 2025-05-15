@@ -312,7 +312,7 @@ Such a **per-model** configuration is operationally cleaner since all the inform
 
 The default value set in the DIAL Core Config takes precedence over the one configured in the adapter.
 
-Make sure the default doesn't exceed Claude's [max output tokens](https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table), otherwise, you will receive an error like this one: `The maximum tokens you requested exceeds the model limit of 131072)`.
+Make sure the default doesn't exceed Claude's [max output tokens](https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table), otherwise, you will receive an error like this one: `The maximum tokens you requested exceeds the model limit of 131072`.
 
 ## Compatibility mode
 
