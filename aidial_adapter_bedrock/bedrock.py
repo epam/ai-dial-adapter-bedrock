@@ -1,5 +1,7 @@
 import json
 from abc import ABC
+from asyncio import Lock
+from collections import defaultdict
 from logging import DEBUG
 from typing import (
     Any,
@@ -33,21 +35,26 @@ Headers = Mapping[str, str]
 
 class _BedrockClientFactory:
     _clients: ClassVar[dict[str, Any]] = {}
+    _locks: ClassVar[dict[str, Lock]] = defaultdict(Lock)
 
+    # FIX add TTL?
     @classmethod
     async def get_client(cls, client_config: dict) -> Any:
         key = json.dumps(client_config, sort_keys=True, separators=(",", ":"))
 
-        if client := cls._clients.get(key):
+        async with cls._locks[key]:
+            if client := cls._clients.get(key):
+                log.debug(f"Bedrock client cache-hit: {key}")
+                return client
+
+            log.debug(f"Bedrock client cache-miss: {key}")
+            config = botocore.client.Config(max_pool_connections=10)  # type: ignore
+
+            client = await make_async(
+                lambda: boto3.Session().client(**client_config, config=config)
+            )
+            cls._clients[key] = client
             return client
-
-        config = botocore.client.Config(max_pool_connections=1000)  # type: ignore
-
-        client = await make_async(
-            lambda: boto3.Session().client(**client_config, config=config)
-        )
-        cls._clients[key] = client
-        return client
 
 
 class Bedrock:
