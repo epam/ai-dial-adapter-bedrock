@@ -1,11 +1,17 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Self, Union
 
-from aidial_sdk.chat_completion import Attachment, CustomContent, FunctionCall
+from aidial_sdk.chat_completion import (
+    Attachment,
+    CacheBreakpoint,
+    CustomContent,
+    FunctionCall,
+)
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
     MessageContentPart,
     MessageContentTextPart,
+    MessageCustomFields,
     Role,
     ToolCall,
 )
@@ -22,6 +28,14 @@ from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class MessageABC(ABC, BaseModel):
+    cache_breakpoint: CacheBreakpoint | None = None
+
+    @property
+    def custom_fields(self) -> MessageCustomFields | None:
+        if self.cache_breakpoint:
+            return MessageCustomFields(cache_breakpoint=self.cache_breakpoint)
+        return None
+
     @abstractmethod
     def to_message(self) -> DialMessage: ...
 
@@ -36,6 +50,12 @@ class BaseMessageABC(MessageABC):
     def text_content(self) -> str: ...
 
 
+def _get_cache_breakpoint(message: DialMessage) -> CacheBreakpoint | None:
+    if message.custom_fields is None:
+        return None
+    return message.custom_fields.cache_breakpoint
+
+
 class SystemMessage(BaseMessageABC):
     content: str | List[MessageContentTextPart]
     is_developer: bool = False
@@ -44,6 +64,7 @@ class SystemMessage(BaseMessageABC):
         return DialMessage(
             role=Role.DEVELOPER if self.is_developer else Role.SYSTEM,
             content=to_message_content(self.content),
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -60,6 +81,7 @@ class SystemMessage(BaseMessageABC):
 
         return cls(
             is_developer=message.role == Role.DEVELOPER,
+            cache_breakpoint=_get_cache_breakpoint(message),
             content=content,
         )
 
@@ -70,13 +92,14 @@ class SystemMessage(BaseMessageABC):
 
 class HumanRegularMessage(BaseMessageABC):
     content: str | List[MessageContentPart]
-    custom_content: Optional[CustomContent] = None
+    custom_content: CustomContent | None = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
             role=Role.USER,
             content=self.content,
             custom_content=self.custom_content,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -90,7 +113,11 @@ class HumanRegularMessage(BaseMessageABC):
                 "User message is expected to have content field"
             )
 
-        return cls(content=content, custom_content=message.custom_content)
+        return cls(
+            content=content,
+            custom_content=message.custom_content,
+            cache_breakpoint=_get_cache_breakpoint(message),
+        )
 
     @property
     def text_content(self) -> str:
@@ -112,6 +139,7 @@ class HumanToolResultMessage(MessageABC):
             role=Role.TOOL,
             tool_call_id=self.id,
             content=self.content,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -129,7 +157,11 @@ class HumanToolResultMessage(MessageABC):
                 "The tool message is expected to have content and tool_call_id fields"
             )
 
-        return cls(id=message.tool_call_id, content=message.content)
+        return cls(
+            id=message.tool_call_id,
+            content=message.content,
+            cache_breakpoint=_get_cache_breakpoint(message),
+        )
 
 
 class HumanFunctionResultMessage(MessageABC):
@@ -141,6 +173,7 @@ class HumanFunctionResultMessage(MessageABC):
             role=Role.FUNCTION,
             name=self.name,
             content=self.content,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -158,7 +191,11 @@ class HumanFunctionResultMessage(MessageABC):
                 "The function message is expected to have content and name fields"
             )
 
-        return cls(name=message.name, content=message.content)
+        return cls(
+            name=message.name,
+            content=message.content,
+            cache_breakpoint=_get_cache_breakpoint(message),
+        )
 
 
 class AIRegularMessage(BaseMessageABC):
@@ -170,6 +207,7 @@ class AIRegularMessage(BaseMessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             custom_content=self.custom_content,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -191,7 +229,9 @@ class AIRegularMessage(BaseMessageABC):
             )
 
         return cls(
-            content=message.content, custom_content=message.custom_content
+            content=message.content,
+            custom_content=message.custom_content,
+            cache_breakpoint=_get_cache_breakpoint(message),
         )
 
     @property
@@ -214,6 +254,7 @@ class AIToolCallMessage(MessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             tool_calls=self.calls,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -229,7 +270,11 @@ class AIToolCallMessage(MessageABC):
                 "The assistant message with tool calls shouldn't contain content parts"
             )
 
-        return cls(calls=message.tool_calls, content=message.content)
+        return cls(
+            calls=message.tool_calls,
+            content=message.content,
+            cache_breakpoint=_get_cache_breakpoint(message),
+        )
 
 
 class AIFunctionCallMessage(MessageABC):
@@ -241,6 +286,7 @@ class AIFunctionCallMessage(MessageABC):
             role=Role.ASSISTANT,
             content=self.content,
             function_call=self.call,
+            custom_fields=self.custom_fields,
         )
 
     @classmethod
@@ -256,7 +302,11 @@ class AIFunctionCallMessage(MessageABC):
                 "The assistant message with function call shouldn't contain content parts"
             )
 
-        return cls(call=message.function_call, content=message.content)
+        return cls(
+            call=message.function_call,
+            content=message.content,
+            cache_breakpoint=_get_cache_breakpoint(message),
+        )
 
 
 BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]

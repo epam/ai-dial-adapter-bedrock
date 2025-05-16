@@ -98,7 +98,7 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
         return 1000, 1000
 
 
-async def _tokenize_image(source: Source) -> int:
+def _tokenize_image(source: Source) -> int:
     width, height = _get_image_size(source["data"])
     return math.ceil((width * height) / 750.0)
 
@@ -107,18 +107,18 @@ def _tokenize_tool_use(id: str, input: object, name: str) -> int:
     return tokenize_text(f"{id} {name} {json.dumps(input)}")
 
 
-async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
+def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
     tokens: int = tokenize_text(message["tool_use_id"])
     if (content := message.get("content")) is not None:
         if isinstance(content, str):
             tokens += tokenize_text(content)
         else:
             for sub_message in content:
-                tokens += await _tokenize_sub_message(sub_message)
+                tokens += _tokenize_sub_message(sub_message)
     return tokens
 
 
-async def _tokenize_sub_message(
+def _tokenize_sub_message(
     message: Union[
         TextBlockParam,
         ImageBlockParam,
@@ -135,13 +135,13 @@ async def _tokenize_sub_message(
             case "text":
                 return tokenize_text(message["text"])
             case "image":
-                return await _tokenize_image(message["source"])
+                return _tokenize_image(message["source"])
             case "tool_use":
                 return _tokenize_tool_use(
                     message["id"], message["input"], message["name"]
                 )
             case "tool_result":
-                return await _tokenize_tool_result(message)
+                return _tokenize_tool_result(message)
             case "document":
                 return tokenize_text(json.dumps(message))
             case "thinking":
@@ -166,7 +166,7 @@ async def _tokenize_sub_message(
                 assert_never(message)
 
 
-async def _tokenize_message(message: ClaudeMessage) -> int:
+def _tokenize_message(message: ClaudeMessage) -> int:
     tokens: int = 0
 
     content = message["content"]
@@ -176,18 +176,18 @@ async def _tokenize_message(message: ClaudeMessage) -> int:
             tokens += tokenize_text(content)
         case _:
             for item in content:
-                tokens += await _tokenize_sub_message(item)
+                tokens += _tokenize_sub_message(item)
 
     return tokens
 
 
-async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
+def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
     # A rough estimation
     per_message_tokens = 5
 
     tokens: int = 0
     for message in messages:
-        tokens += await _tokenize_message(message) + per_message_tokens
+        tokens += _tokenize_message(message) + per_message_tokens
     return tokens
 
 
@@ -222,7 +222,7 @@ def _tokenize_tool_system_message(
             assert_never(deployment)
 
 
-async def _tokenize(
+def _tokenize(
     deployment: Claude3Deployment,
     params: ClaudeParameters,
     messages: List[ClaudeMessage],
@@ -230,7 +230,11 @@ async def _tokenize(
     tokens: int = 0
 
     if system := params["system"]:
-        tokens += tokenize_text(system)
+        if isinstance(system, str):
+            tokens += tokenize_text(system)
+        else:
+            for item in system:
+                tokens += _tokenize_sub_message(item)
 
     if tools := params["tools"]:
         if tool_choice := params["tool_choice"]:
@@ -243,7 +247,7 @@ async def _tokenize(
         for tool in tools:
             tokens += _tokenize_tool_param(tool)
 
-    tokens += await _tokenize_messages(messages)
+    tokens += _tokenize_messages(messages)
 
     return tokens
 
@@ -256,6 +260,6 @@ def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
     async def _tokenizer(messages) -> int:
-        return await _tokenize(deployment, params, [msg for msg, _ in messages])
+        return _tokenize(deployment, params, [msg for msg, _ in messages])
 
     return _tokenizer

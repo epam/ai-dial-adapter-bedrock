@@ -3,14 +3,13 @@ from typing import List
 from unittest.mock import patch
 
 import pytest
-from aidial_sdk.chat_completion import Function, Message
+from aidial_sdk.chat_completion import Function, Message, Tool
 from aidial_sdk.exceptions import HTTPException as DialException
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
@@ -49,7 +48,7 @@ async def compute_discarded_messages(
 
 
 _TOOL_CONFIG = ToolsConfig(
-    functions=[Function(name="function")],
+    tools=[Tool(type="function", function=Function(name="function"))],
     required=False,
     tool_ids={},
 )
@@ -163,17 +162,14 @@ async def test_one_turn_overflow(mock_tokenize_text):
 
 async def test_multiple_system_messages(mock_tokenize_text):
     messages = [
-        sys("system1"),
-        sys("system2"),
-        user("user"),
+        sys("11"),
+        sys("22"),
+        user("33"),
     ]
 
-    with pytest.raises(ValidationError) as exc_info:
-        await compute_discarded_messages(messages, 3)
+    expected_tokens = (11 + 22) + (_PER_MESSAGE_TOKENS + 33)
 
-        assert exc_info.value.message == (
-            "System message is only allowed as the first message"
-        )
+    assert await tokenize(messages) == expected_tokens
 
 
 async def test_truncate_first_turn(mock_tokenize_text):

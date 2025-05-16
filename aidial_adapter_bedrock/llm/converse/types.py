@@ -20,6 +20,14 @@ class ConverseTextPart(TypedDict):
     text: str
 
 
+class ConverseCachePoint(TypedDict):
+    type: Literal["default"]
+
+
+class ConverseCachePointPart(TypedDict):
+    cachePoint: ConverseCachePoint
+
+
 class ConverseJsonPart(TypedDict):
     json: dict
 
@@ -78,6 +86,7 @@ ConverseContentPart = Union[
     ConverseDocumentPart,
     ConverseToolUsePart,
     ConverseToolResultPart,
+    ConverseCachePointPart,
 ]
 
 
@@ -92,7 +101,7 @@ class ConverseToolSpec(TypedDict):
 
 
 class ConverseTools(TypedDict):
-    tools: list[ConverseToolSpec]
+    tools: list[ConverseToolSpec | ConverseCachePointPart]
     toolChoice: dict
 
 
@@ -127,7 +136,7 @@ class PerformanceConfig(TypedDict, total=False):
 
 class ConverseRequest(TypedDict, total=False):
     messages: Required[list[ConverseMessage]]
-    system: list[ConverseTextPart]
+    system: list[ConverseTextPart | ConverseCachePointPart]
     inferenceConfig: InferenceConfig
     toolConfig: ConverseTools
     performanceConfig: PerformanceConfig
@@ -136,7 +145,7 @@ class ConverseRequest(TypedDict, total=False):
 @dataclass
 class ConverseRequestWrapper:
     messages: ListProjection[ConverseMessage]
-    system: list[ConverseTextPart] | None = None
+    system: list[ConverseTextPart | ConverseCachePointPart] | None = None
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
     performanceConfig: PerformanceConfig | None = None

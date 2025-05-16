@@ -1,14 +1,27 @@
 import json
-from typing import List, Literal, Optional, Set, Tuple, assert_never, cast
+from typing import (
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    assert_never,
+    cast,
+    overload,
+)
 
 from aidial_sdk.chat_completion import (
     FinishReason,
-    Function,
     MessageContentImagePart,
     MessageContentTextPart,
+    Tool,
     ToolCall,
 )
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
+from anthropic.types.beta import (
+    BetaCacheControlEphemeralParam as CacheControlEphemeralParam,
+)
 from anthropic.types.beta import BetaContentBlock as ContentBlock
 from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
 from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
@@ -19,6 +32,7 @@ from anthropic.types.beta import (
     BetaToolResultBlockParam as ToolResultBlockParam,
 )
 from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
+from anthropic.types.beta import BetaUsage as Usage
 from anthropic.types.beta.beta_image_block_param import Source
 from pydantic import BaseModel
 from pydantic import ValidationError as PydValidationError
@@ -30,6 +44,7 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
+from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
@@ -74,13 +89,13 @@ class MessageState(BaseModel):
 
 def _get_message_content_from_state(
     idx: int, message: AIRegularMessage
-) -> List[ContentBlock] | None:
+) -> List[ContentBlockParam] | None:
     if (cc := message.custom_content) is not None and (
         state_dict := cc.state
     ) is not None:
         try:
             state = MessageState.parse_obj(state_dict)
-            return state.claude_message_content
+            return [block.to_dict() for block in state.claude_message_content]  # type: ignore
         except PydValidationError as e:
             log.error(
                 f"Invalid state at the path 'messages[{idx}].custom_content.state': {e}"
@@ -119,19 +134,72 @@ async def _collect_image_block(
     return _create_image_block(resource)
 
 
+_claude_cache_breakpoint = CacheControlEphemeralParam(type="ephemeral")
+
+
+def _add_cache_control(
+    message: BaseMessage | HumanToolResultMessage | AIToolCallMessage,
+    claude_content: Iterable[ContentBlockParam],
+) -> Iterable[ContentBlockParam]:
+
+    if message.cache_breakpoint is not None:
+        for block in reversed(list(claude_content)):
+            if (
+                block["type"] != "thinking"
+                and block["type"] != "redacted_thinking"
+            ):
+                block["cache_control"] = _claude_cache_breakpoint
+                break
+
+    return claude_content
+
+
+def _to_message_param(
+    dial_message: (
+        AIRegularMessage
+        | AIToolCallMessage
+        | HumanRegularMessage
+        | HumanToolResultMessage
+    ),
+    claude_content: Iterable[ContentBlockParam],
+) -> MessageParam:
+    match dial_message:
+        case AIRegularMessage() | AIToolCallMessage():
+            role = "assistant"
+        case HumanRegularMessage() | HumanToolResultMessage():
+            role = "user"
+        case _:
+            assert_never(dial_message)
+    return MessageParam(role=role, content=claude_content)
+
+
+@overload
+async def _to_claude_message(
+    file_storage: FileStorage | None, message: SystemMessage
+) -> Iterable[TextBlockParam]: ...
+
+
+@overload
 async def _to_claude_message(
     file_storage: FileStorage | None,
     message: AIRegularMessage | HumanRegularMessage,
-) -> List[TextBlockParam | ImageBlockParam]:
+) -> Iterable[TextBlockParam | ImageBlockParam]: ...
+
+
+async def _to_claude_message(
+    file_storage: FileStorage | None,
+    message: SystemMessage | AIRegularMessage | HumanRegularMessage,
+) -> Iterable[TextBlockParam | ImageBlockParam]:
     ret: List[TextBlockParam | ImageBlockParam] = []
 
-    for attachment in message.attachments:
-        dial_resource = AttachmentResource(
-            attachment=attachment,
-            entity_name="image attachment",
-            supported_types=IMAGE_MEDIA_TYPES,
-        )
-        ret.append(await _collect_image_block(file_storage, dial_resource))
+    if isinstance(message, (AIRegularMessage, HumanRegularMessage)):
+        for attachment in message.attachments:
+            dial_resource = AttachmentResource(
+                attachment=attachment,
+                entity_name="image attachment",
+                supported_types=IMAGE_MEDIA_TYPES,
+            )
+            ret.append(await _collect_image_block(file_storage, dial_resource))
 
     content = message.content
 
@@ -166,7 +234,7 @@ async def _to_claude_message(
     return ret
 
 
-def _to_claude_tool_call(call: ToolCall) -> ToolUseBlockParam:
+def _to_claude_tool_call(call: ToolCall) -> ContentBlockParam:
     return ToolUseBlockParam(
         id=call.id,
         name=call.function.name,
@@ -201,14 +269,10 @@ def _merge_messages_with_same_role(
         content2 = msg2["content"]
 
         if isinstance(content1, str):
-            content1 = [
-                cast(TextBlockParam, {"type": "text", "text": content1})
-            ]
+            content1 = [TextBlockParam(type="text", text=content1)]
 
         if isinstance(content2, str):
-            content2 = [
-                cast(TextBlockParam, {"type": "text", "text": content2})
-            ]
+            content2 = [TextBlockParam(type="text", text=content2)]
 
         return {
             "role": msg1["role"],
@@ -218,74 +282,60 @@ def _merge_messages_with_same_role(
     return ListProjection(group_by(messages.list, _key, lambda x: x, _merge))
 
 
-def _to_block_param(
-    block: ContentBlock | ContentBlockParam,
-) -> ContentBlockParam:
-    if isinstance(block, dict):
-        return block
-    return block.to_dict()  # type: ignore
-
-
 async def to_claude_messages(
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
     file_storage: Optional[FileStorage],
-) -> Tuple[Optional[str], ListProjection[MessageParam]]:
+) -> Tuple[List[TextBlockParam], ListProjection[MessageParam]]:
 
-    system_prompt: str | None = None
-    if messages and isinstance(messages[0], SystemMessage):
-        system_prompt = messages[0].text_content
-        messages = messages[1:]
+    idx_offset: int = 0
+    system_messages: List[TextBlockParam] = []
 
-    idx_offset = int(system_prompt is not None)
+    for message in messages:
+        if isinstance(message, SystemMessage):
+            idx_offset += 1
+            content = await _to_claude_message(file_storage, message)
+            content = _add_cache_control(message, content)
+            system_messages.extend(content)  # type: ignore
+        else:
+            break
 
     ret: ListProjection[MessageParam] = ListProjection()
-    for idx, message in enumerate(messages, start=idx_offset):
+    for idx, message in enumerate(messages[idx_offset:], start=idx_offset):
+
         match message:
             case HumanRegularMessage():
-                ret.append(
-                    MessageParam(
-                        role="user",
-                        content=await _to_claude_message(file_storage, message),
-                    ),
-                    idx,
-                )
+                content = await _to_claude_message(file_storage, message)
+
             case AIRegularMessage():
                 # Take the message content from the state if possible,
                 # since it may include certain content blocks that
                 # are missing from the DIAL message itself,
                 # such as thinking signatures and redacted thinking blocks.
-                bot_content = _get_message_content_from_state(
+                content = _get_message_content_from_state(
                     idx, message
                 ) or await _to_claude_message(file_storage, message)
 
-                message_content = list(map(_to_block_param, bot_content))
-                ret.append(
-                    MessageParam(role="assistant", content=message_content), idx
-                )
             case AIToolCallMessage():
-                content: List[TextBlockParam | ToolUseBlockParam] = [
-                    _to_claude_tool_call(call) for call in message.calls
-                ]
+                content = [_to_claude_tool_call(call) for call in message.calls]
                 if message.content is not None:
                     content.insert(0, _create_text_block(message.content))
 
-                ret.append(MessageParam(role="assistant", content=content), idx)
             case HumanToolResultMessage():
-                ret.append(
-                    MessageParam(
-                        role="user",
-                        content=[_to_claude_tool_result(message)],
-                    ),
-                    idx,
-                )
+                content = [_to_claude_tool_result(message)]
+
             case SystemMessage():
                 raise ValidationError(
-                    "System message is only allowed as the first message"
+                    "System and developer messages are only allowed in the begging of the conversation."
                 )
             case _:
                 assert_never(message)
 
-    return system_prompt, _merge_messages_with_same_role(ret)
+        claude_message = _to_message_param(
+            message, _add_cache_control(message, content)
+        )
+        ret.append(claude_message, idx)
+
+    return system_messages, _merge_messages_with_same_role(ret)
 
 
 def to_dial_finish_reason(
@@ -319,13 +369,30 @@ def to_dial_finish_reason(
             assert_never(finish_reason)
 
 
-def to_claude_tool_config(function_call: Function) -> ToolParam:
-    return ToolParam(
-        input_schema=function_call.parameters
-        or {"type": "object", "properties": {}},
-        name=function_call.name,
-        description=function_call.description or "",
+def to_dial_usage(usage: Usage) -> TokenUsage:
+    read = usage.cache_creation_input_tokens or 0
+    write = usage.cache_read_input_tokens or 0
+    return TokenUsage(
+        completion_tokens=usage.output_tokens,
+        prompt_tokens=usage.input_tokens + read + write,
+        cache_write_input_tokens=read,
+        cache_read_input_tokens=write,
     )
+
+
+def to_claude_tool_config(tool: Tool) -> ToolParam:
+    function = tool.function
+    tool_param = ToolParam(
+        input_schema=function.parameters
+        or {"type": "object", "properties": {}},
+        name=function.name,
+        description=function.description or "",
+    )
+
+    if tool.custom_fields and tool.custom_fields.cache_breakpoint:
+        tool_param["cache_control"] = _claude_cache_breakpoint
+
+    return tool_param
 
 
 def get_usage_message(supported_exts: List[str]) -> str:

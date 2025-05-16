@@ -1,6 +1,9 @@
 import os
+from functools import cache
 
+import anthropic
 import boto3
+import httpx
 from aidial_sdk.embeddings import Request
 from pydantic import BaseModel, Field
 
@@ -13,6 +16,18 @@ class AWSClientCredentials(BaseModel):
     aws_access_key_id: str
     aws_secret_access_key: str
     aws_session_token: str | None = None
+
+
+@cache
+def get_default_anthropic_timeout() -> httpx.Timeout:
+    # Providing a timeout marginally different from the default Anthropic timeout
+    # in order to disable the check that throws an error when
+    # stream=False & max_tokens>=128K/6:
+    # https://github.com/anthropics/anthropic-sdk-python/blob/f5bdf5137cc3da4d3663aedb8c63d54652981c3b/src/anthropic/resources/beta/messages/messages.py#L2175-L2176
+
+    timeout = anthropic._constants.DEFAULT_TIMEOUT.as_dict()
+    timeout["connect"] *= 1.0001  # type: ignore
+    return httpx.Timeout(**timeout)
 
 
 class AWSClientConfig(BaseModel):
@@ -28,7 +43,7 @@ class AWSClientConfig(BaseModel):
         return client_kwargs
 
     def get_anthropic_bedrock_client_kwargs(self) -> dict:
-        client_kwargs = {"aws_region": self.region}
+        client_kwargs: dict = {"aws_region": self.region}
 
         if self.credentials:
             credentials = remove_nones(
@@ -39,6 +54,8 @@ class AWSClientConfig(BaseModel):
                 }
             )
             client_kwargs.update(credentials)
+
+        client_kwargs["timeout"] = get_default_anthropic_timeout()
         return client_kwargs
 
 

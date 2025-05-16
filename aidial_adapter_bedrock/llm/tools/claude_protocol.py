@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List, Literal, Optional
 
-from aidial_sdk.chat_completion import Function, FunctionCall, ToolCall
+from aidial_sdk.chat_completion import FunctionCall, Tool, ToolCall
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.message import (
@@ -91,7 +91,8 @@ def _print_tool_parameters(parameters: ToolParameters) -> str:
     )
 
 
-def _print_tool_declaration(function: Function) -> str:
+def _print_tool_declaration(tool: Tool) -> str:
+    function = tool.function
     return tag_nl(
         "tool_description",
         [
@@ -104,10 +105,8 @@ def _print_tool_declaration(function: Function) -> str:
     )
 
 
-def print_tool_declarations(functions: List[Function]) -> str:
-    return tag_nl(
-        "tools", [_print_tool_declaration(function) for function in functions]
-    )
+def print_tool_declarations(tools: List[Tool]) -> str:
+    return tag_nl("tools", [_print_tool_declaration(tool) for tool in tools])
 
 
 def _print_function_call_parameters(parameters: dict) -> str:
