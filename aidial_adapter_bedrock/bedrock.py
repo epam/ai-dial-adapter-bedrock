@@ -44,11 +44,9 @@ class _BedrockClientFactory:
 
         async with cls._locks[key]:
             if client := cls._clients.get(key):
-                log.debug(f"Bedrock client cache-hit: {key}")
                 return client
 
-            log.debug(f"Bedrock client cache-miss: {key}")
-            config = botocore.client.Config(max_pool_connections=10)  # type: ignore
+            config = botocore.client.Config(max_pool_connections=100)  # type: ignore
 
             client = await make_async(
                 lambda: boto3.Session().client(**client_config, config=config)
