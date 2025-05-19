@@ -400,7 +400,7 @@ The fields in the extra data override the corresponding environment variables:
 
 ### AWS Bedrock
 
-Assess to AWS Bedrock is authenticated either:
+Authentication with AWS Bedrock is configured either:
 
 1. globally via `AWS_*` environment vars, or
 2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
