@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Mapping
 
@@ -5,11 +6,6 @@ import httpx
 import pytest
 from httpx import ASGITransport
 from openai import AsyncAzureOpenAI
-
-from aidial_adapter_bedrock.aws_client_config import (
-    AWSClientConfigFactory,
-    UpstreamConfig,
-)
 
 
 def pytest_configure(config):
@@ -42,11 +38,7 @@ async def test_http_client():
 
 
 def _get_extra_headers(region: str) -> Mapping[str, str]:
-    return {
-        AWSClientConfigFactory.UPSTREAM_CONFIG_HEADER_NAME: UpstreamConfig(
-            region=region
-        ).json()
-    }
+    return {"x-upstream-extra-data": json.dumps({"region": region})}
 
 
 @pytest.fixture
