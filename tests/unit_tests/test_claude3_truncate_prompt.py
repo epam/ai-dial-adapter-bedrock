@@ -22,7 +22,7 @@ _DEPLOYMENT = AdapterDeployment.supported(
 )
 
 _MODEL = Claude_V3.create(
-    _DEPLOYMENT, "-", CloudUpstreamConfig(region="us-east-1", credentials=None)
+    _DEPLOYMENT, "-", CloudUpstreamConfig(region="us-east-1")
 )
 
 

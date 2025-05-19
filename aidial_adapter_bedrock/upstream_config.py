@@ -13,12 +13,11 @@ from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
-from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 @cache
-def get_default_anthropic_timeout() -> httpx.Timeout:
+def _get_default_anthropic_timeout() -> httpx.Timeout:
     # Providing a timeout marginally different from the default Anthropic timeout
     # in order to disable the check that throws an error when
     # stream=False & max_tokens>=128K/6:
@@ -42,8 +41,10 @@ class ApiKeyUpstreamConfig(BaseModel):
         return None if key is None else cls(api_key=key)
 
     def get_anthropic_client(self) -> AsyncAnthropic:
-        timeout = get_default_anthropic_timeout()
-        return AsyncAnthropic(api_key=self.api_key, timeout=timeout)
+        return AsyncAnthropic(
+            api_key=self.api_key,
+            timeout=_get_default_anthropic_timeout(),
+        )
 
 
 class AWSClientCredentials(BaseModel):
@@ -56,7 +57,7 @@ class CloudUpstreamConfig(BaseModel):
     _UPSTREAM_CONFIG_HEADER_NAME: ClassVar[str] = "x-upstream-extra-data"
 
     region: str
-    credentials: AWSClientCredentials | None
+    credentials: AWSClientCredentials | None = None
 
     @classmethod
     async def from_request(
@@ -73,37 +74,26 @@ class CloudUpstreamConfig(BaseModel):
         )
 
     async def get_bedrock_client(self) -> Any:
-        client_kwargs = {
-            "service_name": "bedrock-runtime",
-            "region_name": self.region,
-        }
-
-        if self.credentials:
-            client_kwargs.update(self.credentials.dict(exclude_none=True))
-
-        client = await make_async(
-            lambda: boto3.Session().client(**client_kwargs)  # type: ignore
+        creds = self.credentials
+        return await make_async(
+            lambda: boto3.Session().client(
+                service_name="bedrock-runtime",
+                region_name=self.region,
+                aws_access_key_id=creds and creds.aws_access_key_id,
+                aws_secret_access_key=creds and creds.aws_secret_access_key,
+                aws_session_token=creds and creds.aws_session_token,
+            )
         )
 
-        return client
-
     def get_anthropic_client(self) -> AsyncAnthropicBedrock:
-        client_kwargs = {
-            "aws_region": self.region,
-            "timeout": get_default_anthropic_timeout(),
-        }
-
-        if self.credentials:
-            credentials = remove_nones(
-                {
-                    "aws_access_key": self.credentials.aws_access_key_id,
-                    "aws_secret_key": self.credentials.aws_secret_access_key,
-                    "aws_session_token": self.credentials.aws_session_token,
-                }
-            )
-            client_kwargs.update(credentials)
-
-        return AsyncAnthropicBedrock(**client_kwargs)
+        creds = self.credentials
+        return AsyncAnthropicBedrock(
+            aws_region=self.region,
+            aws_access_key=creds and creds.aws_access_key_id,
+            aws_secret_key=creds and creds.aws_secret_access_key,
+            aws_session_token=creds and creds.aws_session_token,
+            timeout=_get_default_anthropic_timeout(),
+        )
 
 
 UpstreamConfig = ApiKeyUpstreamConfig | CloudUpstreamConfig

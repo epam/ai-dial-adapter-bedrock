@@ -675,9 +675,7 @@ TEST_CASES = [
 async def test_converse_adapter(test_case: TestCase):
     adapter = ConverseAdapter(
         deployment="test",
-        bedrock=await Bedrock.acreate(
-            CloudUpstreamConfig(region="us-east-1", credentials=None)
-        ),
+        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
         tokenize_text=lambda x: len(x),
         input_tokenizer_factory=_input_tokenizer_factory,  # type: ignore
         support_tools=True,
