@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
-from aidial_adapter_bedrock.utils.cache import refreshable_cache
+from aidial_adapter_bedrock.utils.cache import ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -52,7 +52,7 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
     return httpx.Timeout(**timeout)
 
 
-@refreshable_cache
+@ttl_cache
 async def create_anthropic_bedrock_client(
     client_config: AWSClientConfig,
 ) -> Tuple[datetime | None, AsyncAnthropicBedrock]:
@@ -80,7 +80,7 @@ async def create_anthropic_bedrock_client(
     )
 
 
-@refreshable_cache
+@ttl_cache
 async def create_boto_client(
     service_name: str, client_config: AWSClientConfig
 ) -> Tuple[datetime | None, Any]:

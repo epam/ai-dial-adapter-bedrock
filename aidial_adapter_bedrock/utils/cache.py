@@ -12,7 +12,7 @@ _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
 
-def refreshable_cache(
+def ttl_cache(
     func: Callable[_P, Coroutine[Any, Any, Tuple[datetime | None, _T]]],
 ) -> Callable[_P, Coroutine[Any, Any, _T]]:
 
@@ -20,7 +20,7 @@ def refreshable_cache(
     _locks: dict[str, Lock] = defaultdict(Lock)
 
     async def _wrapper(*args, **kwargs):
-        key = _create_key(args, kwargs)
+        key = _make_key(args, kwargs)
 
         async with _locks[key]:
             (expiry, value) = _cache.get(key, (None, None))
@@ -40,7 +40,7 @@ def refreshable_cache(
     return _wrapper
 
 
-def _create_key(args: tuple, kwargs: dict) -> str:
+def _make_key(args: tuple, kwargs: dict) -> str:
     dump_args = {"sort_keys": True, "separators": (",", ":")}
 
     def default(obj):
