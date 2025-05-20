@@ -1,20 +1,15 @@
 import json
 from abc import ABC
-from asyncio import Lock
-from collections import defaultdict
+from datetime import datetime
+from functools import cache
 from logging import DEBUG
-from typing import (
-    Any,
-    AsyncIterator,
-    ClassVar,
-    Mapping,
-    Optional,
-    Tuple,
-    Unpack,
-)
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple, Unpack
 
+import anthropic
 import boto3
 import botocore
+import httpx
+from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
@@ -22,37 +17,92 @@ from pydantic import BaseModel, Field
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
+from aidial_adapter_bedrock.utils.cache import refreshable_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
 )
+from aidial_adapter_bedrock.utils.env import get_env_int
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Body = dict
 Headers = Mapping[str, str]
 
+ANTHROPIC_BEDROCK_MAX_CONNECTIONS = get_env_int(
+    "ANTHROPIC_BEDROCK_MAX_CONNECTIONS", 1000
+)
+ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
+    "ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS", 100
+)
+BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
+    "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
+)
 
-class _BedrockClientFactory:
-    _clients: ClassVar[dict[str, Any]] = {}
-    _locks: ClassVar[dict[str, Lock]] = defaultdict(Lock)
 
-    # FIX add TTL?
-    @classmethod
-    async def get_client(cls, client_config: dict) -> Any:
-        key = json.dumps(client_config, sort_keys=True, separators=(",", ":"))
+@cache
+def get_default_anthropic_timeout() -> httpx.Timeout:
+    # Providing a timeout marginally different from the default Anthropic timeout
+    # in order to disable the check that throws an error when
+    # stream=False & max_tokens>=128K/6:
+    # https://github.com/anthropics/anthropic-sdk-python/blob/f5bdf5137cc3da4d3663aedb8c63d54652981c3b/src/anthropic/resources/beta/messages/messages.py#L2175-L2176
 
-        async with cls._locks[key]:
-            if client := cls._clients.get(key):
-                return client
+    timeout = anthropic._constants.DEFAULT_TIMEOUT.as_dict()
+    timeout["connect"] *= 1.0001  # type: ignore
+    return httpx.Timeout(**timeout)
 
-            config = botocore.client.Config(max_pool_connections=100)  # type: ignore
 
-            client = await make_async(
-                lambda: boto3.Session().client(**client_config, config=config)
-            )
-            cls._clients[key] = client
-            return client
+@refreshable_cache
+async def create_anthropic_bedrock_client(
+    client_config: AWSClientConfig,
+) -> Tuple[datetime | None, AsyncAnthropicBedrock]:
+    (expiration, creds) = await client_config.get_credentials()
+
+    # NOTE: default connection limits set by the anthropic library:
+    # * max_connections=1000
+    # * max_keepalive_connections=100
+    # Meaning that there couldn't be more than 1000 concurrent requests.
+    # Anything beyond will be blocked.
+
+    return expiration, AsyncAnthropicBedrock(
+        aws_region=client_config.region,
+        aws_access_key=creds and creds.aws_access_key_id,
+        aws_secret_key=creds and creds.aws_secret_access_key,
+        aws_session_token=creds and creds.aws_session_token,
+        http_client=httpx.AsyncClient(
+            timeout=get_default_anthropic_timeout(),
+            follow_redirects=True,
+            limits=httpx.Limits(
+                max_connections=ANTHROPIC_BEDROCK_MAX_CONNECTIONS,
+                max_keepalive_connections=ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS,
+            ),
+        ),
+    )
+
+
+@refreshable_cache
+async def create_boto_client(
+    service_name: str, client_config: AWSClientConfig
+) -> Tuple[datetime | None, Any]:
+    (expiration, creds) = await client_config.get_credentials()
+
+    # NOTE: max number of connections to a single host that are being persisted.
+    # Greater number of connections do not block each other.
+    config = botocore.client.Config(  # type: ignore
+        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
+    )
+
+    client = await make_async(
+        lambda: boto3.Session().client(
+            service_name,
+            region_name=client_config.region,
+            aws_access_key_id=creds and creds.aws_access_key_id,
+            aws_secret_access_key=creds and creds.aws_secret_access_key,
+            aws_session_token=creds and creds.aws_session_token,
+            config=config,
+        )
+    )
+    return (expiration, client)
 
 
 class Bedrock:
@@ -63,9 +113,7 @@ class Bedrock:
 
     @classmethod
     async def acreate(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
-        client_kwargs = aws_client_config.get_boto_client_kwargs()
-        client_kwargs["service_name"] = "bedrock-runtime"
-        client = await _BedrockClientFactory.get_client(client_kwargs)
+        client = await create_boto_client("bedrock-runtime", aws_client_config)
         return cls(client)
 
     async def aconverse_non_streaming(

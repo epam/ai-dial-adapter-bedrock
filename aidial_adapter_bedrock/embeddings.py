@@ -16,9 +16,7 @@ class BedrockEmbeddings(Embeddings):
 
     @dial_exception_decorator
     async def embeddings(self, request: Request) -> Response:
-        aws_client_config = await AWSClientConfigFactory(
-            request=request
-        ).get_client_config()
+        aws_client_config = AWSClientConfigFactory(request).get_client_config()
 
         model = await get_embeddings_model(
             deployment=self.deployment,

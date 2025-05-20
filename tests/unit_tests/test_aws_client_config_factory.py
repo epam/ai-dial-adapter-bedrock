@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import datetime
 from unittest import mock
 
 from aidial_adapter_bedrock.aws_client_config import (
+    AWSAssumeRoleCredentials,
     AWSClientConfigFactory,
     AWSClientCredentials,
 )
@@ -21,9 +23,7 @@ class TestAWSClientConfigFactory:
     async def test__get_client_config__default_region_in_config(self):
         request = FakeRequest(headers={})
 
-        client_config = await AWSClientConfigFactory(
-            request=request
-        ).get_client_config()
+        client_config = AWSClientConfigFactory(request).get_client_config()
 
         assert client_config.region == "test-region"
         assert client_config.credentials is None
@@ -32,9 +32,7 @@ class TestAWSClientConfigFactory:
         raw_upstream_config = '{"region": "us-east-2"}'
         request = self._get_request(raw_upstream_config)
 
-        client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
+        client_config = AWSClientConfigFactory(request).get_client_config()
 
         assert client_config.region == "us-east-2"
         assert client_config.credentials is None
@@ -45,22 +43,24 @@ class TestAWSClientConfigFactory:
         )
         request = self._get_request(raw_upstream_config)
 
-        client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
-
+        client_config = AWSClientConfigFactory(request).get_client_config()
         assert client_config.region == "test-region"
-        assert client_config.credentials is not None
-        assert client_config.credentials.aws_access_key_id == "key_id"
-        assert client_config.credentials.aws_secret_access_key == "key"
+
+        (_expiration, creds) = await client_config.get_credentials()
+        assert creds is not None
+        assert creds.aws_access_key_id == "key_id"
+        assert creds.aws_secret_access_key == "key"
 
     @mock.patch.object(
-        AWSClientConfigFactory,
-        "_get_assumed_role_tmp_credentials",
-        return_value=AWSClientCredentials(
-            aws_access_key_id="key_id",
-            aws_secret_access_key="key",
-            aws_session_token="session_token",
+        AWSAssumeRoleCredentials,
+        "get_tmp_credentials",
+        return_value=(
+            datetime.now(),
+            AWSClientCredentials(
+                aws_access_key_id="key_id",
+                aws_secret_access_key="key",
+                aws_session_token="session_token",
+            ),
         ),
     )
     async def test__get_client_config__role_arn__tmp_credentials_in_config(
@@ -69,12 +69,12 @@ class TestAWSClientConfigFactory:
         raw_upstream_config = '{"aws_assume_role_arn": "arn"}'
         request = self._get_request(raw_upstream_config)
 
-        client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
+        client_config = AWSClientConfigFactory(request).get_client_config()
 
         assert client_config.region == "test-region"
-        assert client_config.credentials is not None
-        assert client_config.credentials.aws_access_key_id == "key_id"
-        assert client_config.credentials.aws_secret_access_key == "key"
-        assert client_config.credentials.aws_session_token == "session_token"
+
+        (_expiration, creds) = await client_config.get_credentials()
+        assert creds is not None
+        assert creds.aws_access_key_id == "key_id"
+        assert creds.aws_secret_access_key == "key"
+        assert creds.aws_session_token == "session_token"

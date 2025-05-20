@@ -51,9 +51,7 @@ class BedrockChatCompletion(ChatCompletion):
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
-        aws_client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
+        aws_client_config = AWSClientConfigFactory(request).get_client_config()
 
         return await get_bedrock_adapter(
             deployment=self.deployment,

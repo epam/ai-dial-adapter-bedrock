@@ -57,6 +57,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
 |❌|Not supported|Not supported|Not configurable|
 
+#### Implementation basis
+
 The model adapters differ in what SDKs/APIs they are based on:
 
 1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
@@ -284,6 +286,18 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |COMPATIBILITY_MAPPING|{}|A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#compatibility-mode) section.|
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
+
+### Resource limits
+
+The following environment variables reveal adapter's implementation details and therefore are more susceptible to changes in future than the variables discussed so far.
+
+:warning: Don't use the variables unless you are absolutely sure you know what you are doing.
+
+|Variable|Applicable to models implemented via|Default|Description|
+|---|---|---|---|
+|ANTHROPIC_BEDROCK_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections to keep in a connection pool.|
 
 ## Default `max_tokens` for Claude models
 

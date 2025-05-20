@@ -50,6 +50,7 @@ from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
+from aidial_adapter_bedrock.bedrock import create_anthropic_bedrock_client
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     Claude3Deployment,
@@ -127,12 +128,12 @@ class ClaudeRequest:
     messages: ListProjection[ClaudeMessageParam]
 
 
-def create_adapter(
+async def create_adapter(
     deployment: AdapterDeployment[Claude3Deployment],
     api_key: str,
     aws_client_config: AWSClientConfig,
 ) -> ChatCompletionAdapter:
-    model = Adapter.create(deployment, api_key, aws_client_config)
+    model = await Adapter.create(deployment, api_key, aws_client_config)
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
         replicator_decorator(),
@@ -487,16 +488,12 @@ class Adapter(ChatCompletionAdapter):
         consumer.set_discarded_messages(discarded_messages)
 
     @classmethod
-    def create(
+    async def create(
         cls,
         deployment: AdapterDeployment[Claude3Deployment],
         api_key: str,
         aws_client_config: AWSClientConfig,
     ):
         storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
-        client_kwargs = aws_client_config.get_anthropic_bedrock_client_kwargs()
-        return cls(
-            deployment=deployment,
-            storage=storage,
-            client=AsyncAnthropicBedrock(**client_kwargs),
-        )
+        client = await create_anthropic_bedrock_client(aws_client_config)
+        return cls(deployment=deployment, storage=storage, client=client)

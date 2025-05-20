@@ -63,7 +63,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
         ):
-            return claude_v3.create_adapter(
+            return await claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
                 api_key,
                 aws_client_config,
