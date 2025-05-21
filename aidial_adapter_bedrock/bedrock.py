@@ -33,11 +33,9 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 Body = dict
 Headers = Mapping[str, str]
 
-ANTHROPIC_BEDROCK_MAX_CONNECTIONS = get_env_int(
-    "ANTHROPIC_BEDROCK_MAX_CONNECTIONS", 1000
-)
-ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
-    "ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS", 100
+ANTHROPIC_MAX_CONNECTIONS = get_env_int("ANTHROPIC_MAX_CONNECTIONS", 1000)
+ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
+    "ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS", 100
 )
 BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
     "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
@@ -69,8 +67,8 @@ async def create_anthropic_client(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
         limits=httpx.Limits(
-            max_connections=ANTHROPIC_BEDROCK_MAX_CONNECTIONS,
-            max_keepalive_connections=ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS,
+            max_connections=ANTHROPIC_MAX_CONNECTIONS,
+            max_keepalive_connections=ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
         ),
     )
 

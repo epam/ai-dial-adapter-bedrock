@@ -78,7 +78,7 @@ class TestAWSClientConfigFactory:
 
     @mock.patch.object(
         AWSAssumeRoleCredentials,
-        "get_tmp_credentials",
+        "get_credentials",
         return_value=(
             datetime.now(),
             ClientCredentialArgs(
