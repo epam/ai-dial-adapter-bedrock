@@ -58,16 +58,15 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
 async def create_anthropic_client(
     upstream_config: UpstreamConfig,
 ) -> Tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
-    # NOTE: default connection limits set by the anthropic library:
-    # * max_connections=1000
-    # * max_keepalive_connections=100
-    # Meaning that there couldn't be more than 1000 concurrent requests.
-    # Anything beyond will be blocked.
     http_client = httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
         limits=httpx.Limits(
+            # Max number of concurrent requests to the same upstream.
+            # It limits number of concurrent requests.
+            # `max_connections+1`-th request will be *blocked* until some other request has finished.
             max_connections=ANTHROPIC_MAX_CONNECTIONS,
+            # Max number of idle connection to keep in a connection pool.
             max_keepalive_connections=ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
         ),
     )
@@ -97,9 +96,9 @@ async def create_boto_client(
 
     (expiration, creds) = await upstream_config.get_credentials()
 
-    # NOTE: max number of connections to a single host that are being persisted.
-    # Greater number of connections do not block each other.
     config = botocore.client.Config(  # type: ignore
+        # The max number of connections to the same upstream that are persisted (saved to a connection pool).
+        # Greater number of connections *don't block* each other.
         max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
     )
 
