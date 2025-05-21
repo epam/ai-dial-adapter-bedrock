@@ -156,7 +156,7 @@ def _parse_function_call(text: str) -> FunctionCall:
         tool_name = invocation["tool_name"]
         parameters = invocation["parameters"]
     except Exception:
-        raise Exception(f"Unable to parse function call: {text!r}")
+        raise Exception("Unable to parse function call")
 
     return FunctionCall(name=tool_name, arguments=json.dumps(parameters))
 
