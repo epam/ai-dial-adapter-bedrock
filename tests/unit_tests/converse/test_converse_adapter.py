@@ -443,7 +443,7 @@ TEST_CASES = [
                         custom_fields=DIAL_TOOL_CACHE_POINT,
                     )
                 ],
-                required=True,
+                tool_choice="required",
                 tool_ids=None,
             )
         ),
@@ -523,7 +523,7 @@ TEST_CASES = [
                         function=DIAL_WEATHER_FUNCTION,
                     )
                 ],
-                required=True,
+                tool_choice="required",
                 tool_ids=None,
             )
         ),

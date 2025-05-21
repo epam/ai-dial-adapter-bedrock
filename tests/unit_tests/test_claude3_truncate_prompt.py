@@ -51,7 +51,7 @@ async def compute_discarded_messages(
 
 _TOOL_CONFIG = ToolsConfig(
     tools=[Tool(type="function", function=Function(name="function"))],
-    required=False,
+    tool_choice="auto",
     tool_ids={},
 )
 

@@ -545,9 +545,53 @@ def get_test_cases(
     )
 
     if supports_tools(origin):
+        if "claude-3-7" in origin.value:
+            tool_choice_none_error = ExpectedException(
+                type=BadRequestError,
+                message="tool_choice: Input tag 'none' found using 'type' does not match any of the expected tags",
+                status_code=400,
+            )
+        elif "claude-3" in origin.value:
+            tool_choice_none_error = ExpectedException(
+                type=BadRequestError,
+                message="none is not a valid enum value, please reformat your input and try again",
+                status_code=400,
+            )
+        elif "claude-v2" in origin.value:
+            tool_choice_none_error = None
+        else:
+            tool_choice_none_error = ExpectedException(
+                type=UnprocessableEntityError,
+                message="tool_choice=none isn't supported by Converse API",
+                status_code=422,
+            )
+
+        if tool_choice_none_error:
+            test_case(
+                name="tool_choice=none + existing tool calls",
+                messages=[
+                    user("What's the weather in Glasgow?"),
+                    ai_tools(
+                        [
+                            tool_request(
+                                "tool_1",
+                                "get_weather",
+                                {"location": "Glasgow", "unit": "celsius"},
+                            )
+                        ]
+                    ),
+                    tool_response("tool_1", "20 degrees"),
+                    ai("It's 20 degrees"),
+                    user("2+2=?"),
+                ],
+                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+                tool_choice="none",
+                expected=tool_choice_none_error,
+            )
+
         if supports_forced_tool_choice(origin):
             test_case(
-                name="forced tool call",
+                name="tool_choice=function",
                 messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
                 tools=[function_to_tool(GET_WEATHER_FUNCTION)],
                 tool_choice={
