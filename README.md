@@ -57,6 +57,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
 |❌|Not supported|Not supported|Not configurable|
 
+#### Implementation basis
+
 The model adapters differ in what SDKs/APIs they are based on:
 
 1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
@@ -258,16 +260,6 @@ Alternatively you can use [PyCharm](https://www.jetbrains.com/pycharm/).
 Set-up the Black formatter for PyCharm [manually](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) or
 install PyCharm>=2023.2 with [built-in Black support](https://blog.jetbrains.com/pycharm/2023/07/2023-2/#black).
 
-## Run
-
-Run the development server:
-
-```sh
-make serve
-```
-
-Open `localhost:5001/docs` to make sure the server is up and running.
-
 ## Environment Variables
 
 Copy `.env.example` to `.env` and customize it for your environment:
@@ -284,6 +276,18 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |COMPATIBILITY_MAPPING|{}|A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#compatibility-mode) section.|
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
+
+### Resource limits
+
+The following environment variables reveal adapter's implementation details and therefore are more susceptible to changes in future than the variables discussed so far.
+
+:warning: Don't use the variables unless you are absolutely sure you know what you are doing.
+
+|Variable|Applicable to models implemented via|Default|Description|
+|---|---|---|---|
+|ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
 
 ## Default `max_tokens` for Claude models
 
@@ -331,7 +335,7 @@ The `COMPATIBILITY_MAPPING` env variable enables exactly this scenario.
 
 When it's defined like this:
 
-```json
+```ini
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
 ```
 
@@ -347,7 +351,7 @@ When a version of the Adapter supporting the v3 model is released, you may migra
 
 Note that a mapping such as this one would be ineffectual:
 
-```json
+```ini
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "stability.stable-image-ultra-v1:0"}
 ```
 
@@ -431,11 +435,21 @@ E.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` in AWS Bedrock corresponds to `
 The adapter uses deployment identifiers from **AWS Bedrock**.
 Therefore, in order to use Anthropic API model you need to map its identifier to a corresponding identifier in AWS Bedrock using the [compatibility mapping](#compatibility-mode):
 
-```
+```ini
 COMPATIBILITY_MAPPING={"claude-3-5-sonnet-20241022":"anthropic.claude-3-5-sonnet-20241022-v2:0"}
 ```
 
 Otherwise, the adapter will return 404 on requests to `claude-3-5-sonnet-20241022`.
+
+## Run
+
+Run the development server:
+
+```sh
+make serve
+```
+
+Open `localhost:5001/docs` to make sure the server is up and running.
 
 ### Docker
 

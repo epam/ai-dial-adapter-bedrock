@@ -38,10 +38,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
 )
 from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
-from aidial_adapter_bedrock.upstream_config import (
-    UpstreamConfig,
-    to_cloud_config,
-)
+from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 
 
 async def get_bedrock_adapter(
@@ -53,7 +50,7 @@ async def get_bedrock_adapter(
     model = deployment.upstream_deployment_id
 
     async def get_bedrock_client():
-        return await Bedrock.acreate(to_cloud_config(upstream_config))
+        return await Bedrock.acreate(upstream_config)
 
     converse_adapter = ConverseAdapterFactory(
         deployment=model, get_client=get_bedrock_client, api_key=api_key
@@ -69,7 +66,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
         ):
-            return claude_v3.create_adapter(
+            return await claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
                 api_key,
                 upstream_config,
@@ -183,7 +180,7 @@ async def get_embeddings_model(
     upstream_config: UpstreamConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
-    client = await Bedrock.acreate(to_cloud_config(upstream_config))
+    client = await Bedrock.acreate(upstream_config)
     match deployment.reference_deployment_id:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(

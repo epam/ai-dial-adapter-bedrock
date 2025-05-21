@@ -1,24 +1,120 @@
 import json
 from abc import ABC
+from datetime import datetime
+from functools import cache
 from logging import DEBUG
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple, Unpack
 
+import anthropic
+import boto3
+import botocore
+import httpx
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
-from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
+from aidial_adapter_bedrock.upstream_config import (
+    ApiKeyUpstreamConfig,
+    CloudUpstreamConfig,
+    UpstreamConfig,
+)
+from aidial_adapter_bedrock.utils.cache import ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
 )
+from aidial_adapter_bedrock.utils.env import get_env_int
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Body = dict
 Headers = Mapping[str, str]
+
+ANTHROPIC_MAX_CONNECTIONS = get_env_int("ANTHROPIC_MAX_CONNECTIONS", 1000)
+ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
+    "ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS", 100
+)
+BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
+    "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
+)
+
+
+@cache
+def get_default_anthropic_timeout() -> httpx.Timeout:
+    # Providing a timeout marginally different from the default Anthropic timeout
+    # in order to disable the check that throws an error when
+    # stream=False & max_tokens>=128K/6:
+    # https://github.com/anthropics/anthropic-sdk-python/blob/f5bdf5137cc3da4d3663aedb8c63d54652981c3b/src/anthropic/resources/beta/messages/messages.py#L2175-L2176
+
+    timeout = anthropic._constants.DEFAULT_TIMEOUT.as_dict()
+    timeout["connect"] *= 1.0001  # type: ignore
+    return httpx.Timeout(**timeout)
+
+
+@ttl_cache
+async def create_anthropic_client(
+    upstream_config: UpstreamConfig,
+) -> Tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
+    http_client = httpx.AsyncClient(
+        timeout=get_default_anthropic_timeout(),
+        follow_redirects=True,
+        limits=httpx.Limits(
+            # Max number of concurrent requests to the same upstream.
+            # It limits number of concurrent requests.
+            # `max_connections+1`-th request will be *blocked* until some other request has finished.
+            max_connections=ANTHROPIC_MAX_CONNECTIONS,
+            # Max number of idle connection to keep in a connection pool.
+            max_keepalive_connections=ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
+        ),
+    )
+
+    if isinstance(upstream_config, ApiKeyUpstreamConfig):
+        anthropic_client = AsyncAnthropic(
+            api_key=upstream_config.api_key,
+            http_client=http_client,
+        )
+        return (None, anthropic_client)
+    else:
+        (expiration, creds) = await upstream_config.get_credentials()
+        anthropic_client = AsyncAnthropicBedrock(
+            aws_region=upstream_config.region,
+            aws_access_key=creds.aws_access_key_id,
+            aws_secret_key=creds.aws_secret_access_key,
+            aws_session_token=creds.aws_session_token,
+            http_client=http_client,
+        )
+        return expiration, anthropic_client
+
+
+@ttl_cache
+async def create_boto_client(
+    service_name: str, upstream_config: CloudUpstreamConfig
+) -> Tuple[datetime | None, Any]:
+
+    (expiration, creds) = await upstream_config.get_credentials()
+
+    config = botocore.client.Config(  # type: ignore
+        # The max number of connections to the same upstream that are persisted (saved to a connection pool).
+        # Greater number of connections *don't block* each other.
+        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
+    )
+
+    # NOTE: Session isn't thread-safe, but client is.
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/clients.html#caveats
+    client = await make_async(
+        lambda: boto3.Session().client(
+            service_name,
+            region_name=upstream_config.region,
+            aws_access_key_id=creds.aws_access_key_id,
+            aws_secret_access_key=creds.aws_secret_access_key,
+            aws_session_token=creds.aws_session_token,
+            config=config,
+        )
+    )
+    return (expiration, client)
 
 
 class Bedrock:
@@ -28,8 +124,12 @@ class Bedrock:
         self.client = client
 
     @classmethod
-    async def acreate(cls, upstream_config: CloudUpstreamConfig) -> "Bedrock":
-        client = await upstream_config.get_bedrock_client()
+    async def acreate(cls, upstream_config: UpstreamConfig) -> "Bedrock":
+        if isinstance(upstream_config, ApiKeyUpstreamConfig):
+            raise ValueError(
+                "Authentication via API key isn't supported for the deployment"
+            )
+        client = await create_boto_client("bedrock-runtime", upstream_config)
         return cls(client)
 
     async def aconverse_non_streaming(

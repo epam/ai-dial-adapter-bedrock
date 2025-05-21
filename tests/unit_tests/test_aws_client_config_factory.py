@@ -1,12 +1,13 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from unittest import mock
 
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
-    AWSClientCredentials,
+    AWSAssumeRoleCredentials,
+    ClientCredentialArgs,
     CloudUpstreamConfig,
-    UpstreamConfigData,
     parse_upstream_config,
 )
 
@@ -66,20 +67,25 @@ class TestAWSClientConfigFactory:
         )
 
         conf = await parse_upstream_config(request)  # type: ignore
-
         assert isinstance(conf, CloudUpstreamConfig)
+
         assert conf.region == "test-region"
-        assert conf.credentials is not None
-        assert conf.credentials.aws_access_key_id == "key_id"
-        assert conf.credentials.aws_secret_access_key == "key"
+
+        (_expiration, creds) = await conf.get_credentials()
+        assert creds is not None
+        assert creds.aws_access_key_id == "key_id"
+        assert creds.aws_secret_access_key == "key"
 
     @mock.patch.object(
-        UpstreamConfigData,
-        "_get_assumed_role_tmp_credentials",
-        return_value=AWSClientCredentials(
-            aws_access_key_id="key_id",
-            aws_secret_access_key="key",
-            aws_session_token="session_token",
+        AWSAssumeRoleCredentials,
+        "get_credentials",
+        return_value=(
+            datetime.now(),
+            ClientCredentialArgs(
+                aws_access_key_id="key_id",
+                aws_secret_access_key="key",
+                aws_session_token="session_token",
+            ),
         ),
     )
     async def test__get_client_config__role_arn__tmp_credentials_in_config(
@@ -88,13 +94,15 @@ class TestAWSClientConfigFactory:
         request = self._get_request(extra_data={"aws_assume_role_arn": "arn"})
 
         conf = await parse_upstream_config(request)  # type: ignore
-
         assert isinstance(conf, CloudUpstreamConfig)
+
         assert conf.region == "test-region"
-        assert conf.credentials is not None
-        assert conf.credentials.aws_access_key_id == "key_id"
-        assert conf.credentials.aws_secret_access_key == "key"
-        assert conf.credentials.aws_session_token == "session_token"
+
+        (_expiration, creds) = await conf.get_credentials()
+        assert creds is not None
+        assert creds.aws_access_key_id == "key_id"
+        assert creds.aws_secret_access_key == "key"
+        assert creds.aws_session_token == "session_token"
 
     async def test__get_client_config__api_key_config(self):
         request = self._get_request(api_key="api-key")
