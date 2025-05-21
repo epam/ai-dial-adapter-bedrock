@@ -9,14 +9,18 @@ import anthropic
 import boto3
 import botocore
 import httpx
-from anthropic.lib.bedrock import AsyncAnthropicBedrock
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
+from aidial_adapter_bedrock.upstream_config import (
+    ApiKeyUpstreamConfig,
+    CloudUpstreamConfig,
+    UpstreamConfig,
+)
 from aidial_adapter_bedrock.utils.cache import ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
@@ -53,38 +57,47 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
 
 
 @ttl_cache
-async def create_anthropic_bedrock_client(
-    client_config: AWSClientConfig,
-) -> Tuple[datetime | None, AsyncAnthropicBedrock]:
-    (expiration, creds) = await client_config.get_credentials()
-
+async def create_anthropic_client(
+    upstream_config: UpstreamConfig,
+) -> Tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
     # NOTE: default connection limits set by the anthropic library:
     # * max_connections=1000
     # * max_keepalive_connections=100
     # Meaning that there couldn't be more than 1000 concurrent requests.
     # Anything beyond will be blocked.
-
-    return expiration, AsyncAnthropicBedrock(
-        aws_region=client_config.region,
-        aws_access_key=creds and creds.aws_access_key_id,
-        aws_secret_key=creds and creds.aws_secret_access_key,
-        aws_session_token=creds and creds.aws_session_token,
-        http_client=httpx.AsyncClient(
-            timeout=get_default_anthropic_timeout(),
-            follow_redirects=True,
-            limits=httpx.Limits(
-                max_connections=ANTHROPIC_BEDROCK_MAX_CONNECTIONS,
-                max_keepalive_connections=ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS,
-            ),
+    http_client = httpx.AsyncClient(
+        timeout=get_default_anthropic_timeout(),
+        follow_redirects=True,
+        limits=httpx.Limits(
+            max_connections=ANTHROPIC_BEDROCK_MAX_CONNECTIONS,
+            max_keepalive_connections=ANTHROPIC_BEDROCK_MAX_KEEPALIVE_CONNECTIONS,
         ),
     )
+
+    if isinstance(upstream_config, ApiKeyUpstreamConfig):
+        anthropic_client = AsyncAnthropic(
+            api_key=upstream_config.api_key,
+            http_client=http_client,
+        )
+        return (None, anthropic_client)
+    else:
+        (expiration, creds) = await upstream_config.get_credentials()
+        anthropic_client = AsyncAnthropicBedrock(
+            aws_region=upstream_config.region,
+            aws_access_key=creds.aws_access_key_id,
+            aws_secret_key=creds.aws_secret_access_key,
+            aws_session_token=creds.aws_session_token,
+            http_client=http_client,
+        )
+        return expiration, anthropic_client
 
 
 @ttl_cache
 async def create_boto_client(
-    service_name: str, client_config: AWSClientConfig
+    service_name: str, upstream_config: CloudUpstreamConfig
 ) -> Tuple[datetime | None, Any]:
-    (expiration, creds) = await client_config.get_credentials()
+
+    (expiration, creds) = await upstream_config.get_credentials()
 
     # NOTE: max number of connections to a single host that are being persisted.
     # Greater number of connections do not block each other.
@@ -97,10 +110,10 @@ async def create_boto_client(
     client = await make_async(
         lambda: boto3.Session().client(
             service_name,
-            region_name=client_config.region,
-            aws_access_key_id=creds and creds.aws_access_key_id,
-            aws_secret_access_key=creds and creds.aws_secret_access_key,
-            aws_session_token=creds and creds.aws_session_token,
+            region_name=upstream_config.region,
+            aws_access_key_id=creds.aws_access_key_id,
+            aws_secret_access_key=creds.aws_secret_access_key,
+            aws_session_token=creds.aws_session_token,
             config=config,
         )
     )
@@ -114,8 +127,12 @@ class Bedrock:
         self.client = client
 
     @classmethod
-    async def acreate(cls, aws_client_config: AWSClientConfig) -> "Bedrock":
-        client = await create_boto_client("bedrock-runtime", aws_client_config)
+    async def acreate(cls, upstream_config: UpstreamConfig) -> "Bedrock":
+        if isinstance(upstream_config, ApiKeyUpstreamConfig):
+            raise ValueError(
+                "Authentication via API key isn't supported for the deployment"
+            )
+        client = await create_boto_client("bedrock-runtime", upstream_config)
         return cls(client)
 
     async def aconverse_non_streaming(

@@ -19,7 +19,6 @@ from aidial_sdk.chat_completion.request import (
     ToolCustomFields,
 )
 
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
@@ -50,6 +49,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
 )
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
@@ -675,7 +675,7 @@ TEST_CASES = [
 async def test_converse_adapter(test_case: TestCase):
     adapter = ConverseAdapter(
         deployment="test",
-        bedrock=await Bedrock.acreate(AWSClientConfig(region="us-east-1")),
+        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
         tokenize_text=lambda x: len(x),
         input_tokenizer_factory=_input_tokenizer_factory,  # type: ignore
         support_tools=True,

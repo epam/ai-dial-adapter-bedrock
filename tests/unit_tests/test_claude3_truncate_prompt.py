@@ -7,7 +7,6 @@ from aidial_sdk.chat_completion import Function, Message, Tool
 from aidial_sdk.exceptions import HTTPException as DialException
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
@@ -16,6 +15,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
 )
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
+from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from tests.utils.messages import ai, sys, user, user_with_image
 
 _DEPLOYMENT = AdapterDeployment.supported(
@@ -26,7 +26,7 @@ _DEPLOYMENT = AdapterDeployment.supported(
 @pytest.fixture
 async def model():
     return await Claude_V3.create(
-        _DEPLOYMENT, "-", AWSClientConfig(region="us-east-1")
+        _DEPLOYMENT, "-", CloudUpstreamConfig(region="us-east-1")
     )
 
 
