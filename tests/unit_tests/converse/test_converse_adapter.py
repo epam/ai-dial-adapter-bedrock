@@ -8,6 +8,7 @@ from aidial_sdk.chat_completion.request import (
     CustomContent,
     Function,
     FunctionCall,
+    FunctionChoice,
     ImageURL,
     Message,
     MessageContentImagePart,
@@ -16,6 +17,7 @@ from aidial_sdk.chat_completion.request import (
     Role,
     Tool,
     ToolCall,
+    ToolChoice,
     ToolCustomFields,
 )
 
@@ -453,7 +455,7 @@ TEST_CASES = [
                     CONVERSE_WEATHER_TOOL_SPEC,
                     CONVERSE_CACHE_POINT_PART,
                 ],
-                "toolChoice": {"tool": {"name": "get_weather"}},
+                "toolChoice": {"any": {}},
             },
             messages=ListProjection(
                 list=[
@@ -523,7 +525,9 @@ TEST_CASES = [
                         function=DIAL_WEATHER_FUNCTION,
                     )
                 ],
-                tool_choice="required",
+                tool_choice=ToolChoice(
+                    type="function", function=FunctionChoice(name="get_weather")
+                ),
                 tool_ids=None,
             )
         ),
