@@ -92,6 +92,8 @@ async def create_boto_client(
         max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
     )
 
+    # NOTE: Session isn't thread-safe, but client is.
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/clients.html#caveats
     client = await make_async(
         lambda: boto3.Session().client(
             service_name,
