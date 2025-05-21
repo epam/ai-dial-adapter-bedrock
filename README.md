@@ -260,16 +260,6 @@ Alternatively you can use [PyCharm](https://www.jetbrains.com/pycharm/).
 Set-up the Black formatter for PyCharm [manually](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) or
 install PyCharm>=2023.2 with [built-in Black support](https://blog.jetbrains.com/pycharm/2023/07/2023-2/#black).
 
-## Run
-
-Run the development server:
-
-```sh
-make serve
-```
-
-Open `localhost:5001/docs` to make sure the server is up and running.
-
 ## Environment Variables
 
 Copy `.env.example` to `.env` and customize it for your environment:
@@ -450,6 +440,16 @@ COMPATIBILITY_MAPPING={"claude-3-5-sonnet-20241022":"anthropic.claude-3-5-sonnet
 ```
 
 Otherwise, the adapter will return 404 on requests to `claude-3-5-sonnet-20241022`.
+
+## Run
+
+Run the development server:
+
+```sh
+make serve
+```
+
+Open `localhost:5001/docs` to make sure the server is up and running.
 
 ### Docker
 
