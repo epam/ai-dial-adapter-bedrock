@@ -9,6 +9,7 @@ from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
@@ -21,20 +22,25 @@ _DEPLOYMENT = AdapterDeployment.supported(
     upstream=ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
 )
 
-_MODEL = Claude_V3.create(
-    _DEPLOYMENT, "-", CloudUpstreamConfig(region="us-east-1")
-)
+
+@pytest.fixture
+async def model():
+    return await Claude_V3.create(
+        _DEPLOYMENT, "-", CloudUpstreamConfig(region="us-east-1")
+    )
 
 
 async def tokenize(
+    model: ChatCompletionAdapter,
     messages: List[Message],
     tool_config: ToolsConfig | None = None,
 ) -> int:
     params = ModelParameters(tool_config=tool_config)
-    return await _MODEL.count_prompt_tokens(params, messages)
+    return await model.count_prompt_tokens(params, messages)
 
 
 async def compute_discarded_messages(
+    model: ChatCompletionAdapter,
     messages: List[Message],
     max_prompt_tokens: int | None,
     tool_config: ToolsConfig | None = None,
@@ -44,7 +50,7 @@ async def compute_discarded_messages(
     )
 
     try:
-        return await _MODEL.compute_discarded_messages(params, messages) or []
+        return await model.compute_discarded_messages(params, messages) or []
     except DialException as e:
         return e.message
 
@@ -78,7 +84,7 @@ def mock_tokenize_text():
         yield mock
 
 
-async def test_one_turn_no_truncation(mock_tokenize_text):
+async def test_one_turn_no_truncation(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -89,16 +95,16 @@ async def test_one_turn_no_truncation(mock_tokenize_text):
         11 + (_PER_MESSAGE_TOKENS + 22) + (_PER_MESSAGE_TOKENS + 33)
     )
 
-    assert await tokenize(messages) == expected_tokens
+    assert await tokenize(model, messages) == expected_tokens
 
     discarded_messages = await compute_discarded_messages(
-        messages, expected_tokens
+        model, messages, expected_tokens
     )
 
     assert discarded_messages == []
 
 
-async def test_one_turn_with_image(mock_tokenize_text):
+async def test_one_turn_with_image(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user_with_image("22", _PNG_IMAGE_50_50),
@@ -106,13 +112,17 @@ async def test_one_turn_with_image(mock_tokenize_text):
 
     expected_tokens = 11 + (_PER_MESSAGE_TOKENS + _PNG_IMAGE_50_50_TOKENS + 22)
 
-    assert await tokenize(messages) == expected_tokens
+    assert await tokenize(model, messages) == expected_tokens
 
-    truncation = await compute_discarded_messages(messages, expected_tokens)
+    truncation = await compute_discarded_messages(
+        model, messages, expected_tokens
+    )
 
     assert truncation == []
 
-    truncation = await compute_discarded_messages(messages, expected_tokens - 1)
+    truncation = await compute_discarded_messages(
+        model, messages, expected_tokens - 1
+    )
 
     assert (
         truncation
@@ -120,7 +130,7 @@ async def test_one_turn_with_image(mock_tokenize_text):
     )
 
 
-async def test_one_turn_with_tools(mock_tokenize_text):
+async def test_one_turn_with_tools(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -131,10 +141,10 @@ async def test_one_turn_with_tools(mock_tokenize_text):
         530 + 11 + 1 + (_PER_MESSAGE_TOKENS + 22) + (_PER_MESSAGE_TOKENS + 33)
     )
 
-    assert await tokenize(messages, _TOOL_CONFIG) == expected_tokens
+    assert await tokenize(model, messages, _TOOL_CONFIG) == expected_tokens
 
     discarded_messages = await compute_discarded_messages(
-        messages, expected_tokens - 1, _TOOL_CONFIG
+        model, messages, expected_tokens - 1, _TOOL_CONFIG
     )
 
     assert (
@@ -143,7 +153,7 @@ async def test_one_turn_with_tools(mock_tokenize_text):
     )
 
 
-async def test_one_turn_overflow(mock_tokenize_text):
+async def test_one_turn_overflow(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -154,7 +164,7 @@ async def test_one_turn_overflow(mock_tokenize_text):
         11 + (22 + _PER_MESSAGE_TOKENS) + (33 + _PER_MESSAGE_TOKENS)
     )
 
-    truncation_error = await compute_discarded_messages(messages, 1)
+    truncation_error = await compute_discarded_messages(model, messages, 1)
 
     assert (
         truncation_error
@@ -162,7 +172,7 @@ async def test_one_turn_overflow(mock_tokenize_text):
     )
 
 
-async def test_multiple_system_messages(mock_tokenize_text):
+async def test_multiple_system_messages(model, mock_tokenize_text):
     messages = [
         sys("11"),
         sys("22"),
@@ -171,10 +181,10 @@ async def test_multiple_system_messages(mock_tokenize_text):
 
     expected_tokens = (11 + 22) + (_PER_MESSAGE_TOKENS + 33)
 
-    assert await tokenize(messages) == expected_tokens
+    assert await tokenize(model, messages) == expected_tokens
 
 
-async def test_truncate_first_turn(mock_tokenize_text):
+async def test_truncate_first_turn(model, mock_tokenize_text):
     messages = [
         user("11"),
         ai("22"),
@@ -189,16 +199,16 @@ async def test_truncate_first_turn(mock_tokenize_text):
         + (_PER_MESSAGE_TOKENS + 44)
     )
 
-    assert await tokenize(messages) == expected_tokens
+    assert await tokenize(model, messages) == expected_tokens
 
     discarded_messages = await compute_discarded_messages(
-        messages, (_PER_MESSAGE_TOKENS + 33) + (_PER_MESSAGE_TOKENS + 44)
+        model, messages, (_PER_MESSAGE_TOKENS + 33) + (_PER_MESSAGE_TOKENS + 44)
     )
 
     assert discarded_messages == [0, 1]
 
 
-async def test_truncate_first_turn_with_system(mock_tokenize_text):
+async def test_truncate_first_turn_with_system(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -208,13 +218,15 @@ async def test_truncate_first_turn_with_system(mock_tokenize_text):
     ]
 
     discarded_messages = await compute_discarded_messages(
-        messages, 11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55)
+        model,
+        messages,
+        11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55),
     )
 
     assert discarded_messages == [1, 2]
 
 
-async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
+async def test_truncate_first_turn_with_system_2(model, mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system with adjacent messages with the same role
     messages = [
         sys("11"),
@@ -234,6 +246,7 @@ async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
     ]
 
     discarded_messages = await compute_discarded_messages(
+        model,
         messages,
         11 + (_PER_MESSAGE_TOKENS + 44) + (_PER_MESSAGE_TOKENS + 55),
     )
@@ -241,7 +254,7 @@ async def test_truncate_first_turn_with_system_2(mock_tokenize_text):
     assert discarded_messages == [1, 2, 3, 4, 5]
 
 
-async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
+async def test_truncate_first_turn_with_system_3(model, mock_tokenize_text):
     # Equivalent of test_truncate_first_turn_with_system_2 with one less tokens requests than the critical amount
     messages = [
         sys("11"),
@@ -265,6 +278,7 @@ async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
     )
 
     truncation_error = await compute_discarded_messages(
+        model,
         messages,
         min_possible_tokens - 1,
     )
@@ -275,7 +289,7 @@ async def test_truncate_first_turn_with_system_3(mock_tokenize_text):
     )
 
 
-async def test_zero_turn_overflow(mock_tokenize_text):
+async def test_zero_turn_overflow(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -283,7 +297,7 @@ async def test_zero_turn_overflow(mock_tokenize_text):
 
     expected_tokens = 11 + (22 + _PER_MESSAGE_TOKENS)
 
-    truncation_error = await compute_discarded_messages(messages, 3)
+    truncation_error = await compute_discarded_messages(model, messages, 3)
 
     assert (
         truncation_error
@@ -291,7 +305,7 @@ async def test_zero_turn_overflow(mock_tokenize_text):
     )
 
 
-async def test_chat_history_overflow(mock_tokenize_text):
+async def test_chat_history_overflow(model, mock_tokenize_text):
     messages = [
         sys("11"),
         user("22"),
@@ -301,7 +315,7 @@ async def test_chat_history_overflow(mock_tokenize_text):
 
     min_possible_tokens = 11 + (44 + _PER_MESSAGE_TOKENS)
 
-    truncation_error = await compute_discarded_messages(messages, 1)
+    truncation_error = await compute_discarded_messages(model, messages, 1)
 
     assert (
         truncation_error
@@ -309,7 +323,7 @@ async def test_chat_history_overflow(mock_tokenize_text):
     )
 
 
-async def test_chat_history_overflow_2(mock_tokenize_text):
+async def test_chat_history_overflow_2(model, mock_tokenize_text):
     # Equivalent of test_chat_history_overflow with adjacent messages with the same role
     messages = [
         sys("11"),
@@ -322,7 +336,7 @@ async def test_chat_history_overflow_2(mock_tokenize_text):
 
     min_possible_tokens = 11 + (44 + _PER_MESSAGE_TOKENS)
 
-    truncation_error = await compute_discarded_messages(messages, 1)
+    truncation_error = await compute_discarded_messages(model, messages, 1)
 
     assert (
         truncation_error

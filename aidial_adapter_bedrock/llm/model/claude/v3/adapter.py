@@ -48,6 +48,7 @@ from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from pydantic import BaseModel, Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
+from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     Claude3Deployment,
@@ -126,12 +127,12 @@ class ClaudeRequest:
     messages: ListProjection[ClaudeMessageParam]
 
 
-def create_adapter(
+async def create_adapter(
     deployment: AdapterDeployment[Claude3Deployment],
     api_key: str,
     upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
-    model = Adapter.create(deployment, api_key, upstream_config)
+    model = await Adapter.create(deployment, api_key, upstream_config)
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
         replicator_decorator(),
@@ -486,14 +487,12 @@ class Adapter(ChatCompletionAdapter):
         consumer.set_discarded_messages(discarded_messages)
 
     @classmethod
-    def create(
+    async def create(
         cls,
         deployment: AdapterDeployment[Claude3Deployment],
         api_key: str,
         upstream_config: UpstreamConfig,
     ):
-        return cls(
-            deployment=deployment,
-            storage=create_file_storage(api_key),
-            client=upstream_config.get_anthropic_client(),
-        )
+        storage = create_file_storage(api_key=api_key)
+        client = await create_anthropic_client(upstream_config)
+        return cls(deployment=deployment, storage=storage, client=client)
