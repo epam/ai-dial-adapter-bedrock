@@ -1,8 +1,8 @@
 from enum import Enum
+from typing import Awaitable, Callable
 
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.llm.chat_model import (
@@ -35,7 +35,7 @@ class ToolsSupport(Enum):
 
 class ConverseAdapterFactory(BaseModel):
     deployment: str
-    aws_client_config: AWSClientConfig
+    get_client: Callable[[], Awaitable[Bedrock]]
     api_key: str
 
     async def create(
@@ -50,9 +50,10 @@ class ConverseAdapterFactory(BaseModel):
             if tools_support == ToolsSupport.NON_STREAMING_ONLY
             else ConverseAdapter
         )
+
         model = cls(
             deployment=self.deployment,
-            bedrock=await Bedrock.acreate(self.aws_client_config),
+            bedrock=await self.get_client(),
             storage=create_file_storage(self.api_key),
             input_tokenizer_factory=default_converse_tokenizer_factory,
             support_tools=tools_support != ToolsSupport.NONE,

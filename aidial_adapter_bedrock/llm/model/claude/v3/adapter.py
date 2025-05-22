@@ -3,9 +3,8 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from anthropic import NOT_GIVEN, NotGiven
+from anthropic import NOT_GIVEN, AsyncAnthropic, AsyncAnthropicBedrock, NotGiven
 from anthropic._resource import AsyncAPIResource
-from anthropic.lib.bedrock import AsyncAnthropicBedrock
 from anthropic.lib.streaming import (
     BetaContentBlockStopEvent as ContentBlockStopEvent,
 )
@@ -49,7 +48,7 @@ from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
+from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     Claude3Deployment,
@@ -91,12 +90,13 @@ from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
     process_tools_block,
     process_with_tools,
 )
-from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
     truncate_prompt,
 )
+from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -128,12 +128,12 @@ class ClaudeRequest:
     messages: ListProjection[ClaudeMessageParam]
 
 
-def create_adapter(
+async def create_adapter(
     deployment: AdapterDeployment[Claude3Deployment],
     api_key: str,
-    aws_client_config: AWSClientConfig,
+    upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
-    model = Adapter.create(deployment, api_key, aws_client_config)
+    model = await Adapter.create(deployment, api_key, upstream_config)
     return compose_decorators(
         preprocess_messages_decorator(default_preprocess_messages),
         replicator_decorator(),
@@ -174,7 +174,7 @@ Configuration = BetaConfiguration | ThinkingConfiguration
 class Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Claude3Deployment]
     storage: Optional[FileStorage]
-    client: AsyncAnthropicBedrock
+    client: AsyncAnthropicBedrock | AsyncAnthropic
 
     @property
     def supports_thinking(self) -> bool:
@@ -244,8 +244,11 @@ class Adapter(ChatCompletionAdapter):
             # modifications as well as forced tool use.
             temperature = NOT_GIVEN
 
+        if (max_tokens := params.max_tokens) is None:
+            max_tokens = CLAUDE_DEFAULT_MAX_TOKENS
+
         claude_params = ClaudeParameters(
-            max_tokens=params.max_tokens or DEFAULT_MAX_TOKENS_ANTHROPIC,
+            max_tokens=max_tokens,
             stop_sequences=params.stop,
             system=system_prompt or NOT_GIVEN,
             temperature=temperature,
@@ -485,16 +488,12 @@ class Adapter(ChatCompletionAdapter):
         consumer.set_discarded_messages(discarded_messages)
 
     @classmethod
-    def create(
+    async def create(
         cls,
         deployment: AdapterDeployment[Claude3Deployment],
         api_key: str,
-        aws_client_config: AWSClientConfig,
+        upstream_config: UpstreamConfig,
     ):
-        storage: Optional[FileStorage] = create_file_storage(api_key=api_key)
-        client_kwargs = aws_client_config.get_anthropic_bedrock_client_kwargs()
-        return cls(
-            deployment=deployment,
-            storage=storage,
-            client=AsyncAnthropicBedrock(**client_kwargs),
-        )
+        storage = create_file_storage(api_key=api_key)
+        client = await create_anthropic_client(upstream_config)
+        return cls(deployment=deployment, storage=storage, client=client)

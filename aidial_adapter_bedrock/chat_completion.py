@@ -29,7 +29,6 @@ from typing_extensions import override
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
 )
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
@@ -39,6 +38,7 @@ from aidial_adapter_bedrock.server.exceptions import (
     dial_exception_decorator,
     not_implemented_handler,
 )
+from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
@@ -51,14 +51,10 @@ class BedrockChatCompletion(ChatCompletion):
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
-        aws_client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
-
         return await get_bedrock_adapter(
             deployment=self.deployment,
             api_key=request.api_key,
-            aws_client_config=aws_client_config,
+            upstream_config=await parse_upstream_config(request),
         )
 
     @override

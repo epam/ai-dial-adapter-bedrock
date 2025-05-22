@@ -41,7 +41,7 @@ from aidial_adapter_bedrock.llm.model.completion_state import (
     CompletionState,
     FinishReasons,
 )
-from aidial_adapter_bedrock.llm.model.conf import DEFAULT_MAX_TOKENS_ANTHROPIC
+from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.llm.tools.claude_emulator import (
     legacy_tools_emulator,
 )
@@ -69,7 +69,7 @@ def convert_params(params: ModelParameters) -> Dict[str, Any]:
     else:
         # The max tokens parameter is required for Anthropic models.
         # Choosing reasonable default.
-        ret["max_tokens_to_sample"] = DEFAULT_MAX_TOKENS_ANTHROPIC
+        ret["max_tokens_to_sample"] = CLAUDE_DEFAULT_MAX_TOKENS
 
     if params.stop:
         ret["stop_sequences"] = params.stop
