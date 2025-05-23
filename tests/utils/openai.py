@@ -236,9 +236,9 @@ async def chat_completion(
             temperature=temperature,
             n=n,
             function_call="auto" if functions is not None else NOT_GIVEN,
-            functions=functions or NOT_GIVEN,
-            tools=tools or NOT_GIVEN,
+            functions=NOT_GIVEN if functions is None else functions,
             tool_choice=tool_choice or NOT_GIVEN,
+            tools=NOT_GIVEN if tools is None else tools,
             extra_body=extra_body,
         )
 

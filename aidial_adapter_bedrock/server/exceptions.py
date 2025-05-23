@@ -62,13 +62,14 @@ def _parse_anthropic_streaming_error(text: str) -> DialException | None:
         return None
     text = text.removeprefix(prefix)
 
-    code_pattern = re.search(r"['\"]status_code['\"]:\s*(\d+)", text)
-    message_pattern = re.search(r"['\"]message['\"]:\s*['\"](.*?)['\"]", text)
+    code_pattern = re.search(r"'status_code':\s*(\d+)", text)
+    message_pattern = re.search(r"\"message\":\s*\"(.*?)\"", text)
 
     code = int(code_pattern.group(1)) if code_pattern else None
     message = str(message_pattern.group(1)) if message_pattern else None
 
     if code and message:
+        message = message.replace("\\'", "'")
         return _create_error(code, message)
     return None
 
