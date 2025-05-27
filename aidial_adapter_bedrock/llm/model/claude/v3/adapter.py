@@ -179,10 +179,11 @@ class Adapter(ChatCompletionAdapter):
 
     @property
     def supports_thinking(self) -> bool:
-        return (
-            self.deployment.reference_deployment_id
-            == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
-        )
+        return self.deployment.reference_deployment_id in {
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+        }
 
     async def configuration(self) -> Type[Configuration]:
         if self.supports_thinking:
