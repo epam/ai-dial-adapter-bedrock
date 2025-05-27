@@ -32,6 +32,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     ANTHROPIC_CLAUDE_V3_5_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
     ANTHROPIC_CLAUDE_V3_OPUS = "anthropic.claude-3-opus-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    ANTHROPIC_CLAUDE_V4_OPUS = "anthropic.claude-opus-4-20250514-v1:0"
+    ANTHROPIC_CLAUDE_V4_SONNET = "anthropic.claude-sonnet-4-20250514-v1:0"
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -74,6 +76,8 @@ Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
 ]
 
 
