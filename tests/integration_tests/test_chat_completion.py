@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 from typing import Callable, List, Mapping
 
-import httpx
 import openai
 import pytest
 from openai import APIError, BadRequestError, UnprocessableEntityError
@@ -773,26 +772,20 @@ def get_test_cases(
     ],
     ids=lambda test: test.get_id(),
 )
-async def test_chat_completion_openai(
-    test_http_client: httpx.AsyncClient, get_openai_client, test: TestCase
-):
+async def test_chat_completion(get_openai_client, test: TestCase):
     deployment_id = test.deployment.value
-    client = get_openai_client(deployment_id, region=test.region)
+    client: openai.AsyncAzureOpenAI = get_openai_client(
+        deployment_id, region=test.region
+    )
 
     async def run_chat_completion() -> ChatCompletionResult:
-        extra_body = {}
+        configuration = {}
         low_latency_regions = (
             deployments_supporting_optimized_latency.get(test.deployment.origin)
             or []
         )
         if test.region in low_latency_regions:
-            extra_body = {
-                "custom_fields": {
-                    "configuration": {
-                        "performanceConfig": {"latency": "optimized"}
-                    }
-                }
-            }
+            configuration["performanceConfig"] = {"latency": "optimized"}
 
         return await chat_completion(
             client,
@@ -805,7 +798,7 @@ async def test_chat_completion_openai(
             tools=test.tools,
             tool_choice=test.tool_choice,
             temperature=test.temperature,
-            extra_body=extra_body,
+            configuration=configuration,
         )
 
     if isinstance(test.expected, ExpectedException):
