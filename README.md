@@ -14,7 +14,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |---|---|---|---|---|---|---|---|---|
 |Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
-|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
+|Anthropic|Claude 3.7 Sonnet|anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
 |Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK|
@@ -26,10 +26,10 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|Bedrock API|
 |Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
-|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
-|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
-|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 90B Instruct|meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 11B Instruct|meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 3B Instruct|meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 1B Instruct|meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
