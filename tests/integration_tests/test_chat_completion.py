@@ -133,6 +133,8 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
     ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -167,7 +169,7 @@ def is_retired(deployment: ChatCompletionDeployment) -> bool:
 
 
 def supports_tools(deployment: ChatCompletionDeployment) -> bool:
-    return is_claude3(deployment) or deployment in [
+    return is_claude_3_or_4(deployment) or deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
         ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
         ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
@@ -191,7 +193,7 @@ def supports_tools(deployment: ChatCompletionDeployment) -> bool:
 
 
 def supports_forced_tool_choice(deployment: ChatCompletionDeployment) -> bool:
-    return supports_tools(deployment) and is_claude3(deployment)
+    return supports_tools(deployment) and is_claude_3_or_4(deployment)
 
 
 def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
@@ -200,6 +202,8 @@ def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
         not in [
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
             ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
@@ -240,7 +244,7 @@ def is_cohere_command_plus(deployment: ChatCompletionDeployment) -> bool:
     ]
 
 
-def is_claude3(deployment: ChatCompletionDeployment) -> bool:
+def is_claude_3_or_4(deployment: ChatCompletionDeployment) -> bool:
     return deployment in [
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
@@ -249,6 +253,8 @@ def is_claude3(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
     ]
 
 
@@ -302,7 +308,9 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
         ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
     }
 
-    is_allowed_model = is_claude3(deployment) or deployment in allowed_models
+    is_allowed_model = (
+        is_claude_3_or_4(deployment) or deployment in allowed_models
+    )
     is_excluded_model = deployment in excluded_models
 
     return is_allowed_model and not is_excluded_model
@@ -432,7 +440,7 @@ def get_test_cases(
     )
 
     expected_whitespace_message = expected_empty_message = expected_success
-    if is_claude3(origin):
+    if is_claude_3_or_4(origin):
         expected_whitespace_message = ExpectedException(
             type=openai.BadRequestError,
             message="messages: text content blocks must contain non-whitespace text",
@@ -544,9 +552,61 @@ def get_test_cases(
     )
 
     if supports_tools(origin):
+
+        def _success_check(s):
+            return "4" in s.content.lower()
+
+        tool_choice_none_expected: (
+            ExpectedException | Callable[[ChatCompletionResult], bool] | None
+        )
+
+        if origin in [
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        ]:
+            tool_choice_none_expected = _success_check
+        elif "claude-3" in origin.value:
+            tool_choice_none_expected = ExpectedException(
+                type=BadRequestError,
+                message="none is not a valid enum value, please reformat your input and try again",
+                status_code=400,
+            )
+        elif "claude-v2" in origin.value:
+            tool_choice_none_expected = None
+        else:
+            tool_choice_none_expected = ExpectedException(
+                type=UnprocessableEntityError,
+                message="tool_choice=none isn't supported by Converse API",
+                status_code=422,
+            )
+
+        if tool_choice_none_expected:
+            test_case(
+                name="tool_choice=none + existing tool calls",
+                messages=[
+                    user("What's the weather in Glasgow?"),
+                    ai_tools(
+                        [
+                            tool_request(
+                                "tool_1",
+                                "get_weather",
+                                {"location": "Glasgow", "unit": "celsius"},
+                            )
+                        ]
+                    ),
+                    tool_response("tool_1", "20 degrees"),
+                    ai("It's 20 degrees"),
+                    user("2+2=?"),
+                ],
+                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+                tool_choice="none",
+                expected=tool_choice_none_expected,
+            )
+
         if supports_forced_tool_choice(origin):
             test_case(
-                name="forced tool call",
+                name="tool_choice=function",
                 messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
                 tools=[function_to_tool(GET_WEATHER_FUNCTION)],
                 tool_choice={

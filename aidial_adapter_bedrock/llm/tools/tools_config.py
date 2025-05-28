@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, Literal, Self, Tuple, assert_never
+from typing import Dict, List, Literal, Self
 
 from aidial_sdk.chat_completion import (
     Function,
@@ -32,12 +32,7 @@ class ToolsConfig(BaseModel):
     List of functions/tools.
     """
 
-    required: bool
-    """
-    True forces the model to call one of the available functions.
-    False allows the model to pick between generating a message or
-    calling one or more tools/functions.
-    """
+    tool_choice: Literal["auto", "none", "required"] | ToolChoice
 
     tool_ids: Dict[str, str] | None
     """
@@ -81,30 +76,6 @@ class ToolsConfig(BaseModel):
         return tool_name
 
     @staticmethod
-    def filter_tools(
-        tool_choice: Literal["auto", "none", "required"] | ToolChoice,
-        tools: List[Tool],
-    ) -> Tuple[bool, List[Tool]]:
-        match tool_choice:
-            case "none":
-                return False, []
-            case "auto":
-                return False, tools
-            case "required":
-                return True, tools
-            case ToolChoice(function=FunctionChoice(name=name)):
-                new_tools = [
-                    tool for tool in tools if tool.function.name == name
-                ]
-                if not new_tools:
-                    raise ValidationError(
-                        f"Tool {name!r} is not on the list of available tools"
-                    )
-                return True, new_tools
-            case _:
-                assert_never(tool_choice)
-
-    @staticmethod
     def _function_call_to_tool_choice(
         function_call: Literal["auto", "none"] | FunctionChoice | None,
     ) -> Literal["auto", "none", "required"] | ToolChoice | None:
@@ -132,33 +103,25 @@ class ToolsConfig(BaseModel):
                 ToolsConfig._get_tool_from_function(tool)
                 for tool in request.functions
             ]
-            tool_call = ToolsConfig._function_call_to_tool_choice(
+            tool_choice = ToolsConfig._function_call_to_tool_choice(
                 request.function_call
             )
             tool_ids = None
-
         elif request.tools is not None:
             tools = [
                 ToolsConfig._get_tool_from_function(tool)
                 for tool in request.tools
             ]
-            tool_call = request.tool_choice
+            tool_choice = request.tool_choice
             tool_ids = _collect_tool_ids(request.messages)
-
         else:
-            tools = []
-            tool_call = None
-            tool_ids = None
-
-        if tool_call is None:
-            tool_call = "auto" if tools else "none"
-
-        required, selected = ToolsConfig.filter_tools(tool_call, tools)
-
-        if selected == []:
             return None
 
-        return cls(tools=selected, required=required, tool_ids=tool_ids)
+        return cls(
+            tools=tools,
+            tool_choice=tool_choice or "auto",
+            tool_ids=tool_ids,
+        )
 
 
 def validate_messages(request: AzureChatCompletionRequest) -> None:
