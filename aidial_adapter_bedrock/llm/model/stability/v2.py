@@ -30,6 +30,7 @@ from aidial_adapter_bedrock.llm.model.stability.message import (
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.json import remove_nones
+from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -92,18 +93,14 @@ AspectRatios = Literal[
 ]
 
 
-class StabilityImageConfiguration(BaseModel):
-    class Config:
-        extra = "allow"
-
+# NOTE: The configuration is passed to the upstream endpoint *as is* a part of the request.
+# Therefore, it's reasonable to allow extra fields to achieve forward-compatibility.
+class StabilityImageConfiguration(ExtraAllowModel):
     aspect_ratio: AspectRatios | str | None = None
     negative_prompt: str | None = None
 
 
 class StabilityV3Configuration(StabilityImageConfiguration):
-    class Config:
-        extra = "allow"
-
     cfg_scale: float | None = None
 
 

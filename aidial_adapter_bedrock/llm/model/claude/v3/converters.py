@@ -33,7 +33,9 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
 from anthropic.types.beta import BetaUsage as Usage
-from anthropic.types.beta.beta_image_block_param import Source
+from anthropic.types.beta.beta_base64_image_source_param import (
+    BetaBase64ImageSourceParam as Base64ImageSourceParam,
+)
 from pydantic import BaseModel
 from pydantic import ValidationError as PydValidationError
 
@@ -111,7 +113,7 @@ def _create_text_block(text: str) -> TextBlockParam:
 
 def _create_image_block(resource: Resource) -> ImageBlockParam:
     return ImageBlockParam(
-        source=Source(
+        source=Base64ImageSourceParam(
             data=resource.data_base64,
             media_type=cast(ImageMediaType, resource.type),
             type="base64",

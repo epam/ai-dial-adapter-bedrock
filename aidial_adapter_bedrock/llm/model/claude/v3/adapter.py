@@ -3,6 +3,7 @@ from logging import DEBUG
 from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
+from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from anthropic import NOT_GIVEN, AsyncAnthropic, AsyncAnthropicBedrock, NotGiven
 from anthropic._resource import AsyncAPIResource
 from anthropic.lib.streaming import (
@@ -42,10 +43,11 @@ from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
 from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
 from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
+from anthropic.types.beta import BetaToolChoiceNoneParam as ToolChoiceNoneParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
@@ -100,6 +102,7 @@ from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 
 
 # Beta AsyncMessages in Bedrock doesn't provide stream and count_tokens,
@@ -139,7 +142,7 @@ async def create_adapter(
     )(model)
 
 
-class ThinkingConfigEnabled(BaseModel):
+class ThinkingConfigEnabled(ExtraForbidModel):
     type: Literal["enabled"]
     budget_tokens: int
 
@@ -147,14 +150,14 @@ class ThinkingConfigEnabled(BaseModel):
         return {"type": "enabled", "budget_tokens": self.budget_tokens}
 
 
-class ThinkingConfigDisabled(BaseModel):
+class ThinkingConfigDisabled(ExtraForbidModel):
     type: Literal["disabled"]
 
     def to_claude(self) -> ThinkingConfigParam:
         return {"type": "disabled"}
 
 
-class BetaConfiguration(BaseModel):
+class BetaConfiguration(ExtraForbidModel):
     betas: List[AnthropicBetaParam] | None = Field(
         default=None,
         description="List of beta features to enable. Make sure to check if the given feature is supported by the Claude deployment you are using.",
@@ -177,10 +180,11 @@ class Adapter(ChatCompletionAdapter):
 
     @property
     def supports_thinking(self) -> bool:
-        return (
-            self.deployment.reference_deployment_id
-            == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
-        )
+        return self.deployment.reference_deployment_id in {
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+        }
 
     async def configuration(self) -> Type[Configuration]:
         if self.supports_thinking:
@@ -201,17 +205,19 @@ class Adapter(ChatCompletionAdapter):
         if (tool_config := params.tool_config) is not None:
             tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
-            match (tool_config.required, tool_config.tools):
-                case (True, [tool]):
+            match tool_config.tool_choice:
+                case DialToolChoice(function=function):
                     tool_choice = ToolChoiceToolParam(
-                        type="tool", name=tool.function.name
+                        type="tool", name=function.name
                     )
-                case (True, _):
+                case "required":
                     tool_choice = ToolChoiceAnyParam(type="any")
-                case (False, _):
+                case "auto":
                     tool_choice = ToolChoiceAutoParam(type="auto")
+                case "none":
+                    tool_choice = ToolChoiceNoneParam(type="none")
                 case _:
-                    assert_never(tool_config)
+                    assert_never(tool_config.tool_choice)
 
             # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
             # by older Claude3 versions, so we limit the number of generated function calls

@@ -99,8 +99,14 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
 
 
 def _tokenize_image(source: Source) -> int:
-    width, height = _get_image_size(source["data"])
-    return math.ceil((width * height) / 750.0)
+    match source["type"]:
+        case "url":
+            return 0
+        case "base64":
+            width, height = _get_image_size(source["data"])
+            return math.ceil((width * height) / 750.0)
+        case _:
+            assert_never(source)
 
 
 def _tokenize_tool_use(id: str, input: object, name: str) -> int:
@@ -197,7 +203,7 @@ def _tokenize_tool_param(tool: ToolParam) -> int:
 
 def _tokenize_tool_system_message(
     deployment: Claude3Deployment,
-    tool_choice: Literal["auto", "any", "tool"],
+    tool_choice: Literal["none", "auto", "any", "tool"],
 ) -> int:
     match deployment:
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
@@ -205,6 +211,8 @@ def _tokenize_tool_system_message(
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
         ):
             return 346 if tool_choice == "auto" else 313
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:

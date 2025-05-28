@@ -13,6 +13,7 @@ from aidial_sdk.chat_completion import (
 from aidial_sdk.chat_completion import Role as DialRole
 from aidial_sdk.chat_completion import Tool as DialTool
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
+from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
@@ -91,15 +92,19 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
         if cache_point_part := _get_cache_point_part(tool):
             tools.append(cache_point_part)
 
-    match (tools_config.required, tools_config.tools):
-        case (True, [tool]):
-            tool_choice = {"tool": {"name": tool.function.name}}
-        case (True, _):
+    match tools_config.tool_choice:
+        case DialToolChoice(function=function):
+            tool_choice = {"tool": {"name": function.name}}
+        case "required":
             tool_choice = {"any": {}}
-        case (False, _):
+        case "auto":
             tool_choice = {"auto": {}}
+        case "none":
+            raise ValidationError(
+                "tool_choice=none isn't supported by Converse API"
+            )
         case _:
-            assert_never(tools_config)
+            assert_never(tools_config.tool_choice)
 
     return {"tools": tools, "toolChoice": tool_choice}
 

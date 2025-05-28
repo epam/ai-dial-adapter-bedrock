@@ -1,10 +1,11 @@
 from typing import Dict, List, Tuple
 
 import httpx
+import openai
 import pytest
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from tests.utils.openai import configuration
+from tests.utils.openai import chat_completion, configuration, user
 
 # Supported models and regions as per doc: https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html
 deployments_supporting_optimized_latency: Dict[
@@ -41,3 +42,39 @@ async def test_support_optimized_latency(
         test_http_client, deployment
     )
     assert (regions != []) == actual_supported
+
+
+_invalid_configuration_test_cases = [
+    (
+        {"thinking": {"type": "enabled", "budget_tokens": "hello"}},
+        "Invalid request. Path: 'custom_fields.configuration.thinking.budget_tokens', error: value is not a valid integer",
+    ),
+    (
+        {"extra_field": "extra value"},
+        "Invalid request. Path: 'custom_fields.configuration.extra_field', error: extra fields not permitted",
+    ),
+]
+
+
+@pytest.mark.parametrize("test", _invalid_configuration_test_cases)
+@pytest.mark.parametrize("stream", [False, True])
+async def test_invalid_configuration(
+    get_openai_client, stream: bool, test: Tuple[dict, str]
+):
+    deployment_id = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value
+    client: openai.AsyncAzureOpenAI = get_openai_client(
+        deployment_id, region="test-region"
+    )
+
+    configuration, expected_error_message = test
+
+    with pytest.raises(openai.APIStatusError) as exc:
+        await chat_completion(
+            client,
+            messages=[user("test")],
+            stream=stream,
+            configuration=configuration,
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.body["message"] == expected_error_message  # type: ignore
