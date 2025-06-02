@@ -1,7 +1,8 @@
 import contextlib
+import json
 import re
 from dataclasses import dataclass
-from typing import Awaitable, Callable, List, Mapping, Unpack
+from typing import Awaitable, Callable, List, Mapping, Unpack, overload
 
 import openai
 import pytest
@@ -25,6 +26,7 @@ from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.unit_tests.test_configuration import (
     deployments_supporting_optimized_latency,
 )
+from tests.utils.json import match_objects
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     ChatCompletionArgs,
@@ -57,16 +59,39 @@ class ExpectedException(BaseModel):
     status_code: int | None = None
 
 
-@contextlib.asynccontextmanager
+@overload
+async def expected_exception(
+    exception: ExpectedException,
+): ...
+
+
+@overload
 async def expected_exception(
     cls: type[APIError],
     message: str,
+    display_message: str | None = None,
+    status_code: int | None = None,
+): ...
+
+
+@contextlib.asynccontextmanager
+async def expected_exception(
+    cls: type[APIError] | ExpectedException,
+    message: str | None = None,
     display_message: str | None = None,
     status_code: int | None = None,
 ):
     try:
         yield
     except Exception as e:
+        if isinstance(cls, ExpectedException):
+            message = cls.message
+            display_message = cls.display_message
+            status_code = cls.status_code
+            cls = cls.type
+
+        assert message is not None
+
         assert isinstance(
             e, cls
         ), f"Actual exception type ({type(e)}) doesn't match the expected one ({cls})"
@@ -333,6 +358,10 @@ cohere_invalid_request_error = ExpectedException(
     message="Invalid parameter combination",
     status_code=400,
 )
+
+
+def is_claude_v2(deployment: D) -> bool:
+    return deployment in [D.ANTHROPIC_CLAUDE_V2, D.ANTHROPIC_CLAUDE_V2_1]
 
 
 def is_vision_model(deployment: D) -> bool:
@@ -619,6 +648,94 @@ async def test_llama_many_system_messages(chat: Chat):
     assert "7" in response.content
 
 
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools) & ~pred(is_claude_v2), alive_deployments),
+    ids=display_deployment,
+)
+async def test_tool_choice_none(deployment: D, chat: Chat):
+    origin = deployment.origin
+    if origin in [
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+    ]:
+        exc = None
+    elif is_claude_3_or_4(origin):
+        exc = ExpectedException(
+            type=BadRequestError,
+            message="none is not a valid enum value, please reformat your input and try again",
+            status_code=400,
+        )
+    else:
+        exc = ExpectedException(
+            type=UnprocessableEntityError,
+            message="tool_choice=none isn't supported by Converse API",
+            status_code=422,
+        )
+
+    async def _run():
+        return await chat(
+            messages=[
+                user("What's the weather in Glasgow?"),
+                ai_tools(
+                    [
+                        tool_request(
+                            "tool_1",
+                            "get_weather",
+                            {"location": "Glasgow", "unit": "celsius"},
+                        )
+                    ]
+                ),
+                tool_response("tool_1", "20 degrees"),
+                ai("It's 20 degrees"),
+                user("2+2=?"),
+            ],
+            tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+            tool_choice="none",
+        )
+
+    if exc:
+        async with expected_exception(exc):
+            await _run()
+    else:
+        response = await _run()
+        assert "4" in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_forced_tool_choice), alive_deployments),
+    ids=display_deployment,
+)
+async def test_forced_tool_choice(chat: Chat):
+    func_name = GET_WEATHER_FUNCTION["name"]
+
+    response = await chat(
+        messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
+        tools=[function_to_tool(GET_WEATHER_FUNCTION)],
+        tool_choice={
+            "type": "function",
+            "function": {"name": func_name},
+        },
+    )
+
+    tool_calls = response.tool_calls
+    assert tool_calls is not None
+    assert len(tool_calls) == 1
+
+    function = tool_calls[0].function
+    assert function.name == func_name
+
+    match_objects(
+        {
+            "location": lambda s: "Glasgow" in s,
+            "unit": "celsius",
+        },
+        json.loads(function.arguments),
+    )
+
+
 def get_test_cases(
     deployment: Deployment, region: str, streaming: bool
 ) -> List[TestCase]:
@@ -665,78 +782,6 @@ def get_test_cases(
     )
 
     if supports_tools(origin):
-
-        def _success_check(s):
-            return "4" in s.content.lower()
-
-        tool_choice_none_expected: (
-            ExpectedException | Callable[[ChatCompletionResult], bool] | None
-        )
-
-        if origin in [
-            D.ANTHROPIC_CLAUDE_V4_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_SONNET,
-            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-        ]:
-            tool_choice_none_expected = _success_check
-        elif "claude-3" in origin.value:
-            tool_choice_none_expected = ExpectedException(
-                type=BadRequestError,
-                message="none is not a valid enum value, please reformat your input and try again",
-                status_code=400,
-            )
-        elif "claude-v2" in origin.value:
-            tool_choice_none_expected = None
-        else:
-            tool_choice_none_expected = ExpectedException(
-                type=UnprocessableEntityError,
-                message="tool_choice=none isn't supported by Converse API",
-                status_code=422,
-            )
-
-        if tool_choice_none_expected:
-            test_case(
-                name="tool_choice=none + existing tool calls",
-                messages=[
-                    user("What's the weather in Glasgow?"),
-                    ai_tools(
-                        [
-                            tool_request(
-                                "tool_1",
-                                "get_weather",
-                                {"location": "Glasgow", "unit": "celsius"},
-                            )
-                        ]
-                    ),
-                    tool_response("tool_1", "20 degrees"),
-                    ai("It's 20 degrees"),
-                    user("2+2=?"),
-                ],
-                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
-                tool_choice="none",
-                expected=tool_choice_none_expected,
-            )
-
-        if supports_forced_tool_choice(origin):
-            test_case(
-                name="tool_choice=function",
-                messages=[user("Glasgow is a city in Scotland. What's 2+2?")],
-                tools=[function_to_tool(GET_WEATHER_FUNCTION)],
-                tool_choice={
-                    "type": "function",
-                    "function": {"name": GET_WEATHER_FUNCTION["name"]},
-                },
-                expected=lambda s: is_valid_tool_call(
-                    s.tool_calls,
-                    0,
-                    lambda _: True,
-                    GET_WEATHER_FUNCTION["name"],
-                    {
-                        "location": lambda s: "Glasgow" in s,
-                        "unit": "celsius",
-                    },
-                ),
-            )
 
         for cities in city_config:
             function = GET_WEATHER_FUNCTION
