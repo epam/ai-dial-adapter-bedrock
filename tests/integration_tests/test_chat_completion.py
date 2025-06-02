@@ -1,24 +1,9 @@
-import contextlib
 import json
-import re
-from dataclasses import dataclass
-from typing import Awaitable, Callable, List, Mapping, Unpack, overload
+from typing import Awaitable, Callable, List, Mapping, Unpack
 
 import openai
 import pytest
-from openai import (
-    APIError,
-    AsyncAzureOpenAI,
-    BadRequestError,
-    UnprocessableEntityError,
-)
-from openai.types.chat import (
-    ChatCompletionMessageParam,
-    ChatCompletionToolChoiceOptionParam,
-    ChatCompletionToolParam,
-)
-from openai.types.chat.completion_create_params import Function
-from pydantic import BaseModel
+from openai import AsyncAzureOpenAI, BadRequestError, UnprocessableEntityError
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
@@ -26,20 +11,16 @@ from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.unit_tests.test_configuration import (
     deployments_supporting_optimized_latency,
 )
+from tests.utils.exception import ExpectedException, expected_exception
 from tests.utils.json import match_objects
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     ChatCompletionArgs,
     ChatCompletionResult,
     ai,
-    ai_function,
     ai_tools,
     chat_completion,
-    function_request,
-    function_response,
     function_to_tool,
-    is_valid_function_call,
-    is_valid_tool_call,
     sanitize_test_name,
     sys,
     tool_request,
@@ -50,118 +31,9 @@ from tests.utils.openai import (
     user_with_image_url,
 )
 from tests.utils.selector import Selector, pred
-
-
-class ExpectedException(BaseModel):
-    type: type[APIError]
-    message: str
-    display_message: str | None = None
-    status_code: int | None = None
-
-
-@overload
-async def expected_exception(
-    exception: ExpectedException,
-): ...
-
-
-@overload
-async def expected_exception(
-    cls: type[APIError],
-    message: str,
-    display_message: str | None = None,
-    status_code: int | None = None,
-): ...
-
-
-@contextlib.asynccontextmanager
-async def expected_exception(
-    cls: type[APIError] | ExpectedException,
-    message: str | None = None,
-    display_message: str | None = None,
-    status_code: int | None = None,
-):
-    try:
-        yield
-    except Exception as e:
-        if isinstance(cls, ExpectedException):
-            message = cls.message
-            display_message = cls.display_message
-            status_code = cls.status_code
-            cls = cls.type
-
-        assert message is not None
-
-        assert isinstance(
-            e, cls
-        ), f"Actual exception type ({type(e)}) doesn't match the expected one ({cls})"
-        actual_status_code = getattr(e, "status_code", None)
-        assert actual_status_code == status_code
-        assert re.search(message, str(e))
-        assert (e.body or {}).get("display_message") == display_message  # type: ignore
-
-
-def expected_success(*args, **kwargs):
-    return True
-
+from tests.utils.tools import ToolCallTest
 
 Deployment = RegionDeployment[D]
-
-
-@dataclass
-class TestCase:
-    __test__ = False
-
-    name: str
-    region: str
-    deployment: Deployment
-    streaming: bool
-
-    messages: List[ChatCompletionMessageParam]
-
-    expected: Callable[[ChatCompletionResult], bool] | ExpectedException
-
-    max_tokens: int | None
-    stop: List[str] | None
-
-    n: int | None
-
-    functions: List[Function] | None
-    tools: List[ChatCompletionToolParam] | None
-    tool_choice: ChatCompletionToolChoiceOptionParam | None
-    temperature: float = 0.0
-
-    def get_id(self):
-        maxt = f"maxt:{self.max_tokens}" if self.max_tokens else None
-        stop = f"stop:{self.stop}" if self.stop else None
-        n = f"n:{self.n}" if self.n else None
-        temp = f"temp:{self.temperature}" if self.temperature else None
-        tools = None
-        if self.tools is not None:
-            tools = "tools"
-            if self.tool_choice is not None:
-                if isinstance(self.tool_choice, str):
-                    tools += f":{self.tool_choice}"
-                else:
-                    tools += ":forced"
-
-        return sanitize_test_name(
-            "/".join(
-                str(part)
-                for part in [
-                    self.deployment.value,
-                    self.streaming,
-                    maxt,
-                    stop,
-                    n,
-                    temp,
-                    tools,
-                    self.name,
-                ]
-                if part is not None
-            )
-        )
-
 
 _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
@@ -229,11 +101,6 @@ deployments = list(chat_deployments.keys())
 alive_deployments = select(~pred(is_retired_model), deployments)
 
 
-@pytest.fixture
-def get_deployment_region() -> Mapping[Deployment, str]:
-    return chat_deployments
-
-
 def supports_tools(deployment: D) -> bool:
     return is_claude_3_or_4(deployment) or deployment in [
         D.ANTHROPIC_CLAUDE_V2_1,
@@ -263,22 +130,16 @@ def supports_forced_tool_choice(deployment: D) -> bool:
 
 
 def supports_parallel_tool_calls(deployment: D) -> bool:
-    return (
-        deployment
-        not in [
-            D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_SONNET,
-            D.META_LLAMA3_1_70B_INSTRUCT_V1,
-            D.META_LLAMA3_1_405B_INSTRUCT_V1,
-            D.META_LLAMA3_3_70B_INSTRUCT_V1,
-            D.AI21_JAMBA_1_5_LARGE_V1,
-            D.AI21_JAMBA_1_5_MINI_V1,
-        ]
-        and not is_nova(deployment)
-        and supports_tools(deployment)
-    )
+    return deployment not in [
+        D.ANTHROPIC_CLAUDE_V2_1,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_SONNET,
+        D.META_LLAMA3_3_70B_INSTRUCT_V1,
+        D.AI21_JAMBA_1_5_MINI_V1,
+        D.AMAZON_NOVA_MICRO,
+    ] and supports_tools(deployment)
 
 
 def is_llama3(deployment: D) -> bool:
@@ -296,7 +157,7 @@ def is_llama3(deployment: D) -> bool:
     ]
 
 
-def is_cohere(deployment: D) -> bool:
+def is_cohere_legacy(deployment: D) -> bool:
     return deployment in [
         D.COHERE_COMMAND_LIGHT_TEXT_V14,
         D.COHERE_COMMAND_TEXT_V14,
@@ -333,15 +194,11 @@ def is_nova(deployment: D) -> bool:
 
 
 def is_reasoning_model(deployment: D) -> bool:
-    return deployment in [
-        D.DEEPSEEK_R1_V2,
-    ]
+    return deployment in [D.DEEPSEEK_R1_V2]
 
 
 def is_deepseek(deployment: D) -> bool:
-    return deployment in [
-        D.DEEPSEEK_R1_V2,
-    ]
+    return deployment in [D.DEEPSEEK_R1_V2]
 
 
 def is_ai21(deployment: D) -> bool:
@@ -353,37 +210,22 @@ def is_ai21(deployment: D) -> bool:
     ]
 
 
-cohere_invalid_request_error = ExpectedException(
-    type=BadRequestError,
-    message="Invalid parameter combination",
-    status_code=400,
-)
-
-
 def is_claude_v2(deployment: D) -> bool:
     return deployment in [D.ANTHROPIC_CLAUDE_V2, D.ANTHROPIC_CLAUDE_V2_1]
 
 
 def is_vision_model(deployment: D) -> bool:
-    allowed_models = [
+    return deployment in [
         D.META_LLAMA3_2_11B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
-    ]
-
-    # Claude 3.5 Haiku was launched as a text-only model
-    # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
-    excluded_models = {
-        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-    }
-
-    is_allowed_model = (
-        is_claude_3_or_4(deployment) or deployment in allowed_models
+    ] or (
+        is_claude_3_or_4(deployment)
+        # Claude 3.5 Haiku was launched as a text-only model
+        # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
+        and deployment != D.ANTHROPIC_CLAUDE_V3_5_HAIKU
     )
-    is_excluded_model = deployment in excluded_models
-
-    return is_allowed_model and not is_excluded_model
 
 
 def are_tools_emulated(deployment: D) -> bool:
@@ -395,20 +237,23 @@ def deployment(request) -> Deployment:
     return request.param
 
 
+@pytest.fixture
+def region(deployment: Deployment) -> str:
+    region = chat_deployments.get(deployment)
+    if region is None:
+        raise ValueError(
+            f"{deployment.value!r} is missing from the region mapping"
+        )
+    return region
+
+
 @pytest.fixture(params=[True, False], ids=lambda b: "stream" if b else "block")
 def stream(request) -> bool:
     return request.param
 
 
 @pytest.fixture
-def openai_client(
-    deployment: Deployment, get_deployment_region, get_openai_client
-):
-    region = get_deployment_region.get(deployment)
-    if region is None:
-        raise ValueError(
-            f"{deployment.value!r} is missing from the region mapping"
-        )
+def openai_client(deployment: Deployment, region: str, get_openai_client):
     return get_openai_client(deployment.value, region=region)
 
 
@@ -416,10 +261,24 @@ Chat = Callable[..., Awaitable[ChatCompletionResult]]
 
 
 @pytest.fixture
-def chat(openai_client: AsyncAzureOpenAI, stream: bool):
+def chat(
+    deployment: Deployment,
+    region: str,
+    openai_client: AsyncAzureOpenAI,
+    stream: bool,
+):
+    configuration = {}
+    regions = (
+        deployments_supporting_optimized_latency.get(deployment.origin) or []
+    )
+    if region in regions:
+        configuration["performanceConfig"] = {"latency": "optimized"}
+
     async def _inner(
         **kwargs: Unpack[ChatCompletionArgs],
     ) -> ChatCompletionResult:
+        assert not kwargs.get("configuration")
+        kwargs["configuration"] = configuration
         return await chat_completion(openai_client, stream=stream, **kwargs)
 
     return _inner
@@ -542,7 +401,7 @@ async def test_empty_user_message(
             message = (
                 "messages: text content blocks must contain non-whitespace text"
             )
-    elif is_cohere(origin):
+    elif is_cohere_legacy(origin):
         message = "Invalid parameter combination"
     elif is_llama3(origin) or is_nova(origin):
         message = "Add text to the text field, and try again."
@@ -736,244 +595,112 @@ async def test_forced_tool_choice(chat: Chat):
     )
 
 
-def get_test_cases(
-    deployment: Deployment, region: str, streaming: bool
-) -> List[TestCase]:
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools), alive_deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize(
+    "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
+)
+async def test_function_call(
+    deployment: Deployment, test: ToolCallTest, chat: Chat
+):
     origin = deployment.origin
 
-    test_cases: List[TestCase] = []
-
-    def test_case(
-        name: str,
-        messages: List[ChatCompletionMessageParam],
-        expected: (
-            Callable[[ChatCompletionResult], bool] | ExpectedException
-        ) = expected_success,
-        n: int | None = None,
-        max_tokens: int | None = None,
-        stop: List[str] | None = None,
-        functions: List[Function] | None = None,
-        tools: List[ChatCompletionToolParam] | None = None,
-        tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
-        temperature: float = 0.0,
-    ) -> None:
-        test_cases.append(
-            TestCase(
-                name,
-                region,
-                deployment,
-                streaming,
-                messages,
-                expected,
-                max_tokens,
-                stop,
-                n,
-                functions,
-                tools,
-                tool_choice,
-                temperature,
-            )
-        )
-
-    city_config = (
-        [[("Glasgow", 15)], [("Glasgow", 15), ("London", 20)]]
-        if supports_parallel_tool_calls(origin)
-        else [[("Glasgow", 15)]]
+    response = await chat(
+        messages=test.messages(not is_llama3(origin)),
+        functions=test.functions,
     )
 
-    if supports_tools(origin):
+    function_call = response.function_call
+    assert function_call is not None
+    assert function_call.name == test.function_name
 
-        for cities in city_config:
-            function = GET_WEATHER_FUNCTION
-            tool = function_to_tool(function)
-            fun_name = function["name"]
-
-            city_names = [name for name, _ in cities]
-            city_temps = [temp for _, temp in cities]
-
-            query = f"Tell me what's the temperature in {' and in '.join(city_names)} in celsius?"
-
-            init_messages = [
-                user("2+3=?"),
-                ai("5"),
-                user(query),
-            ]
-
-            # Llama 3 works badly with system messages along tools
-            if not is_llama3(origin):
-                init_messages.insert(0, sys("act as a helpful assistant"))
-
-            def create_fun_args(city: str):
-                return {
-                    "location": city,
-                    "unit": "celsius",
-                }
-
-            def check_fun_args(city: str):
-                return {
-                    "location": lambda s: city.lower() in s.lower(),
-                    "unit": "celsius",
-                }
-
-            test_name_suffix = " ".join(city_names)
-
-            # Functions
-            test_case(
-                name=f"weather function {test_name_suffix}",
-                messages=init_messages,
-                functions=[function],
-                expected=lambda s, n=city_names[0]: is_valid_function_call(
-                    s.function_call, fun_name, check_fun_args(n)
-                ),
-            )
-
-            function_req = ai_function(
-                function_request(fun_name, create_fun_args(city_names[0]))
-            )
-            function_resp = function_response(
-                fun_name, f"{city_temps[0]} celsius"
-            )
-
-            if len(cities) == 1:
-                test_case(
-                    name=f"weather function followup {test_name_suffix}",
-                    messages=[
-                        *init_messages,
-                        function_req,
-                        function_resp,
-                    ],
-                    functions=[function],
-                    expected=lambda s, t=city_temps[0]: s.content_contains_all(
-                        [t]
-                    ),
-                )
-            else:
-                test_case(
-                    name=f"weather function followup {test_name_suffix}",
-                    messages=[
-                        *init_messages,
-                        function_req,
-                        function_resp,
-                    ],
-                    functions=[function],
-                    expected=lambda s, n=city_names[1]: is_valid_function_call(
-                        s.function_call, fun_name, check_fun_args(n)
-                    ),
-                )
-
-            # Tools
-            def create_tool_call_id(idx: int):
-                return f"{fun_name}_{idx+1}"
-
-            def check_tool_call_id(idx: int):
-                def _check(id: str) -> bool:
-                    return (
-                        f"{fun_name}_{idx+1}" == id
-                        if are_tools_emulated(origin)
-                        else True
-                    )
-
-                return _check
-
-            expected_city_names = (
-                city_names[:1] if are_tools_emulated(origin) else city_names
-            )
-
-            test_case(
-                name=f"weather tool {test_name_suffix}",
-                messages=init_messages,
-                tools=[tool],
-                expected=lambda s, n=expected_city_names: all(
-                    is_valid_tool_call(
-                        s.tool_calls,
-                        idx,
-                        check_tool_call_id(idx),
-                        fun_name,
-                        check_fun_args(n[idx]),
-                    )
-                    for idx in range(len(n))
-                ),
-            )
-
-            tool_reqs = ai_tools(
-                [
-                    tool_request(
-                        create_tool_call_id(idx),
-                        fun_name,
-                        create_fun_args(name),
-                    )
-                    for idx, (name, _) in enumerate(cities)
-                ]
-            )
-            tool_resps = [
-                tool_response(create_tool_call_id(idx), f"{temp} celsius")
-                for idx, (_, temp) in enumerate(cities)
-            ]
-
-            test_case(
-                name=f"weather tool followup {test_name_suffix}",
-                messages=[*init_messages, tool_reqs, *tool_resps],
-                tools=[tool],
-                expected=lambda s, t=city_temps: s.content_contains_all(t),
-            )
-
-    return test_cases
+    function_args = json.loads(function_call.arguments)
+    assert match_objects(test.expected_function_args(0), function_args)
 
 
 @pytest.mark.parametrize(
-    "test",
-    [
-        test
-        for deployment, region in chat_deployments.items()
-        for streaming in [False, True]
-        for test in get_test_cases(deployment, region, streaming)
-    ],
-    ids=lambda test: test.get_id(),
+    "deployment",
+    select(pred(supports_tools), alive_deployments),
+    ids=display_deployment,
 )
-async def test_chat_completion(get_openai_client, test: TestCase):
-    deployment_id = test.deployment.value
-    client: openai.AsyncAzureOpenAI = get_openai_client(
-        deployment_id, region=test.region
+@pytest.mark.parametrize("test", [ToolCallTest(1)], ids=lambda x: x.get_id())
+async def test_function_response(
+    deployment: Deployment, test: ToolCallTest, chat: Chat
+):
+    origin = deployment.origin
+    messages = [
+        *test.messages(not is_llama3(origin)),
+        test.function_request(0),
+        test.function_response(0),
+    ]
+
+    response = await chat(messages=messages, functions=test.functions)
+
+    assert str(test.city_temps[0]) in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools), alive_deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize(
+    "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
+)
+async def test_tool_call(
+    deployment: Deployment, test: ToolCallTest, chat: Chat
+):
+    origin = deployment.origin
+
+    response = await chat(
+        messages=test.messages(not is_llama3(origin)),
+        tools=test.tools,
     )
 
-    async def run_chat_completion() -> ChatCompletionResult:
-        configuration = {}
-        low_latency_regions = (
-            deployments_supporting_optimized_latency.get(test.deployment.origin)
-            or []
-        )
-        if test.region in low_latency_regions:
-            configuration["performanceConfig"] = {"latency": "optimized"}
+    tool_calls = response.tool_calls
+    assert tool_calls is not None
 
-        return await chat_completion(
-            client,
-            messages=test.messages,
-            stream=test.streaming,
-            stop=test.stop,
-            max_tokens=test.max_tokens,
-            n=test.n,
-            functions=test.functions,
-            tools=test.tools,
-            tool_choice=test.tool_choice,
-            temperature=test.temperature,
-            configuration=configuration,
-        )
+    expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
-    if isinstance(test.expected, ExpectedException):
-        with pytest.raises(Exception) as exc_info:
-            await run_chat_completion()
+    assert (
+        len(tool_calls) >= expected_calls
+    ), f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
 
-        actual_exc = exc_info.value
+    for idx, tool_call in enumerate(tool_calls):
+        if are_tools_emulated(origin):
+            name = f"{test.function_name}_{idx+1}"
+            assert tool_call.id == name
 
-        assert isinstance(
-            actual_exc, test.expected.type
-        ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
-        actual_status_code = getattr(actual_exc, "status_code", None)
-        assert actual_status_code == test.expected.status_code
-        assert re.search(test.expected.message, str(actual_exc))
-        assert (actual_exc.body or {}).get("display_message") == test.expected.display_message  # type: ignore
-    else:
-        actual_output = await run_chat_completion()
-        assert test.expected(
-            actual_output
-        ), f"Failed output test, actual output: {actual_output}"
+        function_call = tool_call.function
+        assert function_call.name == test.function_name
+
+        function_args = json.loads(function_call.arguments)
+        assert match_objects(test.expected_function_args(idx), function_args)
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools), alive_deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize(
+    "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
+)
+async def test_tool_response(
+    deployment: Deployment, test: ToolCallTest, chat: Chat
+):
+    origin = deployment.origin
+
+    messages = [
+        *test.messages(not is_llama3(origin)),
+        test.tool_request(),
+        *test.tool_responses(),
+    ]
+
+    response = await chat(messages=messages, tools=test.tools)
+
+    for temp in test.city_temps:
+        assert str(temp) in response.content
