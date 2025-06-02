@@ -38,9 +38,7 @@ Deployment = RegionDeployment[D]
 _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
-
-
-chat_deployments: Mapping[Deployment, str] = {
+_DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AMAZON_TITAN_TG1_LARGE: _WEST,
     D.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
     D.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
@@ -78,6 +76,8 @@ chat_deployments: Mapping[Deployment, str] = {
     D.AMAZON_NOVA_PRO.US: _EAST_1,
     D.AMAZON_NOVA_LITE: _EAST_1,
     D.DEEPSEEK_R1_V2.US: _EAST_1,
+    D.STABILITY_STABLE_DIFFUSION_XL: _WEST,
+    D.STABILITY_STABLE_DIFFUSION_XL_V1: _WEST,
 }
 
 
@@ -87,9 +87,8 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_JUMBO_INSTRUCT,
         D.AI21_J2_MID_V1,
         D.AI21_J2_ULTRA_V1,
-        # FIXME: add it
-        # D.STABILITY_STABLE_DIFFUSION_XL, _WEST
-        # D.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST
+        D.STABILITY_STABLE_DIFFUSION_XL,
+        D.STABILITY_STABLE_DIFFUSION_XL_V1,
     }
 
 
@@ -97,8 +96,9 @@ def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
     return [x for x in xs if p(x.origin)]
 
 
-deployments = list(chat_deployments.keys())
-alive_deployments = select(~pred(is_retired_model), deployments)
+all_deployments = list(_DEPLOYMENT_TO_REGION.keys())
+deployments = select(~pred(is_retired_model), all_deployments)
+retired_deployments = select(pred(is_retired_model), all_deployments)
 
 
 def supports_tools(deployment: D) -> bool:
@@ -239,7 +239,7 @@ def deployment(request) -> Deployment:
 
 @pytest.fixture
 def region(deployment: Deployment) -> str:
-    region = chat_deployments.get(deployment)
+    region = _DEPLOYMENT_TO_REGION.get(deployment)
     if region is None:
         raise ValueError(
             f"{deployment.value!r} is missing from the region mapping"
@@ -289,7 +289,7 @@ def display_deployment(dep: Deployment):
 
 
 @pytest.mark.parametrize(
-    "deployment", select(is_retired_model, deployments), ids=display_deployment
+    "deployment", retired_deployments, ids=display_deployment
 )
 async def test_retired_models(chat: Chat):
     async with expected_exception(
@@ -301,9 +301,7 @@ async def test_retired_models(chat: Chat):
         await chat(messages=[user("test")], max_tokens=1)
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_dialog_recall(deployment: Deployment, chat: Chat):
     response = await chat(
         messages=[
@@ -318,33 +316,25 @@ async def test_dialog_recall(deployment: Deployment, chat: Chat):
     assert "paris" in response.content.lower()
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_model_field(deployment: Deployment, chat: Chat):
     response = await chat(messages=[user("test")], max_tokens=1)
     assert deployment.value == response.response.model
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_2_plus_3(chat: Chat):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_empty_system_message(chat: Chat):
     response = await chat(messages=[sys(""), user("compute (2+4)")])
     assert "6" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_multiple_candidates(deployment: Deployment, chat: Chat):
     response = await chat(
         # It could take hundreds of tokens for a reasoning model
@@ -358,9 +348,7 @@ async def test_multiple_candidates(deployment: Deployment, chat: Chat):
         assert "9" in content
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_hello(deployment: Deployment, chat: Chat):
     query = 'Reply with "Hello"'
     if deployment.origin == D.ANTHROPIC_CLAUDE_INSTANT_V1:
@@ -371,9 +359,7 @@ async def test_hello(deployment: Deployment, chat: Chat):
     assert "hello" in content or "hi" in content
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_empty_dialog(chat: Chat):
     async with expected_exception(
         status_code=422,
@@ -383,9 +369,7 @@ async def test_empty_dialog(chat: Chat):
         await chat(max_tokens=1, messages=[])
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 @pytest.mark.parametrize(
     "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
 )
@@ -426,7 +410,7 @@ async def test_empty_user_message(
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(is_vision_model), alive_deployments),
+    select(pred(is_vision_model), deployments),
     ids=display_deployment,
 )
 @pytest.mark.parametrize(
@@ -450,9 +434,7 @@ async def test_vision(chat: Chat, message_factory):
     assert "dog" in response.content.lower()
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_finish_reason_length(chat: Chat):
     response = await chat(
         max_tokens=1,
@@ -464,9 +446,7 @@ async def test_finish_reason_length(chat: Chat):
     assert response.finish_reasons == ["length"]
 
 
-@pytest.mark.parametrize(
-    "deployment", alive_deployments, ids=display_deployment
-)
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_stop_sequence(chat: Chat):
     stop = ["cat", "dog", "fish"]
     response = await chat(
@@ -479,7 +459,7 @@ async def test_stop_sequence(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(is_llama3), alive_deployments),
+    select(pred(is_llama3), deployments),
     ids=display_deployment,
 )
 async def test_llama_out_of_turn_dialog(chat: Chat):
@@ -495,7 +475,7 @@ async def test_llama_out_of_turn_dialog(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(is_llama3), alive_deployments),
+    select(pred(is_llama3), deployments),
     ids=display_deployment,
 )
 async def test_llama_many_system_messages(chat: Chat):
@@ -511,7 +491,7 @@ async def test_llama_many_system_messages(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools) & ~pred(is_claude_v2), alive_deployments),
+    select(pred(supports_tools) & ~pred(is_claude_v2), deployments),
     ids=display_deployment,
 )
 async def test_tool_choice_none(deployment: D, chat: Chat):
@@ -566,7 +546,7 @@ async def test_tool_choice_none(deployment: D, chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_forced_tool_choice), alive_deployments),
+    select(pred(supports_forced_tool_choice), deployments),
     ids=display_deployment,
 )
 async def test_forced_tool_choice(chat: Chat):
@@ -599,7 +579,7 @@ async def test_forced_tool_choice(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools), alive_deployments),
+    select(pred(supports_tools), deployments),
     ids=display_deployment,
 )
 @pytest.mark.parametrize(
@@ -625,7 +605,7 @@ async def test_function_call(
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools), alive_deployments),
+    select(pred(supports_tools), deployments),
     ids=display_deployment,
 )
 @pytest.mark.parametrize("test", [ToolCallTest(1)], ids=lambda x: x.get_id())
@@ -646,7 +626,7 @@ async def test_function_response(
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools), alive_deployments),
+    select(pred(supports_tools), deployments),
     ids=display_deployment,
 )
 @pytest.mark.parametrize(
@@ -685,7 +665,7 @@ async def test_tool_call(
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools), alive_deployments),
+    select(pred(supports_tools), deployments),
     ids=display_deployment,
 )
 @pytest.mark.parametrize(
