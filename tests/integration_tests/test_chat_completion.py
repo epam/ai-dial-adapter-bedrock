@@ -344,8 +344,12 @@ def are_tools_emulated(deployment: D) -> bool:
 
 
 @pytest.fixture
-def openai_client(request, get_deployment_region, get_openai_client):
-    deployment: D = request.param
+def deployment(request) -> D:
+    return request.param
+
+
+@pytest.fixture
+def openai_client(deployment: D, get_deployment_region, get_openai_client):
     region = get_deployment_region[deployment]
     return get_openai_client(deployment.value, region=region)
 
@@ -359,7 +363,7 @@ def chat(openai_client: AsyncAzureOpenAI):
 
 
 @pytest.mark.parametrize(
-    "openai_client",
+    "deployment",
     [
         D.AI21_J2_GRANDE_INSTRUCT,
         D.AI21_J2_JUMBO_INSTRUCT,
@@ -369,7 +373,6 @@ def chat(openai_client: AsyncAzureOpenAI):
         # D.STABILITY_STABLE_DIFFUSION_XL, _WEST
         # D.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST
     ],
-    indirect=True,
 )
 async def test_retired_models(chat):
     async with expected_exception(
