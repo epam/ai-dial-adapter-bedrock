@@ -53,6 +53,7 @@ nox = "^2023.4.22"
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results"
 generate_report_on_test = true
 env_override_existing_values = 1
+testpaths = ["tests"]
 filterwarnings = [
   "error",
   # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
