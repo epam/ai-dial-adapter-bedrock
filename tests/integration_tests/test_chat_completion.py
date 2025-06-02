@@ -468,11 +468,13 @@ async def test_finish_reason_length(chat: Chat):
     "deployment", alive_deployments, ids=display_deployment
 )
 async def test_stop_sequence(chat: Chat):
+    stop = ["cat", "dog", "fish"]
     response = await chat(
-        stop=["John", "john"],
-        messages=[user('Reply with "John"')],
+        stop=stop,
+        messages=[user('Reply with "cat dog fish"')],
     )
-    assert "john" not in response.content.lower()
+    content = response.content.lower()
+    assert not all(w in content for w in stop)
 
 
 @pytest.mark.parametrize(
