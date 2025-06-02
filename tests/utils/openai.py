@@ -199,22 +199,8 @@ class ChatCompletionResult(BaseModel):
         )
 
 
-def for_all_choices(
-    predicate: Callable[[str], bool], n: int = 1
-) -> Callable[[ChatCompletionResult], bool]:
-    def f(resp: ChatCompletionResult) -> bool:
-        contents = resp.contents
-        assert (
-            len(contents) == n
-        ), f"Expected {n} candidates, got {len(contents)}"
-        return all(predicate(content) for content in contents)
-
-    return f
-
-
 class ChatCompletionArgs(TypedDict, total=False):
     messages: Required[List[ChatCompletionMessageParam]]
-    stream: bool | None
     stop: List[str] | None
     max_tokens: int | None
     n: int | None
@@ -227,7 +213,10 @@ class ChatCompletionArgs(TypedDict, total=False):
 
 
 async def chat_completion(
-    client: AsyncAzureOpenAI, **kwargs: Unpack[ChatCompletionArgs]
+    client: AsyncAzureOpenAI,
+    *,
+    stream: bool | None = None,
+    **kwargs: Unpack[ChatCompletionArgs],
 ) -> ChatCompletionResult:
     extra_body = kwargs.get("extra_body") or {}
     if configuration := kwargs.get("configuration"):
@@ -243,7 +232,7 @@ async def chat_completion(
         response = await client.chat.completions.create(
             model="dummy-model",
             messages=kwargs["messages"],
-            stream=kwargs.get("stream") or False,
+            stream=stream or False,
             stop=kwargs.get("stop"),
             max_tokens=kwargs.get("max_tokens"),
             temperature=kwargs.get("temperature"),

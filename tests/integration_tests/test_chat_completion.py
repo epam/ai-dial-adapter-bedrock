@@ -1,7 +1,7 @@
 import contextlib
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Mapping, Unpack
+from typing import Awaitable, Callable, List, Mapping, Unpack
 
 import openai
 import pytest
@@ -33,7 +33,6 @@ from tests.utils.openai import (
     ai_function,
     ai_tools,
     chat_completion,
-    for_all_choices,
     function_request,
     function_response,
     function_to_tool,
@@ -48,6 +47,7 @@ from tests.utils.openai import (
     user_with_attachment_url,
     user_with_image_url,
 )
+from tests.utils.selector import Selector, pred
 
 
 class ExpectedException(BaseModel):
@@ -182,6 +182,26 @@ chat_deployments: Mapping[Deployment, str] = {
     D.AMAZON_NOVA_LITE: _EAST_1,
     D.DEEPSEEK_R1_V2.US: _EAST_1,
 }
+
+
+def is_retired_model(deployment: D) -> bool:
+    return deployment in {
+        D.AI21_J2_GRANDE_INSTRUCT,
+        D.AI21_J2_JUMBO_INSTRUCT,
+        D.AI21_J2_MID_V1,
+        D.AI21_J2_ULTRA_V1,
+        # FIXME: add it
+        # D.STABILITY_STABLE_DIFFUSION_XL, _WEST
+        # D.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST
+    }
+
+
+def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
+    return [x for x in xs if p(x.origin)]
+
+
+deployments = list(chat_deployments.keys())
+alive_deployments = select(~pred(is_retired_model), deployments)
 
 
 @pytest.fixture
@@ -338,50 +358,265 @@ def is_vision_model(deployment: D) -> bool:
 
 
 def are_tools_emulated(deployment: D) -> bool:
-    return deployment in [
-        D.ANTHROPIC_CLAUDE_V2_1,
-    ]
+    return deployment in [D.ANTHROPIC_CLAUDE_V2_1]
 
 
 @pytest.fixture
-def deployment(request) -> D:
+def deployment(request) -> Deployment:
+    return request.param
+
+
+@pytest.fixture(params=[True, False], ids=lambda b: "stream" if b else "block")
+def stream(request) -> bool:
     return request.param
 
 
 @pytest.fixture
-def openai_client(deployment: D, get_deployment_region, get_openai_client):
-    region = get_deployment_region[deployment]
+def openai_client(
+    deployment: Deployment, get_deployment_region, get_openai_client
+):
+    region = get_deployment_region.get(deployment)
+    if region is None:
+        raise ValueError(
+            f"{deployment.value!r} is missing from the region mapping"
+        )
     return get_openai_client(deployment.value, region=region)
 
 
+Chat = Callable[..., Awaitable[ChatCompletionResult]]
+
+
 @pytest.fixture
-def chat(openai_client: AsyncAzureOpenAI):
-    async def _inner(**kwargs: Unpack[ChatCompletionArgs]):
-        return await chat_completion(openai_client, **kwargs)
+def chat(openai_client: AsyncAzureOpenAI, stream: bool):
+    async def _inner(
+        **kwargs: Unpack[ChatCompletionArgs],
+    ) -> ChatCompletionResult:
+        return await chat_completion(openai_client, stream=stream, **kwargs)
 
     return _inner
 
 
+def display_deployment(dep: Deployment):
+    return sanitize_test_name(dep.value)
+
+
 @pytest.mark.parametrize(
-    "deployment",
-    [
-        D.AI21_J2_GRANDE_INSTRUCT,
-        D.AI21_J2_JUMBO_INSTRUCT,
-        D.AI21_J2_MID_V1,
-        D.AI21_J2_ULTRA_V1,
-        # FIXME: add it
-        # D.STABILITY_STABLE_DIFFUSION_XL, _WEST
-        # D.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST
-    ],
+    "deployment", select(is_retired_model, deployments), ids=display_deployment
 )
-async def test_retired_models(chat):
+async def test_retired_models(chat: Chat):
     async with expected_exception(
         cls=openai.NotFoundError,
         status_code=404,
         message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
         display_message="This model version has reached the end of its life",
     ):
-        return await chat(messages=[user("test")], max_tokens=1)
+        await chat(messages=[user("test")], max_tokens=1)
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_dialog_recall(deployment: Deployment, chat: Chat):
+    response = await chat(
+        messages=[
+            user("Remember Paris city. Just say hello"),
+            ai("Hello"),
+            user("What city did I mention earlier?"),
+        ],
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=32 if not is_reasoning_model(deployment.origin) else 512,
+    )
+    assert "paris" in response.content.lower()
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_model_field(deployment: Deployment, chat: Chat):
+    response = await chat(messages=[user("test")], max_tokens=1)
+    assert deployment.value == response.response.model
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_2_plus_3(chat: Chat):
+    response = await chat(messages=[user("compute (2+3)")])
+    assert "5" in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_empty_system_message(chat: Chat):
+    response = await chat(messages=[sys(""), user("compute (2+4)")])
+    assert "6" in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_multiple_candidates(deployment: Deployment, chat: Chat):
+    response = await chat(
+        # It could take hundreds of tokens for a reasoning model
+        # to come up with an answer to a simple question like this.
+        max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
+        n=5,
+        messages=[user("2+7=?. Reply with a single number")],
+    )
+    assert len(response.contents) == 5
+    for content in response.contents:
+        assert "9" in content
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_hello(deployment: Deployment, chat: Chat):
+    query = 'Reply with "Hello"'
+    if deployment.origin == D.ANTHROPIC_CLAUDE_INSTANT_V1:
+        query = 'Print "Hello"'
+
+    response = await chat(messages=[user(query)])
+    content = response.content.lower()
+    assert "hello" in content or "hi" in content
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_empty_dialog(chat: Chat):
+    async with expected_exception(
+        status_code=422,
+        cls=UnprocessableEntityError,
+        message="List of messages must not be empty",
+    ):
+        await chat(max_tokens=1, messages=[])
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+@pytest.mark.parametrize(
+    "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
+)
+async def test_empty_user_message(
+    deployment: Deployment, is_empty: bool, chat: Chat
+):
+    origin = deployment.origin
+
+    if is_claude_3_or_4(origin):
+        if is_empty:
+            message = "messages: text content blocks must be non-empty"
+        else:
+            message = (
+                "messages: text content blocks must contain non-whitespace text"
+            )
+    elif is_cohere(origin):
+        message = "Invalid parameter combination"
+    elif is_llama3(origin) or is_nova(origin):
+        message = "Add text to the text field, and try again."
+    elif (
+        is_deepseek(origin) or is_ai21(origin) or is_cohere_command_plus(origin)
+    ):
+        message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
+    else:
+        message = None
+
+    async def _run():
+        await chat(max_tokens=1, messages=[user("" if is_empty else " ")])
+
+    if message is not None:
+        async with expected_exception(
+            status_code=400, cls=BadRequestError, message=message
+        ):
+            await _run()
+    else:
+        await _run()
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(is_vision_model), alive_deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize(
+    "message_factory",
+    [
+        user_with_attachment_data,
+        user_with_attachment_url,
+        user_with_image_url,
+    ],
+    ids=[
+        "attachment_data",
+        "attachment_data_url",
+        "content_part_image_url",
+    ],
+)
+async def test_vision(chat: Chat, message_factory):
+    user_message = message_factory("describe the image", SAMPLE_DOG_RESOURCE)
+    response = await chat(
+        max_tokens=100, messages=[sys("be a helpful assistant"), user_message]
+    )
+    assert "dog" in response.content.lower()
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_finish_reason_length(chat: Chat):
+    response = await chat(
+        max_tokens=1,
+        messages=[user("tell me the full story of Pinocchio")],
+    )
+    assert len(response.content.split()) <= 1
+    assert response.usage is not None
+    assert response.usage.completion_tokens == 1
+    assert response.finish_reasons == ["length"]
+
+
+@pytest.mark.parametrize(
+    "deployment", alive_deployments, ids=display_deployment
+)
+async def test_stop_sequence(chat: Chat):
+    response = await chat(
+        stop=["John", "john"],
+        messages=[user('Reply with "John"')],
+    )
+    assert "john" not in response.content.lower()
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(is_llama3), alive_deployments),
+    ids=display_deployment,
+)
+async def test_llama_out_of_turn_dialog(chat: Chat):
+    async with expected_exception(
+        cls=BadRequestError,
+        message="A conversation must start with a user message",
+        status_code=400,
+    ):
+        await chat(
+            messages=[ai("hello"), user("what's 7+5?")],
+        )
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(is_llama3), alive_deployments),
+    ids=display_deployment,
+)
+async def test_llama_many_system_messages(chat: Chat):
+    response = await chat(
+        messages=[
+            sys("act as a helpful assistant"),
+            sys("act as a calculator"),
+            user("2+5=?"),
+        ],
+    )
+    assert "7" in response.content
 
 
 def get_test_cases(
@@ -421,176 +656,6 @@ def get_test_cases(
                 tool_choice,
                 temperature,
             )
-        )
-
-    test_case(
-        name="dialog recall",
-        messages=[
-            user("Remember Paris city. Just say hello"),
-            ai("Hello"),
-            user("What city did I mention earlier?"),
-        ],
-        # It could take hundreds of tokens for a reasoning model
-        # to come up with an answer to a simple question like this.
-        max_tokens=32 if not is_reasoning_model(origin) else 512,
-        expected=lambda s: "paris" in s.content.lower(),
-    )
-
-    test_case(
-        name="model field",
-        messages=[user("test")],
-        max_tokens=1,
-        expected=lambda s: s.response.model == deployment.value,
-    )
-
-    test_case(
-        name="2+3=5",
-        messages=[user("compute (2+3)")],
-        expected=lambda s: "5" in s.content,
-    )
-
-    test_case(
-        name="empty system message",
-        messages=[sys(""), user("compute (2+4)")],
-        expected=lambda s: "6" in s.content,
-    )
-
-    test_case(
-        name="multiple candidates",
-        # It could take hundreds of tokens for a reasoning model
-        # to come up with an answer to a simple question like this.
-        max_tokens=10 if not is_reasoning_model(origin) else 512,
-        n=5,
-        messages=[user("2+7=?. Reply with a single number")],
-        expected=for_all_choices(lambda s: "9" in s, 5),
-    )
-
-    query = 'Reply with "Hello"'
-    if origin == D.ANTHROPIC_CLAUDE_INSTANT_V1:
-        query = 'Print "Hello"'
-
-    test_case(
-        name="hello",
-        messages=[user(query)],
-        expected=lambda s: "hello" in s.content.lower()
-        or "hi" in s.content.lower(),
-    )
-
-    test_case(
-        name="empty dialog",
-        max_tokens=1,
-        messages=[],
-        expected=ExpectedException(
-            type=UnprocessableEntityError,
-            message="List of messages must not be empty",
-            status_code=422,
-        ),
-    )
-
-    expected_whitespace_message = expected_empty_message = expected_success
-    if is_claude_3_or_4(origin):
-        expected_whitespace_message = ExpectedException(
-            type=openai.BadRequestError,
-            message="messages: text content blocks must contain non-whitespace text",
-            status_code=400,
-        )
-        expected_empty_message = ExpectedException(
-            type=openai.BadRequestError,
-            message="messages: text content blocks must be non-empty",
-            status_code=400,
-        )
-    elif is_cohere(origin):
-        expected_whitespace_message = expected_empty_message = (
-            cohere_invalid_request_error
-        )
-    elif is_llama3(origin) or is_nova(origin):
-        expected_whitespace_message = expected_empty_message = (
-            ExpectedException(
-                type=BadRequestError,
-                message="Add text to the text field, and try again.",
-                status_code=400,
-            )
-        )
-    elif (
-        is_deepseek(origin) or is_ai21(origin) or is_cohere_command_plus(origin)
-    ):
-        expected_whitespace_message = expected_empty_message = (
-            ExpectedException(
-                type=BadRequestError,
-                message="The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again.",
-                status_code=400,
-            )
-        )
-
-    test_case(
-        name="single space user message",
-        max_tokens=1,
-        messages=[user(" ")],
-        expected=expected_whitespace_message,
-    )
-
-    test_case(
-        name="empty user message",
-        max_tokens=1,
-        messages=[user("")],
-        expected=expected_empty_message,
-    )
-
-    if is_vision_model(origin):
-        content = "describe the image"
-        for idx, user_message in enumerate(
-            [
-                user_with_attachment_data(content, SAMPLE_DOG_RESOURCE),
-                user_with_attachment_url(content, SAMPLE_DOG_RESOURCE),
-                user_with_image_url(content, SAMPLE_DOG_RESOURCE),
-            ]
-        ):
-            test_case(
-                name=f"describe image {idx}",
-                max_tokens=100,
-                messages=[sys("be a helpful assistant"), user_message],  # type: ignore
-                expected=lambda s: "dog" in s.content.lower(),
-            )
-
-    test_case(
-        name="pinocchio in one token",
-        max_tokens=1,
-        messages=[user("tell me the full story of Pinocchio")],
-        expected=lambda s: len(s.content.split()) <= 1
-        and s.usage is not None
-        and s.usage.completion_tokens == 1
-        and s.finish_reasons == ["length"],
-    )
-
-    test_case(
-        name="stop sequence",
-        stop=["John", "john"],
-        messages=[user('Reply with "John"')],
-        expected=lambda s: "John" not in s.content.lower(),
-    )
-
-    if is_llama3(origin):
-
-        test_case(
-            name="out_of_turn",
-            messages=[ai("hello"), user("what's 7+5?")],
-            expected=(
-                ExpectedException(
-                    type=BadRequestError,
-                    message="A conversation must start with a user message",
-                    status_code=400,
-                )
-            ),
-        )
-
-        test_case(
-            name="many system",
-            messages=[
-                sys("act as a helpful assistant"),
-                sys("act as a calculator"),
-                user("2+5=?"),
-            ],
-            expected=lambda s: "7" in s.content.lower(),
         )
 
     city_config = (
