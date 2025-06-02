@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Required, TypedDict, Unpack
 
 import httpx
 from aidial_sdk.utils.merge_chunks import (
@@ -212,36 +212,42 @@ def for_all_choices(
     return f
 
 
+class ChatCompletionArgs(TypedDict, total=False):
+    messages: Required[List[ChatCompletionMessageParam]]
+    stream: bool | None
+    stop: List[str] | None
+    max_tokens: int | None
+    n: int | None
+    functions: List[Function] | None
+    tools: List[ChatCompletionToolParam] | None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None
+    temperature: float | None
+    configuration: dict | None
+    extra_body: dict | None
+
+
 async def chat_completion(
-    client: AsyncAzureOpenAI,
-    *,
-    messages: List[ChatCompletionMessageParam],
-    stream: bool = False,
-    stop: List[str] | None = None,
-    max_tokens: int | None = None,
-    n: int | None = None,
-    functions: List[Function] | None = None,
-    tools: List[ChatCompletionToolParam] | None = None,
-    tool_choice: ChatCompletionToolChoiceOptionParam | None = None,
-    temperature: float | None = None,
-    configuration: dict | None = None,
-    extra_body: dict | None = None,
+    client: AsyncAzureOpenAI, **kwargs: Unpack[ChatCompletionArgs]
 ) -> ChatCompletionResult:
-    extra_body = extra_body or {}
-    if configuration:
+    extra_body = kwargs.get("extra_body") or {}
+    if configuration := kwargs.get("configuration"):
         extra_body = extra_body | {
             "custom_fields": {"configuration": configuration}
         }
 
     async def get_response() -> ChatCompletion:
+        functions = kwargs.get("functions")
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
+
         response = await client.chat.completions.create(
             model="dummy-model",
-            messages=messages,
-            stream=stream,
-            stop=stop,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            n=n,
+            messages=kwargs["messages"],
+            stream=kwargs.get("stream") or False,
+            stop=kwargs.get("stop"),
+            max_tokens=kwargs.get("max_tokens"),
+            temperature=kwargs.get("temperature"),
+            n=kwargs.get("n"),
             function_call="auto" if functions is not None else NOT_GIVEN,
             functions=NOT_GIVEN if functions is None else functions,
             tool_choice=tool_choice or NOT_GIVEN,

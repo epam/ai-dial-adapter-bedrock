@@ -7,4 +7,5 @@ ignore = E501, W503, E203, E704
 exclude =
     .venv,
     .nox,
+    allure-results,
     __pycache__

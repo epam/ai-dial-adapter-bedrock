@@ -1,10 +1,16 @@
+import contextlib
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Mapping
+from typing import Callable, List, Mapping, Unpack
 
 import openai
 import pytest
-from openai import APIError, BadRequestError, UnprocessableEntityError
+from openai import (
+    APIError,
+    AsyncAzureOpenAI,
+    BadRequestError,
+    UnprocessableEntityError,
+)
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolChoiceOptionParam,
@@ -13,7 +19,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import Function
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
 from tests.unit_tests.test_configuration import (
@@ -21,6 +27,7 @@ from tests.unit_tests.test_configuration import (
 )
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
+    ChatCompletionArgs,
     ChatCompletionResult,
     ai,
     ai_function,
@@ -50,11 +57,30 @@ class ExpectedException(BaseModel):
     status_code: int | None = None
 
 
+@contextlib.asynccontextmanager
+async def expected_exception(
+    cls: type[APIError],
+    message: str,
+    display_message: str | None = None,
+    status_code: int | None = None,
+):
+    try:
+        yield
+    except Exception as e:
+        assert isinstance(
+            e, cls
+        ), f"Actual exception type ({type(e)}) doesn't match the expected one ({cls})"
+        actual_status_code = getattr(e, "status_code", None)
+        assert actual_status_code == status_code
+        assert re.search(message, str(e))
+        assert (e.body or {}).get("display_message") == display_message  # type: ignore
+
+
 def expected_success(*args, **kwargs):
     return True
 
 
-Deployment = RegionDeployment[ChatCompletionDeployment]
+Deployment = RegionDeployment[D]
 
 
 @dataclass
@@ -118,172 +144,167 @@ _EAST_2 = "us-east-2"
 
 
 chat_deployments: Mapping[Deployment, str] = {
-    ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE: _WEST,
-    ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
-    ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
-    ChatCompletionDeployment.AI21_J2_MID_V1: _EAST_1,
-    ChatCompletionDeployment.AI21_J2_ULTRA_V1: _EAST_1,
-    ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
-    ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
-    ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1.US: _EAST_2,
+    D.AMAZON_TITAN_TG1_LARGE: _WEST,
+    D.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
+    D.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
+    D.AI21_J2_MID_V1: _EAST_1,
+    D.AI21_J2_ULTRA_V1: _EAST_1,
+    D.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
+    D.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
+    D.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
+    D.ANTHROPIC_CLAUDE_V2: _WEST,
+    D.ANTHROPIC_CLAUDE_V2_1: _WEST,
+    D.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
+    D.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
+    D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
+    D.ANTHROPIC_CLAUDE_V3_5_HAIKU.US: _WEST,
+    D.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
+    D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
+    D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
+    D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
+    D.META_LLAMA3_1_70B_INSTRUCT_V1.US: _WEST,
+    D.META_LLAMA3_1_405B_INSTRUCT_V1.US: _EAST_2,
     # Llama 3.2 1B is too unstable in responses for integration tests
     # Sometimes it cannot calculate 2+2
-    # ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1.US: _WEST_2,
-    ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
-    ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
-    ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14: _WEST,
-    ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
-    ChatCompletionDeployment.COHERE_COMMAND_R_V1: _WEST,
-    ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1: _WEST,
-    ChatCompletionDeployment.AMAZON_NOVA_MICRO: _EAST_1,
-    ChatCompletionDeployment.AMAZON_NOVA_PRO.US: _EAST_1,
-    ChatCompletionDeployment.AMAZON_NOVA_LITE: _EAST_1,
-    ChatCompletionDeployment.DEEPSEEK_R1_V2.US: _EAST_1,
+    # D.META_LLAMA3_2_1B_INSTRUCT_V1.US: _WEST_2,
+    D.META_LLAMA3_2_3B_INSTRUCT_V1.US: _WEST,
+    D.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
+    D.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
+    D.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
+    D.COHERE_COMMAND_TEXT_V14: _WEST,
+    D.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
+    D.COHERE_COMMAND_R_V1: _WEST,
+    D.COHERE_COMMAND_R_PLUS_V1: _WEST,
+    D.AMAZON_NOVA_MICRO: _EAST_1,
+    D.AMAZON_NOVA_PRO.US: _EAST_1,
+    D.AMAZON_NOVA_LITE: _EAST_1,
+    D.DEEPSEEK_R1_V2.US: _EAST_1,
 }
 
 
-def is_retired(deployment: ChatCompletionDeployment) -> bool:
-    # Keep at least one model in the list to test how the adapter handles retired models
-    return deployment in [
-        ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
-        ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
-        ChatCompletionDeployment.AI21_J2_MID_V1,
-        ChatCompletionDeployment.AI21_J2_ULTRA_V1,
-    ]
+@pytest.fixture
+def get_deployment_region() -> Mapping[Deployment, str]:
+    return chat_deployments
 
 
-def supports_tools(deployment: ChatCompletionDeployment) -> bool:
+def supports_tools(deployment: D) -> bool:
     return is_claude_3_or_4(deployment) or deployment in [
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
+        D.ANTHROPIC_CLAUDE_V2_1,
+        D.META_LLAMA3_1_70B_INSTRUCT_V1,
+        D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA3_3_70B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
-        # ChatCompletionDeployment.AMAZON_NOVA_MICRO,
-        ChatCompletionDeployment.AMAZON_NOVA_PRO,
-        ChatCompletionDeployment.AMAZON_NOVA_LITE,
-        ChatCompletionDeployment.AMAZON_NOVA_MICRO,
+        # D.AMAZON_NOVA_MICRO,
+        D.AMAZON_NOVA_PRO,
+        D.AMAZON_NOVA_LITE,
+        D.AMAZON_NOVA_MICRO,
         # DeepSeek via Converse API doesn't support tools even though
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
-        # ChatCompletionDeployment.DEEPSEEK_R1_V2,
-        ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
+        # D.DEEPSEEK_R1_V2,
+        D.AI21_JAMBA_1_5_LARGE_V1,
         # Mini is very bad with tools
-        # ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
-        ChatCompletionDeployment.COHERE_COMMAND_R_V1,
-        ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1,
+        # D.AI21_JAMBA_1_5_MINI_V1,
+        D.COHERE_COMMAND_R_V1,
+        D.COHERE_COMMAND_R_PLUS_V1,
     ]
 
 
-def supports_forced_tool_choice(deployment: ChatCompletionDeployment) -> bool:
+def supports_forced_tool_choice(deployment: D) -> bool:
     return supports_tools(deployment) and is_claude_3_or_4(deployment)
 
 
-def supports_parallel_tool_calls(deployment: ChatCompletionDeployment) -> bool:
+def supports_parallel_tool_calls(deployment: D) -> bool:
     return (
         deployment
         not in [
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
-            ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-            ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
-            ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
-            ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
+            D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_SONNET,
+            D.META_LLAMA3_1_70B_INSTRUCT_V1,
+            D.META_LLAMA3_1_405B_INSTRUCT_V1,
+            D.META_LLAMA3_3_70B_INSTRUCT_V1,
+            D.AI21_JAMBA_1_5_LARGE_V1,
+            D.AI21_JAMBA_1_5_MINI_V1,
         ]
         and not is_nova(deployment)
         and supports_tools(deployment)
     )
 
 
-def is_llama3(deployment: ChatCompletionDeployment) -> bool:
+def is_llama3(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.META_LLAMA3_8B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1,
+        D.META_LLAMA3_8B_INSTRUCT_V1,
+        D.META_LLAMA3_70B_INSTRUCT_V1,
+        D.META_LLAMA3_1_8B_INSTRUCT_V1,
+        D.META_LLAMA3_1_70B_INSTRUCT_V1,
+        D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        D.META_LLAMA3_2_1B_INSTRUCT_V1,
+        D.META_LLAMA3_2_3B_INSTRUCT_V1,
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA3_3_70B_INSTRUCT_V1,
     ]
 
 
-def is_cohere(deployment: ChatCompletionDeployment) -> bool:
+def is_cohere(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14,
-        ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14,
+        D.COHERE_COMMAND_LIGHT_TEXT_V14,
+        D.COHERE_COMMAND_TEXT_V14,
     ]
 
 
-def is_cohere_command_plus(deployment: ChatCompletionDeployment) -> bool:
+def is_cohere_command_plus(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.COHERE_COMMAND_R_V1,
-        ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1,
+        D.COHERE_COMMAND_R_V1,
+        D.COHERE_COMMAND_R_PLUS_V1,
     ]
 
 
-def is_claude_3_or_4(deployment: ChatCompletionDeployment) -> bool:
+def is_claude_3_or_4(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V3_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_OPUS,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
     ]
 
 
-def is_nova(deployment: ChatCompletionDeployment) -> bool:
+def is_nova(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.AMAZON_NOVA_MICRO,
-        ChatCompletionDeployment.AMAZON_NOVA_PRO,
-        ChatCompletionDeployment.AMAZON_NOVA_LITE,
+        D.AMAZON_NOVA_MICRO,
+        D.AMAZON_NOVA_PRO,
+        D.AMAZON_NOVA_LITE,
     ]
 
 
-def is_reasoning_model(deployment: ChatCompletionDeployment) -> bool:
+def is_reasoning_model(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.DEEPSEEK_R1_V2,
+        D.DEEPSEEK_R1_V2,
     ]
 
 
-def is_deepseek(deployment: ChatCompletionDeployment) -> bool:
+def is_deepseek(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.DEEPSEEK_R1_V2,
+        D.DEEPSEEK_R1_V2,
     ]
 
 
-def is_ai21(deployment: ChatCompletionDeployment) -> bool:
+def is_ai21(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT,
-        ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT,
-        ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1,
-        ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1,
+        D.AI21_J2_GRANDE_INSTRUCT,
+        D.AI21_J2_JUMBO_INSTRUCT,
+        D.AI21_JAMBA_1_5_MINI_V1,
+        D.AI21_JAMBA_1_5_LARGE_V1,
     ]
 
 
@@ -294,18 +315,18 @@ cohere_invalid_request_error = ExpectedException(
 )
 
 
-def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
+def is_vision_model(deployment: D) -> bool:
     allowed_models = [
-        ChatCompletionDeployment.META_LLAMA3_2_11B_INSTRUCT_V1,
-        ChatCompletionDeployment.META_LLAMA3_2_90B_INSTRUCT_V1,
-        ChatCompletionDeployment.AMAZON_NOVA_PRO,
-        ChatCompletionDeployment.AMAZON_NOVA_LITE,
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.AMAZON_NOVA_PRO,
+        D.AMAZON_NOVA_LITE,
     ]
 
     # Claude 3.5 Haiku was launched as a text-only model
     # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
     excluded_models = {
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
     }
 
     is_allowed_model = (
@@ -316,10 +337,48 @@ def is_vision_model(deployment: ChatCompletionDeployment) -> bool:
     return is_allowed_model and not is_excluded_model
 
 
-def are_tools_emulated(deployment: ChatCompletionDeployment) -> bool:
+def are_tools_emulated(deployment: D) -> bool:
     return deployment in [
-        ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1,
+        D.ANTHROPIC_CLAUDE_V2_1,
     ]
+
+
+@pytest.fixture
+def openai_client(request, get_deployment_region, get_openai_client):
+    deployment: D = request.param
+    region = get_deployment_region[deployment]
+    return get_openai_client(deployment.value, region=region)
+
+
+@pytest.fixture
+def chat(openai_client: AsyncAzureOpenAI):
+    async def _inner(**kwargs: Unpack[ChatCompletionArgs]):
+        return await chat_completion(openai_client, **kwargs)
+
+    return _inner
+
+
+@pytest.mark.parametrize(
+    "openai_client",
+    [
+        D.AI21_J2_GRANDE_INSTRUCT,
+        D.AI21_J2_JUMBO_INSTRUCT,
+        D.AI21_J2_MID_V1,
+        D.AI21_J2_ULTRA_V1,
+        # FIXME: add it
+        # D.STABILITY_STABLE_DIFFUSION_XL, _WEST
+        # D.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST
+    ],
+    indirect=True,
+)
+async def test_retired_models(chat):
+    async with expected_exception(
+        cls=openai.NotFoundError,
+        status_code=404,
+        message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
+        display_message="This model version has reached the end of its life",
+    ):
+        return await chat(messages=[user("test")], max_tokens=1)
 
 
 def get_test_cases(
@@ -360,20 +419,6 @@ def get_test_cases(
                 temperature,
             )
         )
-
-    if is_retired(origin):
-        test_case(
-            name="retired",
-            messages=[user("test")],
-            max_tokens=1,
-            expected=ExpectedException(
-                type=openai.NotFoundError,
-                status_code=404,
-                message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
-                display_message="This model version has reached the end of its life",
-            ),
-        )
-        return test_cases
 
     test_case(
         name="dialog recall",
@@ -418,7 +463,7 @@ def get_test_cases(
     )
 
     query = 'Reply with "Hello"'
-    if origin == ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1:
+    if origin == D.ANTHROPIC_CLAUDE_INSTANT_V1:
         query = 'Print "Hello"'
 
     test_case(
@@ -561,9 +606,9 @@ def get_test_cases(
         )
 
         if origin in [
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_SONNET,
+            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         ]:
             tool_choice_none_expected = _success_check
         elif "claude-3" in origin.value:
