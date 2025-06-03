@@ -29,13 +29,12 @@ def ttl_cache(
             if value is not None:
                 if expiry is None:
                     return value
-                elif expiry > now_utc() + timedelta(minutes=1):
+                elif ensure_utc(expiry) > now_utc() + timedelta(minutes=1):
                     return value
                 else:
                     log.debug("cache entry has expired")
 
             (expiration, value) = await func(*args, **kwargs)
-            expiration = None if expiration is None else ensure_utc(expiration)
             _cache[key] = (expiration, value)
             return value
 
