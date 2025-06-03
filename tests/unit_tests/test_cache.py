@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from datetime import datetime as original_datetime
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 import pytest
 from pydantic import BaseModel
@@ -12,23 +12,41 @@ from aidial_adapter_bedrock.utils.cache import _make_key, ttl_cache
 class datetime(original_datetime):
     @classmethod
     def now(cls, tz=None):  # type: ignore
-        return original_datetime(2025, 5, 20, 12, 0, 0)
+        return original_datetime(2025, 1, 1, 0, 0, 0, tzinfo=tz)
+
+
+@pytest.fixture(
+    params=[None, timezone.utc],
+    ids=["offset-naive", "offset-aware-utc"],
+)
+def time_zone(request):
+    return request.param
+
+
+@pytest.fixture
+def get_now(time_zone):
+    def _f():
+        return datetime.now(time_zone)
+
+    return _f
 
 
 @pytest.fixture(autouse=True)
 def fixed_datetime(monkeypatch):
     monkeypatch.setattr(
-        sys.modules["aidial_adapter_bedrock.utils.cache"], "datetime", datetime
+        sys.modules["aidial_adapter_bedrock.utils.datetime"],
+        "datetime",
+        datetime,
     )
 
 
-async def test_basic_caching():
+async def test_basic_caching(get_now):
     calls = 0
 
     async def func(x: int):
         nonlocal calls
         calls += 1
-        return (datetime.now() + timedelta(minutes=5), x * 2)
+        return (get_now() + timedelta(minutes=5), x * 2)
 
     cached = ttl_cache(func)
 
@@ -60,15 +78,15 @@ async def test_no_expiry():
     assert calls == 1
 
 
-async def test_expiry_refresh():
+async def test_expiry_refresh(get_now):
     calls = 0
 
     async def func(x: int):
         nonlocal calls
         calls += 1
         if calls == 1:
-            return (datetime.now() + timedelta(seconds=30), "first")
-        return (datetime.now() + timedelta(minutes=5), "second")
+            return (get_now() + timedelta(seconds=30), "first")
+        return (get_now() + timedelta(minutes=5), "second")
 
     cached = ttl_cache(func)
 
@@ -82,12 +100,12 @@ async def test_expiry_refresh():
     assert calls == 2
 
 
-async def test_different_args_and_kwargs():
+async def test_different_args_and_kwargs(get_now):
     calls = []
 
     async def func(a: int, b: int = 0):
         calls.append((a, b))
-        return (datetime.now() + timedelta(minutes=5), a + b)
+        return (get_now() + timedelta(minutes=5), a + b)
 
     cached = ttl_cache(func)
 
@@ -101,7 +119,7 @@ async def test_different_args_and_kwargs():
     assert len(calls) == 2
 
 
-async def test_model_arg_serialization():
+async def test_model_arg_serialization(get_now):
     calls = 0
 
     class M(BaseModel):
@@ -110,7 +128,7 @@ async def test_model_arg_serialization():
     async def func(m: M):
         nonlocal calls
         calls += 1
-        return (datetime.now() + timedelta(minutes=5), m.x)
+        return (get_now() + timedelta(minutes=5), m.x)
 
     cached = ttl_cache(func)
 
@@ -160,14 +178,14 @@ async def test_args_kwargs_separate_keys():
     assert len(calls) == 2
 
 
-async def test_concurrent_requests():
+async def test_concurrent_requests(get_now):
     calls = 0
 
     async def func(x):
         nonlocal calls
         calls += 1
         await asyncio.sleep(0)
-        return (datetime.now() + timedelta(minutes=5), x)
+        return (get_now() + timedelta(minutes=5), x)
 
     n = 100
     cached = ttl_cache(func)
