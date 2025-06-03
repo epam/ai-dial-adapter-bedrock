@@ -6,6 +6,7 @@ from typing import Any, Callable, Coroutine, ParamSpec, Tuple, TypeVar
 
 from pydantic import BaseModel
 
+from aidial_adapter_bedrock.utils.datetime import ensure_utc, now_utc
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _P = ParamSpec("_P")
@@ -28,12 +29,13 @@ def ttl_cache(
             if value is not None:
                 if expiry is None:
                     return value
-                elif expiry > datetime.now() + timedelta(minutes=1):
+                elif expiry > now_utc() + timedelta(minutes=1):
                     return value
                 else:
                     log.debug("cache entry has expired")
 
             (expiration, value) = await func(*args, **kwargs)
+            expiration = None if expiration is None else ensure_utc(expiration)
             _cache[key] = (expiration, value)
             return value
 
