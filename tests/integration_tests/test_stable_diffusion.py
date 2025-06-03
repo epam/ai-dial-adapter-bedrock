@@ -24,8 +24,6 @@ _WEST = "us-west-2"
 TEXT_TO_IMAGE_ONLY_MODELS = [
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1, _WEST),
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1, _WEST),
-    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL, _WEST),
-    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST),
 ]
 
 IMAGE_TO_IMAGE_SUPPORTED_MODELS = [

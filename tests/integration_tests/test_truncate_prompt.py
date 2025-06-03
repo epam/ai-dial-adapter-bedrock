@@ -9,7 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
-from tests.integration_tests.test_chat_completion import chat_deployments
+from tests.integration_tests.test_chat_completion import _DEPLOYMENT_TO_REGION
 from tests.utils.json import match_objects
 from tests.utils.openai import (
     ai,
@@ -195,7 +195,7 @@ def get_test_cases(deployment: RegionDeployment) -> List[TestCase]:
     "test",
     [
         test
-        for deployment, _region in chat_deployments.items()
+        for deployment, _region in _DEPLOYMENT_TO_REGION.items()
         for test in get_test_cases(deployment)
     ],
     ids=lambda test: test.get_id(),
