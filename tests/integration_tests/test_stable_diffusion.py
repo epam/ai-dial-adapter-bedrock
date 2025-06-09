@@ -59,12 +59,15 @@ def _validate_attachment_url(response: ChatCompletion) -> str:
 @pytest.fixture
 def mock_storage():
     storage = MockFileStorage.create()
-    with patch(
-        "aidial_adapter_bedrock.llm.model.stability.v1.create_file_storage",
-        return_value=storage,
-    ), patch(
-        "aidial_adapter_bedrock.llm.model.stability.v2.create_file_storage",
-        return_value=storage,
+    with (
+        patch(
+            "aidial_adapter_bedrock.llm.model.stability.v1.create_file_storage",
+            return_value=storage,
+        ),
+        patch(
+            "aidial_adapter_bedrock.llm.model.stability.v2.create_file_storage",
+            return_value=storage,
+        ),
     ):
         yield storage
         storage.cleanup()
