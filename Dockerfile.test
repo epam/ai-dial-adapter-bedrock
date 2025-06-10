@@ -1,6 +1,6 @@
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
-RUN pip install poetry==1.8.5
+RUN pip install poetry==2.1.1
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN poetry install --no-interaction --no-ansi --no-cache --no-root --no-director
 COPY . .
 RUN poetry install --no-interaction --no-ansi --no-cache --with test
 
-FROM python:3.11-slim as test
+FROM python:3.11-slim AS test
 
 WORKDIR /app
 

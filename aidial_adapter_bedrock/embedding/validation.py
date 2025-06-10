@@ -7,7 +7,7 @@ def validate_embeddings_request(
     request: EmbeddingsRequest,
     *,
     supports_type: bool,
-    supports_dimensions: bool
+    supports_dimensions: bool,
 ) -> None:
     if request.dimensions is not None and not supports_dimensions:
         raise ValidationError("Dimensions parameter is not supported")
