@@ -41,10 +41,17 @@ async def test_support_optimized_latency(
     test: Tuple[ChatCompletionDeployment, bool],
 ):
     deployment, regions = test
+
+    expected_supported = regions != []
+    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU:
+        # Claude 3.5 supports optimized latency via fallback to Converse API.
+        # Therefore, it's not declared in the model configuration schema.
+        expected_supported = False
+
     actual_supported = await _supports_optimized_latency(
         test_http_client, deployment
     )
-    assert (regions != []) == actual_supported
+    assert expected_supported == actual_supported
 
 
 _invalid_configuration_test_cases = [
