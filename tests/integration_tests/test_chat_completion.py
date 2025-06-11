@@ -260,20 +260,27 @@ def openai_client(deployment: Deployment, region: str, get_openai_client):
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
 
 
-@pytest.fixture
-def chat(
-    deployment: Deployment,
-    region: str,
-    openai_client: AsyncAzureOpenAI,
-    stream: bool,
-):
-    configuration = {}
+@pytest.fixture(
+    params=[True, False], ids=lambda b: "optimized" if b else "standard"
+)
+def configuration(request, deployment: Deployment, region: str) -> dict:
     regions = (
         deployments_supporting_optimized_latency.get(deployment.origin) or []
     )
-    if region in regions:
-        configuration["performanceConfig"] = {"latency": "optimized"}
 
+    supports_optimized_latency = region in regions
+    enable_optimized_latency = request.param
+    if not supports_optimized_latency and enable_optimized_latency:
+        pytest.skip("The deployment doesn't support optimized latency mode")
+
+    if enable_optimized_latency:
+        return {"performanceConfig": {"latency": "optimized"}}
+    else:
+        return {}
+
+
+@pytest.fixture
+def chat(configuration: dict, openai_client: AsyncAzureOpenAI, stream: bool):
     async def _inner(
         **kwargs: Unpack[ChatCompletionArgs],
     ) -> ChatCompletionResult:

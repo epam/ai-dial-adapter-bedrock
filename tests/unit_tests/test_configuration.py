@@ -17,8 +17,11 @@ deployments_supporting_optimized_latency: Dict[
         "us-east-2",
         "us-west-2",
     ],
-    # Claude 3 is currently not supported by the Bedrock adapter.
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: [],
+    # Claude 3 only supports the optimize latency via the Converse API.
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: [
+        "us-east-2",
+        "us-west-2",
+    ],
 }
 
 
