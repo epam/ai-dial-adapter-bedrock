@@ -55,6 +55,7 @@ class BedrockChatCompletion(ChatCompletion):
             deployment=self.deployment,
             api_key=request.api_key,
             upstream_config=await parse_upstream_config(request),
+            request=request if isinstance(request, Request) else None,
         )
 
     @override
