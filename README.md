@@ -92,7 +92,7 @@ All models based on Bedrock Converse API accept a configuration parameter that e
 > Therefore, you are forfeiting all the features exclusive to Anthropic SDK when you are using optimized latency. Namely:
 >
 > 1. Support of `tool_choice=none`
-> 2. Support of the Claude [thinking configuration](#claude-37-sonnet) and all [other Claude configurations](#claude-models)
+> 2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
 
 ##### Claude 3.7 Sonnet
 
