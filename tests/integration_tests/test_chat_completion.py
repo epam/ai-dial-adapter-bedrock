@@ -260,25 +260,38 @@ def openai_client(deployment: Deployment, region: str, get_openai_client):
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
 
 
-@pytest.fixture
-def chat(
-    deployment: Deployment,
-    region: str,
-    openai_client: AsyncAzureOpenAI,
-    stream: bool,
-):
-    configuration = {}
-    regions = (
+@pytest.fixture(
+    params=[True, False], ids=lambda b: "optimized" if b else "standard"
+)
+def optimized_latency(request, deployment: Deployment, region: str) -> bool:
+    optimized_latency = request.param
+
+    opt_latency_regions = (
         deployments_supporting_optimized_latency.get(deployment.origin) or []
     )
-    if region in regions:
-        configuration["performanceConfig"] = {"latency": "optimized"}
 
+    supports_optimized_latency = region in opt_latency_regions
+    if not supports_optimized_latency and optimized_latency:
+        pytest.skip(
+            "The deployment and/or region doesn't support the optimized latency mode"
+        )
+
+    return optimized_latency
+
+
+@pytest.fixture
+def chat(
+    optimized_latency: bool, openai_client: AsyncAzureOpenAI, stream: bool
+):
     async def _inner(
         **kwargs: Unpack[ChatCompletionArgs],
     ) -> ChatCompletionResult:
-        assert not kwargs.get("configuration")
-        kwargs["configuration"] = configuration
+        kwargs["configuration"] = kwargs.get("configuration") or {}
+        if optimized_latency:
+            kwargs["configuration"]["performanceConfig"] = {
+                "latency": "optimized"
+            }
+
         return await chat_completion(openai_client, stream=stream, **kwargs)
 
     return _inner
@@ -374,11 +387,11 @@ async def test_empty_dialog(chat: Chat):
     "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
 )
 async def test_empty_user_message(
-    deployment: Deployment, is_empty: bool, chat: Chat
+    deployment: Deployment, optimized_latency: bool, is_empty: bool, chat: Chat
 ):
     origin = deployment.origin
 
-    if is_claude_3_or_4(origin):
+    if is_claude_3_or_4(origin) and not optimized_latency:
         if is_empty:
             message = "messages: text content blocks must be non-empty"
         else:
@@ -390,7 +403,10 @@ async def test_empty_user_message(
     elif is_llama3(origin) or is_nova(origin):
         message = "Add text to the text field, and try again."
     elif (
-        is_deepseek(origin) or is_ai21(origin) or is_cohere_command_plus(origin)
+        is_deepseek(origin)
+        or is_ai21(origin)
+        or is_cohere_command_plus(origin)
+        or (is_claude_3_or_4(origin) and optimized_latency)
     ):
         message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
     else:
@@ -494,15 +510,22 @@ async def test_llama_many_system_messages(chat: Chat):
     select(pred(supports_tools) & ~pred(is_claude_v2), deployments),
     ids=display_deployment,
 )
-async def test_tool_choice_none(deployment: D, chat: Chat):
+async def test_tool_choice_none(
+    deployment: D, optimized_latency: bool, chat: Chat
+):
     origin = deployment.origin
-    if origin in [
-        D.ANTHROPIC_CLAUDE_V4_OPUS,
-        D.ANTHROPIC_CLAUDE_V4_SONNET,
-        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-    ]:
+
+    if (
+        origin
+        in [
+            D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_SONNET,
+            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        ]
+        and not optimized_latency
+    ):
         exc = None
-    elif is_claude_3_or_4(origin):
+    elif is_claude_3_or_4(origin) and not optimized_latency:
         exc = ExpectedException(
             type=BadRequestError,
             message="none is not a valid enum value, please reformat your input and try again",

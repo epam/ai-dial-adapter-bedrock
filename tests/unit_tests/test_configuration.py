@@ -17,8 +17,11 @@ deployments_supporting_optimized_latency: Dict[
         "us-east-2",
         "us-west-2",
     ],
-    # Claude 3 is currently not supported by the Bedrock adapter.
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: [],
+    # Claude 3 only supports the optimize latency via the Converse API.
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU: [
+        "us-east-2",
+        "us-west-2",
+    ],
 }
 
 
@@ -38,10 +41,17 @@ async def test_support_optimized_latency(
     test: Tuple[ChatCompletionDeployment, bool],
 ):
     deployment, regions = test
+
+    expected_supported = regions != []
+    if deployment == ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU:
+        # Claude 3.5 supports optimized latency via fallback to Converse API.
+        # Therefore, it's not declared in the model configuration schema.
+        expected_supported = False
+
     actual_supported = await _supports_optimized_latency(
         test_http_client, deployment
     )
-    assert (regions != []) == actual_supported
+    assert expected_supported == actual_supported
 
 
 _invalid_configuration_test_cases = [

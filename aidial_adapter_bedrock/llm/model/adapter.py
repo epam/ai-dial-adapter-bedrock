@@ -1,5 +1,7 @@
 from typing import assert_never
 
+from aidial_sdk.chat_completion import Request as ChatCompletionRequest
+
 import aidial_adapter_bedrock.llm.model.ai21 as ai21
 import aidial_adapter_bedrock.llm.model.amazon as amazon
 import aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter as claude_v1_v2
@@ -28,6 +30,9 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.configuration import (
+    has_performance_configuration,
+)
 from aidial_adapter_bedrock.llm.converse.factory import (
     ConverseAdapterFactory,
     ToolsSupport,
@@ -46,6 +51,7 @@ async def get_bedrock_adapter(
     deployment: AdapterChatCompletionDeployment,
     api_key: str,
     upstream_config: UpstreamConfig,
+    request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
     model = deployment.upstream_deployment_id
 
@@ -68,12 +74,17 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
         ):
+            if request and has_performance_configuration(request):
+                return await converse_adapter.create(
+                    tools_support=ToolsSupport.ALWAYS,
+                    supported_image_types=ConverseImageType.all(),
+                )
+
             return await claude_v3.create_adapter(
                 deployment.clone(deployment.reference_deployment_id),
                 api_key,
                 upstream_config,
             )
-
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
