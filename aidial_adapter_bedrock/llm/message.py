@@ -248,12 +248,14 @@ class AIRegularMessage(BaseMessageABC):
 class AIToolCallMessage(MessageABC):
     calls: List[ToolCall]
     content: Optional[str] = None
+    custom_content: Optional[CustomContent] = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
             role=Role.ASSISTANT,
             content=self.content,
             tool_calls=self.calls,
+            custom_content=self.custom_content,
             custom_fields=self.custom_fields,
         )
 
@@ -273,6 +275,7 @@ class AIToolCallMessage(MessageABC):
         return cls(
             calls=message.tool_calls,
             content=message.content,
+            custom_content=message.custom_content,
             cache_breakpoint=_get_cache_breakpoint(message),
         )
 
