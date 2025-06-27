@@ -53,9 +53,7 @@ class TestCase:
 
     def get_id(self) -> str:
         stream = "stream" if self.stream else "block"
-        return sanitize_test_name(
-            "/".join([stream, self.deployment.value, self.region])
-        )
+        return sanitize_test_name(f"{stream}/{self.deployment.value}")
 
 
 @pytest.mark.parametrize(
