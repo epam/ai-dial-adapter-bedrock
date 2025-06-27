@@ -90,7 +90,7 @@ class MessageState(BaseModel):
 
 
 def _get_message_content_from_state(
-    idx: int, message: AIRegularMessage
+    idx: int, message: AIRegularMessage | AIToolCallMessage
 ) -> List[ContentBlockParam] | None:
     if (cc := message.custom_content) is not None and (
         state_dict := cc.state
@@ -313,14 +313,19 @@ async def to_claude_messages(
                 # since it may include certain content blocks that
                 # are missing from the DIAL message itself,
                 # such as thinking signatures and redacted thinking blocks.
-                content = _get_message_content_from_state(
-                    idx, message
-                ) or await _to_claude_message(file_storage, message)
+                content = _get_message_content_from_state(idx, message)
+                if content is None:
+                    content = await _to_claude_message(file_storage, message)
 
             case AIToolCallMessage():
-                content = [_to_claude_tool_call(call) for call in message.calls]
-                if message.content is not None:
-                    content.insert(0, _create_text_block(message.content))
+                content = _get_message_content_from_state(idx, message)
+
+                if content is None:
+                    content = [
+                        _to_claude_tool_call(call) for call in message.calls
+                    ]
+                    if message.content is not None:
+                        content.insert(0, _create_text_block(message.content))
 
             case HumanToolResultMessage():
                 content = [_to_claude_tool_result(message)]

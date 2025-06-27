@@ -332,12 +332,12 @@ GET_WEATHER_FUNCTION: Function = {
         "properties": {
             "location": {
                 "type": "string",
-                "description": "The city and state, e.g. San Francisco, CA",
+                "description": "The city e.g. San Francisco",
             },
             "unit": {
                 "type": "string",
                 "enum": ["celsius", "fahrenheit"],
-                "description": "The temperature unit to use. Infer this from the users location.",
+                "description": "The temperature unit to use. Infer this from the users request or location.",
             },
         },
         "required": ["location", "unit"],
