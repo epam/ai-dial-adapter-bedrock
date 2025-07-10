@@ -76,6 +76,8 @@ The `custom_fields.configuration` field is optional iff each field in the schema
 
 ##### Converse API models
 
+###### Performance configuration
+
 All models based on Bedrock Converse API accept a configuration parameter that enables the [optimized latency mode](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html):
 
 |Configuration|Comment|
@@ -93,6 +95,10 @@ All models based on Bedrock Converse API accept a configuration parameter that e
 >
 > 1. Support of `tool_choice=none`
 > 2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
+
+###### Guardrail configuration
+
+TODO: write documentation
 
 ##### Claude 3.7 Sonnet
 

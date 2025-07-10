@@ -11,8 +11,10 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,
 )
-from aidial_adapter_bedrock.llm.configuration import BaseBedrockConfiguration
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.converse.configuration import (
+    ConverseAPIConfiguration,
+)
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
     to_converse_messages,
@@ -29,6 +31,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseMessage,
     ConverseRequestWrapper,
     ConverseTools,
+    GuardrailConfig,
     InferenceConfig,
     PerformanceConfig,
 )
@@ -63,8 +66,8 @@ class ConverseAdapter(ChatCompletionAdapter):
         turn_based_partitioner
     )
 
-    async def configuration(self) -> Type[BaseBedrockConfiguration]:
-        return BaseBedrockConfiguration
+    async def configuration(self) -> Type[ConverseAPIConfiguration]:
+        return ConverseAPIConfiguration
 
     async def _discard_messages(
         self, params: ConverseRequestWrapper, max_prompt_tokens: int | None
@@ -143,6 +146,15 @@ class ConverseAdapter(ChatCompletionAdapter):
         if (pc := configuration.performanceConfig) and (latency := pc.latency):
             performanceConfig = PerformanceConfig(latency=latency)
 
+        guardrailConfig: GuardrailConfig | None = None
+        if pc := configuration.guardrailConfig:
+            guardrailConfig = GuardrailConfig(
+                guardrailIdentifier=pc.guardrailIdentifier,
+                guardrailVersion=pc.guardrailVersion,
+                streamProcessingMode=pc.streamProcessingMode,
+                trace=pc.trace,
+            )
+
         return ConverseRequestWrapper(
             system=system_messages or None,
             messages=converse_messages,
@@ -159,6 +171,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             or None,
             toolConfig=self.get_tool_config(params),
             performanceConfig=performanceConfig,
+            guardrailConfig=guardrailConfig,
         )
 
     def is_stream(self, params: ModelParameters) -> bool:

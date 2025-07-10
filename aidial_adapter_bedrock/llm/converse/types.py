@@ -134,12 +134,20 @@ class PerformanceConfig(TypedDict, total=False):
     latency: Literal["optimized", "standard"] | str
 
 
+class GuardrailConfig(TypedDict, total=False):
+    guardrailIdentifier: Required[str]
+    guardrailVersion: Required[str]
+    trace: Literal["enabled", "disabled", "enabled_full"] | str | None
+    streamProcessingMode: Literal["sync", "async"] | str | None
+
+
 class ConverseRequest(TypedDict, total=False):
     messages: Required[list[ConverseMessage]]
     system: list[ConverseTextPart | ConverseCachePointPart]
     inferenceConfig: InferenceConfig
     toolConfig: ConverseTools
     performanceConfig: PerformanceConfig
+    guardrailConfig: GuardrailConfig
 
 
 @dataclass
@@ -149,6 +157,7 @@ class ConverseRequestWrapper:
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
     performanceConfig: PerformanceConfig | None = None
+    guardrailConfig: GuardrailConfig | None = None
 
     def to_request(self) -> ConverseRequest:
         return ConverseRequest(
@@ -159,6 +168,7 @@ class ConverseRequestWrapper:
                     "toolConfig": self.toolConfig,
                     "system": self.system,
                     "performanceConfig": self.performanceConfig,
+                    "guardrailConfig": self.guardrailConfig,
                 }
             ),
         )
