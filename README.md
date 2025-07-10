@@ -91,7 +91,7 @@ All models based on Bedrock Converse API accept a configuration parameter that e
 > [!WARNING]
 > The default adapter for **Claude 3/4** models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
 > The adapter switches automatically to Converse API when optimized latency is enabled in the configuration.
-> Therefore, you are forfeiting all the features exclusive to Anthropic SDK when you are using optimized latency. Namely:
+> Therefore, when optimized latency is enabled, you are forfeiting all the features exclusive to Anthropic SDK. Namely:
 >
 > 1. Support of `tool_choice=none`
 > 2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)

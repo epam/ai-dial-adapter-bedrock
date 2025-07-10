@@ -151,8 +151,12 @@ class ConverseAdapter(ChatCompletionAdapter):
             guardrailConfig = GuardrailConfig(
                 guardrailIdentifier=pc.guardrailIdentifier,
                 guardrailVersion=pc.guardrailVersion,
-                streamProcessingMode=pc.streamProcessingMode,
-                trace=pc.trace,
+                **(
+                    {"streamProcessingMode": pc.streamProcessingMode}
+                    if pc.streamProcessingMode is not None
+                    else {}
+                ),
+                **({"trace": pc.trace} if pc.trace is not None else {}),
             )
 
         return ConverseRequestWrapper(
