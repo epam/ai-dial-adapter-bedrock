@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import List, Mapping
 
@@ -14,12 +15,13 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _REGION,
 }
 
+_GUARDRAIL_IDENTIFIER = os.getenv("BEDROCK_GUARDRAIL_IDENTIFIER")
 
 _CONFIGURATION = {
     "custom_fields": {
         "configuration": {
             "guardrailConfig": {
-                "guardrailIdentifier": "arn:aws:bedrock:us-west-2:725751206603:guardrail/hjiws0gnh52k",
+                "guardrailIdentifier": _GUARDRAIL_IDENTIFIER,
                 "guardrailVersion": "1",
                 "trace": "enabled_full",
             }
@@ -51,6 +53,9 @@ class TestCase:
     ids=lambda t: t.get_id(),
 )
 async def test_claude_with_guardrails(get_openai_client, test_case: TestCase):
+    if _GUARDRAIL_IDENTIFIER is None:
+        pytest.skip("Guardrail identifier isn't set")
+
     stream = test_case.stream
     client = get_openai_client(
         test_case.deployment.value, region=test_case.region

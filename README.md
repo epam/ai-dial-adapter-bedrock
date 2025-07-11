@@ -78,7 +78,7 @@ The `custom_fields.configuration` field is optional iff each field in the schema
 
 ###### Performance configuration
 
-All models based on Bedrock Converse API accept a configuration parameter that enables the [optimized latency mode](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html):
+Models accept a configuration parameter that enables the [optimized latency mode](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html):
 
 |Configuration|Comment|
 |---|---|
@@ -98,7 +98,35 @@ All models based on Bedrock Converse API accept a configuration parameter that e
 
 ###### Guardrail configuration
 
-TODO: write documentation
+Models accept a configuration parameter that enables guardrails for the given request:
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello"
+    }
+  ],
+  "custom_fields": {
+    "configuration": {
+      "guardrailConfig": {
+        "guardrailIdentifier": "(identifier)",
+        "guardrailVersion": "(version)",
+        "streamProcessingMode": "sync | async (opt)",
+        "trace": "enabled | disabled | enabled_full (opt)"
+      }
+    }
+  }
+}
+```
+
+The configuration is identical to the [GuardrailStreamConfiguration](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_GuardrailStreamConfiguration.html) object in the Converse API.
+
+Limitations:
+
+1. [Evaluation](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-call) of a specific part of the chat completion request isn't supported.
+2. The [trace](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-response) provided by the Bedrock Guardrail isn't attached to the response. When guardrail intervenes, the adapter returns an error with `code=content_filter`.
 
 ##### Claude 3.7 Sonnet
 
