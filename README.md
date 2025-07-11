@@ -88,14 +88,6 @@ Models accept a configuration parameter that enables the [optimized latency mode
 > [!NOTE]
 > Not all Bedrock models actually support the optimized latency mode. Check the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html) before use.
 
-> [!WARNING]
-> The default adapter for **Claude 3/4** models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
-> The adapter switches automatically to Converse API when optimized latency is enabled in the configuration.
-> Therefore, when optimized latency is enabled, you are forfeiting all the features exclusive to Anthropic SDK. Namely:
->
-> 1. Support of `tool_choice=none`
-> 2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
-
 ###### Guardrail configuration
 
 Models accept a configuration parameter that enables guardrails for the given request:
@@ -127,6 +119,15 @@ Limitations:
 
 1. [Evaluation](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-call) of a specific part of the chat completion request isn't supported.
 2. The [trace](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-response) provided by the Bedrock Guardrail isn't attached to the response. When guardrail intervenes, the adapter returns an error with `code=content_filter`.
+
+###### Claude 3/4 models
+
+The default adapter for **Claude 3/4** models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
+when Converse API specific configuration is enabled, the adapter automatically switches the models to Converse API.
+When it happens, you are forfeiting all the features exclusive to the Anthropic SDK. Namely:
+
+1. Support of `tool_choice=none`
+2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
 
 ##### Claude 3.7 Sonnet
 
