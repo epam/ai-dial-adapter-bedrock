@@ -252,6 +252,22 @@ def stream(request) -> bool:
     return request.param
 
 
+@pytest.fixture(
+    params=[
+        user_with_attachment_data,
+        user_with_attachment_url,
+        user_with_image_url,
+    ],
+    ids=[
+        "attachment_data",
+        "attachment_data_url",
+        "content_part_image_url",
+    ],
+)
+def create_message_with_image(request) -> Callable:
+    return request.param
+
+
 @pytest.fixture
 def openai_client(deployment: Deployment, region: str, get_openai_client):
     return get_openai_client(deployment.value, region=region)
@@ -429,24 +445,33 @@ async def test_empty_user_message(
     select(pred(is_vision_model), deployments),
     ids=display_deployment,
 )
-@pytest.mark.parametrize(
-    "message_factory",
-    [
-        user_with_attachment_data,
-        user_with_attachment_url,
-        user_with_image_url,
-    ],
-    ids=[
-        "attachment_data",
-        "attachment_data_url",
-        "content_part_image_url",
-    ],
-)
-async def test_vision(chat: Chat, message_factory):
-    user_message = message_factory("describe the image", SAMPLE_DOG_RESOURCE)
+async def test_vision(chat: Chat, create_message_with_image):
+    user_message = create_message_with_image(
+        "describe the image", SAMPLE_DOG_RESOURCE
+    )
     response = await chat(
         max_tokens=100, messages=[sys("be a helpful assistant"), user_message]
     )
+    assert "dog" in response.content.lower()
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(is_vision_model), deployments),
+    ids=display_deployment,
+)
+async def test_vision_single_turn_with_system(
+    deployment: D, chat: Chat, create_message_with_image
+):
+    assert is_vision_model(D.META_LLAMA3_2_90B_INSTRUCT_V1)
+    if deployment.origin == D.META_LLAMA3_2_90B_INSTRUCT_V1:
+        pytest.skip(
+            "Llama 3.2 90B is unable to understand system message + a single image."
+        )
+
+    user_message = create_message_with_image("", SAMPLE_DOG_RESOURCE)
+    messages = [sys("describe the image"), user_message]
+    response = await chat(max_tokens=100, messages=messages)
     assert "dog" in response.content.lower()
 
 
