@@ -7,7 +7,7 @@ from openai import AsyncAzureOpenAI, BadRequestError, UnprocessableEntityError
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
-from tests.integration_tests.constants import SAMPLE_DOG_RESOURCE
+from tests.integration_tests.constants import DOG_PICTURE, DOG_PICTURE_CONTENT
 from tests.unit_tests.test_configuration import (
     deployments_supporting_optimized_latency,
 )
@@ -92,6 +92,34 @@ def is_retired_model(deployment: D) -> bool:
     }
 
 
+def is_claude_3_or_4(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V3_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_OPUS,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
+    ]
+
+
+def is_vision_model(deployment: D) -> bool:
+    return deployment in [
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.AMAZON_NOVA_PRO,
+        D.AMAZON_NOVA_LITE,
+    ] or (
+        is_claude_3_or_4(deployment)
+        # Claude 3.5 Haiku was launched as a text-only model
+        # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
+        and deployment != D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+    )
+
+
 def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
     return [x for x in xs if p(x.origin)]
 
@@ -99,6 +127,10 @@ def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
 all_deployments = list(_DEPLOYMENT_TO_REGION.keys())
 deployments = select(~pred(is_retired_model), all_deployments)
 retired_deployments = select(pred(is_retired_model), all_deployments)
+vision_deployments = select(pred(is_vision_model), deployments)
+vision_deployments_not_llama3_2_90b = select(
+    lambda d: d.origin != D.META_LLAMA3_2_90B_INSTRUCT_V1, vision_deployments
+)
 
 
 def supports_tools(deployment: D) -> bool:
@@ -171,20 +203,6 @@ def is_cohere_command_plus(deployment: D) -> bool:
     ]
 
 
-def is_claude_3_or_4(deployment: D) -> bool:
-    return deployment in [
-        D.ANTHROPIC_CLAUDE_V3_SONNET,
-        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-        D.ANTHROPIC_CLAUDE_V3_HAIKU,
-        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
-        D.ANTHROPIC_CLAUDE_V3_OPUS,
-        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-        D.ANTHROPIC_CLAUDE_V4_SONNET,
-        D.ANTHROPIC_CLAUDE_V4_OPUS,
-    ]
-
-
 def is_nova(deployment: D) -> bool:
     return deployment in [
         D.AMAZON_NOVA_MICRO,
@@ -212,20 +230,6 @@ def is_ai21(deployment: D) -> bool:
 
 def is_claude_v2(deployment: D) -> bool:
     return deployment in [D.ANTHROPIC_CLAUDE_V2, D.ANTHROPIC_CLAUDE_V2_1]
-
-
-def is_vision_model(deployment: D) -> bool:
-    return deployment in [
-        D.META_LLAMA3_2_11B_INSTRUCT_V1,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
-        D.AMAZON_NOVA_PRO,
-        D.AMAZON_NOVA_LITE,
-    ] or (
-        is_claude_3_or_4(deployment)
-        # Claude 3.5 Haiku was launched as a text-only model
-        # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
-        and deployment != D.ANTHROPIC_CLAUDE_V3_5_HAIKU
-    )
 
 
 def are_tools_emulated(deployment: D) -> bool:
@@ -441,38 +445,76 @@ async def test_empty_user_message(
 
 
 @pytest.mark.parametrize(
-    "deployment",
-    select(pred(is_vision_model), deployments),
-    ids=display_deployment,
+    "deployment", vision_deployments, ids=display_deployment
 )
-async def test_vision(chat: Chat, create_message_with_image):
-    user_message = create_message_with_image(
-        "describe the image", SAMPLE_DOG_RESOURCE
-    )
-    response = await chat(
-        max_tokens=100, messages=[sys("be a helpful assistant"), user_message]
-    )
-    assert "dog" in response.content.lower()
+async def test_vision_single_turn_with_text_part(
+    deployment: D, chat: Chat, create_message_with_image
+):
+    messages = [create_message_with_image("describe the image", DOG_PICTURE)]
+    await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
 
 
 @pytest.mark.parametrize(
-    "deployment",
-    select(pred(is_vision_model), deployments),
-    ids=display_deployment,
+    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
+)
+async def test_vision_single_turn_with_empty_text_part(
+    deployment: D, chat: Chat, create_message_with_image
+):
+    messages = [create_message_with_image("", DOG_PICTURE)]
+    await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
+
+
+@pytest.mark.parametrize(
+    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
+)
+async def test_vision_single_turn_without_text_part(deployment: D, chat: Chat):
+    messages = [user_with_image_url(None, DOG_PICTURE)]
+    await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
+
+
+@pytest.mark.parametrize(
+    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
+)
+async def test_vision_two_turns(
+    deployment: D, chat: Chat, create_message_with_image
+):
+    user_message = create_message_with_image("", DOG_PICTURE)
+    messages = [
+        sys("describe an image when you receive it"),
+        user("2+3=?"),
+        ai("5"),
+        user_message,
+    ]
+    await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
+
+
+@pytest.mark.parametrize(
+    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
 )
 async def test_vision_single_turn_with_system(
     deployment: D, chat: Chat, create_message_with_image
 ):
-    assert is_vision_model(D.META_LLAMA3_2_90B_INSTRUCT_V1)
-    if deployment.origin == D.META_LLAMA3_2_90B_INSTRUCT_V1:
-        pytest.skip(
-            "Llama 3.2 90B is unable to understand system message + a single image."
-        )
-
-    user_message = create_message_with_image("", SAMPLE_DOG_RESOURCE)
+    user_message = create_message_with_image(None, DOG_PICTURE)
     messages = [sys("describe the image"), user_message]
-    response = await chat(max_tokens=100, messages=messages)
-    assert "dog" in response.content.lower()
+    await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
+
+
+async def _run_test_vision(
+    deployment: D,
+    chat: Chat,
+    messages,
+    expected: str | List[str] | ExpectedException,
+):
+    async def _run():
+        return await chat(max_tokens=100, messages=messages)
+
+    if isinstance(expected, ExpectedException):
+        async with expected_exception(expected):
+            await _run()
+    else:
+        response = await _run()
+        substrings = [expected] if isinstance(expected, str) else expected
+        assert any(s in response.content.lower() for s in substrings)
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)

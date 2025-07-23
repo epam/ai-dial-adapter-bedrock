@@ -114,18 +114,19 @@ def user_with_attachment_url(
 
 
 def user_with_image_url(
-    content: str, image: Resource
+    content: str | None, image: Resource
 ) -> ChatCompletionUserMessageParam:
-    return {
-        "role": "user",
-        "content": [
-            {"type": "text", "text": content},
-            {
-                "type": "image_url",
-                "image_url": {"url": image.to_data_url()},
-            },
-        ],
-    }
+    parts = []
+    if content is not None:
+        parts.append({"type": "text", "text": content})
+    parts.append(
+        {
+            "type": "image_url",
+            "image_url": {"url": image.to_data_url()},
+        }
+    )
+
+    return {"role": "user", "content": parts}
 
 
 def function_request(name: str, args: Any) -> ToolFunction:
