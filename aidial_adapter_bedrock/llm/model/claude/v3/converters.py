@@ -207,12 +207,14 @@ async def _to_claude_message(
 
     match content:
         case str():
-            ret.append(_create_text_block(content))
+            if content:
+                ret.append(_create_text_block(content))
         case list():
             for part in content:
                 match part:
                     case MessageContentTextPart(text=text):
-                        ret.append(_create_text_block(text))
+                        if text:
+                            ret.append(_create_text_block(text))
                     case MessageContentImagePart(image_url=image_url):
                         dial_resource = URLResource(
                             url=image_url.url,
@@ -232,6 +234,9 @@ async def _to_claude_message(
                         assert_never(part)
         case _:
             assert_never(content)
+
+    if not ret:
+        ret.append(_create_text_block(""))
 
     return ret
 

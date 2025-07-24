@@ -9,10 +9,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.utils.resource import Resource
-from tests.integration_tests.constants import (
-    BLUE_PNG_PICTURE,
-    SAMPLE_DOG_RESOURCE,
-)
+from tests.integration_tests.constants import BLUE_PNG_PICTURE, DOG_PICTURE
 from tests.utils.mock_storage import MockFileStorage
 from tests.utils.openai import (
     user,
@@ -126,9 +123,7 @@ async def test_image_to_image_unsupported(
     with pytest.raises(APIStatusError) as exc_info:
         await client.chat.completions.create(
             model=deployment.value,
-            messages=[
-                user_with_image_content_part("Brown dog", SAMPLE_DOG_RESOURCE)
-            ],
+            messages=[user_with_image_content_part("Brown dog", DOG_PICTURE)],
         )
     assert exc_info.value.status_code == 422
     assert "Image-to-Image is not supported" in exc_info.value.message
@@ -158,10 +153,10 @@ async def test_image_to_image_with_too_small_picture(
     "message",
     [
         user_with_image_content_part(
-            "Dog with red flowers in basket nearby", SAMPLE_DOG_RESOURCE
+            "Dog with red flowers in basket nearby", DOG_PICTURE
         ),
         user_with_attachment_data(
-            "Dog with red flowers in basket nearby", SAMPLE_DOG_RESOURCE
+            "Dog with red flowers in basket nearby", DOG_PICTURE
         ),
     ],
 )

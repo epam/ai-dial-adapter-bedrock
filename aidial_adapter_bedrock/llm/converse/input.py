@@ -261,12 +261,14 @@ async def _get_converse_message_content(
     content = []
     match message.content:
         case str():
-            content.append({"text": message.content})
+            if message.content:
+                content.append({"text": message.content})
         case list():
             for part in message.content:
                 match part:
                     case MessageContentTextPart():
-                        content.append({"text": part.text})
+                        if part.text:
+                            content.append({"text": part.text})
                     case MessageContentImagePart():
                         try:
                             resource = await URLResource(
@@ -325,6 +327,9 @@ async def _get_converse_message_content(
                 for tool_call in message.tool_calls
             ]
         )
+
+    if not content:
+        content.append({"text": ""})
 
     if cache_point_part := _get_cache_point_part(message):
         content.append(cache_point_part)
