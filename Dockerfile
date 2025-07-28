@@ -21,6 +21,8 @@ RUN apk update && apk upgrade --no-cache libcrypto3 libssl3
 RUN apk upgrade --no-cache libexpat
 # fix CVE-2025-47273
 RUN pip install "setuptools==78.1.1"
+# fix CVE-2025-6965
+RUN apk upgrade --no-cache sqlite-libs
 
 WORKDIR /app
 
