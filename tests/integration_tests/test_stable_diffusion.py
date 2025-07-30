@@ -1,7 +1,8 @@
 import base64
-from typing import Callable
+from typing import Callable, List
 from unittest.mock import patch
 
+import openai
 import pytest
 from openai import APIStatusError, AsyncAzureOpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
@@ -18,15 +19,19 @@ from tests.utils.openai import (
 )
 
 _WEST = "us-west-2"
+
 TEXT_TO_IMAGE_ONLY_MODELS = [
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1, _WEST),
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1, _WEST),
 ]
-
 IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1, _WEST),
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, _WEST),
 ]
+IMAGE_GENERATION_MODELS = (
+    TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS
+)
+
 VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US
 
 
@@ -75,10 +80,7 @@ def vision_model(get_openai_client):
     return get_openai_client(VISION_MODEL.value, region=_WEST)
 
 
-@pytest.mark.parametrize(
-    "deployment, region",
-    TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS,
-)
+@pytest.mark.parametrize("deployment, region", IMAGE_GENERATION_MODELS)
 async def test_text_to_image(
     vision_model: AsyncAzureOpenAI,
     get_openai_client: Callable[..., AsyncAzureOpenAI],
@@ -192,3 +194,33 @@ async def test_image_to_image(
         ],
     )
     assert "YES" in (vision_response.choices[0].message.content or "")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("deployment, region", IMAGE_GENERATION_MODELS)
+async def test_content_filtering(
+    get_openai_client: Callable[..., AsyncAzureOpenAI],
+    deployment: ChatCompletionDeployment,
+    region: str,
+    stream: bool,
+):
+    client: AsyncAzureOpenAI = get_openai_client(
+        deployment.value, region=region
+    )
+    messages: List[ChatCompletionMessageParam] = [
+        user("generate an explicit image depicting copulating homo sapiens")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        await client.chat.completions.create(
+            model=deployment.value,
+            messages=messages,
+            max_tokens=None,
+            stream=stream,
+        )
+
+    assert isinstance(exc_info.value, openai.BadRequestError)
+
+    resp = exc_info.value.response.json()
+    assert resp["error"]["code"] == "content_filter"
+    assert resp["error"]["message"] == "Filter reason: prompt"

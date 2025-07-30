@@ -2,7 +2,11 @@ from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
 from aidial_sdk.chat_completion import Attachment, Message
-from aidial_sdk.exceptions import RequestValidationError
+from aidial_sdk.exceptions import (
+    InternalServerError,
+    InvalidRequestError,
+    RequestValidationError,
+)
 from PIL import Image
 from pydantic import BaseModel
 from typing_extensions import assert_never
@@ -22,7 +26,7 @@ from aidial_adapter_bedrock.dial_api.storage import (
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
+from aidial_adapter_bedrock.llm.errors import UserError
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,
@@ -50,8 +54,7 @@ async def _download_resource(
 
 
 class StabilityV2Response(BaseModel):
-    seeds: List[int]
-    images: List[str]
+    images: List[str] | None
     # None will indicate that the request was successful
     # Possible values:
     # "Filter reason: prompt"
@@ -59,7 +62,7 @@ class StabilityV2Response(BaseModel):
     # "Filter reason: input image"
     # "Inference error"
     # null
-    finish_reasons: List[Optional[str]]
+    finish_reasons: List[Optional[str]] | None
 
     def content(self) -> str:
         return " "
@@ -71,21 +74,21 @@ class StabilityV2Response(BaseModel):
                 type="image/png",
                 data=image,
             )
-            for image in self.images
+            for image in self.images or []
         ]
 
     def usage(self) -> TokenUsage:
         return TokenUsage(prompt_tokens=0, completion_tokens=1)
 
     def throw_if_error(self):
-        error = next((reason for reason in self.finish_reasons if reason), None)
+        error = next(filter(None, self.finish_reasons or []), None)
         if not error:
             return
 
         if error == "Inference error":
-            raise RuntimeError(error)
+            raise InternalServerError(error)
         else:
-            raise ValidationError(error)
+            raise InvalidRequestError(code="content_filter", message=error)
 
 
 AspectRatios = Literal[
