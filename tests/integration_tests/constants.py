@@ -8,7 +8,7 @@ BLUE_PNG_PICTURE = Resource.from_base64(
 )
 
 DOG_PICTURE = Resource(
-    type="image/jpeg", data=Path("tests/assets/image1.png").read_bytes()
+    type="image/png", data=Path("tests/assets/image1.png").read_bytes()
 )
 
 DOG_PICTURE_CONTENT = ["dog", "labrador"]
