@@ -4,7 +4,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolParam,
 )
-from openai.types.chat.completion_create_params import Function
+from openai.types.shared_params.function_definition import FunctionDefinition
 
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
@@ -56,7 +56,7 @@ class ToolCallTest:
         return [function_to_tool(f) for f in self.functions]
 
     @property
-    def functions(self) -> List[Function]:
+    def functions(self) -> List[FunctionDefinition]:
         return [GET_WEATHER_FUNCTION]
 
     @property

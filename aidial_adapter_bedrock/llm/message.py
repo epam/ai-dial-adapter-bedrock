@@ -199,13 +199,19 @@ class HumanFunctionResultMessage(MessageABC):
 
 
 class AIRegularMessage(BaseMessageABC):
-    content: str
+    content: str | List[MessageContentPart]
+    """
+    According to Azure OpenAI API, the assistant message could only have textual content.
+    However, we leave a loophole to provide image content parts just in case
+    one day multi-modal Bedrock models will be able to accept images in assistant messages.
+    """
+
     custom_content: Optional[CustomContent] = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
             role=Role.ASSISTANT,
-            content=self.content,
+            content=self.content,  # type: ignore
             custom_content=self.custom_content,
             custom_fields=self.custom_fields,
         )
@@ -218,25 +224,21 @@ class AIRegularMessage(BaseMessageABC):
         if message.function_call is not None or message.tool_calls is not None:
             return None
 
-        if not is_plain_text_content(message.content):
+        content = message.content
+        if content is None:
             raise ValidationError(
-                "The assistant message shouldn't contain content parts"
-            )
-
-        if message.content is None:
-            raise ValidationError(
-                "The assistant message is expected to have content"
+                "Assistant message is expected to have content field"
             )
 
         return cls(
-            content=message.content,
+            content=content,
             custom_content=message.custom_content,
             cache_breakpoint=_get_cache_breakpoint(message),
         )
 
     @property
     def text_content(self) -> str:
-        return self.content
+        return collect_text_content(self.content)
 
     @property
     def attachments(self) -> List[Attachment]:
