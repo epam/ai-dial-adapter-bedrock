@@ -89,6 +89,8 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_ULTRA_V1,
         D.STABILITY_STABLE_DIFFUSION_XL,
         D.STABILITY_STABLE_DIFFUSION_XL_V1,
+        D.COHERE_COMMAND_LIGHT_TEXT_V14,
+        D.COHERE_COMMAND_TEXT_V14,
     }
 
 
@@ -186,13 +188,6 @@ def is_llama3(deployment: D) -> bool:
         D.META_LLAMA3_2_11B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
         D.META_LLAMA3_3_70B_INSTRUCT_V1,
-    ]
-
-
-def is_cohere_legacy(deployment: D) -> bool:
-    return deployment in [
-        D.COHERE_COMMAND_LIGHT_TEXT_V14,
-        D.COHERE_COMMAND_TEXT_V14,
     ]
 
 
@@ -372,7 +367,7 @@ async def test_multiple_candidates(deployment: Deployment, chat: Chat):
     response = await chat(
         # It could take hundreds of tokens for a reasoning model
         # to come up with an answer to a simple question like this.
-        max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
+        max_tokens=10 if not is_reasoning_model(deployment.origin) else 1024,
         n=5,
         messages=[user("2+7=?. Reply with a single number")],
     )
@@ -418,8 +413,6 @@ async def test_empty_user_message(
             message = (
                 "messages: text content blocks must contain non-whitespace text"
             )
-    elif is_cohere_legacy(origin):
-        message = "Invalid parameter combination"
     elif is_llama3(origin) or is_nova(origin):
         message = "Add text to the text field, and try again."
     elif (
@@ -595,7 +588,7 @@ async def test_tool_choice_none(
     elif is_claude_3_or_4(origin) and not optimized_latency:
         exc = ExpectedException(
             type=BadRequestError,
-            message="none is not a valid enum value, please reformat your input and try again",
+            message="(none is not a valid enum value, please reformat your input and try again|tool_choice: Input tag 'none' found using 'type' does not match any of the expected tags)",
             status_code=400,
         )
     else:
