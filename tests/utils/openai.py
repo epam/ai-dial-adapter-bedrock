@@ -328,9 +328,10 @@ async def tokenize(
     return response.json()
 
 
-GET_WEATHER_FUNCTION: Function = {
+GET_WEATHER_FUNCTION: FunctionDefinition = {
     "name": "get_temperature",
     "description": "Get reliable information about the temperature in the given city",
+    "strict": True,
     "parameters": {
         "type": "object",
         "properties": {
