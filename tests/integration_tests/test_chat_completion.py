@@ -357,6 +357,26 @@ async def test_2_plus_3(chat: Chat):
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+async def test_text_content_parts_in_assistant_message(
+    deployment: D, chat: Chat
+):
+    response = await chat(
+        messages=[
+            user("compute (2+3) and (5+8)"),
+            ai(
+                [
+                    {"type": "text", "text": "5"},
+                    {"type": "text", "text": "13"},
+                ]
+            ),
+            user("compute (11+22). Reply with a number."),
+        ],
+        max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
+    )
+    assert "33" in response.content
+
+
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
 async def test_empty_system_message(chat: Chat):
     response = await chat(messages=[sys(""), user("compute (2+4)")])
     assert "6" in response.content
