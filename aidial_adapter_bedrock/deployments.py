@@ -19,10 +19,6 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     AI21_JAMBA_1_5_LARGE_V1 = "ai21.jamba-1-5-large-v1:0"
     AI21_JAMBA_1_5_MINI_V1 = "ai21.jamba-1-5-mini-v1:0"
 
-    ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
-    ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
-    ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
-
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET_V2 = (
@@ -54,8 +50,6 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     META_LLAMA3_2_90B_INSTRUCT_V1 = "meta.llama3-2-90b-instruct-v1:0"
     META_LLAMA3_3_70B_INSTRUCT_V1 = "meta.llama3-3-70b-instruct-v1:0"
 
-    COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
-    COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
     COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
     COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 

@@ -4,9 +4,7 @@ from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.ai21 as ai21
 import aidial_adapter_bedrock.llm.model.amazon as amazon
-import aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter as claude_v1_v2
 import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
-import aidial_adapter_bedrock.llm.model.cohere as cohere
 import aidial_adapter_bedrock.llm.model.stability.v1 as stability_v1
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
@@ -86,14 +84,6 @@ async def get_bedrock_adapter(
                     upstream_config,
                 )
         case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1
-        ):
-            return await claude_v1_v2.create_adapter(
-                await get_bedrock_client(), model
-            )
-        case (
             ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_MID_V1
@@ -129,11 +119,6 @@ async def get_bedrock_adapter(
             return replicator_decorator()(adapter)
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
             return amazon.create_adapter(await get_bedrock_client(), model)
-        case (
-            ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
-            | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
-        ):
-            return cohere.create_adapter(await get_bedrock_client(), model)
         case (
             ChatCompletionDeployment.COHERE_COMMAND_R_V1
             | ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1

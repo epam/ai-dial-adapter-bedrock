@@ -22,9 +22,6 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|Bedrock API|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|Bedrock API|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.2 90B Instruct|meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.2 11B Instruct|meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
@@ -48,8 +45,6 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
-|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 

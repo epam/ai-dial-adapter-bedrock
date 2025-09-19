@@ -46,9 +46,6 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AI21_J2_ULTRA_V1: _EAST_1,
     D.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
     D.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
-    D.ANTHROPIC_CLAUDE_INSTANT_V1: _WEST,
-    D.ANTHROPIC_CLAUDE_V2: _WEST,
-    D.ANTHROPIC_CLAUDE_V2_1: _WEST,
     D.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
     D.ANTHROPIC_CLAUDE_V3_5_SONNET.US: _WEST,
     D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US: _WEST,
@@ -68,8 +65,6 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
     D.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
     D.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
-    D.COHERE_COMMAND_TEXT_V14: _WEST,
-    D.COHERE_COMMAND_LIGHT_TEXT_V14: _WEST,
     D.COHERE_COMMAND_R_V1: _WEST,
     D.COHERE_COMMAND_R_PLUS_V1: _WEST,
     D.AMAZON_NOVA_MICRO: _EAST_1,
@@ -82,6 +77,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 
 def is_retired_model(deployment: D) -> bool:
+    # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
     return deployment in {
         D.AI21_J2_GRANDE_INSTRUCT,
         D.AI21_J2_JUMBO_INSTRUCT,
@@ -89,8 +85,6 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_ULTRA_V1,
         D.STABILITY_STABLE_DIFFUSION_XL,
         D.STABILITY_STABLE_DIFFUSION_XL_V1,
-        D.COHERE_COMMAND_LIGHT_TEXT_V14,
-        D.COHERE_COMMAND_TEXT_V14,
     }
 
 
@@ -137,7 +131,6 @@ vision_deployments_not_llama3_2_90b = select(
 
 def supports_tools(deployment: D) -> bool:
     return is_claude_3_or_4(deployment) or deployment in [
-        D.ANTHROPIC_CLAUDE_V2_1,
         D.META_LLAMA3_1_70B_INSTRUCT_V1,
         D.META_LLAMA3_1_405B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
@@ -165,7 +158,6 @@ def supports_forced_tool_choice(deployment: D) -> bool:
 
 def supports_parallel_tool_calls(deployment: D) -> bool:
     return deployment not in [
-        D.ANTHROPIC_CLAUDE_V2_1,
         D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
@@ -221,14 +213,6 @@ def is_ai21(deployment: D) -> bool:
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AI21_JAMBA_1_5_LARGE_V1,
     ]
-
-
-def is_claude_v2(deployment: D) -> bool:
-    return deployment in [D.ANTHROPIC_CLAUDE_V2, D.ANTHROPIC_CLAUDE_V2_1]
-
-
-def are_tools_emulated(deployment: D) -> bool:
-    return deployment in [D.ANTHROPIC_CLAUDE_V2_1]
 
 
 @pytest.fixture
@@ -397,11 +381,8 @@ async def test_multiple_candidates(deployment: Deployment, chat: Chat):
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
-async def test_hello(deployment: Deployment, chat: Chat):
+async def test_hello(chat: Chat):
     query = 'Reply with "Hello"'
-    if deployment.origin == D.ANTHROPIC_CLAUDE_INSTANT_V1:
-        query = 'Print "Hello"'
-
     response = await chat(messages=[user(query)])
     content = response.content.lower()
     assert "hello" in content or "hi" in content
@@ -587,7 +568,7 @@ async def test_llama_many_system_messages(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(supports_tools) & ~pred(is_claude_v2), deployments),
+    select(pred(supports_tools), deployments),
     ids=display_deployment,
 )
 async def test_tool_choice_none(
@@ -755,10 +736,6 @@ async def test_tool_call(
     ), f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
 
     for idx, tool_call in enumerate(tool_calls):
-        if are_tools_emulated(origin):
-            name = f"{test.function_name}_{idx+1}"
-            assert tool_call.id == name
-
         function_call = tool_call.function
         assert function_call.name == test.function_name
 
