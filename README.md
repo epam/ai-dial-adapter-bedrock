@@ -446,37 +446,49 @@ Authentication with AWS Bedrock is configured either:
 1. globally via `AWS_*` environment vars, or
 2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
 
+---
+
 ### Anthropic API
 
-Claude>=3 deployments could be accessed via API key. The API keys should be configured per-upstream in the DIAL Core config:
+Bedrock Adapter supports Anthropic API `https://api.anthropic.com/v1/messages`.
+It works with Claude>=3 deployments, and they could be accessed via API key.
 
-```json
-{
-  "models": {
-    "claude-3-5-sonnet-20241022": {
-      "endpoint": "...",
-      "upstreams": [
-        {
-          "key": "anthropic-api-key"
+Configuration steps:
+
+1. Add deployment to DIAL Core config:
+    ```json
+    {
+      "models": {
+        "claude-3-5-sonnet": {
+          "endpoint": "${ADAPTER_ORIGIN}/deployments/${COMPATIBILITY_MAPPING_KEY}/chat/completions",
+          "upstreams": [
+            {
+              "key": "{ANTHROPIC_API_KEY}"
+            }
+          ]
         }
-      ]
+      }
     }
-  }
-}
-```
+    ```
+2. Add environment variable to adapter with [compatibility mapping](#compatibility-mode):
+    ```ini
+    COMPATIBILITY_MAPPING={"claude-3-5-sonnet-20241022":"anthropic.claude-3-5-sonnet-20241022-v2:0"}
+    ```
+   (The `${COMPATIBILITY_MAPPING_KEY}` in such config is `"claude-3-5-sonnet-20241022"`)
 
-Keep in mind that the same Anthropic models have [different identifiers](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in Anthropic API and AWS Bedrock.
-
-E.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` in AWS Bedrock corresponds to `claude-3-5-sonnet-20241022` in Anthropic API.
+> ⚠️ Keep in mind that the same Anthropic models
+> have [different identifiers](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in Anthropic
+> API and AWS Bedrock.
+>
+> E.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` in AWS Bedrock corresponds to `claude-3-5-sonnet-20241022` in
+> Anthropic API.
 
 The adapter uses deployment identifiers from **AWS Bedrock**.
-Therefore, in order to use Anthropic API model you need to map its identifier to a corresponding identifier in AWS Bedrock using the [compatibility mapping](#compatibility-mode):
-
-```ini
-COMPATIBILITY_MAPPING={"claude-3-5-sonnet-20241022":"anthropic.claude-3-5-sonnet-20241022-v2:0"}
-```
-
+Therefore, in order to use Anthropic API model you need to map its identifier to a corresponding identifier in AWS
+Bedrock using the [compatibility mapping](#compatibility-mode).
 Otherwise, the adapter will return 404 on requests to `claude-3-5-sonnet-20241022`.
+
+---
 
 ## Run
 
