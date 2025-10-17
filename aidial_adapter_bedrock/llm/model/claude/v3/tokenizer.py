@@ -74,7 +74,7 @@ from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
-    Claude3Deployment,
+    ClaudeDeployment,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -202,7 +202,7 @@ def _tokenize_tool_param(tool: ToolParam) -> int:
 
 
 def _tokenize_tool_system_message(
-    deployment: Claude3Deployment,
+    deployment: ClaudeDeployment,
     tool_choice: Literal["none", "auto", "any", "tool"],
 ) -> int:
     match deployment:
@@ -213,6 +213,8 @@ def _tokenize_tool_system_message(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET
         ):
             return 346 if tool_choice == "auto" else 313
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
@@ -231,7 +233,7 @@ def _tokenize_tool_system_message(
 
 
 def _tokenize(
-    deployment: Claude3Deployment,
+    deployment: ClaudeDeployment,
     params: ClaudeParameters,
     messages: List[ClaudeMessage],
 ) -> int:
@@ -265,7 +267,7 @@ def _tokenize(
 # once it's supported in Bedrock:
 # https://github.com/anthropics/anthropic-sdk-python/blob/599f2b9a9501b8c98fb3132043c3ec71e3026f84/src/anthropic/lib/bedrock/_client.py#L61-L62
 def create_tokenizer(
-    deployment: Claude3Deployment, params: ClaudeParameters
+    deployment: ClaudeDeployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
     async def _tokenizer(messages) -> int:
         return _tokenize(deployment, params, [msg for msg, _ in messages])
