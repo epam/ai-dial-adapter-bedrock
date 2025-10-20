@@ -5,8 +5,8 @@ DEV_PYTHON ?= 3.11
 DOCKER ?= docker
 VENV_DIR ?= .venv
 POETRY ?= $(VENV_DIR)/bin/poetry
-POETRY_VERSION ?= 1.8.5
-ARGS=
+POETRY_VERSION ?= 2.1.1
+ARGS ?=
 
 .PHONY: all init_env install build serve clean lint format test integration_tests docker_build docker_run
 
@@ -37,10 +37,10 @@ format: install
 	$(POETRY) run nox -s format
 
 test: install
-	$(POETRY) run nox -s test
+	$(POETRY) run -- nox -s test -- $(ARGS)
 
 integration_tests: install
-	$(POETRY) run nox -s integration_tests
+	$(POETRY) run -- nox -s integration_tests -- $(ARGS)
 
 docker_test:
 	$(DOCKER) build --platform $(PLATFORM) -f Dockerfile.test -t $(IMAGE_NAME):test .

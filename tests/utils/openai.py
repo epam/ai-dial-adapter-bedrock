@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Required, TypedDict, Unpack
 
 import httpx
 from aidial_sdk.utils.merge_chunks import (
@@ -13,11 +13,13 @@ from openai.types import CompletionUsage
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
+    ChatCompletionContentPartTextParam,
     ChatCompletionFunctionMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionMessageToolCall,
     ChatCompletionMessageToolCallParam,
     ChatCompletionSystemMessageParam,
+    ChatCompletionToolChoiceOptionParam,
     ChatCompletionToolMessageParam,
     ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
@@ -44,7 +46,9 @@ def sys(content: str) -> ChatCompletionSystemMessageParam:
     return {"role": "system", "content": content}
 
 
-def ai(content: str) -> ChatCompletionAssistantMessageParam:
+def ai(
+    content: str | List[ChatCompletionContentPartTextParam],
+) -> ChatCompletionAssistantMessageParam:
     return {"role": "assistant", "content": content}
 
 
@@ -67,11 +71,11 @@ def user(
 
 
 def user_with_attachment_data(
-    content: str, resource: Resource
+    content: str | None, resource: Resource
 ) -> ChatCompletionUserMessageParam:
     return {
         "role": "user",
-        "content": content,
+        "content": content or "",
         "custom_content": {  # type: ignore
             "attachments": [
                 {"type": resource.type, "data": resource.data_base64}
@@ -81,23 +85,26 @@ def user_with_attachment_data(
 
 
 def user_with_image_content_part(
-    content: str, resource: Resource
+    content: str | None, resource: Resource
 ) -> ChatCompletionUserMessageParam:
-    return {
-        "role": "user",
-        "content": [
-            {"type": "text", "text": content},
-            {"type": "image_url", "image_url": {"url": resource.to_data_url()}},
-        ],
-    }
+    parts = []
+    if content is not None:
+        parts.append({"type": "text", "text": content})
+    parts.append(
+        {
+            "type": "image_url",
+            "image_url": {"url": resource.to_data_url()},
+        }
+    )
+    return {"role": "user", "content": parts}
 
 
 def user_with_attachment_url(
-    content: str, resource: Resource
+    content: str | None, resource: Resource
 ) -> ChatCompletionUserMessageParam:
     return {
         "role": "user",
-        "content": content,
+        "content": content or "",
         "custom_content": {  # type: ignore
             "attachments": [
                 {
@@ -110,18 +117,19 @@ def user_with_attachment_url(
 
 
 def user_with_image_url(
-    content: str, image: Resource
+    content: str | None, image: Resource
 ) -> ChatCompletionUserMessageParam:
-    return {
-        "role": "user",
-        "content": [
-            {"type": "text", "text": content},
-            {
-                "type": "image_url",
-                "image_url": {"url": image.to_data_url()},
-            },
-        ],
-    }
+    parts = []
+    if content is not None:
+        parts.append({"type": "text", "text": content})
+    parts.append(
+        {
+            "type": "image_url",
+            "image_url": {"url": image.to_data_url()},
+        }
+    )
+
+    return {"role": "user", "content": parts}
 
 
 def function_request(name: str, args: Any) -> ToolFunction:
@@ -198,43 +206,49 @@ class ChatCompletionResult(BaseModel):
         )
 
 
-def for_all_choices(
-    predicate: Callable[[str], bool], n: int = 1
-) -> Callable[[ChatCompletionResult], bool]:
-    def f(resp: ChatCompletionResult) -> bool:
-        contents = resp.contents
-        assert (
-            len(contents) == n
-        ), f"Expected {n} candidates, got {len(contents)}"
-        return all(predicate(content) for content in contents)
-
-    return f
+class ChatCompletionArgs(TypedDict, total=False):
+    messages: Required[List[ChatCompletionMessageParam]]
+    stop: List[str] | None
+    max_tokens: int | None
+    n: int | None
+    functions: List[Function] | None
+    tools: List[ChatCompletionToolParam] | None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None
+    temperature: float | None
+    configuration: dict | None
+    extra_body: dict | None
 
 
 async def chat_completion(
     client: AsyncAzureOpenAI,
-    messages: List[ChatCompletionMessageParam],
-    stream: bool,
-    stop: Optional[List[str]],
-    max_tokens: Optional[int],
-    n: Optional[int],
-    functions: List[Function] | None,
-    tools: List[ChatCompletionToolParam] | None,
-    temperature: float = 0.0,
+    *,
+    stream: bool | None = None,
+    **kwargs: Unpack[ChatCompletionArgs],
 ) -> ChatCompletionResult:
+    extra_body = kwargs.get("extra_body") or {}
+    if configuration := kwargs.get("configuration"):
+        extra_body = extra_body | {
+            "custom_fields": {"configuration": configuration}
+        }
+
     async def get_response() -> ChatCompletion:
+        functions = kwargs.get("functions")
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
+
         response = await client.chat.completions.create(
             model="dummy-model",
-            messages=messages,
-            stream=stream,
-            stop=stop,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            n=n,
+            messages=kwargs["messages"],
+            stream=stream or False,
+            stop=kwargs.get("stop"),
+            max_tokens=kwargs.get("max_tokens"),
+            temperature=kwargs.get("temperature"),
+            n=kwargs.get("n"),
             function_call="auto" if functions is not None else NOT_GIVEN,
-            functions=functions or NOT_GIVEN,
-            tool_choice="auto" if tools is not None else NOT_GIVEN,
-            tools=tools or NOT_GIVEN,
+            functions=NOT_GIVEN if functions is None else functions,
+            tool_choice=tool_choice or NOT_GIVEN,
+            tools=NOT_GIVEN if tools is None else tools,
+            extra_body=extra_body,
         )
 
         if isinstance(response, AsyncStream):
@@ -256,6 +270,18 @@ async def chat_completion(
 
     response = await get_response()
     return ChatCompletionResult(response=response)
+
+
+async def configuration(client: httpx.AsyncClient, model: str) -> dict | None:
+    response = await client.get(
+        url=f"/openai/deployments/{model}/configuration"
+    )
+
+    if response.status_code == 404:
+        return None
+
+    response.raise_for_status()
+    return response.json()
 
 
 async def truncate_prompt(
@@ -305,23 +331,24 @@ async def tokenize(
     return response.json()
 
 
-GET_WEATHER_FUNCTION: Function = {
-    "name": "get_current_weather",
-    "description": "Get the current weather",
+GET_WEATHER_FUNCTION: FunctionDefinition = {
+    "name": "get_temperature",
+    "description": "Get reliable information about the temperature in the given city",
+    "strict": True,
     "parameters": {
         "type": "object",
         "properties": {
             "location": {
                 "type": "string",
-                "description": "The city and state, e.g. San Francisco, CA",
+                "description": "The city e.g. San Francisco",
             },
-            "format": {
+            "unit": {
                 "type": "string",
                 "enum": ["celsius", "fahrenheit"],
-                "description": "The temperature unit to use. Infer this from the users location.",
+                "description": "The temperature unit to use. Infer this from the users request or location.",
             },
         },
-        "required": ["location", "format"],
+        "required": ["location", "unit"],
     },
 }
 
@@ -343,8 +370,11 @@ def is_valid_tool_call(
     expected_name: str,
     expected_args: dict,
 ) -> bool:
-    assert calls is not None
+    assert calls is not None, "Tool calls are missing"
 
+    assert tool_call_idx < len(
+        calls
+    ), f"Tool call #{tool_call_idx+1} is missing. Generated {len(calls)} tool call(s)."
     call = calls[tool_call_idx]
 
     function = call.function

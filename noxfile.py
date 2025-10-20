@@ -16,7 +16,7 @@ def lint(session: nox.Session):
     """Runs linters and fixers"""
     try:
         session.run("poetry", "install", external=True)
-        session.run("poetry", "check", "--lock", external=True)
+        session.run("poetry", "check", "--lock", "--strict", external=True)
         session.run("pyright", SRC)
         session.run("flake8", SRC)
         format_with_args(session, SRC, "--check")
@@ -35,7 +35,7 @@ def format(session: nox.Session):
 
 def run_tests(session: nox.Session, *args):
     session.run("poetry", "install", external=True)
-    session.run("pytest", *args)
+    session.run("pytest", *args, *session.posargs)
 
 
 @nox.session

@@ -29,12 +29,27 @@ def to_dial_finish_reason(
     return CONVERSE_TO_DIAL_FINISH_REASON[converse_stop_reason]
 
 
+def to_dial_usage(
+    converse_usage: Dict[str, Any],
+) -> TokenUsage:
+    write = converse_usage.get("cacheWriteInputTokens") or 0
+    read = converse_usage.get("cacheReadInputTokens") or 0
+    return TokenUsage(
+        prompt_tokens=(converse_usage.get("inputTokens") or 0) + read + write,
+        completion_tokens=converse_usage.get("outputTokens") or 0,
+        cache_read_input_tokens=read,
+        cache_write_input_tokens=write,
+    )
+
+
 async def process_streaming(
     params: ModelParameters,
     stream: AsyncIterator[Any],
     consumer: Consumer,
 ) -> None:
     current_tool_use = None
+
+    thinking_stage = consumer.create_stage("Thinking")
 
     async for event in stream:
         if log.isEnabledFor(DEBUG):
@@ -43,12 +58,7 @@ async def process_streaming(
         if (metadata := event.get("metadata")) and (
             usage := metadata.get("usage")
         ):
-            consumer.add_usage(
-                TokenUsage(
-                    prompt_tokens=usage.get("inputTokens") or 0,
-                    completion_tokens=usage.get("outputTokens") or 0,
-                )
-            )
+            consumer.add_usage(to_dial_usage(usage))
 
         if (content_block_start := event.get("contentBlockStart")) and (
             tool_use := content_block_start.get("start", {}).get("toolUse")
@@ -57,19 +67,25 @@ async def process_streaming(
                 raise ValueError("Tool use already started")
             current_tool_use = {"input": ""} | tool_use
 
-        elif content_block := event.get("contentBlockDelta"):
-            delta = content_block.get("delta", {})
+        elif (content_block := event.get("contentBlockDelta")) and (
+            delta := content_block.get("delta")
+        ):
 
             if message := delta.get("text"):
                 consumer.append_content(message)
 
-            if "toolUse" in delta:
+            if tool_use := delta.get("toolUse"):
                 if current_tool_use is None:
                     raise ValueError("Received tool delta before start block")
                 else:
-                    current_tool_use["input"] += delta["toolUse"].get(
-                        "input", ""
-                    )
+                    current_tool_use["input"] += tool_use.get("input") or ""
+
+            # NOTE: reasoningContent.(redactedContent, signature) aren't yet supported.
+            # They are only relevant for Claude 3.7 that we call via anthropic sdk anyway.
+            if (reasoning_content := delta.get("reasoningContent")) and (
+                text := reasoning_content.get("text")
+            ):
+                thinking_stage.append_content(text)
 
         elif event.get("contentBlockStop"):
             if current_tool_use:
@@ -108,6 +124,8 @@ async def process_streaming(
         ):
             consumer.close_content(to_dial_finish_reason(stop_reason))
 
+    thinking_stage.close()
+
 
 def process_non_streaming(
     params: ModelParameters,
@@ -117,23 +135,31 @@ def process_non_streaming(
     if log.isEnabledFor(DEBUG):
         log.debug(f"response: {json_dumps_short(response)}")
 
+    thinking_stage = consumer.create_stage("Thinking")
+
     message = response["output"]["message"]
-    for content_block in message.get("content", []):
-        if "text" in content_block:
-            consumer.append_content(content_block["text"])
-        if "toolUse" in content_block:
+    for content_block in message.get("content") or []:
+        if text := content_block.get("text"):
+            consumer.append_content(text)
+
+        # NOTE: reasoningContent.readactedContent and reasoningContent.reasoningText.signature
+        # are ignored since they are only relevant for Claude 3.7
+        if reasoning_content := content_block.get("reasoningContent"):
+            if reasoning_text := reasoning_content.get("reasoningText"):
+                if text := reasoning_text.get("text"):
+                    thinking_stage.append_content(text)
+
+        if tool_use := content_block.get("toolUse"):
             match params.tools_mode:
                 case ToolsMode.TOOLS:
                     consumer.create_function_tool_call(
                         call=DialToolCall(
                             type="function",
-                            id=content_block["toolUse"]["toolUseId"],
+                            id=tool_use["toolUseId"],
                             index=None,
                             function=DialFunctionCall(
-                                name=content_block["toolUse"]["name"],
-                                arguments=json.dumps(
-                                    content_block["toolUse"]["input"]
-                                ),
+                                name=tool_use["name"],
+                                arguments=json.dumps(tool_use["input"]),
                             ),
                         )
                     )
@@ -142,10 +168,8 @@ def process_non_streaming(
                     if not consumer.has_function_call:
                         consumer.create_function_call(
                             call=DialFunctionCall(
-                                name=content_block["toolUse"]["name"],
-                                arguments=json.dumps(
-                                    content_block["toolUse"]["input"]
-                                ),
+                                name=tool_use["name"],
+                                arguments=json.dumps(tool_use["input"]),
                             )
                         )
                 case None:
@@ -153,13 +177,10 @@ def process_non_streaming(
                 case _:
                     assert_never(params.tools_mode)
 
+    thinking_stage.close()
+
     if usage := response.get("usage"):
-        consumer.add_usage(
-            TokenUsage(
-                prompt_tokens=usage.get("inputTokens", 0),
-                completion_tokens=usage.get("outputTokens", 0),
-            )
-        )
+        consumer.add_usage(to_dial_usage(usage))
 
     if stop_reason := response.get("stopReason"):
         consumer.close_content(to_dial_finish_reason(stop_reason))

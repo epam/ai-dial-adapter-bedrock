@@ -1,7 +1,5 @@
 from typing import AsyncIterator, List
 
-import tests.utils.string as string
-
 
 async def lstrip(stream: AsyncIterator[str]) -> AsyncIterator[str]:
     start = True
@@ -25,7 +23,7 @@ async def remove_prefix(
         if start:
             acc += chunk
             if len(acc) >= len(prefix):
-                yield string.remove_prefix(prefix, acc)
+                yield acc.removeprefix(prefix)
                 start = False
         else:
             yield chunk

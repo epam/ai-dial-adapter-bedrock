@@ -17,7 +17,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 def truncate_prompt_decorator(
     *,
     keep_message: Callable[[List[Message], int], bool],
-    partitioner: Callable[[List[Message]], List[int]]
+    partitioner: Callable[[List[Message]], List[int]],
 ) -> ChatCompletionTransformer:
     return lambda adapter: TruncatePromptDecorator(
         adapter=adapter,

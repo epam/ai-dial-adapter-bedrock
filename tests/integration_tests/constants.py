@@ -6,12 +6,13 @@ BLUE_PNG_PICTURE = Resource.from_base64(
     type="image/png",
     data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
 )
-CURRENT_DIR = Path(__file__).parent
-SAMPLE_DOG_IMAGE_PATH = CURRENT_DIR / "images" / "dog-sample-image.png"
-SAMPLE_DOG_RESOURCE = Resource(
-    type="image/png",
-    data=SAMPLE_DOG_IMAGE_PATH.read_bytes(),
+
+DOG_PICTURE = Resource(
+    type="image/png", data=Path("tests/assets/image1.png").read_bytes()
 )
+
+DOG_PICTURE_CONTENT = ["dog"]
+
 SAMPLE_DOCUMENT_RESOURCE = Resource.from_base64(
     type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",

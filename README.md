@@ -10,49 +10,254 @@ The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME
 
 Note that a model supports `/truncate_prompt` endpoint if and only if it supports `max_prompt_tokens` request parameter.
 
-|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|
-|---|---|---|---|---|---|---|
-|Anthropic|Claude 3.7 Sonnet|us.anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet|[us.\|eu.]anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Sonnet 2.0|[us.]anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Sonnet|[us.\|eu.]anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Haiku|[us.\|eu.]anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3.5 Haiku|[us.]anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|
-|Anthropic|Claude 3 Opus|[us.]anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 90B Instruct|us.meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|
-|Meta|Llama 3.2 11B Instruct|us.meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 3B Instruct|us.meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.2 1B Instruct|us.meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|
-|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|
-|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|
-|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|
-|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|
-|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|
-|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Ultra|ai21.j2-jumbo-instruct|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Ultra v1|ai21.j2-ultra-v1|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Mid|ai21.j2-grande-instruct|text-to-text|🟡|🟡|❌|
-|AI21 Labs|Jurassic-2 Mid v1|ai21.j2-mid-v1|text-to-text|🟡|🟡|❌|
-|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|
+|Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
+|---|---|---|---|---|---|---|---|---|
+|Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.7 Sonnet|anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 90B Instruct|meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.2 11B Instruct|meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 3B Instruct|meta.llama3-2-3b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.2 1B Instruct|meta.llama3-2-1b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3.1 405B Instruct|meta.llama3-1-405b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 70B Instruct|meta.llama3-1-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|Bedrock API|
+|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:0|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|Bedrock API|
+|Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Large|ai21.jamba-1-5-large-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
+|Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 
-||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|
+||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
+|---|---|---|---|
+|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|Configurable via the `/configuration` endpoint|
+|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
+|❌|Not supported|Not supported|Not configurable|
+
+#### Implementation basis
+
+The model adapters differ in what SDKs/APIs they are based on:
+
+1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
+2. [Bedrock API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html) - the original Bedrock API for calling chat completion models
+3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Converse API.
+
+#### Configurable models
+
+Certain models support configuration via the `/configuration` endpoint.
+GET request to this endpoint returns the schema of the model configuration in [JSON Schema](https://json-schema.org/) format.
+Such models expect that `custom_fields.configuration` field of the `chat/completions` request will contain a JSON value that conforms to the schema.
+The `custom_fields.configuration` field is optional iff each field in the schema is optional too.
+
+##### Converse API models
+
+###### Performance configuration
+
+Models accept a configuration parameter that enables the [optimized latency mode](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html):
+
+|Configuration|Comment|
+|---|---|
+|`{"performanceConfig": {"latency":"standard"}}`|Default latency|
+|`{"performanceConfig": {"latency":"optimized"}}`|Optimized latency|
+
+> [!NOTE]
+> Not all Bedrock models actually support the optimized latency mode. Check the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html) before use.
+
+###### Guardrail configuration
+
+Models accept a configuration parameter that enables guardrails for the given request:
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello"
+    }
+  ],
+  "custom_fields": {
+    "configuration": {
+      "guardrailConfig": {
+        "guardrailIdentifier": "(identifier)",
+        "guardrailVersion": "(version)",
+        "streamProcessingMode": "sync | async (opt)",
+        "trace": "enabled | disabled | enabled_full (opt)"
+      }
+    }
+  }
+}
+```
+
+The configuration is identical to the [GuardrailStreamConfiguration](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_GuardrailStreamConfiguration.html) object in the Converse API.
+
+Limitations:
+
+1. [Evaluation](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-call) of a specific part of the chat completion request isn't supported.
+2. The [trace](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-response) provided by the Bedrock Guardrail isn't attached to the response. When guardrail intervenes, the adapter returns an error with `code=content_filter`.
+
+###### Claude 3/4 models
+
+The default adapter for **Claude 3/4** models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
+when Converse API specific configuration is enabled, the adapter automatically switches the models to Converse API.
+When it happens, you are forfeiting all the features exclusive to the Anthropic SDK. Namely:
+
+1. Support of `tool_choice=none`
+2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
+
+##### Claude 3.7 Sonnet
+
+The model accepts optional configuration that enables [thinking feature](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking):
+
+|Configuration|Comment|
+|---|---|
+|`{"thinking": {"type": "enabled", "budget_tokens": 1024}}`|Thinking enabled with the given limit on reasoning tokens|
+|`{"thinking": {"type": "disabled"}}`|Thinking disabled|
+
+##### Claude models
+
+The Claude models accept an optional list of beta feature flags.
+The whole list of flags could be found in the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python/blob/main/src/anthropic/types/anthropic_beta_param.py).
+
+|Beta flag|Comment|Scope|
 |---|---|---|
-|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|
-|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|
-|❌|Not supported|Not supported|
+|`{"betas": ["token-efficient-tools-2025-02-19"]}`|[Token-efficient tool use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/token-efficient-tool-use)|Claude 3.7 Sonnet|
+|`{"betas": ["output-128k-2025-02-19"]}`|[Extended output length](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#extended-output-capabilities-beta)|Claude 3.7 Sonnet|
+
+Not every model supports all flags. Refer to the official documentation before utilizing any flags.
+
+##### Stability AI models
+
+The models accept optional configuration with the following fields:
+
+* `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
+* `negative_prompt: str` - a prompt to be used for negative examples
+
+#### Prompt caching
+
+Certain chat completion models support prompt caching via cache breakpoint inserted in tool definitions or request messages.
+
+The adapter supports cache breakpoint for the models based on Converse API and Claude 3 models.
+
+<details><summary>System cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Long system prompt",
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Message cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+<details><summary>Tools cache breakpoint</summary>
+
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_weather",
+      "description": "Get current temperature for a given location.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City and country e.g. Bogotá, Colombia"
+          }
+        },
+        "required": [
+          "location"
+        ]
+      },
+      "custom_fields": {
+        "cache_breakpoint": {}
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "System prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ]
+}
+```
+
+</details>
+
+> [!NOTE]
+> Not every model supports prompt caching. Refer to the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models) before utilizing any cache breakpoints.
+
+#### Cross-region inference
+
+The adapter supports cross-region inference for US, EU and APAC regions for the listed models.
+
+E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment names:
+
+1. `anthropic.claude-3-5-sonnet-20241022-v2:0`
+2. `us.anthropic.claude-3-5-sonnet-20241022-v2:0`
+3. `eu.anthropic.claude-3-5-sonnet-20241022-v2:0`
+4. `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`
+
+[Check](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html#inference-profiles-support-system) that your AWS Bedrock account supports cross-region inference for a particular model before using it.
 
 ### Embedding models
 
@@ -68,7 +273,7 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 
 ## Developer environment
 
-This project uses [Python>=3.11](https://www.python.org/downloads/) and [Poetry>=1.6.1](https://python-poetry.org/) as a dependency manager.
+This project uses [Python>=3.11](https://www.python.org/downloads/) and [Poetry>=2.1.1](https://python-poetry.org/) as a dependency manager.
 
 Check out Poetry's [documentation on how to install it](https://python-poetry.org/docs/#installation) on your system before proceeding.
 
@@ -92,16 +297,6 @@ Alternatively you can use [PyCharm](https://www.jetbrains.com/pycharm/).
 Set-up the Black formatter for PyCharm [manually](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) or
 install PyCharm>=2023.2 with [built-in Black support](https://blog.jetbrains.com/pycharm/2023/07/2023-2/#black).
 
-## Run
-
-Run the development server:
-
-```sh
-make serve
-```
-
-Open `localhost:5001/docs` to make sure the server is up and running.
-
 ## Environment Variables
 
 Copy `.env.example` to `.env` and customize it for your environment:
@@ -111,14 +306,56 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AWS_ACCESS_KEY_ID|NA|AWS credentials with access to Bedrock service|
 |AWS_SECRET_ACCESS_KEY|NA|AWS credentials with access to Bedrock service|
 |AWS_DEFAULT_REGION||AWS region e.g. `us-east-1`|
-|AWS_ASSUME_ROLE_ARN|| AWS assume role arn e.g. `arn:aws:iam::123456789012:role/RoleName`|
+|AWS_ASSUME_ROLE_ARN|| AWS assume role ARN e.g. `arn:aws:iam::123456789012:role/RoleName`|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
 |DIAL_URL||URL of the core DIAL server. If defined, images generated by Stability are uploaded to the DIAL file storage and attachments are returned with URLs pointing to the images. Otherwise, the images are returned as base64 encoded strings.|
 |WEB_CONCURRENCY|1|Number of workers for the server|
-|COMPATIBILITY_MAPPING|{}|A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#running-unsupported-bedrock-models-in-the-compatibility-mode) section.|
+|COMPATIBILITY_MAPPING|{}|A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#compatibility-mode) section.|
+|CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 
-## Running unsupported Bedrock models in the compatibility mode
+### Resource limits
+
+The following environment variables reveal adapter's implementation details and therefore are more susceptible to changes in future than the variables discussed so far.
+
+:warning: Don't use the variables unless you are absolutely sure you know what you are doing.
+
+|Variable|Applicable to models implemented via|Default|Description|
+|---|---|---|---|
+|ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
+
+## Default `max_tokens` for Claude models
+
+Unlike OpenAI models, Claude models require the `max_tokens` parameter in the chat completion request.
+
+We recommend configuring `max_tokens` default value on a per-model basis in the DIAL Core Config, for example:
+
+```json
+{
+    "models": {
+        "dial-claude-deployment-id": {
+            "type": "chat",
+            "description": "...",
+            "endpoint": "...",
+            "defaults": {
+                "max_tokens": 2048
+            }
+        }
+    }
+}
+```
+
+If the default is missing in the DIAL Core Config, it will be taken from the `CLAUDE_DEFAULT_MAX_TOKENS` environment variable.
+However, we strongly recommend not to rely on this variable and instead configure the defaults in the DIAL Core Config.
+Such a **per-model** configuration is operationally cleaner since all the information relevant to tokens _(like pricing and token limits)_ is kept in the same place.
+
+The default value set in the DIAL Core Config takes precedence over the one configured in the adapter.
+
+Make sure the default doesn't exceed Claude's [max output tokens](https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table), otherwise, you will receive an error like this one: `The maximum tokens you requested exceeds the model limit of 131072`.
+
+## Compatibility mode
 
 The Adapter supports a predefined list of AWS Bedrock deployments. The [Supported models](#supported-models) section lists the models. These models could be accessed via `/openai/deployments/{deployment_name}/(chat_completions|embeddings)` endpoints. The Adapter won't recognize any other deployment name and will result in 404 error.
 
@@ -135,7 +372,7 @@ The `COMPATIBILITY_MAPPING` env variable enables exactly this scenario.
 
 When it's defined like this:
 
-```json
+```ini
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
 ```
 
@@ -145,13 +382,13 @@ The requests will be processed by the same pipeline as `anthropic.claude-3-5-son
 Naturally, this will only work if the APIs of v2 and v3 deployments are compatible:
 
 1. The requests utilizing the modalities supported by both v2 and v3 will work just fine.
-2. However, the requests with modalities that are supported by v3 *(e.g. audio)* and aren't supported by v2, won't be processed correctly. You will have to wait until the Adapter supports the v3 deployment natively.
+2. However, the requests with modalities that are supported by v3 _(e.g. audio)_ and aren't supported by v2, won't be processed correctly. You will have to wait until the Adapter supports the v3 deployment natively.
 
 When a version of the Adapter supporting the v3 model is released, you may migrate to it and safely remove the entry from the `COMPATIBILITY_MAPPING` dictionary.
 
 Note that a mapping such as this one would be ineffectual:
 
-```json
+```ini
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "stability.stable-image-ultra-v1:0"}
 ```
 
@@ -183,17 +420,79 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
         "region": "eu-west-1",
         "aws_assume_role_arn": "arn:aws:iam::123456789012:role/BedrockAccessAdapterRoleName"
       }
+    },
+    {
+      "key": "anthropic-api-key"
     }
   ]
 }
 ```
 
-Supported `extraData` fields:
+The fields in the extra data override the corresponding environment variables:
 
-- `region`
-- `aws_access_key_id`
-- `aws_secret_access_key`
-- `aws_assume_role_arn`
+|`extraData` field|Env variable|
+|---|---|
+|`region`|`AWS_DEFAULT_REGION`|
+|`aws_access_key_id`|`AWS_ACCESS_KEY_ID`|
+|`aws_secret_access_key`|`AWS_SECRET_ACCESS_KEY`|
+|`aws_assume_role_arn`|`AWS_ASSUME_ROLE_ARN`|
+
+## Authentication
+
+### AWS Bedrock
+
+Authentication with AWS Bedrock is configured either:
+
+1. globally via `AWS_*` environment vars, or
+2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
+
+### Anthropic API
+
+The adapter supports authentication with Anthropic API for Claude deployments.
+
+1. Choose one of the **Claude API** model names from [the official documentation](https://docs.claude.com/en/docs/about-claude/models/overview#model-names). Let's call it `CLAUDE_API_MODEL_NAME`.
+2. Find which **AWS Bedrock** model name corresponds to the chosen **Claude API** model name on the same documentation page. Let's call it `AWS_BEDROCK_MODEL_NAME`.
+3. Add the Claude deployment to the DIAL Core configuration with API key configured on a per upstream basis:
+
+  ```json
+  {
+    "models": {
+      "dial-claude-deployment-name": {
+        "endpoint": "${ADAPTER_ORIGIN}/deployments/${CLAUDE_API_MODEL_NAME}/chat/completions",
+        "upstreams": [
+          {
+            "key": "${ANTHROPIC_API_KEY}"
+          }
+        ]
+      }
+    }
+  }
+  ```
+
+  Note that there is no need to configure the upstream endpoint, since there is only one endpoint for the model inference in the Anthropic API and it will be used by default: `https://api.anthropic.com/v1/messages`.
+
+4. Declare the following [compatibility mapping](#compatibility-mode) in the Bedrock adapter environment:
+
+  ```ini
+  COMPATIBILITY_MAPPING={"${CLAUDE_API_MODEL_NAME}":"${AWS_BEDROCK_MODEL_NAME}"}
+  ```
+
+  The compatibility mapping is required, because the same Anthropic models have [different model names](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in **Claude API** and **AWS Bedrock**. For example:
+
+  1. `claude-sonnet-4-5-20250929` _(`${CLAUDE_API_MODEL_NAME}`)_ in **Claude API** corresponds to
+  2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
+
+  The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to map it to a corresponding name from **AWS Bedrock** in the [compatibility mapping](#compatibility-mode). The adapter returns 404 when such a mapping is missing.
+
+## Run
+
+Run the development server:
+
+```sh
+make serve
+```
+
+Open `localhost:5001/docs` to make sure the server is up and running.
 
 ### Docker
 

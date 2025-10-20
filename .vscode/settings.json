@@ -1,4 +1,5 @@
 {
+  "cSpell.enabled": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,
@@ -14,6 +15,5 @@
     "."
   ],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true,
-  "python.analysis.typeCheckingMode": "basic"
+  "python.testing.pytestEnabled": true
 }

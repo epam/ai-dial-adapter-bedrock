@@ -1,6 +1,11 @@
 from typing import List, assert_never
 
-from aidial_sdk.chat_completion import ChatCompletion, Request, Response
+from aidial_sdk.chat_completion import (
+    ChatCompletion,
+    ConfigurationRequest,
+    Request,
+    Response,
+)
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
 from aidial_sdk.deployment.tokenize import (
@@ -24,7 +29,6 @@ from typing_extensions import override
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
 )
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfigFactory
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
@@ -34,6 +38,7 @@ from aidial_adapter_bedrock.server.exceptions import (
     dial_exception_decorator,
     not_implemented_handler,
 )
+from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
@@ -46,15 +51,20 @@ class BedrockChatCompletion(ChatCompletion):
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
-        aws_client_config = await AWSClientConfigFactory(
-            request=request,
-        ).get_client_config()
-
         return await get_bedrock_adapter(
             deployment=self.deployment,
             api_key=request.api_key,
-            aws_client_config=aws_client_config,
+            upstream_config=await parse_upstream_config(request),
+            request=request if isinstance(request, Request) else None,
         )
+
+    @override
+    @dial_exception_decorator
+    @not_implemented_handler
+    async def configuration(self, request: ConfigurationRequest):
+        model = await self._get_model(request)
+        cls = await model.configuration()
+        return cls.schema()
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
@@ -103,6 +113,7 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error tokenizing string")
             return TokenizeError(error=str(e))
 
     async def _tokenize_request(
@@ -118,6 +129,7 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error tokenizing request")
             return TokenizeError(error=str(e))
 
     @override
@@ -152,4 +164,5 @@ class BedrockChatCompletion(ChatCompletion):
         except NotImplementedError:
             raise
         except Exception as e:
+            log.exception("Error truncating prompt")
             return TruncatePromptError(error=str(e))

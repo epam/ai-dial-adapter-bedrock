@@ -12,6 +12,10 @@ def get_env(name: str, err_msg: Optional[str] = None) -> str:
     return val
 
 
+def get_env_int(name: str, default: int) -> int:
+    return int(os.getenv(name) or default)
+
+
 def get_str_dict(name: str) -> Dict[str, str]:
     if (val := os.getenv(name)) is None:
         return {}

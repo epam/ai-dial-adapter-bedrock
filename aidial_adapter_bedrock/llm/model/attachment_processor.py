@@ -12,6 +12,7 @@ from typing import (
 
 from aidial_sdk.chat_completion import (
     MessageContentImagePart,
+    MessageContentRefusalPart,
     MessageContentTextPart,
 )
 from pydantic import BaseModel
@@ -23,10 +24,11 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
-from aidial_adapter_bedrock.llm.errors import UserError
+from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import (
     AIRegularMessage,
     HumanRegularMessage,
+    SystemMessage,
 )
 from aidial_adapter_bedrock.utils.resource import Resource
 
@@ -63,17 +65,18 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
     async def process_attachments(
         self,
         text_handler: Callable[[str], _T],
-        message: AIRegularMessage | HumanRegularMessage,
+        message: SystemMessage | AIRegularMessage | HumanRegularMessage,
     ) -> AsyncIterator[_T]:
 
-        for attachment in message.attachments:
-            yield await self._handle_dial_resource(
-                AttachmentResource(
-                    attachment=attachment,
-                    entity_name="attachment",
-                    supported_types=self.supported_mime_types,
-                ),
-            )
+        if not isinstance(message, SystemMessage):
+            for attachment in message.attachments:
+                yield await self._handle_dial_resource(
+                    AttachmentResource(
+                        attachment=attachment,
+                        entity_name="attachment",
+                        supported_types=self.supported_mime_types,
+                    ),
+                )
 
         content = message.content
 
@@ -92,6 +95,10 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
                                     entity_name="image url",
                                     supported_types=self.supported_image_types,
                                 ),
+                            )
+                        case MessageContentRefusalPart():
+                            raise ValidationError(
+                                "Refuse content parts aren't supported"
                             )
                         case _:
                             assert_never(part)

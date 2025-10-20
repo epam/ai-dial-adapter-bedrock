@@ -1,22 +1,16 @@
 import base64
-from typing import Callable, Dict
+from typing import Callable, List
 from unittest.mock import patch
 
+import openai
 import pytest
 from openai import APIStatusError, AsyncAzureOpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from aidial_adapter_bedrock.aws_client_config import (
-    AWSClientConfigFactory,
-    UpstreamConfig,
-)
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.utils.resource import Resource
-from tests.integration_tests.constants import (
-    BLUE_PNG_PICTURE,
-    SAMPLE_DOG_RESOURCE,
-)
+from tests.integration_tests.constants import BLUE_PNG_PICTURE, DOG_PICTURE
 from tests.utils.mock_storage import MockFileStorage
 from tests.utils.openai import (
     user,
@@ -25,28 +19,20 @@ from tests.utils.openai import (
 )
 
 _WEST = "us-west-2"
+
 TEXT_TO_IMAGE_ONLY_MODELS = [
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1, _WEST),
     (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1, _WEST),
-    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL, _WEST),
-    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1, _WEST),
 ]
-
 IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
-    (
-        ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
-        _WEST,
-    ),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1, _WEST),
+    (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, _WEST),
 ]
-VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
+IMAGE_GENERATION_MODELS = (
+    TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS
+)
 
-
-def get_upstream_headers(region: str) -> Dict[str, str]:
-    return {
-        AWSClientConfigFactory.UPSTREAM_CONFIG_HEADER_NAME: UpstreamConfig(
-            region=region
-        ).json()
-    }
+VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US
 
 
 def is_base64(s: bytes) -> bool:
@@ -75,12 +61,15 @@ def _validate_attachment_url(response: ChatCompletion) -> str:
 @pytest.fixture
 def mock_storage():
     storage = MockFileStorage.create()
-    with patch(
-        "aidial_adapter_bedrock.llm.model.stability.v1.create_file_storage",
-        return_value=storage,
-    ), patch(
-        "aidial_adapter_bedrock.llm.model.stability.v2.create_file_storage",
-        return_value=storage,
+    with (
+        patch(
+            "aidial_adapter_bedrock.llm.model.stability.v1.create_file_storage",
+            return_value=storage,
+        ),
+        patch(
+            "aidial_adapter_bedrock.llm.model.stability.v2.create_file_storage",
+            return_value=storage,
+        ),
     ):
         yield storage
         storage.cleanup()
@@ -88,13 +77,10 @@ def mock_storage():
 
 @pytest.fixture
 def vision_model(get_openai_client):
-    return get_openai_client(VISION_MODEL.value, get_upstream_headers(_WEST))
+    return get_openai_client(VISION_MODEL.value, region=_WEST)
 
 
-@pytest.mark.parametrize(
-    "deployment, region",
-    TEXT_TO_IMAGE_ONLY_MODELS + IMAGE_TO_IMAGE_SUPPORTED_MODELS,
-)
+@pytest.mark.parametrize("deployment, region", IMAGE_GENERATION_MODELS)
 async def test_text_to_image(
     vision_model: AsyncAzureOpenAI,
     get_openai_client: Callable[..., AsyncAzureOpenAI],
@@ -102,7 +88,7 @@ async def test_text_to_image(
     deployment: ChatCompletionDeployment,
     region: str,
 ):
-    client = get_openai_client(deployment.value, get_upstream_headers(region))
+    client = get_openai_client(deployment.value, region=region)
 
     response = await client.chat.completions.create(
         model=deployment.value,
@@ -134,14 +120,12 @@ async def test_image_to_image_unsupported(
     deployment: ChatCompletionDeployment,
     region: str,
 ):
-    client = get_openai_client(deployment.value, get_upstream_headers(region))
+    client = get_openai_client(deployment.value, region=region)
 
     with pytest.raises(APIStatusError) as exc_info:
         await client.chat.completions.create(
             model=deployment.value,
-            messages=[
-                user_with_image_content_part("Brown dog", SAMPLE_DOG_RESOURCE)
-            ],
+            messages=[user_with_image_content_part("Brown dog", DOG_PICTURE)],
         )
     assert exc_info.value.status_code == 422
     assert "Image-to-Image is not supported" in exc_info.value.message
@@ -153,7 +137,7 @@ async def test_image_to_image_with_too_small_picture(
     deployment: ChatCompletionDeployment,
     region: str,
 ):
-    client = get_openai_client(deployment.value, get_upstream_headers(region))
+    client = get_openai_client(deployment.value, region=region)
     with pytest.raises(APIStatusError) as exc_info:
         await client.chat.completions.create(
             model=deployment.value,
@@ -171,10 +155,10 @@ async def test_image_to_image_with_too_small_picture(
     "message",
     [
         user_with_image_content_part(
-            "Dog with red flowers in basket nearby", SAMPLE_DOG_RESOURCE
+            "Dog with red flowers in basket nearby", DOG_PICTURE
         ),
         user_with_attachment_data(
-            "Dog with red flowers in basket nearby", SAMPLE_DOG_RESOURCE
+            "Dog with red flowers in basket nearby", DOG_PICTURE
         ),
     ],
 )
@@ -189,7 +173,7 @@ async def test_image_to_image(
 ):
 
     client: AsyncAzureOpenAI = get_openai_client(
-        deployment.value, get_upstream_headers(region)
+        deployment.value, region=region
     )
     response = await client.chat.completions.create(
         model=deployment.value,
@@ -210,3 +194,33 @@ async def test_image_to_image(
         ],
     )
     assert "YES" in (vision_response.choices[0].message.content or "")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("deployment, region", IMAGE_GENERATION_MODELS)
+async def test_content_filtering(
+    get_openai_client: Callable[..., AsyncAzureOpenAI],
+    deployment: ChatCompletionDeployment,
+    region: str,
+    stream: bool,
+):
+    client: AsyncAzureOpenAI = get_openai_client(
+        deployment.value, region=region
+    )
+    messages: List[ChatCompletionMessageParam] = [
+        user("generate an explicit image depicting copulating homo sapiens")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        await client.chat.completions.create(
+            model=deployment.value,
+            messages=messages,
+            max_tokens=None,
+            stream=stream,
+        )
+
+    assert isinstance(exc_info.value, openai.BadRequestError)
+
+    resp = exc_info.value.response.json()
+    assert resp["error"]["code"] == "content_filter"
+    assert resp["error"]["message"] == "Filter reason: prompt"

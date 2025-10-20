@@ -70,14 +70,15 @@ class AdapterDeployments(BaseModel):
     @classmethod
     def create(cls, *, compat_mapping: Dict[str, str]) -> "AdapterDeployments":
 
-        chat_completions = {e.value for e in ChatCompletionDeployment}
-        embeddings = {e.value for e in EmbeddingsDeployment}
+        chat_completions = set(ChatCompletionDeployment.deployments())
+        embeddings = set(EmbeddingsDeployment.deployments())
 
         for deployment_id, supported_id in compat_mapping.items():
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
-                    f"{deployment_id!r} is one of the Bedrock deployments supported by the adapter already. "
-                    f"Remove {deployment_id!r} from the compatibility mapping to avoid the warning."
+                    f"'{deployment_id}' deployment is already natively supported by the adapter, but it is also mapped to '{supported_id}' in the COMPATIBILITY_MAPPING variable. "
+                    f"To avoid this warning and ensure you retain all features of '{deployment_id}', remove it from the mapping. "
+                    f"Otherwise, you may lose features that exist in '{deployment_id}' but are missing in '{supported_id}'."
                 )
 
                 if (
@@ -95,6 +96,11 @@ class AdapterDeployments(BaseModel):
                     raise ValueError(
                         f"The embeddings deployment {deployment_id!r} is mapped onto the chat completion deployment {supported_id!r}"
                     )
+
+        cross_region_mapping = (
+            ChatCompletionDeployment.create_cross_region_inference_mapping()
+        )
+        compat_mapping = cross_region_mapping | compat_mapping
 
         compat_mapping, chat_completions = _create_deployments(
             compat_mapping,

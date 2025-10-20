@@ -8,8 +8,8 @@ import pytest
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from tests.integration_tests.test_chat_completion import chat_deployments
+from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
+from tests.integration_tests.test_chat_completion import deployments
 from tests.utils.json import match_objects
 from tests.utils.openai import (
     ai,
@@ -51,7 +51,7 @@ class TestCase:
     __test__ = False
 
     name: str
-    deployment: ChatCompletionDeployment
+    deployment: RegionDeployment
     messages: List[ChatCompletionMessageParam]
     expected: dict | Callable[[dict], bool] | ExpectedException
     max_prompt_tokens: DynamicMaxPromptTokens | int | None
@@ -69,7 +69,7 @@ class TestCase:
         )
 
 
-def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
+def get_test_cases(deployment: RegionDeployment) -> List[TestCase]:
     test_cases: List[TestCase] = []
 
     def test_case(
@@ -94,7 +94,7 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
             message=json.dumps(
                 {
                     "error": {
-                        "message": "Your request contained invalid structure on path inputs.0.messages.0.role. value is not a valid enumeration member; permitted: 'system', 'user', 'assistant', 'function', 'tool'",
+                        "message": "Your request contained invalid structure on path inputs.0.messages.0.role. value is not a valid enumeration member; permitted: 'system', 'developer', 'user', 'assistant', 'function', 'tool'",
                         "type": "invalid_request_error",
                         "code": "400",
                     }
@@ -193,11 +193,7 @@ def get_test_cases(deployment: ChatCompletionDeployment) -> List[TestCase]:
 
 @pytest.mark.parametrize(
     "test",
-    [
-        test
-        for deployment, _region in chat_deployments.items()
-        for test in get_test_cases(deployment)
-    ],
+    [test for deployment in deployments for test in get_test_cases(deployment)],
     ids=lambda test: test.get_id(),
 )
 async def test_truncate_prompt(

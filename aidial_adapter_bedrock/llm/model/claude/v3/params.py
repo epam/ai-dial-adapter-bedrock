@@ -1,8 +1,11 @@
-from typing import List, TypedDict, Union
+from typing import List, TypedDict
 
 from anthropic import NotGiven
-from anthropic.types import ToolParam
-from anthropic.types.message_create_params import ToolChoice
+from anthropic.types.anthropic_beta_param import AnthropicBetaParam
+from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
+from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
+from anthropic.types.beta import BetaToolParam as ToolParam
 
 
 class ClaudeParameters(TypedDict):
@@ -12,9 +15,11 @@ class ClaudeParameters(TypedDict):
     """
 
     max_tokens: int
-    stop_sequences: Union[List[str], NotGiven]
-    system: Union[str, NotGiven]
-    temperature: Union[float, NotGiven]
-    top_p: Union[float, NotGiven]
-    tools: Union[List[ToolParam], NotGiven]
-    tool_choice: Union[ToolChoice, NotGiven]
+    stop_sequences: List[str] | NotGiven
+    system: str | List[TextBlockParam] | NotGiven
+    temperature: float | NotGiven
+    top_p: float | NotGiven
+    tools: List[ToolParam] | NotGiven
+    tool_choice: ToolChoice | NotGiven
+    thinking: ThinkingConfigParam | NotGiven
+    betas: List[AnthropicBetaParam] | NotGiven

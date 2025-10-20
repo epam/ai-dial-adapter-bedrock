@@ -1,16 +1,15 @@
 from typing import assert_never
 
+from aidial_sdk.chat_completion import Request as ChatCompletionRequest
+
 import aidial_adapter_bedrock.llm.model.ai21 as ai21
 import aidial_adapter_bedrock.llm.model.amazon as amazon
-import aidial_adapter_bedrock.llm.model.claude.v1_v2.adapter as claude_v1_v2
 import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
-import aidial_adapter_bedrock.llm.model.cohere as cohere
 import aidial_adapter_bedrock.llm.model.stability.v1 as stability_v1
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
     AdapterEmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
@@ -29,6 +28,9 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
+from aidial_adapter_bedrock.llm.converse.configuration import (
+    has_converse_api_configuration,
+)
 from aidial_adapter_bedrock.llm.converse.factory import (
     ConverseAdapterFactory,
     ToolsSupport,
@@ -39,100 +41,91 @@ from aidial_adapter_bedrock.llm.converse.types import (
 )
 from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
+from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 
 
 async def get_bedrock_adapter(
     *,
     deployment: AdapterChatCompletionDeployment,
     api_key: str,
-    aws_client_config: AWSClientConfig,
+    upstream_config: UpstreamConfig,
+    request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
     model = deployment.upstream_deployment_id
 
+    async def get_bedrock_client():
+        return await Bedrock.acreate(upstream_config)
+
     converse_adapter = ConverseAdapterFactory(
-        deployment=model, aws_client_config=aws_client_config, api_key=api_key
+        deployment=model, get_client=get_bedrock_client, api_key=api_key
     )
 
     match deployment.reference_deployment_id:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
         ):
-            return claude_v3.create_adapter(
-                deployment.clone(deployment.reference_deployment_id),
-                api_key,
-                aws_client_config,
-            )
-
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_INSTANT_V1
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V2_1
-        ):
-            return await claude_v1_v2.create_adapter(
-                await Bedrock.acreate(aws_client_config), model
-            )
+            if request and has_converse_api_configuration(request):
+                return await converse_adapter.create(
+                    tools_support=ToolsSupport.ALWAYS,
+                    supported_image_types=ConverseImageType.all(),
+                )
+            else:
+                return await claude_v3.create_adapter(
+                    deployment.clone(deployment.reference_deployment_id),
+                    api_key,
+                    upstream_config,
+                )
         case (
             ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
             | ChatCompletionDeployment.AI21_J2_MID_V1
             | ChatCompletionDeployment.AI21_J2_ULTRA_V1
         ):
-            return ai21.create_adapter(
-                await Bedrock.acreate(aws_client_config), model
+            return ai21.create_adapter(await get_bedrock_client(), model)
+        case (
+            ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1
+            | ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.NON_STREAMING_ONLY,
+                supported_document_types=ConverseDocumentType.all(),
             )
         case (
             ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
         ):
             return stability_v1.create_adapter(
-                await Bedrock.acreate(aws_client_config), model, api_key
+                await get_bedrock_client(), model, api_key
             )
         case (
             ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
+            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1
+            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1
         ):
-            model = StabilityV2Adapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
+            adapter = StabilityV2Adapter.create(
+                await get_bedrock_client(),
+                deployment.clone(deployment.reference_deployment_id),
                 api_key,
-                image_to_image_supported=False,
             )
-            return replicator_decorator()(model)
-        case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1:
-            model = StabilityV2Adapter.create(
-                await Bedrock.acreate(aws_client_config),
-                model,
-                api_key,
-                image_to_image_supported=True,
-                image_width_constraints=(640, 1536),
-                image_height_constraints=(640, 1536),
-            )
-            return replicator_decorator()(model)
+            return replicator_decorator()(adapter)
         case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
-            return amazon.create_adapter(
-                await Bedrock.acreate(aws_client_config), model
-            )
+            return amazon.create_adapter(await get_bedrock_client(), model)
         case (
-            ChatCompletionDeployment.COHERE_COMMAND_TEXT_V14
-            | ChatCompletionDeployment.COHERE_COMMAND_LIGHT_TEXT_V14
+            ChatCompletionDeployment.COHERE_COMMAND_R_V1
+            | ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1
         ):
-            return cohere.create_adapter(
-                await Bedrock.acreate(aws_client_config), model
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
+                supported_document_types=ConverseDocumentType.all(),
             )
         case (
             ChatCompletionDeployment.AMAZON_NOVA_MICRO
@@ -155,11 +148,13 @@ async def get_bedrock_adapter(
             ChatCompletionDeployment.META_LLAMA3_1_8B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_1B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_2_3B_INSTRUCT_V1
+            | ChatCompletionDeployment.DEEPSEEK_R1_V2
         ):
             return await converse_adapter.create()
         case (
             ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1
             | ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1
+            | ChatCompletionDeployment.META_LLAMA3_3_70B_INSTRUCT_V1
         ):
             return await converse_adapter.create(
                 tools_support=ToolsSupport.NON_STREAMING_ONLY,
@@ -173,17 +168,17 @@ async def get_bedrock_adapter(
                 supported_image_types=ConverseImageType.all(),
             )
         case _:
-            assert_never(deployment)
+            assert_never(deployment.reference_deployment_id)
 
 
 async def get_embeddings_model(
     *,
     deployment: AdapterEmbeddingsDeployment,
     api_key: str,
-    aws_client_config: AWSClientConfig,
+    upstream_config: UpstreamConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
-    client = await Bedrock.acreate(aws_client_config)
+    client = await Bedrock.acreate(upstream_config)
     match deployment.reference_deployment_id:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(

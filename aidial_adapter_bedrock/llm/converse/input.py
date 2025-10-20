@@ -11,10 +11,13 @@ from aidial_sdk.chat_completion import (
     MessageContentTextPart,
 )
 from aidial_sdk.chat_completion import Role as DialRole
+from aidial_sdk.chat_completion import Tool as DialTool
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
+from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
+from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
-from aidial_adapter_bedrock.dial_api.request import ToolsConfig
+from aidial_adapter_bedrock.dial_api.request import ToolsConfig, is_system_role
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     UnsupportedContentType,
@@ -28,6 +31,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     IMAGE_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseCachePoint,
+    ConverseCachePointPart,
     ConverseContentPart,
     ConverseDocumentPart,
     ConverseDocumentPartConfig,
@@ -47,6 +52,7 @@ from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.resource import Resource
+from aidial_adapter_bedrock.utils.text import capitalize
 
 
 def to_converse_role(role: DialRole) -> ConverseRole:
@@ -58,15 +64,18 @@ def to_converse_role(role: DialRole) -> ConverseRole:
             return ConverseRole.USER
         case DialRole.ASSISTANT:
             return ConverseRole.ASSISTANT
-        case DialRole.SYSTEM:
-            raise ValidationError("System messages are not allowed")
+        case DialRole.SYSTEM | DialRole.DEVELOPER:
+            raise ValidationError(
+                "System or developer messages are not allowed"
+            )
         case _:
             assert_never(role)
 
 
 def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
-    tools: list[ConverseToolSpec] = []
-    for function in tools_config.functions:
+    tools: list[ConverseToolSpec | ConverseCachePointPart] = []
+    for tool in tools_config.tools:
+        function = tool.function
         tools.append(
             {
                 "toolSpec": {
@@ -80,10 +89,24 @@ def to_converse_tools(tools_config: ToolsConfig) -> ConverseTools:
             }
         )
 
-    return {
-        "tools": tools,
-        "toolChoice": ({"any": {}} if tools_config.required else {"auto": {}}),
-    }
+        if cache_point_part := _get_cache_point_part(tool):
+            tools.append(cache_point_part)
+
+    match tools_config.tool_choice:
+        case DialToolChoice(function=function):
+            tool_choice = {"tool": {"name": function.name}}
+        case "required":
+            tool_choice = {"any": {}}
+        case "auto":
+            tool_choice = {"auto": {}}
+        case "none":
+            raise ValidationError(
+                "tool_choice=none isn't supported by Converse API"
+            )
+        case _:
+            assert_never(tools_config.tool_choice)
+
+    return {"tools": tools, "toolChoice": tool_choice}
 
 
 def function_call_to_content_part(
@@ -238,12 +261,14 @@ async def _get_converse_message_content(
     content = []
     match message.content:
         case str():
-            content.append({"text": message.content})
+            if message.content:
+                content.append({"text": message.content})
         case list():
             for part in message.content:
                 match part:
                     case MessageContentTextPart():
-                        content.append({"text": part.text})
+                        if part.text:
+                            content.append({"text": part.text})
                     case MessageContentImagePart():
                         try:
                             resource = await URLResource(
@@ -259,6 +284,12 @@ async def _get_converse_message_content(
                                     e.type
                                 )
                             )
+                    case MessageContentRefusalPart():
+                        raise ValidationError(
+                            "Refusal messages aren't supported"
+                        )
+                    case _:
+                        assert_never(part)
 
         case None:
             pass
@@ -297,6 +328,12 @@ async def _get_converse_message_content(
             ]
         )
 
+    if not content:
+        content.append({"text": ""})
+
+    if cache_point_part := _get_cache_point_part(message):
+        content.append(cache_point_part)
+
     return content
 
 
@@ -320,48 +357,73 @@ async def to_converse_message(
 
 @dataclass
 class ExtractSystemPromptResult:
-    system_prompt: ConverseTextPart | None
+    system_messages: List[ConverseTextPart | ConverseCachePointPart]
     system_message_count: int
     non_system_messages: List[DialMessage]
+
+
+def _get_cache_point_part(
+    message: DialMessage | DialTool,
+) -> ConverseCachePointPart | None:
+    if not (cf := message.custom_fields) or not cf.cache_breakpoint:
+        return None
+    return ConverseCachePointPart(cachePoint=ConverseCachePoint(type="default"))
 
 
 def extract_converse_system_prompt(
     messages: List[DialMessage],
 ) -> ExtractSystemPromptResult:
-    system_msgs = []
+    system_messages: List[ConverseTextPart | ConverseCachePointPart] = []
     found_non_system = False
     system_messages_count = 0
     non_system_messages = []
 
     for msg in messages:
-        if msg.role == DialRole.SYSTEM:
+        if is_system_role(msg.role):
             if found_non_system:
                 raise ValidationError(
-                    "A system message can only follow another system message"
+                    f"A {msg.role.value} message can only follow system or developer message"
                 )
             system_messages_count += 1
+
             match msg.content:
                 case str():
-                    system_msgs.append(msg.content)
+                    system_messages.append(ConverseTextPart(text=msg.content))
                 case list():
                     for part in msg.content:
                         match part:
                             case MessageContentTextPart():
-                                system_msgs.append(part.text)
+                                system_messages.append(
+                                    ConverseTextPart(text=part.text)
+                                )
                             case MessageContentImagePart():
                                 raise ValidationError(
-                                    "System messages cannot contain images"
+                                    capitalize(
+                                        f"{msg.role.value} messages cannot contain images"
+                                    )
                                 )
+                            case MessageContentRefusalPart():
+                                raise ValidationError(
+                                    capitalize(
+                                        f"{msg.role.value} messages cannot contain refusals"
+                                    )
+                                )
+                            case _:
+                                assert_never(part)
                 case None:
                     pass
                 case _:
                     assert_never(msg.content)
+
+            if cache_point := _get_cache_point_part(msg):
+                system_messages.append(cache_point)
+
         else:
             found_non_system = True
             non_system_messages.append(msg)
-    combined = "\n\n".join(msg for msg in system_msgs if msg)
+
     return ExtractSystemPromptResult(
-        system_prompt=ConverseTextPart(text=combined) if combined else None,
+        system_messages=system_messages,
         system_message_count=system_messages_count,
         non_system_messages=non_system_messages,
     )

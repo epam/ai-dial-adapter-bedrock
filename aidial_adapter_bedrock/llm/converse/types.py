@@ -20,6 +20,14 @@ class ConverseTextPart(TypedDict):
     text: str
 
 
+class ConverseCachePoint(TypedDict):
+    type: Literal["default"]
+
+
+class ConverseCachePointPart(TypedDict):
+    cachePoint: ConverseCachePoint
+
+
 class ConverseJsonPart(TypedDict):
     json: dict
 
@@ -78,6 +86,7 @@ ConverseContentPart = Union[
     ConverseDocumentPart,
     ConverseToolUsePart,
     ConverseToolResultPart,
+    ConverseCachePointPart,
 ]
 
 
@@ -92,7 +101,7 @@ class ConverseToolSpec(TypedDict):
 
 
 class ConverseTools(TypedDict):
-    tools: list[ConverseToolSpec]
+    tools: list[ConverseToolSpec | ConverseCachePointPart]
     toolChoice: dict
 
 
@@ -121,19 +130,34 @@ class InferenceConfig(TypedDict, total=False):
     stopSequences: list[str]
 
 
+class PerformanceConfig(TypedDict, total=False):
+    latency: Literal["optimized", "standard"] | str
+
+
+class GuardrailConfig(TypedDict, total=False):
+    guardrailIdentifier: Required[str]
+    guardrailVersion: Required[str]
+    trace: Literal["enabled", "disabled", "enabled_full"] | str | None
+    streamProcessingMode: Literal["sync", "async"] | str | None
+
+
 class ConverseRequest(TypedDict, total=False):
     messages: Required[list[ConverseMessage]]
-    system: list[ConverseTextPart]
+    system: list[ConverseTextPart | ConverseCachePointPart]
     inferenceConfig: InferenceConfig
     toolConfig: ConverseTools
+    performanceConfig: PerformanceConfig
+    guardrailConfig: GuardrailConfig
 
 
 @dataclass
 class ConverseRequestWrapper:
     messages: ListProjection[ConverseMessage]
-    system: list[ConverseTextPart] | None = None
+    system: list[ConverseTextPart | ConverseCachePointPart] | None = None
     inferenceConfig: InferenceConfig | None = None
     toolConfig: ConverseTools | None = None
+    performanceConfig: PerformanceConfig | None = None
+    guardrailConfig: GuardrailConfig | None = None
 
     def to_request(self) -> ConverseRequest:
         return ConverseRequest(
@@ -143,6 +167,8 @@ class ConverseRequestWrapper:
                     "inferenceConfig": self.inferenceConfig,
                     "toolConfig": self.toolConfig,
                     "system": self.system,
+                    "performanceConfig": self.performanceConfig,
+                    "guardrailConfig": self.guardrailConfig,
                 }
             ),
         )

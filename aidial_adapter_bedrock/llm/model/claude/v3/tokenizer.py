@@ -41,17 +41,35 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
-from anthropic.types import ContentBlock, ImageBlockParam
-from anthropic.types import MessageParam as ClaudeMessage
-from anthropic.types import (
-    TextBlockParam,
-    ToolParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
+from anthropic.types.beta import BetaContentBlock as ContentBlock
+from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
+from anthropic.types.beta import BetaMessageParam as ClaudeMessage
+from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaToolParam as ToolParam
+from anthropic.types.beta import (
+    BetaToolResultBlockParam as ToolResultBlockParam,
 )
-from anthropic.types.image_block_param import Source
-from anthropic.types.text_block import TextBlock
-from anthropic.types.tool_use_block import ToolUseBlock
+from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
+from anthropic.types.beta.beta_base64_pdf_block_param import (
+    BetaBase64PDFBlockParam as DocumentBlockParam,
+)
+from anthropic.types.beta.beta_image_block_param import Source
+from anthropic.types.beta.beta_redacted_thinking_block import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta.beta_redacted_thinking_block_param import (
+    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
+)
+from anthropic.types.beta.beta_text_block import BetaTextBlock as TextBlock
+from anthropic.types.beta.beta_thinking_block import (
+    BetaThinkingBlock as ThinkingBlock,
+)
+from anthropic.types.beta.beta_thinking_block_param import (
+    BetaThinkingBlockParam as ThinkingBlockParam,
+)
+from anthropic.types.beta.beta_tool_use_block import (
+    BetaToolUseBlock as ToolUseBlock,
+)
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
@@ -80,44 +98,62 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
         return 1000, 1000
 
 
-async def _tokenize_image(source: Source) -> int:
-    width, height = _get_image_size(source["data"])
-    return math.ceil((width * height) / 750.0)
+def _tokenize_image(source: Source) -> int:
+    match source["type"]:
+        case "url":
+            return 0
+        case "base64":
+            width, height = _get_image_size(source["data"])
+            return math.ceil((width * height) / 750.0)
+        case _:
+            assert_never(source)
 
 
 def _tokenize_tool_use(id: str, input: object, name: str) -> int:
     return tokenize_text(f"{id} {name} {json.dumps(input)}")
 
 
-async def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
+def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
     tokens: int = tokenize_text(message["tool_use_id"])
-    if "content" in message:
-        for sub_message in message["content"]:
-            tokens += await _tokenize_sub_message(sub_message)
+    if (content := message.get("content")) is not None:
+        if isinstance(content, str):
+            tokens += tokenize_text(content)
+        else:
+            for sub_message in content:
+                tokens += _tokenize_sub_message(sub_message)
     return tokens
 
 
-async def _tokenize_sub_message(
+def _tokenize_sub_message(
     message: Union[
         TextBlockParam,
         ImageBlockParam,
         ToolUseBlockParam,
         ToolResultBlockParam,
+        DocumentBlockParam,
+        ThinkingBlockParam,
+        RedactedThinkingBlockParam,
         ContentBlock,
-    ]
+    ],
 ) -> int:
     if isinstance(message, dict):
         match message["type"]:
             case "text":
                 return tokenize_text(message["text"])
             case "image":
-                return await _tokenize_image(message["source"])
+                return _tokenize_image(message["source"])
             case "tool_use":
                 return _tokenize_tool_use(
                     message["id"], message["input"], message["name"]
                 )
             case "tool_result":
-                return await _tokenize_tool_result(message)
+                return _tokenize_tool_result(message)
+            case "document":
+                return tokenize_text(json.dumps(message))
+            case "thinking":
+                return tokenize_text(message["thinking"])
+            case "redacted_thinking":
+                return tokenize_text(message["data"])
             case _:
                 assert_never(message["type"])
     else:
@@ -128,11 +164,15 @@ async def _tokenize_sub_message(
                 return _tokenize_tool_use(
                     message.id, message.input, message.name
                 )
+            case ThinkingBlock(thinking=thinking):
+                return tokenize_text(thinking)
+            case RedactedThinkingBlock(data=data):
+                return tokenize_text(data)
             case _:
                 assert_never(message)
 
 
-async def _tokenize_message(message: ClaudeMessage) -> int:
+def _tokenize_message(message: ClaudeMessage) -> int:
     tokens: int = 0
 
     content = message["content"]
@@ -142,18 +182,18 @@ async def _tokenize_message(message: ClaudeMessage) -> int:
             tokens += tokenize_text(content)
         case _:
             for item in content:
-                tokens += await _tokenize_sub_message(item)
+                tokens += _tokenize_sub_message(item)
 
     return tokens
 
 
-async def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
+def _tokenize_messages(messages: List[ClaudeMessage]) -> int:
     # A rough estimation
     per_message_tokens = 5
 
     tokens: int = 0
     for message in messages:
-        tokens += await _tokenize_message(message) + per_message_tokens
+        tokens += _tokenize_message(message) + per_message_tokens
     return tokens
 
 
@@ -163,47 +203,34 @@ def _tokenize_tool_param(tool: ToolParam) -> int:
 
 def _tokenize_tool_system_message(
     deployment: Claude3Deployment,
-    tool_choice: Literal["auto", "any", "tool"],
+    tool_choice: Literal["none", "auto", "any", "tool"],
 ) -> int:
     match deployment:
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_EU
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET:
             return 294 if tool_choice == "auto" else 261
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET_US
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
         ):
             return 346 if tool_choice == "auto" else 313
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS_US
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
             return 530 if tool_choice == "auto" else 281
-        case (
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET_EU
-        ):
+        case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET:
             return 159 if tool_choice == "auto" else 235
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_US
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_HAIKU_EU
             # Actually token usage for Haiku 3.5 is unknown
             # temporary using tha same as for Haiku 3
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
-            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU_US
         ):
             return 264 if tool_choice == "auto" else 340
         case _:
             assert_never(deployment)
 
 
-async def _tokenize(
+def _tokenize(
     deployment: Claude3Deployment,
     params: ClaudeParameters,
     messages: List[ClaudeMessage],
@@ -211,7 +238,11 @@ async def _tokenize(
     tokens: int = 0
 
     if system := params["system"]:
-        tokens += tokenize_text(system)
+        if isinstance(system, str):
+            tokens += tokenize_text(system)
+        else:
+            for item in system:
+                tokens += _tokenize_sub_message(item)
 
     if tools := params["tools"]:
         if tool_choice := params["tool_choice"]:
@@ -224,17 +255,19 @@ async def _tokenize(
         for tool in tools:
             tokens += _tokenize_tool_param(tool)
 
-    tokens += await _tokenize_messages(messages)
+    tokens += _tokenize_messages(messages)
 
     return tokens
 
 
 # TODO: use the official tokenizer:
 # https://docs.anthropic.com/en/docs/build-with-claude/token-counting
+# once it's supported in Bedrock:
+# https://github.com/anthropics/anthropic-sdk-python/blob/599f2b9a9501b8c98fb3132043c3ec71e3026f84/src/anthropic/lib/bedrock/_client.py#L61-L62
 def create_tokenizer(
     deployment: Claude3Deployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
     async def _tokenizer(messages) -> int:
-        return await _tokenize(deployment, params, [msg for msg, _ in messages])
+        return _tokenize(deployment, params, [msg for msg, _ in messages])
 
     return _tokenizer

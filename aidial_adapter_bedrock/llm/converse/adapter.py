@@ -1,5 +1,5 @@
 from logging import DEBUG
-from typing import Any, Awaitable, Callable, List, Tuple
+from typing import Any, Awaitable, Callable, List, Tuple, Type
 
 from aidial_sdk.chat_completion import Message as DialMessage
 
@@ -12,6 +12,9 @@ from aidial_adapter_bedrock.llm.chat_model import (
     turn_based_partitioner,
 )
 from aidial_adapter_bedrock.llm.consumer import Consumer
+from aidial_adapter_bedrock.llm.converse.configuration import (
+    ConverseAPIConfiguration,
+)
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
     to_converse_messages,
@@ -28,7 +31,9 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseMessage,
     ConverseRequestWrapper,
     ConverseTools,
+    GuardrailConfig,
     InferenceConfig,
+    PerformanceConfig,
 )
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -60,6 +65,9 @@ class ConverseAdapter(ChatCompletionAdapter):
     partitioner: Callable[[ConverseMessages], List[int]] = (
         turn_based_partitioner
     )
+
+    async def configuration(self) -> Type[ConverseAPIConfiguration]:
+        return ConverseAPIConfiguration
 
     async def _discard_messages(
         self, params: ConverseRequestWrapper, max_prompt_tokens: int | None
@@ -121,6 +129,7 @@ class ConverseAdapter(ChatCompletionAdapter):
         messages: List[DialMessage],
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
+        configuration = params.parse_configuration(await self.configuration())
         system_prompt_extraction = extract_converse_system_prompt(messages)
         converse_messages = await to_converse_messages(
             system_prompt_extraction.non_system_messages,
@@ -129,12 +138,29 @@ class ConverseAdapter(ChatCompletionAdapter):
             supported_image_types=self.supported_image_types,
             supported_document_types=self.supported_document_types,
         )
-        system_message = system_prompt_extraction.system_prompt
+        system_messages = system_prompt_extraction.system_messages
         if not converse_messages.list:
             raise ValidationError("List of messages must not be empty")
 
+        performanceConfig: PerformanceConfig | None = None
+        if (pc := configuration.performanceConfig) and (latency := pc.latency):
+            performanceConfig = PerformanceConfig(latency=latency)
+
+        guardrailConfig: GuardrailConfig | None = None
+        if pc := configuration.guardrailConfig:
+            guardrailConfig = GuardrailConfig(
+                guardrailIdentifier=pc.guardrailIdentifier,
+                guardrailVersion=pc.guardrailVersion,
+                **(
+                    {"streamProcessingMode": pc.streamProcessingMode}
+                    if pc.streamProcessingMode is not None
+                    else {}
+                ),
+                **({"trace": pc.trace} if pc.trace is not None else {}),
+            )
+
         return ConverseRequestWrapper(
-            system=[system_message] if system_message else None,
+            system=system_messages or None,
             messages=converse_messages,
             inferenceConfig=InferenceConfig(
                 **remove_nones(
@@ -142,11 +168,14 @@ class ConverseAdapter(ChatCompletionAdapter):
                         "temperature": params.temperature,
                         "topP": params.top_p,
                         "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop,
+                        "stopSequences": params.stop or None,
                     }
                 )
-            ),
+            )
+            or None,
             toolConfig=self.get_tool_config(params),
+            performanceConfig=performanceConfig,
+            guardrailConfig=guardrailConfig,
         )
 
     def is_stream(self, params: ModelParameters) -> bool:

@@ -4,18 +4,23 @@ from typing import Any, List
 import pytest
 from aidial_sdk.chat_completion.request import (
     Attachment,
+    CacheBreakpoint,
     CustomContent,
     Function,
     FunctionCall,
+    FunctionChoice,
     ImageURL,
     Message,
     MessageContentImagePart,
     MessageContentTextPart,
+    MessageCustomFields,
     Role,
+    Tool,
     ToolCall,
+    ToolChoice,
+    ToolCustomFields,
 )
 
-from aidial_adapter_bedrock.aws_client_config import AWSClientConfig
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
@@ -25,6 +30,8 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     DOCUMENT_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseCachePoint,
+    ConverseCachePointPart,
     ConverseDocumentPart,
     ConverseDocumentPartConfig,
     ConverseDocumentType,
@@ -37,12 +44,14 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseSource,
     ConverseTextPart,
     ConverseToolResultPart,
+    ConverseToolSpec,
     ConverseToolUseConfig,
     ConverseToolUsePart,
     InferenceConfig,
 )
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
@@ -70,6 +79,31 @@ class UndefinedValue(str):
 
 UNDEFINED = UndefinedValue()
 
+DIAL_MESSAGE_CACHE_POINT = MessageCustomFields(
+    cache_breakpoint=CacheBreakpoint(expire_at=None)
+)
+DIAL_TOOL_CACHE_POINT = ToolCustomFields(
+    cache_breakpoint=CacheBreakpoint(expire_at=None)
+)
+
+CONVERSE_CACHE_POINT_PART = ConverseCachePointPart(
+    cachePoint=ConverseCachePoint(type="default")
+)
+
+DIAL_WEATHER_FUNCTION = Function(
+    name="get_weather",
+    description="Get the weather",
+    parameters={"type": "object", "properties": {}},
+)
+
+CONVERSE_WEATHER_TOOL_SPEC = ConverseToolSpec(
+    toolSpec={
+        "name": "get_weather",
+        "description": "Get the weather",
+        "inputSchema": {"json": {"properties": {}, "type": "object"}},
+    }
+)
+
 
 @dataclass
 class ExpectedException:
@@ -93,9 +127,6 @@ class TestCase:
     expected_error: ExpectedException | None = None
 
 
-default_inference_config = InferenceConfig(stopSequences=[])
-
-
 def _create_document_test_cases() -> List[TestCase]:
     return [
         TestCase(
@@ -115,7 +146,6 @@ def _create_document_test_cases() -> List[TestCase]:
                 )
             ],
             expected_output=ConverseRequestWrapper(
-                inferenceConfig=default_inference_config,
                 messages=ListProjection(
                     list=[
                         (
@@ -233,9 +263,7 @@ TEST_CASES = [
     TestCase(
         name="plain_message",
         messages=[Message(role=Role.USER, content="Hello, world!")],
-        params=ModelParameters(tool_config=None),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             messages=ListProjection(
                 list=[
                     (
@@ -255,9 +283,7 @@ TEST_CASES = [
             Message(role=Role.SYSTEM, content="You are a helpful assistant."),
             Message(role=Role.USER, content="Hello!"),
         ],
-        params=ModelParameters(tool_config=None),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             system=[ConverseTextPart(text="You are a helpful assistant.")],
             messages=ListProjection(
                 list=[
@@ -279,10 +305,9 @@ TEST_CASES = [
             Message(role=Role.USER, content="Hello!"),
             Message(role=Role.SYSTEM, content="You are a helpful assistant."),
         ],
-        params=ModelParameters(tool_config=None),
         expected_error=ExpectedException(
             type=ValidationError,
-            message="A system message can only follow another system message",
+            message="A system message can only follow system or developer message",
         ),
     ),
     TestCase(
@@ -292,13 +317,10 @@ TEST_CASES = [
             Message(role=Role.SYSTEM, content="You are also very friendly."),
             Message(role=Role.USER, content="Hello!"),
         ],
-        params=ModelParameters(tool_config=None),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             system=[
-                ConverseTextPart(
-                    text="You are a helpful assistant.\n\nYou are also very friendly."
-                ),
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
                 list=[
@@ -329,13 +351,10 @@ TEST_CASES = [
             ),
             Message(role=Role.USER, content="Hello!"),
         ],
-        params=ModelParameters(tool_config=None),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             system=[
-                ConverseTextPart(
-                    text="You are a helpful assistant.\n\nYou are also very friendly."
-                ),
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
                 list=[
@@ -345,6 +364,107 @@ TEST_CASES = [
                             content=[ConverseTextPart(text="Hello!")],
                         ),
                         {1},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="system_messages_with_cache_breakpoint",
+        messages=[
+            Message(
+                role=Role.SYSTEM,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="You are a helpful assistant."
+                    ),
+                    MessageContentTextPart(
+                        type="text", text="You are also very friendly."
+                    ),
+                ],
+                custom_fields=DIAL_MESSAGE_CACHE_POINT,
+            ),
+            Message(role=Role.USER, content="Hello!"),
+        ],
+        expected_output=ConverseRequestWrapper(
+            system=[
+                ConverseTextPart(text="You are a helpful assistant."),
+                ConverseTextPart(text="You are also very friendly."),
+                CONVERSE_CACHE_POINT_PART,
+            ],
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[ConverseTextPart(text="Hello!")],
+                        ),
+                        {1},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="user_message_with_cache_breakpoint",
+        messages=[
+            Message(
+                role=Role.USER,
+                content="hello",
+                custom_fields=DIAL_MESSAGE_CACHE_POINT,
+            ),
+        ],
+        expected_output=ConverseRequestWrapper(
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[
+                                ConverseTextPart(text="hello"),
+                                CONVERSE_CACHE_POINT_PART,
+                            ],
+                        ),
+                        {0},
+                    )
+                ]
+            ),
+        ),
+    ),
+    TestCase(
+        name="tools_with_cache_breakpoint",
+        messages=[
+            Message(role=Role.USER, content="hello"),
+        ],
+        params=ModelParameters(
+            tool_config=ToolsConfig(
+                tools=[
+                    Tool(
+                        type="function",
+                        function=DIAL_WEATHER_FUNCTION,
+                        custom_fields=DIAL_TOOL_CACHE_POINT,
+                    )
+                ],
+                tool_choice="required",
+                tool_ids=None,
+            )
+        ),
+        expected_output=ConverseRequestWrapper(
+            toolConfig={
+                "tools": [
+                    CONVERSE_WEATHER_TOOL_SPEC,
+                    CONVERSE_CACHE_POINT_PART,
+                ],
+                "toolChoice": {"any": {}},
+            },
+            messages=ListProjection(
+                list=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[ConverseTextPart(text="hello")],
+                        ),
+                        {0},
                     )
                 ]
             ),
@@ -367,7 +487,6 @@ TEST_CASES = [
             ),
             Message(role=Role.USER, content="Hello!"),
         ],
-        params=ModelParameters(tool_config=None),
         expected_error=ExpectedException(
             type=ValidationError,
             message="System messages cannot contain images",
@@ -400,32 +519,22 @@ TEST_CASES = [
         ],
         params=ModelParameters(
             tool_config=ToolsConfig(
-                functions=[
-                    Function(
-                        name="get_weather",
-                        description="Get the weather",
-                        parameters={"type": "object", "properties": {}},
+                tools=[
+                    Tool(
+                        type="function",
+                        function=DIAL_WEATHER_FUNCTION,
                     )
                 ],
-                required=True,
+                tool_choice=ToolChoice(
+                    type="function", function=FunctionChoice(name="get_weather")
+                ),
                 tool_ids=None,
             )
         ),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             toolConfig={
-                "tools": [
-                    {
-                        "toolSpec": {
-                            "name": "get_weather",
-                            "description": "Get the weather",
-                            "inputSchema": {
-                                "json": {"properties": {}, "type": "object"}
-                            },
-                        }
-                    }
-                ],
-                "toolChoice": {"any": {}},
+                "tools": [CONVERSE_WEATHER_TOOL_SPEC],
+                "toolChoice": {"tool": {"name": "get_weather"}},
             },
             messages=ListProjection(
                 list=[
@@ -488,9 +597,7 @@ TEST_CASES = [
                 ],
             )
         ],
-        params=ModelParameters(tool_config=None),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=default_inference_config,
             messages=ListProjection(
                 list=[
                     (
@@ -533,7 +640,7 @@ TEST_CASES = [
         ],
         params=ModelParameters(temperature=10),
         expected_output=ConverseRequestWrapper(
-            inferenceConfig=InferenceConfig(temperature=10, stopSequences=[]),
+            inferenceConfig=InferenceConfig(temperature=10),
             messages=ListProjection(
                 list=[
                     (
@@ -569,12 +676,10 @@ TEST_CASES = [
 @pytest.mark.parametrize(
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
-async def test_converse_adapter(
-    test_case: TestCase,
-):
+async def test_converse_adapter(test_case: TestCase):
     adapter = ConverseAdapter(
         deployment="test",
-        bedrock=await Bedrock.acreate(AWSClientConfig(region="us-east-1")),
+        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
         tokenize_text=lambda x: len(x),
         input_tokenizer_factory=_input_tokenizer_factory,  # type: ignore
         support_tools=True,

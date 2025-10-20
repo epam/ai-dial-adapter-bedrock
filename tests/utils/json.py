@@ -2,7 +2,7 @@ import re
 from typing import Any
 
 
-def match_objects(expected: Any, actual: Any) -> None:
+def match_objects(expected: Any, actual: Any) -> bool:
     if isinstance(expected, dict):
         assert list(sorted(expected.keys())) == list(sorted(actual.keys()))
         for k, v in expected.items():
@@ -18,8 +18,8 @@ def match_objects(expected: Any, actual: Any) -> None:
     elif callable(expected):
         assert expected(actual)
     elif isinstance(expected, re.Pattern) and isinstance(actual, str):
-        assert expected.match(
-            actual
-        ), f"Expected {expected!r}, actual {actual!r}"
+        assert expected.match(actual)
     else:
-        assert expected == actual, f"Expected {expected!r}, actual {actual!r}"
+        assert expected == actual
+
+    return True

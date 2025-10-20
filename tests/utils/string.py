@@ -1,12 +1,6 @@
 from typing import List
 
 
-def remove_prefix(prefix: str, string: str) -> str:
-    if string.startswith(prefix):
-        return string[len(prefix) :]
-    return string
-
-
 def stop_at(stop_sequences: List[str], string: str) -> str:
     min_index = len(string)
     for stop_sequence in stop_sequences:
