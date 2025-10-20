@@ -4,7 +4,7 @@ from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
-from anthropic import NOT_GIVEN, AsyncAnthropic, AsyncAnthropicBedrock, NotGiven
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock, Omit, omit
 from anthropic._resource import AsyncAPIResource
 from anthropic.lib.streaming import (
     BetaContentBlockStopEvent as ContentBlockStopEvent,
@@ -221,8 +221,8 @@ class Adapter(ChatCompletionAdapter):
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        tools = NOT_GIVEN
-        tool_choice: ToolChoice | NotGiven = NOT_GIVEN
+        tools = omit
+        tool_choice: ToolChoice | Omit = omit
         if (tool_config := params.tool_config) is not None:
             tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
@@ -253,22 +253,22 @@ class Adapter(ChatCompletionAdapter):
             parsed_messages, self.storage
         )
 
-        thinking: ThinkingConfigParam | NotGiven = NOT_GIVEN
+        thinking: ThinkingConfigParam | Omit = omit
         if (
             isinstance(configuration, ThinkingConfiguration)
             and configuration.thinking is not None
         ):
             thinking = configuration.thinking.to_claude()
 
-        temperature = NOT_GIVEN
+        temperature = omit
         if params.temperature is not None:
             # Mapping OpenAI temp [0,2] range to Anthropic temp [0,1] range
             temperature = params.temperature / 2
 
-        if not isinstance(thinking, NotGiven) and thinking["type"] == "enabled":
+        if not isinstance(thinking, Omit) and thinking["type"] == "enabled":
             # Thinking isn’t compatible with temperature, top_p, or top_k
             # modifications as well as forced tool use.
-            temperature = NOT_GIVEN
+            temperature = omit
 
         if (max_tokens := params.max_tokens) is None:
             max_tokens = CLAUDE_DEFAULT_MAX_TOKENS
@@ -276,13 +276,13 @@ class Adapter(ChatCompletionAdapter):
         claude_params = ClaudeParameters(
             max_tokens=max_tokens,
             stop_sequences=params.stop,
-            system=system_prompt or NOT_GIVEN,
+            system=system_prompt or omit,
             temperature=temperature,
-            top_p=params.top_p or NOT_GIVEN,
+            top_p=params.top_p or omit,
             tools=tools,
             tool_choice=tool_choice,
             thinking=thinking,
-            betas=configuration.betas or NOT_GIVEN,
+            betas=configuration.betas or omit,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
