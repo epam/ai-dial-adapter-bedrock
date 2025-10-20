@@ -26,7 +26,7 @@ package-mode = false
 boto3 = "1.37.24"
 botocore = "1.37.24"
 aidial-sdk = { version = "0.23.0", extras = ["telemetry"] }
-anthropic = { version = "0.69.0", extras = ["bedrock"] }
+anthropic = { version = "0.71.0", extras = ["bedrock"] }
 # Only for the tokenizer for Claude v1/v2 models
 anthropic_bedrock = "0.8.0"
 fastapi = "0.116.1"
