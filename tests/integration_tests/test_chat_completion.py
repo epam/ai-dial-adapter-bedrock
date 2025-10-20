@@ -53,6 +53,8 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -88,7 +90,7 @@ def is_retired_model(deployment: D) -> bool:
     }
 
 
-def is_claude_3_or_4(deployment: D) -> bool:
+def is_claude(deployment: D) -> bool:
     return deployment in [
         D.ANTHROPIC_CLAUDE_V3_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
@@ -99,6 +101,8 @@ def is_claude_3_or_4(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
     ]
 
 
@@ -109,7 +113,7 @@ def is_vision_model(deployment: D) -> bool:
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
     ] or (
-        is_claude_3_or_4(deployment)
+        is_claude(deployment)
         # Claude 3.5 Haiku was launched as a text-only model
         # https://assets.anthropic.com/m/61e7d27f8c8f5919/original/Claude-3-Model-Card.pdf
         and deployment != D.ANTHROPIC_CLAUDE_V3_5_HAIKU
@@ -130,7 +134,7 @@ vision_deployments_not_llama3_2_90b = select(
 
 
 def supports_tools(deployment: D) -> bool:
-    return is_claude_3_or_4(deployment) or deployment in [
+    return is_claude(deployment) or deployment in [
         D.META_LLAMA3_1_70B_INSTRUCT_V1,
         D.META_LLAMA3_1_405B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
@@ -153,7 +157,7 @@ def supports_tools(deployment: D) -> bool:
 
 
 def supports_forced_tool_choice(deployment: D) -> bool:
-    return supports_tools(deployment) and is_claude_3_or_4(deployment)
+    return supports_tools(deployment) and is_claude(deployment)
 
 
 def supports_parallel_tool_calls(deployment: D) -> bool:
@@ -162,6 +166,8 @@ def supports_parallel_tool_calls(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V3_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.META_LLAMA3_3_70B_INSTRUCT_V1,
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AMAZON_NOVA_MICRO,
@@ -407,7 +413,7 @@ async def test_empty_user_message(
 ):
     origin = deployment.origin
 
-    if is_claude_3_or_4(origin) and not optimized_latency:
+    if is_claude(origin) and not optimized_latency:
         if is_empty:
             message = "messages: text content blocks must be non-empty"
         else:
@@ -420,7 +426,7 @@ async def test_empty_user_message(
         is_deepseek(origin)
         or is_ai21(origin)
         or is_cohere_command_plus(origin)
-        or (is_claude_3_or_4(origin) and optimized_latency)
+        or (is_claude(origin) and optimized_latency)
     ):
         message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
     else:
@@ -586,7 +592,7 @@ async def test_tool_choice_none(
         and not optimized_latency
     ):
         exc = None
-    elif is_claude_3_or_4(origin) and not optimized_latency:
+    elif is_claude(origin) and not optimized_latency:
         exc = ExpectedException(
             type=BadRequestError,
             message="(none is not a valid enum value, please reformat your input and try again|tool_choice: Input tag 'none' found using 'type' does not match any of the expected tags)",
