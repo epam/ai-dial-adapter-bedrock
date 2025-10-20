@@ -441,7 +441,7 @@ class Adapter(ChatCompletionAdapter):
                                 | WebFetchToolResultBlock()
                             ):
                                 log.error(
-                                    f"Content block of type {content_block.type} isn't yet supported"
+                                    f"Content block of type {content_block.type} isn't supported"
                                 )
                             case _:
                                 assert_never(content_block)
@@ -522,7 +522,7 @@ class Adapter(ChatCompletionAdapter):
                     | WebFetchToolResultBlock()
                 ):
                     log.error(
-                        f"Content block of type {content} isn't yet supported"
+                        f"Content block of type {content} isn't supported"
                     )
                 case _:
                     assert_never(content)
