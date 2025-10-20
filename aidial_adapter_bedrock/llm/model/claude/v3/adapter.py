@@ -38,6 +38,7 @@ from anthropic.types.beta import BetaRawMessageStartEvent as MessageStartEvent
 from anthropic.types.beta import (
     BetaRedactedThinkingBlock as RedactedThinkingBlock,
 )
+from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
 from anthropic.types.beta import BetaTextBlock as TextBlock
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
@@ -47,6 +48,9 @@ from anthropic.types.beta import BetaToolChoiceNoneParam as ToolChoiceNoneParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
+from anthropic.types.beta import (
+    BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
+)
 from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
@@ -400,16 +404,23 @@ class Adapter(ChatCompletionAdapter):
 
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
-                            case ToolUseBlock():
-                                # Tool Use is processed in ContentBlockStartEvent and InputJsonEvent handlers
-                                pass
                             case TextBlock():
                                 # Already handled in TextEvent
                                 pass
-                            case ThinkingBlock():
+                            case ToolUseBlock():
+                                # Tool Use is processed in ContentBlockStartEvent and InputJsonEvent handlers
                                 pass
-                            case RedactedThinkingBlock():
+                            case ThinkingBlock() | RedactedThinkingBlock():
                                 pass
+                            case ServerToolUseBlock():
+                                log.error(
+                                    "ServerToolUseBlock isn't yet supported"
+                                )
+                            case WebSearchToolResultBlock():
+                                log.error(
+                                    "WebSearchToolResultBlock isn't yet supported"
+                                )
+
                             case _:
                                 assert_never(content_block)
 
@@ -477,6 +488,10 @@ class Adapter(ChatCompletionAdapter):
                         stage.append_content(thinking)
                 case RedactedThinkingBlock():
                     pass
+                case ServerToolUseBlock():
+                    log.error("ServerToolUseBlock isn't yet supported")
+                case WebSearchToolResultBlock():
+                    log.error("WebSearchToolResultBlock isn't yet supported")
                 case _:
                     assert_never(content)
 

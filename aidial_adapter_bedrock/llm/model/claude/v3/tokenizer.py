@@ -41,35 +41,37 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
+from anthropic.types.beta import BetaBase64PDFBlockParam as DocumentBlockParam
 from anthropic.types.beta import BetaContentBlock as ContentBlock
 from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
 from anthropic.types.beta import BetaMessageParam as ClaudeMessage
+from anthropic.types.beta import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta import (
+    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
+)
+from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
+from anthropic.types.beta import (
+    BetaServerToolUseBlockParam as ServerToolUseBlockParam,
+)
+from anthropic.types.beta import BetaTextBlock as TextBlock
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
+from anthropic.types.beta import BetaThinkingBlockParam as ThinkingBlockParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
     BetaToolResultBlockParam as ToolResultBlockParam,
 )
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
-from anthropic.types.beta.beta_base64_pdf_block_param import (
-    BetaBase64PDFBlockParam as DocumentBlockParam,
+from anthropic.types.beta import (
+    BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaWebSearchToolResultBlockParam as WebSearchToolResultBlockParam,
 )
 from anthropic.types.beta.beta_image_block_param import Source
-from anthropic.types.beta.beta_redacted_thinking_block import (
-    BetaRedactedThinkingBlock as RedactedThinkingBlock,
-)
-from anthropic.types.beta.beta_redacted_thinking_block_param import (
-    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
-)
-from anthropic.types.beta.beta_text_block import BetaTextBlock as TextBlock
-from anthropic.types.beta.beta_thinking_block import (
-    BetaThinkingBlock as ThinkingBlock,
-)
-from anthropic.types.beta.beta_thinking_block_param import (
-    BetaThinkingBlockParam as ThinkingBlockParam,
-)
-from anthropic.types.beta.beta_tool_use_block import (
-    BetaToolUseBlock as ToolUseBlock,
-)
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
@@ -133,6 +135,8 @@ def _tokenize_sub_message(
         DocumentBlockParam,
         ThinkingBlockParam,
         RedactedThinkingBlockParam,
+        ServerToolUseBlockParam,
+        WebSearchToolResultBlockParam,
         ContentBlock,
     ],
 ) -> int:
@@ -154,6 +158,10 @@ def _tokenize_sub_message(
                 return tokenize_text(message["thinking"])
             case "redacted_thinking":
                 return tokenize_text(message["data"])
+            case "server_tool_use":
+                return tokenize_text(json.dumps(message["input"]))
+            case "web_search_tool_result":
+                return tokenize_text(json.dumps(message["content"]))
             case _:
                 assert_never(message["type"])
     else:
@@ -168,6 +176,10 @@ def _tokenize_sub_message(
                 return tokenize_text(thinking)
             case RedactedThinkingBlock(data=data):
                 return tokenize_text(data)
+            case ServerToolUseBlock(input=input):
+                return tokenize_text(json.dumps(input))
+            case WebSearchToolResultBlock(content=content):
+                return tokenize_text(json.dumps(content))
             case _:
                 assert_never(message)
 
