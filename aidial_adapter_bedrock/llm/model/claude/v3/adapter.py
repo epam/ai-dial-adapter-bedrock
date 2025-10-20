@@ -25,6 +25,14 @@ from anthropic.lib.streaming._beta_types import (
 )
 from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
 from anthropic.types.anthropic_beta_param import AnthropicBetaParam
+from anthropic.types.beta import (
+    BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaContainerUploadBlock as ContainerUploadBlock,
+)
+from anthropic.types.beta import BetaMCPToolResultBlock as MCPToolResultBlock
+from anthropic.types.beta import BetaMCPToolUseBlock as MCPToolUseBlock
 from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
 from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
 from anthropic.types.beta import (
@@ -420,7 +428,13 @@ class Adapter(ChatCompletionAdapter):
                                 log.error(
                                     "WebSearchToolResultBlock isn't yet supported"
                                 )
-
+                            case (
+                                CodeExecutionToolResultBlock()
+                                | MCPToolUseBlock()
+                                | MCPToolResultBlock()
+                                | ContainerUploadBlock()
+                            ):
+                                pass
                             case _:
                                 assert_never(content_block)
 
@@ -492,6 +506,13 @@ class Adapter(ChatCompletionAdapter):
                     log.error("ServerToolUseBlock isn't yet supported")
                 case WebSearchToolResultBlock():
                     log.error("WebSearchToolResultBlock isn't yet supported")
+                case (
+                    CodeExecutionToolResultBlock()
+                    | MCPToolUseBlock()
+                    | MCPToolResultBlock()
+                    | ContainerUploadBlock()
+                ):
+                    pass
                 case _:
                     assert_never(content)
 

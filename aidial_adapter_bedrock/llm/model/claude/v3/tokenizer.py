@@ -41,35 +41,30 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
-from anthropic.types.beta import BetaBase64PDFBlockParam as DocumentBlockParam
+from anthropic.types.beta import (
+    BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaContainerUploadBlock as ContainerUploadBlock,
+)
 from anthropic.types.beta import BetaContentBlock as ContentBlock
-from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
+from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
+from anthropic.types.beta import BetaMCPToolResultBlock as MCPToolResultBlock
+from anthropic.types.beta import BetaMCPToolUseBlock as MCPToolUseBlock
 from anthropic.types.beta import BetaMessageParam as ClaudeMessage
 from anthropic.types.beta import (
     BetaRedactedThinkingBlock as RedactedThinkingBlock,
 )
-from anthropic.types.beta import (
-    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
-)
 from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
-from anthropic.types.beta import (
-    BetaServerToolUseBlockParam as ServerToolUseBlockParam,
-)
 from anthropic.types.beta import BetaTextBlock as TextBlock
-from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
-from anthropic.types.beta import BetaThinkingBlockParam as ThinkingBlockParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
     BetaToolResultBlockParam as ToolResultBlockParam,
 )
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
-from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
 from anthropic.types.beta import (
     BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
-)
-from anthropic.types.beta import (
-    BetaWebSearchToolResultBlockParam as WebSearchToolResultBlockParam,
 )
 from anthropic.types.beta.beta_image_block_param import Source
 from PIL import Image
@@ -102,7 +97,7 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
 
 def _tokenize_image(source: Source) -> int:
     match source["type"]:
-        case "url":
+        case "url" | "file":
             return 0
         case "base64":
             width, height = _get_image_size(source["data"])
@@ -127,18 +122,7 @@ def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
 
 
 def _tokenize_sub_message(
-    message: Union[
-        TextBlockParam,
-        ImageBlockParam,
-        ToolUseBlockParam,
-        ToolResultBlockParam,
-        DocumentBlockParam,
-        ThinkingBlockParam,
-        RedactedThinkingBlockParam,
-        ServerToolUseBlockParam,
-        WebSearchToolResultBlockParam,
-        ContentBlock,
-    ],
+    message: Union[ContentBlockParam, ContentBlock],
 ) -> int:
     if isinstance(message, dict):
         match message["type"]:
@@ -162,6 +146,14 @@ def _tokenize_sub_message(
                 return tokenize_text(json.dumps(message["input"]))
             case "web_search_tool_result":
                 return tokenize_text(json.dumps(message["content"]))
+            case (
+                "search_result"
+                | "code_execution_tool_result"
+                | "mcp_tool_use"
+                | "mcp_tool_result"
+                | "container_upload"
+            ):
+                return 0
             case _:
                 assert_never(message["type"])
     else:
@@ -180,6 +172,13 @@ def _tokenize_sub_message(
                 return tokenize_text(json.dumps(input))
             case WebSearchToolResultBlock(content=content):
                 return tokenize_text(json.dumps(content))
+            case (
+                CodeExecutionToolResultBlock()
+                | MCPToolUseBlock()
+                | MCPToolResultBlock()
+                | ContainerUploadBlock()
+            ):
+                return 0
             case _:
                 assert_never(message)
 
