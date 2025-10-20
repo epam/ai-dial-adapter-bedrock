@@ -148,7 +148,8 @@ def _add_cache_control(
     if message.cache_breakpoint is not None:
         for block in reversed(list(claude_content)):
             if (
-                block["type"] != "thinking"
+                isinstance(block, dict)
+                and block["type"] != "thinking"
                 and block["type"] != "redacted_thinking"
             ):
                 block["cache_control"] = _claude_cache_breakpoint

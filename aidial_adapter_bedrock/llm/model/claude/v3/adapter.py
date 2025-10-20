@@ -63,6 +63,9 @@ from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from anthropic.types.beta import (
+    BetaWebFetchToolResultBlock as WebFetchToolResultBlock,
+)
+from anthropic.types.beta import (
     BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
 )
 from pydantic import Field
@@ -435,6 +438,7 @@ class Adapter(ChatCompletionAdapter):
                                 | ContainerUploadBlock()
                                 | BashCodeExecutionToolResultBlock()
                                 | TextEditorCodeExecutionToolResultBlock()
+                                | WebFetchToolResultBlock()
                             ):
                                 log.error(
                                     f"Content block of type {content_block.type} isn't yet supported"
@@ -515,6 +519,7 @@ class Adapter(ChatCompletionAdapter):
                     | ContainerUploadBlock()
                     | BashCodeExecutionToolResultBlock()
                     | TextEditorCodeExecutionToolResultBlock()
+                    | WebFetchToolResultBlock()
                 ):
                     log.error(
                         f"Content block of type {content} isn't yet supported"

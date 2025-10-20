@@ -70,6 +70,9 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from anthropic.types.beta import (
+    BetaWebFetchToolResultBlock as WebFetchToolResultBlock,
+)
+from anthropic.types.beta import (
     BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
 )
 from anthropic.types.beta.beta_image_block_param import Source
@@ -160,6 +163,7 @@ def _tokenize_sub_message(
                 | "container_upload"
                 | "bash_code_execution_tool_result"
                 | "text_editor_code_execution_tool_result"
+                | "web_fetch_tool_result"
             ):
                 return 0
             case _:
@@ -187,6 +191,7 @@ def _tokenize_sub_message(
                 | ContainerUploadBlock()
                 | BashCodeExecutionToolResultBlock()
                 | TextEditorCodeExecutionToolResultBlock()
+                | WebFetchToolResultBlock()
             ):
                 return 0
             case _:
