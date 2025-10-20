@@ -42,6 +42,9 @@ from typing import (
 
 from anthropic._types import Base64FileInput
 from anthropic.types.beta import (
+    BetaBashCodeExecutionToolResultBlock as BashCodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
     BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
 )
 from anthropic.types.beta import (
@@ -57,6 +60,9 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
 from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import (
+    BetaTextEditorCodeExecutionToolResultBlock as TextEditorCodeExecutionToolResultBlock,
+)
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
@@ -152,6 +158,8 @@ def _tokenize_sub_message(
                 | "mcp_tool_use"
                 | "mcp_tool_result"
                 | "container_upload"
+                | "bash_code_execution_tool_result"
+                | "text_editor_code_execution_tool_result"
             ):
                 return 0
             case _:
@@ -177,6 +185,8 @@ def _tokenize_sub_message(
                 | MCPToolUseBlock()
                 | MCPToolResultBlock()
                 | ContainerUploadBlock()
+                | BashCodeExecutionToolResultBlock()
+                | TextEditorCodeExecutionToolResultBlock()
             ):
                 return 0
             case _:

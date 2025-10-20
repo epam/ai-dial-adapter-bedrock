@@ -26,6 +26,9 @@ from anthropic.lib.streaming._beta_types import (
 from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
 from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 from anthropic.types.beta import (
+    BetaBashCodeExecutionToolResultBlock as BashCodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
     BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
 )
 from anthropic.types.beta import (
@@ -48,6 +51,9 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
 from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import (
+    BetaTextEditorCodeExecutionToolResultBlock as TextEditorCodeExecutionToolResultBlock,
+)
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
 from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
@@ -420,21 +426,19 @@ class Adapter(ChatCompletionAdapter):
                                 pass
                             case ThinkingBlock() | RedactedThinkingBlock():
                                 pass
-                            case ServerToolUseBlock():
-                                log.error(
-                                    "ServerToolUseBlock isn't yet supported"
-                                )
-                            case WebSearchToolResultBlock():
-                                log.error(
-                                    "WebSearchToolResultBlock isn't yet supported"
-                                )
                             case (
-                                CodeExecutionToolResultBlock()
+                                ServerToolUseBlock()
+                                | WebSearchToolResultBlock()
+                                | CodeExecutionToolResultBlock()
                                 | MCPToolUseBlock()
                                 | MCPToolResultBlock()
                                 | ContainerUploadBlock()
+                                | BashCodeExecutionToolResultBlock()
+                                | TextEditorCodeExecutionToolResultBlock()
                             ):
-                                pass
+                                log.error(
+                                    f"Content block of type {content_block.type} isn't yet supported"
+                                )
                             case _:
                                 assert_never(content_block)
 
@@ -502,17 +506,19 @@ class Adapter(ChatCompletionAdapter):
                         stage.append_content(thinking)
                 case RedactedThinkingBlock():
                     pass
-                case ServerToolUseBlock():
-                    log.error("ServerToolUseBlock isn't yet supported")
-                case WebSearchToolResultBlock():
-                    log.error("WebSearchToolResultBlock isn't yet supported")
                 case (
-                    CodeExecutionToolResultBlock()
+                    ServerToolUseBlock()
+                    | WebSearchToolResultBlock()
+                    | CodeExecutionToolResultBlock()
                     | MCPToolUseBlock()
                     | MCPToolResultBlock()
                     | ContainerUploadBlock()
+                    | BashCodeExecutionToolResultBlock()
+                    | TextEditorCodeExecutionToolResultBlock()
                 ):
-                    pass
+                    log.error(
+                        f"Content block of type {content} isn't yet supported"
+                    )
                 case _:
                     assert_never(content)
 
