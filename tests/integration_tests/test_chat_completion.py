@@ -53,6 +53,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
@@ -75,6 +76,9 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_DIFFUSION_XL: _WEST,
     D.STABILITY_STABLE_DIFFUSION_XL_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_CORE_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
+    D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1: _WEST,
 }
 
 
@@ -87,6 +91,9 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_ULTRA_V1,
         D.STABILITY_STABLE_DIFFUSION_XL,
         D.STABILITY_STABLE_DIFFUSION_XL_V1,
+        D.STABILITY_STABLE_IMAGE_CORE_V1,
+        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
     }
 
 
@@ -101,6 +108,7 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
     ]
@@ -359,7 +367,7 @@ async def test_text_content_parts_in_assistant_message(
                     {"type": "text", "text": "13"},
                 ]
             ),
-            user("compute (11+22). Reply with a number."),
+            user("compute (11+22). Reply with a single number."),
         ],
         max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
     )
@@ -586,6 +594,7 @@ async def test_tool_choice_none(
         origin
         in [
             D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         ]

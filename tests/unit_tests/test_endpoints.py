@@ -26,6 +26,7 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.ANTHROPIC_CLAUDE_V3_7_SONNET, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_SONNET, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_OPUS, True, True, True),
+    (D.ANTHROPIC_CLAUDE_V4_1_OPUS, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_5_HAIKU, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_5_SONNET, True, True, True),
     (D.STABILITY_STABLE_DIFFUSION_XL, False, True, False),
