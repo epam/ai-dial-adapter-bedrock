@@ -7,7 +7,11 @@ from openai import AsyncAzureOpenAI, BadRequestError, UnprocessableEntityError
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
-from tests.integration_tests.constants import DOG_PICTURE, DOG_PICTURE_CONTENT
+from tests.integration_tests.constants import (
+    DOG_PICTURE,
+    DOG_PICTURE_CONTENT,
+    PDF_DOCUMENT_RESOURCE,
+)
 from tests.unit_tests.test_configuration import (
     deployments_supporting_optimized_latency,
 )
@@ -172,6 +176,15 @@ def supports_parallel_tool_calls(deployment: D) -> bool:
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AMAZON_NOVA_MICRO,
     ] and supports_tools(deployment)
+
+
+def supports_document_understanding(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+    ]
 
 
 def is_llama3(deployment: D) -> bool:
@@ -772,3 +785,45 @@ async def test_tool_response(
 
     for temp in test.city_temps:
         assert str(temp) in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_document_understanding), deployments),
+    ids=display_deployment,
+)
+async def test_pdf_document_understanding(chat: Chat):
+    query = (
+        "From which novel does the first page of the attached document quote? "
+        "Which animal is depicted on the second page?"
+    )
+
+    response = await chat(
+        messages=[
+            user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE),
+        ],
+    )
+
+    for w in ["christmas", "carol", "cat"]:
+        assert w in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_document_understanding), deployments),
+    ids=display_deployment,
+)
+async def test_unsupported_document_type(chat: Chat):
+    async with expected_exception(
+        cls=openai.NotFoundError,
+        status_code=422,
+        message="what1",
+        display_message="what2",
+    ):
+        await chat(
+            messages=[
+                user_with_attachment_url(
+                    "what is this document about?", PDF_DOCUMENT_RESOURCE
+                ),
+            ],
+        )

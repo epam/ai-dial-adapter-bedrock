@@ -13,6 +13,15 @@ DOG_PICTURE = Resource(
 
 DOG_PICTURE_CONTENT = ["dog"]
 
+PDF_DOCUMENT_RESOURCE = Resource(
+    type="application/pdf", data=Path("tests/assets/doc.pdf").read_bytes()
+)
+
+UNSUPPORTED_DOCUMENT_RESOURCE = Resource(
+    type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    data=Path("tests/assets/table.xlsx").read_bytes(),
+)
+
 SAMPLE_DOCUMENT_RESOURCE = Resource.from_base64(
     type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",

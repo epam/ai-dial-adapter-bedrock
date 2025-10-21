@@ -70,10 +70,8 @@ from anthropic.types.beta import (
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
-from aidial_adapter_bedrock.deployments import (
-    ChatCompletionDeployment,
-    ClaudeDeployment,
-)
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
+from aidial_adapter_bedrock.deployments import ClaudeDeployment
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters as DialParameters,
 )
@@ -181,9 +179,9 @@ class Adapter(ChatCompletionAdapter):
     @property
     def supports_thinking(self) -> bool:
         return self.deployment.reference_deployment_id in {
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_SONNET,
         }
 
     async def configuration(self) -> Type[ClaudeConfiguration]:
@@ -195,10 +193,10 @@ class Adapter(ChatCompletionAdapter):
     def attachment_processors(self) -> AttachmentProcessors:
         # Document support: https://docs.anthropic.com/en/docs/build-with-claude/pdf-support#supported-platforms-and-models
         supports_documents = self.deployment.reference_deployment_id in {
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
-            ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+            D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+            D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         }
 
         return AttachmentProcessors(
