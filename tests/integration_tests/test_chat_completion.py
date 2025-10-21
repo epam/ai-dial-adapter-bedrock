@@ -417,24 +417,21 @@ async def test_empty_dialog(chat: Chat):
     "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
 )
 async def test_empty_user_message(
-    deployment: Deployment, optimized_latency: bool, is_empty: bool, chat: Chat
+    deployment: Deployment, is_empty: bool, chat: Chat
 ):
     origin = deployment.origin
 
-    if is_claude(origin) and not optimized_latency:
-        if is_empty:
-            message = "messages: text content blocks must be non-empty"
-        else:
-            message = (
-                "messages: text content blocks must contain non-whitespace text"
-            )
+    if is_claude(origin) and not is_empty:
+        message = (
+            "messages: text content blocks must contain non-whitespace text"
+        )
     elif is_llama3(origin) or is_nova(origin):
         message = "Add text to the text field, and try again."
     elif (
         is_deepseek(origin)
         or is_ai21(origin)
         or is_cohere_command_plus(origin)
-        or (is_claude(origin) and optimized_latency)
+        or is_claude(origin)
     ):
         message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
     else:
