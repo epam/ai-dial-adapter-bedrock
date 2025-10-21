@@ -615,6 +615,8 @@ async def test_tool_choice_none(
             D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         ]
         and not optimized_latency
     ):
