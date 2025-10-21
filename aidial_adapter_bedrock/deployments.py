@@ -19,10 +19,6 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     AI21_JAMBA_1_5_LARGE_V1 = "ai21.jamba-1-5-large-v1:0"
     AI21_JAMBA_1_5_MINI_V1 = "ai21.jamba-1-5-mini-v1:0"
 
-    ANTHROPIC_CLAUDE_INSTANT_V1 = "anthropic.claude-instant-v1"
-    ANTHROPIC_CLAUDE_V2 = "anthropic.claude-v2"
-    ANTHROPIC_CLAUDE_V2_1 = "anthropic.claude-v2:1"
-
     ANTHROPIC_CLAUDE_V3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
     ANTHROPIC_CLAUDE_V3_5_SONNET_V2 = (
@@ -34,6 +30,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     ANTHROPIC_CLAUDE_V3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
     ANTHROPIC_CLAUDE_V4_OPUS = "anthropic.claude-opus-4-20250514-v1:0"
     ANTHROPIC_CLAUDE_V4_SONNET = "anthropic.claude-sonnet-4-20250514-v1:0"
+    ANTHROPIC_CLAUDE_V4_5_HAIKU = "anthropic.claude-haiku-4-5-20251001-v1:0"
+    ANTHROPIC_CLAUDE_V4_5_SONNET = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 
     STABILITY_STABLE_DIFFUSION_XL = "stability.stable-diffusion-xl"
     STABILITY_STABLE_DIFFUSION_XL_V1 = "stability.stable-diffusion-xl-v1"
@@ -54,8 +52,6 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     META_LLAMA3_2_90B_INSTRUCT_V1 = "meta.llama3-2-90b-instruct-v1:0"
     META_LLAMA3_3_70B_INSTRUCT_V1 = "meta.llama3-3-70b-instruct-v1:0"
 
-    COHERE_COMMAND_TEXT_V14 = "cohere.command-text-v14"
-    COHERE_COMMAND_LIGHT_TEXT_V14 = "cohere.command-light-text-v14"
     COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
     COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 
@@ -68,7 +64,7 @@ CHAT_COMPLETION_REDIRECTS = {
 }
 
 
-Claude3Deployment = Literal[
+ClaudeDeployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
@@ -78,6 +74,8 @@ Claude3Deployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU,
 ]
 
 

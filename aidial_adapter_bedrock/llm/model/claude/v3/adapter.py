@@ -53,7 +53,7 @@ from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
-    Claude3Deployment,
+    ClaudeDeployment,
 )
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters as DialParameters,
@@ -131,7 +131,7 @@ class ClaudeRequest:
 
 
 async def create_adapter(
-    deployment: AdapterDeployment[Claude3Deployment],
+    deployment: AdapterDeployment[ClaudeDeployment],
     api_key: str,
     upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
@@ -174,7 +174,7 @@ Configuration = BetaConfiguration | ThinkingConfiguration
 
 
 class Adapter(ChatCompletionAdapter):
-    deployment: AdapterDeployment[Claude3Deployment]
+    deployment: AdapterDeployment[ClaudeDeployment]
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock | AsyncAnthropic
 
@@ -495,7 +495,7 @@ class Adapter(ChatCompletionAdapter):
     @classmethod
     async def create(
         cls,
-        deployment: AdapterDeployment[Claude3Deployment],
+        deployment: AdapterDeployment[ClaudeDeployment],
         api_key: str,
         upstream_config: UpstreamConfig,
     ):

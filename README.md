@@ -12,6 +12,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
+|Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3.7 Sonnet|anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -22,9 +24,6 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
-|Anthropic|Claude 2.1|anthropic.claude-v2:1|text-to-text|✅|✅|✅|❌|Bedrock API|
-|Anthropic|Claude 2|anthropic.claude-v2|text-to-text|✅|✅|❌|❌|Bedrock API|
-|Anthropic|Claude Instant 1.2|anthropic.claude-instant-v1|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.2 90B Instruct|meta.llama3-2-90b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.2 11B Instruct|meta.llama3-2-11b-instruct-v1:0|(text/image)-to-text|🟡|🟡|❌|✅|Converse API|
@@ -48,8 +47,6 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |AI21 Labs|Jamba 1.5 Mini|ai21.jamba-1-5-mini-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
-|Cohere|Command|cohere.command-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
-|Cohere|Command Light|cohere.command-light-text-v14|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 
 ✅, 🟡, and ❌ denote degrees of support of the given feature:
 
@@ -387,7 +384,7 @@ The requests will be processed by the same pipeline as `anthropic.claude-3-5-son
 Naturally, this will only work if the APIs of v2 and v3 deployments are compatible:
 
 1. The requests utilizing the modalities supported by both v2 and v3 will work just fine.
-2. However, the requests with modalities that are supported by v3 *(e.g. audio)* and aren't supported by v2, won't be processed correctly. You will have to wait until the Adapter supports the v3 deployment natively.
+2. However, the requests with modalities that are supported by v3 _(e.g. audio)_ and aren't supported by v2, won't be processed correctly. You will have to wait until the Adapter supports the v3 deployment natively.
 
 When a version of the Adapter supporting the v3 model is released, you may migrate to it and safely remove the entry from the `COMPATIBILITY_MAPPING` dictionary.
 
@@ -453,35 +450,41 @@ Authentication with AWS Bedrock is configured either:
 
 ### Anthropic API
 
-Claude>=3 deployments could be accessed via API key. The API keys should be configured per-upstream in the DIAL Core config:
+The adapter supports authentication with Anthropic API for Claude deployments.
 
-```json
-{
-  "models": {
-    "claude-3-5-sonnet-20241022": {
-      "endpoint": "...",
-      "upstreams": [
-        {
-          "key": "anthropic-api-key"
-        }
-      ]
+1. Choose one of the **Claude API** model names from [the official documentation](https://docs.claude.com/en/docs/about-claude/models/overview#model-names). Let's call it `CLAUDE_API_MODEL_NAME`.
+2. Find which **AWS Bedrock** model name corresponds to the chosen **Claude API** model name on the same documentation page. Let's call it `AWS_BEDROCK_MODEL_NAME`.
+3. Add the Claude deployment to the DIAL Core configuration with API key configured on a per upstream basis:
+
+  ```json
+  {
+    "models": {
+      "dial-claude-deployment-name": {
+        "endpoint": "${ADAPTER_ORIGIN}/deployments/${CLAUDE_API_MODEL_NAME}/chat/completions",
+        "upstreams": [
+          {
+            "key": "${ANTHROPIC_API_KEY}"
+          }
+        ]
+      }
     }
   }
-}
-```
+  ```
 
-Keep in mind that the same Anthropic models have [different identifiers](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in Anthropic API and AWS Bedrock.
+  Note that there is no need to configure the upstream endpoint, since there is only one endpoint for the model inference in the Anthropic API and it will be used by default: `https://api.anthropic.com/v1/messages`.
 
-E.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` in AWS Bedrock corresponds to `claude-3-5-sonnet-20241022` in Anthropic API.
+4. Declare the following [compatibility mapping](#compatibility-mode) in the Bedrock adapter environment:
 
-The adapter uses deployment identifiers from **AWS Bedrock**.
-Therefore, in order to use Anthropic API model you need to map its identifier to a corresponding identifier in AWS Bedrock using the [compatibility mapping](#compatibility-mode):
+  ```ini
+  COMPATIBILITY_MAPPING={"${CLAUDE_API_MODEL_NAME}":"${AWS_BEDROCK_MODEL_NAME}"}
+  ```
 
-```ini
-COMPATIBILITY_MAPPING={"claude-3-5-sonnet-20241022":"anthropic.claude-3-5-sonnet-20241022-v2:0"}
-```
+  The compatibility mapping is required, because the same Anthropic models have [different model names](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in **Claude API** and **AWS Bedrock**. For example:
 
-Otherwise, the adapter will return 404 on requests to `claude-3-5-sonnet-20241022`.
+  1. `claude-sonnet-4-5-20250929` _(`${CLAUDE_API_MODEL_NAME}`)_ in **Claude API** corresponds to
+  2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
+
+  The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to map it to a corresponding name from **AWS Bedrock** in the [compatibility mapping](#compatibility-mode). The adapter returns 404 when such a mapping is missing.
 
 ## Run
 
