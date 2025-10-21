@@ -26,6 +26,7 @@ from anthropic.types.beta import BetaContentBlock as ContentBlock
 from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
 from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
 from anthropic.types.beta import BetaMessageParam as MessageParam
+from anthropic.types.beta import BetaStopReason as ClaudeStopReason
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
@@ -147,7 +148,8 @@ def _add_cache_control(
     if message.cache_breakpoint is not None:
         for block in reversed(list(claude_content)):
             if (
-                block["type"] != "thinking"
+                isinstance(block, dict)
+                and block["type"] != "thinking"
                 and block["type"] != "redacted_thinking"
             ):
                 block["cache_control"] = _claude_cache_breakpoint
@@ -351,7 +353,7 @@ async def to_claude_messages(
 
 
 def to_dial_finish_reason(
-    finish_reason: Optional[ClaudeFinishReason],
+    finish_reason: Optional[ClaudeStopReason],
     tools_mode: ToolsMode | None,
 ) -> FinishReason:
     if finish_reason is None:
@@ -360,9 +362,9 @@ def to_dial_finish_reason(
     match finish_reason:
         case "end_turn":
             return FinishReason.STOP
-        case "max_tokens":
+        case "max_tokens" | "model_context_window_exceeded":
             return FinishReason.LENGTH
-        case "stop_sequence":
+        case "stop_sequence" | "pause_turn" | "refusal":
             return FinishReason.STOP
         case "tool_use":
             match tools_mode:
