@@ -161,12 +161,12 @@ class AttachmentProcessors(BaseModel, Generic[_T, _Config]):
         resource = await self._download_resource(dial_resource)
         return await self._handle_resource(resource)
 
-    def get_file_exts(self, media_types: List[str]) -> List[str]:
+    def get_file_exts(self, mime_types: List[str]) -> List[str]:
         return [
             file_ext
-            for media_type in media_types
-            for file_ext, mime_types in self.supported_types
-            if media_type in mime_types
+            for mime_type, file_exts in self.supported_types.items()
+            if mime_type in mime_types
+            for file_ext in file_exts
         ]
 
 

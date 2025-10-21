@@ -53,3 +53,5 @@ async def expected_exception(
         assert actual_status_code == status_code
         assert re.search(message, str(e))
         assert (e.body or {}).get("display_message") == display_message  # type: ignore
+    else:
+        assert False, f"The test didn't raise the expected exception {cls}"

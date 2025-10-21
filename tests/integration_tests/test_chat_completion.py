@@ -10,6 +10,7 @@ from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
 from tests.integration_tests.constants import (
     DOG_PICTURE,
     DOG_PICTURE_CONTENT,
+    EXCEL_DOCUMENT_RESOURCE,
     PDF_DOCUMENT_RESOURCE,
 )
 from tests.unit_tests.test_configuration import (
@@ -792,20 +793,43 @@ async def test_tool_response(
     select(pred(supports_document_understanding), deployments),
     ids=display_deployment,
 )
-async def test_pdf_document_understanding(chat: Chat):
-    query = (
-        "From which novel does the first page of the attached document quote? "
-        "Which animal is depicted on the second page?"
-    )
+async def test_pdf_document(deployment: D, optimized_latency: bool, chat: Chat):
+    async def _run():
+        query = (
+            "From which novel does the first page of the attached document quote? "
+            "Which animal is depicted on the second page?"
+        )
 
-    response = await chat(
-        messages=[
-            user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE),
-        ],
-    )
+        return await chat(
+            messages=[
+                user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE),
+            ],
+        )
 
-    for w in ["christmas", "carol", "cat"]:
-        assert w in response.content
+    if (
+        not optimized_latency
+        and deployment.origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+    ):
+        # For some reason Claude 3.5 Haiku via Bedrock API doesn't support PDF,
+        # but via Converse API - it does.
+        async with expected_exception(
+            cls=openai.BadRequestError,
+            status_code=400,
+            message="'claude-3-5-haiku-20241022' does not support PDF input.",
+        ):
+            await _run()
+    else:
+        content = (await _run()).content.lower()
+
+        if optimized_latency:
+            # ConverseAPI isn't able to parse images unless citations are enabled
+            # which is currently not enabled automatically.
+            words = ["christmas", "carol"]
+        else:
+            words = ["christmas", "carol", "cat"]
+
+        for w in words:
+            assert w in content
 
 
 @pytest.mark.parametrize(
@@ -813,17 +837,28 @@ async def test_pdf_document_understanding(chat: Chat):
     select(pred(supports_document_understanding), deployments),
     ids=display_deployment,
 )
-async def test_unsupported_document_type(chat: Chat):
-    async with expected_exception(
-        cls=openai.NotFoundError,
-        status_code=422,
-        message="what1",
-        display_message="what2",
-    ):
-        await chat(
+@pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
+async def test_excel_document(optimized_latency: bool, chat: Chat):
+    async def _run():
+        return await chat(
             messages=[
                 user_with_attachment_url(
-                    "what is this document about?", PDF_DOCUMENT_RESOURCE
+                    "how many cells there are in the given spreadsheet excluding headers?",
+                    EXCEL_DOCUMENT_RESOURCE,
                 ),
             ],
         )
+
+    if optimized_latency:
+        # Converse API supports Excel documents, whereas Anthropic API - doesn't
+        response = await _run()
+        assert "6" in response.content.lower()
+    else:
+        error_message = "Unsupported media type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        async with expected_exception(
+            cls=openai.UnprocessableEntityError,
+            status_code=422,
+            message=error_message,
+            display_message=error_message,
+        ):
+            await _run()

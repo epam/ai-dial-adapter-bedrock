@@ -17,7 +17,7 @@ PDF_DOCUMENT_RESOURCE = Resource(
     type="application/pdf", data=Path("tests/assets/doc.pdf").read_bytes()
 )
 
-UNSUPPORTED_DOCUMENT_RESOURCE = Resource(
+EXCEL_DOCUMENT_RESOURCE = Resource(
     type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     data=Path("tests/assets/table.xlsx").read_bytes(),
 )
