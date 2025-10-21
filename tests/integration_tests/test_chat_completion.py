@@ -450,9 +450,9 @@ async def test_empty_user_message(
             message = "Value error, message content must not be an empty string"
     elif is_empty and (
         is_cohere_command_plus(origin)
-        or (is_llama3(origin))
-        or (is_nova(origin))
-        or (is_deepseek(origin))
+        or is_llama3(origin)
+        or is_nova(origin)
+        or is_deepseek(origin)
     ):
         message = converse_api_error_message
     else:
