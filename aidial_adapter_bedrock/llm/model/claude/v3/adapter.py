@@ -4,7 +4,7 @@ from typing import List, Literal, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
-from anthropic import NOT_GIVEN, AsyncAnthropic, AsyncAnthropicBedrock, NotGiven
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock, Omit, omit
 from anthropic._resource import AsyncAPIResource
 from anthropic.lib.streaming import (
     BetaContentBlockStopEvent as ContentBlockStopEvent,
@@ -25,6 +25,17 @@ from anthropic.lib.streaming._beta_types import (
 )
 from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
 from anthropic.types.anthropic_beta_param import AnthropicBetaParam
+from anthropic.types.beta import (
+    BetaBashCodeExecutionToolResultBlock as BashCodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaContainerUploadBlock as ContainerUploadBlock,
+)
+from anthropic.types.beta import BetaMCPToolResultBlock as MCPToolResultBlock
+from anthropic.types.beta import BetaMCPToolUseBlock as MCPToolUseBlock
 from anthropic.types.beta import BetaMessage as ClaudeResponseMessage
 from anthropic.types.beta import BetaMessageParam as ClaudeMessageParam
 from anthropic.types.beta import (
@@ -38,7 +49,11 @@ from anthropic.types.beta import BetaRawMessageStartEvent as MessageStartEvent
 from anthropic.types.beta import (
     BetaRedactedThinkingBlock as RedactedThinkingBlock,
 )
+from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
 from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import (
+    BetaTextEditorCodeExecutionToolResultBlock as TextEditorCodeExecutionToolResultBlock,
+)
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
 from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
@@ -47,13 +62,19 @@ from anthropic.types.beta import BetaToolChoiceNoneParam as ToolChoiceNoneParam
 from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
 from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
+from anthropic.types.beta import (
+    BetaWebFetchToolResultBlock as WebFetchToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
+)
 from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
-    Claude3Deployment,
+    ClaudeDeployment,
 )
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters as DialParameters,
@@ -137,7 +158,7 @@ class ClaudeRequest:
 
 
 async def create_adapter(
-    deployment: AdapterDeployment[Claude3Deployment],
+    deployment: AdapterDeployment[ClaudeDeployment],
     api_key: str,
     upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
@@ -180,7 +201,7 @@ Configuration = BetaConfiguration | ThinkingConfiguration
 
 
 class Adapter(ChatCompletionAdapter):
-    deployment: AdapterDeployment[Claude3Deployment]
+    deployment: AdapterDeployment[ClaudeDeployment]
     storage: Optional[FileStorage]
     client: AsyncAnthropicBedrock | AsyncAnthropic
 
@@ -230,8 +251,8 @@ class Adapter(ChatCompletionAdapter):
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        tools = NOT_GIVEN
-        tool_choice: ToolChoice | NotGiven = NOT_GIVEN
+        tools = omit
+        tool_choice: ToolChoice | Omit = omit
         if (tool_config := params.tool_config) is not None:
             tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
@@ -262,22 +283,22 @@ class Adapter(ChatCompletionAdapter):
             self.attachment_processors, parsed_messages
         )
 
-        thinking: ThinkingConfigParam | NotGiven = NOT_GIVEN
+        thinking: ThinkingConfigParam | Omit = omit
         if (
             isinstance(configuration, ThinkingConfiguration)
             and configuration.thinking is not None
         ):
             thinking = configuration.thinking.to_claude()
 
-        temperature = NOT_GIVEN
+        temperature = omit
         if params.temperature is not None:
             # Mapping OpenAI temp [0,2] range to Anthropic temp [0,1] range
             temperature = params.temperature / 2
 
-        if not isinstance(thinking, NotGiven) and thinking["type"] == "enabled":
+        if not isinstance(thinking, Omit) and thinking["type"] == "enabled":
             # Thinking isn’t compatible with temperature, top_p, or top_k
             # modifications as well as forced tool use.
-            temperature = NOT_GIVEN
+            temperature = omit
 
         if (max_tokens := params.max_tokens) is None:
             max_tokens = CLAUDE_DEFAULT_MAX_TOKENS
@@ -285,13 +306,13 @@ class Adapter(ChatCompletionAdapter):
         claude_params = ClaudeParameters(
             max_tokens=max_tokens,
             stop_sequences=params.stop,
-            system=system_prompt or NOT_GIVEN,
+            system=system_prompt or omit,
             temperature=temperature,
-            top_p=params.top_p or NOT_GIVEN,
+            top_p=params.top_p or omit,
             tools=tools,
             tool_choice=tool_choice,
             thinking=thinking,
-            betas=configuration.betas or NOT_GIVEN,
+            betas=configuration.betas or omit,
         )
 
         return ClaudeRequest(params=claude_params, messages=claude_messages)
@@ -430,16 +451,28 @@ class Adapter(ChatCompletionAdapter):
 
                     case ContentBlockStopEvent(content_block=content_block):
                         match content_block:
-                            case ToolUseBlock():
-                                # Tool Use is processed in ContentBlockStartEvent and InputJsonEvent handlers
-                                pass
                             case TextBlock():
                                 # Already handled in TextEvent
                                 pass
-                            case ThinkingBlock():
+                            case ToolUseBlock():
+                                # Tool Use is processed in ContentBlockStartEvent and InputJsonEvent handlers
                                 pass
-                            case RedactedThinkingBlock():
+                            case ThinkingBlock() | RedactedThinkingBlock():
                                 pass
+                            case (
+                                ServerToolUseBlock()
+                                | WebSearchToolResultBlock()
+                                | CodeExecutionToolResultBlock()
+                                | MCPToolUseBlock()
+                                | MCPToolResultBlock()
+                                | ContainerUploadBlock()
+                                | BashCodeExecutionToolResultBlock()
+                                | TextEditorCodeExecutionToolResultBlock()
+                                | WebFetchToolResultBlock()
+                            ):
+                                log.error(
+                                    f"Content block of type {content_block.type} isn't supported"
+                                )
                             case _:
                                 assert_never(content_block)
 
@@ -507,6 +540,20 @@ class Adapter(ChatCompletionAdapter):
                         stage.append_content(thinking)
                 case RedactedThinkingBlock():
                     pass
+                case (
+                    ServerToolUseBlock()
+                    | WebSearchToolResultBlock()
+                    | CodeExecutionToolResultBlock()
+                    | MCPToolUseBlock()
+                    | MCPToolResultBlock()
+                    | ContainerUploadBlock()
+                    | BashCodeExecutionToolResultBlock()
+                    | TextEditorCodeExecutionToolResultBlock()
+                    | WebFetchToolResultBlock()
+                ):
+                    log.error(
+                        f"Content block of type {content} isn't supported"
+                    )
                 case _:
                     assert_never(content)
 
@@ -525,7 +572,7 @@ class Adapter(ChatCompletionAdapter):
     @classmethod
     async def create(
         cls,
-        deployment: AdapterDeployment[Claude3Deployment],
+        deployment: AdapterDeployment[ClaudeDeployment],
         api_key: str,
         upstream_config: UpstreamConfig,
     ):

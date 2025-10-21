@@ -41,40 +41,46 @@ from typing import (
 )
 
 from anthropic._types import Base64FileInput
+from anthropic.types.beta import (
+    BetaBashCodeExecutionToolResultBlock as BashCodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaCodeExecutionToolResultBlock as CodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaContainerUploadBlock as ContainerUploadBlock,
+)
 from anthropic.types.beta import BetaContentBlock as ContentBlock
-from anthropic.types.beta import BetaImageBlockParam as ImageBlockParam
+from anthropic.types.beta import BetaContentBlockParam as ContentBlockParam
+from anthropic.types.beta import BetaMCPToolResultBlock as MCPToolResultBlock
+from anthropic.types.beta import BetaMCPToolUseBlock as MCPToolUseBlock
 from anthropic.types.beta import BetaMessageParam as ClaudeMessage
-from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import (
+    BetaRedactedThinkingBlock as RedactedThinkingBlock,
+)
+from anthropic.types.beta import BetaServerToolUseBlock as ServerToolUseBlock
+from anthropic.types.beta import BetaTextBlock as TextBlock
+from anthropic.types.beta import (
+    BetaTextEditorCodeExecutionToolResultBlock as TextEditorCodeExecutionToolResultBlock,
+)
+from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
     BetaToolResultBlockParam as ToolResultBlockParam,
 )
-from anthropic.types.beta import BetaToolUseBlockParam as ToolUseBlockParam
-from anthropic.types.beta.beta_base64_pdf_block_param import (
-    BetaBase64PDFBlockParam as DocumentBlockParam,
+from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
+from anthropic.types.beta import (
+    BetaWebFetchToolResultBlock as WebFetchToolResultBlock,
+)
+from anthropic.types.beta import (
+    BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
 )
 from anthropic.types.beta.beta_image_block_param import Source
-from anthropic.types.beta.beta_redacted_thinking_block import (
-    BetaRedactedThinkingBlock as RedactedThinkingBlock,
-)
-from anthropic.types.beta.beta_redacted_thinking_block_param import (
-    BetaRedactedThinkingBlockParam as RedactedThinkingBlockParam,
-)
-from anthropic.types.beta.beta_text_block import BetaTextBlock as TextBlock
-from anthropic.types.beta.beta_thinking_block import (
-    BetaThinkingBlock as ThinkingBlock,
-)
-from anthropic.types.beta.beta_thinking_block_param import (
-    BetaThinkingBlockParam as ThinkingBlockParam,
-)
-from anthropic.types.beta.beta_tool_use_block import (
-    BetaToolUseBlock as ToolUseBlock,
-)
 from PIL import Image
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
-    Claude3Deployment,
+    ClaudeDeployment,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
@@ -100,7 +106,7 @@ def _get_image_size(image_data: Union[str, Base64FileInput]) -> Tuple[int, int]:
 
 def _tokenize_image(source: Source) -> int:
     match source["type"]:
-        case "url":
+        case "url" | "file":
             return 0
         case "base64":
             width, height = _get_image_size(source["data"])
@@ -125,16 +131,7 @@ def _tokenize_tool_result(message: ToolResultBlockParam) -> int:
 
 
 def _tokenize_sub_message(
-    message: Union[
-        TextBlockParam,
-        ImageBlockParam,
-        ToolUseBlockParam,
-        ToolResultBlockParam,
-        DocumentBlockParam,
-        ThinkingBlockParam,
-        RedactedThinkingBlockParam,
-        ContentBlock,
-    ],
+    message: Union[ContentBlockParam, ContentBlock],
 ) -> int:
     if isinstance(message, dict):
         match message["type"]:
@@ -154,6 +151,21 @@ def _tokenize_sub_message(
                 return tokenize_text(message["thinking"])
             case "redacted_thinking":
                 return tokenize_text(message["data"])
+            case "server_tool_use":
+                return tokenize_text(json.dumps(message["input"]))
+            case "web_search_tool_result":
+                return tokenize_text(json.dumps(message["content"]))
+            case (
+                "search_result"
+                | "code_execution_tool_result"
+                | "mcp_tool_use"
+                | "mcp_tool_result"
+                | "container_upload"
+                | "bash_code_execution_tool_result"
+                | "text_editor_code_execution_tool_result"
+                | "web_fetch_tool_result"
+            ):
+                return 0
             case _:
                 assert_never(message["type"])
     else:
@@ -168,6 +180,20 @@ def _tokenize_sub_message(
                 return tokenize_text(thinking)
             case RedactedThinkingBlock(data=data):
                 return tokenize_text(data)
+            case ServerToolUseBlock(input=input):
+                return tokenize_text(json.dumps(input))
+            case WebSearchToolResultBlock(content=content):
+                return tokenize_text(json.dumps(content))
+            case (
+                CodeExecutionToolResultBlock()
+                | MCPToolUseBlock()
+                | MCPToolResultBlock()
+                | ContainerUploadBlock()
+                | BashCodeExecutionToolResultBlock()
+                | TextEditorCodeExecutionToolResultBlock()
+                | WebFetchToolResultBlock()
+            ):
+                return 0
             case _:
                 assert_never(message)
 
@@ -202,7 +228,7 @@ def _tokenize_tool_param(tool: ToolParam) -> int:
 
 
 def _tokenize_tool_system_message(
-    deployment: Claude3Deployment,
+    deployment: ClaudeDeployment,
     tool_choice: Literal["none", "auto", "any", "tool"],
 ) -> int:
     match deployment:
@@ -213,6 +239,8 @@ def _tokenize_tool_system_message(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET
         ):
             return 346 if tool_choice == "auto" else 313
         case ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS:
@@ -231,7 +259,7 @@ def _tokenize_tool_system_message(
 
 
 def _tokenize(
-    deployment: Claude3Deployment,
+    deployment: ClaudeDeployment,
     params: ClaudeParameters,
     messages: List[ClaudeMessage],
 ) -> int:
@@ -265,7 +293,7 @@ def _tokenize(
 # once it's supported in Bedrock:
 # https://github.com/anthropics/anthropic-sdk-python/blob/599f2b9a9501b8c98fb3132043c3ec71e3026f84/src/anthropic/lib/bedrock/_client.py#L61-L62
 def create_tokenizer(
-    deployment: Claude3Deployment, params: ClaudeParameters
+    deployment: ClaudeDeployment, params: ClaudeParameters
 ) -> Callable[[List[Tuple[ClaudeMessage, Any]]], Awaitable[int]]:
     async def _tokenizer(messages) -> int:
         return _tokenize(deployment, params, [msg for msg, _ in messages])

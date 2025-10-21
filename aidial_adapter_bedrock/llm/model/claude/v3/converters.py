@@ -30,6 +30,7 @@ from anthropic.types.beta import (
 from anthropic.types.beta import (
     BetaRequestDocumentBlockParam as RequestDocumentBlockParam,
 )
+from anthropic.types.beta import BetaStopReason as ClaudeStopReason
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import (
@@ -43,7 +44,6 @@ from anthropic.types.beta.beta_base64_image_source_param import (
 from pydantic import BaseModel
 from pydantic import ValidationError as PydValidationError
 
-from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.message import (
@@ -147,7 +147,8 @@ def _add_cache_control(
     if message.cache_breakpoint is not None:
         for block in reversed(list(claude_content)):
             if (
-                block["type"] != "thinking"
+                isinstance(block, dict)
+                and block["type"] != "thinking"
                 and block["type"] != "redacted_thinking"
             ):
                 block["cache_control"] = _claude_cache_breakpoint
@@ -259,7 +260,7 @@ def _merge_messages_with_same_role(
 
 async def to_claude_messages(
     handlers: AttachmentProcessors[
-        TextBlockParam | ImageBlockParam | DocumentBlockParam
+        TextBlockParam | ImageBlockParam | RequestDocumentBlockParam
     ],
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
 ) -> Tuple[List[TextBlockParam], ListProjection[MessageParam]]:
@@ -329,7 +330,7 @@ async def to_claude_messages(
 
 
 def to_dial_finish_reason(
-    finish_reason: Optional[_ClaudeFinishReason],
+    finish_reason: Optional[ClaudeStopReason],
     tools_mode: ToolsMode | None,
 ) -> FinishReason:
     if finish_reason is None:
@@ -338,9 +339,9 @@ def to_dial_finish_reason(
     match finish_reason:
         case "end_turn":
             return FinishReason.STOP
-        case "max_tokens":
+        case "max_tokens" | "model_context_window_exceeded":
             return FinishReason.LENGTH
-        case "stop_sequence":
+        case "stop_sequence" | "pause_turn" | "refusal":
             return FinishReason.STOP
         case "tool_use":
             match tools_mode:

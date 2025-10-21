@@ -71,6 +71,8 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU
         ):
             if request and has_converse_api_configuration(request):
                 return await converse_adapter.create(
