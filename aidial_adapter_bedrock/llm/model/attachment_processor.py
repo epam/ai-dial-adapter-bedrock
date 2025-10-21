@@ -25,11 +25,8 @@ from aidial_adapter_bedrock.dial_api.resource import (
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
-from aidial_adapter_bedrock.llm.message import (
-    AIRegularMessage,
-    HumanRegularMessage,
-    SystemMessage,
-)
+from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
+from aidial_adapter_bedrock.utils.concurrency import aiter_to_list
 from aidial_adapter_bedrock.utils.resource import Resource
 
 _T = TypeVar("_T", covariant=True)
@@ -44,6 +41,7 @@ class AttachmentProcessor(BaseModel, Generic[_T]):
 
 class AttachmentProcessors(BaseModel, Generic[_T]):
     attachment_processors: Sequence[AttachmentProcessor[_T]]
+    text_handler: Callable[[str], _T]
     file_storage: FileStorage | None
 
     @property
@@ -62,10 +60,11 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
     def supported_image_types(self) -> List[str]:
         return [t for t in self.supported_mime_types if t.startswith("image/")]
 
-    async def process_attachments(
-        self,
-        text_handler: Callable[[str], _T],
-        message: SystemMessage | AIRegularMessage | HumanRegularMessage,
+    async def process_attachments(self, message: BaseMessage) -> List[_T]:
+        return await aiter_to_list(self.process_attachments_iter(message))
+
+    async def process_attachments_iter(
+        self, message: BaseMessage
     ) -> AsyncIterator[_T]:
 
         if not isinstance(message, SystemMessage):
@@ -82,12 +81,12 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
 
         match content:
             case str():
-                yield text_handler(content)
+                yield self.text_handler(content)
             case list():
                 for part in content:
                     match part:
                         case MessageContentTextPart(text=text):
-                            yield text_handler(text)
+                            yield self.text_handler(text)
                         case MessageContentImagePart(image_url=image_url):
                             yield await self._handle_dial_resource(
                                 URLResource(

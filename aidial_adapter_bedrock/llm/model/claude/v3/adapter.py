@@ -100,17 +100,20 @@ from aidial_adapter_bedrock.llm.message import parse_dial_message
 from aidial_adapter_bedrock.llm.model.attachment_processor import (
     AttachmentProcessors,
 )
-from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
+from aidial_adapter_bedrock.llm.model.claude.v3.blocks import (
     IMAGE_ATTACHMENT_PROCESSOR,
     PDF_ATTACHMENT_PROCESSOR,
     TEXT_ATTACHMENT_PROCESSOR,
-    MessageState,
+    create_text_block,
+)
+from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_messages,
     to_claude_tool_config,
     to_dial_finish_reason,
     to_dial_usage,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.params import ClaudeParameters
+from aidial_adapter_bedrock.llm.model.claude.v3.state import MessageState
 from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
     create_tokenizer,
     tokenize_text,
@@ -220,9 +223,7 @@ class Adapter(ChatCompletionAdapter):
             return BetaConfiguration
 
     @property
-    def attachment_processors(
-        self,
-    ) -> AttachmentProcessors:
+    def attachment_processors(self) -> AttachmentProcessors:
         # Document support: https://docs.anthropic.com/en/docs/build-with-claude/pdf-support#supported-platforms-and-models
         supports_documents = self.deployment.reference_deployment_id in {
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET,
@@ -232,6 +233,7 @@ class Adapter(ChatCompletionAdapter):
         }
 
         return AttachmentProcessors(
+            text_handler=create_text_block,
             attachment_processors=(
                 [IMAGE_ATTACHMENT_PROCESSOR]
                 + (
