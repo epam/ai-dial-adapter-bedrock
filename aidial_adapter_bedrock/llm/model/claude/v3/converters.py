@@ -33,6 +33,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.blocks import (
     create_tool_result_block,
     create_tool_use_block,
 )
+from aidial_adapter_bedrock.llm.model.claude.v3.config import Configuration
 from aidial_adapter_bedrock.llm.model.claude.v3.state import (
     get_message_content_from_state,
 )
@@ -109,7 +110,8 @@ def _merge_messages_with_same_role(
 
 async def to_claude_messages(
     handlers: AttachmentProcessors[
-        TextBlockParam | ImageBlockParam | RequestDocumentBlockParam
+        TextBlockParam | ImageBlockParam | RequestDocumentBlockParam,
+        Configuration,
     ],
     messages: List[BaseMessage | HumanToolResultMessage | AIToolCallMessage],
 ) -> Tuple[List[TextBlockParam], ListProjection[MessageParam]]:

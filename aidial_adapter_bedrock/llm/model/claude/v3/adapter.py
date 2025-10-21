@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from logging import DEBUG
-from typing import List, Literal, Optional, Tuple, Type, assert_never
+from typing import List, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
@@ -24,7 +24,6 @@ from anthropic.lib.streaming._beta_types import (
     BetaThinkingEvent as ThinkingEvent,
 )
 from anthropic.resources.beta import AsyncMessages as FirstPartyAsyncMessagesAPI
-from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 from anthropic.types.beta import (
     BetaBashCodeExecutionToolResultBlock as BashCodeExecutionToolResultBlock,
 )
@@ -68,7 +67,6 @@ from anthropic.types.beta import (
 from anthropic.types.beta import (
     BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
 )
-from pydantic import Field
 
 from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
@@ -106,6 +104,10 @@ from aidial_adapter_bedrock.llm.model.claude.v3.blocks import (
     TEXT_ATTACHMENT_PROCESSOR,
     create_text_block,
 )
+from aidial_adapter_bedrock.llm.model.claude.v3.config import (
+    ClaudeConfiguration,
+    ClaudeConfigurationWithThinking,
+)
 from aidial_adapter_bedrock.llm.model.claude.v3.converters import (
     to_claude_messages,
     to_claude_tool_config,
@@ -132,7 +134,6 @@ from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 
 
 # Beta AsyncMessages in Bedrock doesn't provide stream and count_tokens,
@@ -172,37 +173,6 @@ async def create_adapter(
     )(model)
 
 
-class ThinkingConfigEnabled(ExtraForbidModel):
-    type: Literal["enabled"]
-    budget_tokens: int
-
-    def to_claude(self) -> ThinkingConfigParam:
-        return {"type": "enabled", "budget_tokens": self.budget_tokens}
-
-
-class ThinkingConfigDisabled(ExtraForbidModel):
-    type: Literal["disabled"]
-
-    def to_claude(self) -> ThinkingConfigParam:
-        return {"type": "disabled"}
-
-
-class BetaConfiguration(ExtraForbidModel):
-    betas: List[AnthropicBetaParam] | None = Field(
-        default=None,
-        description="List of beta features to enable. Make sure to check if the given feature is supported by the Claude deployment you are using.",
-    )
-
-
-class ThinkingConfiguration(BetaConfiguration):
-    # NOTE: once migrated to Pydantic v2 we could use TypeAdapter over
-    # the anthropic's ThinkingConfigParam class directly.
-    thinking: ThinkingConfigEnabled | ThinkingConfigDisabled | None = None
-
-
-Configuration = BetaConfiguration | ThinkingConfiguration
-
-
 class Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[ClaudeDeployment]
     storage: Optional[FileStorage]
@@ -216,11 +186,10 @@ class Adapter(ChatCompletionAdapter):
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET,
         }
 
-    async def configuration(self) -> Type[Configuration]:
+    async def configuration(self) -> Type[ClaudeConfiguration]:
         if self.supports_thinking:
-            return ThinkingConfiguration
-        else:
-            return BetaConfiguration
+            return ClaudeConfigurationWithThinking
+        return ClaudeConfiguration
 
     @property
     def attachment_processors(self) -> AttachmentProcessors:
@@ -287,7 +256,7 @@ class Adapter(ChatCompletionAdapter):
 
         thinking: ThinkingConfigParam | Omit = omit
         if (
-            isinstance(configuration, ThinkingConfiguration)
+            isinstance(configuration, ClaudeConfigurationWithThinking)
             and configuration.thinking is not None
         ):
             thinking = configuration.thinking.to_claude()
@@ -488,12 +457,7 @@ class Adapter(ChatCompletionAdapter):
                                 ).to_dict()
                             )
 
-                    case (
-                        ContentBlockDeltaEvent()
-                        # NOTE: the document understanding isn't supported in Bedrock yet:
-                        # https://github.com/epam/ai-dial-adapter-bedrock/pull/227
-                        | CitationEvent()
-                    ):
+                    case ContentBlockDeltaEvent() | CitationEvent():
                         pass
 
                     case _:

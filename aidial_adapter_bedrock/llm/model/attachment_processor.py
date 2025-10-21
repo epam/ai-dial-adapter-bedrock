@@ -1,13 +1,16 @@
+import inspect
 from typing import (
     AsyncIterator,
     Callable,
     Dict,
     Generic,
     List,
+    Protocol,
     Sequence,
     Set,
     TypeVar,
     assert_never,
+    runtime_checkable,
 )
 
 from aidial_sdk.chat_completion import (
@@ -30,17 +33,49 @@ from aidial_adapter_bedrock.utils.concurrency import aiter_to_list
 from aidial_adapter_bedrock.utils.resource import Resource
 
 _T = TypeVar("_T", covariant=True)
+_Config = TypeVar("_Config", bound=BaseModel, contravariant=True)
 
 
-class AttachmentProcessor(BaseModel, Generic[_T]):
+@runtime_checkable
+class Handler(Protocol, Generic[_T]):
+    def __call__(self, resource: Resource) -> _T: ...
+
+
+@runtime_checkable
+class HandlerWithConfig(Protocol, Generic[_T, _Config]):
+    def __call__(self, resource: Resource, config: _Config | None) -> _T: ...
+
+
+class AttachmentProcessor(BaseModel, Generic[_T, _Config]):
+    class Config:
+        arbitrary_types_allowed = True
+
     supported_types: Dict[str, Set[str]]
     """MIME type to file extensions mapping"""
 
-    handler: Callable[[Resource], _T]
+    handler: Handler[_T] | HandlerWithConfig[_T, _Config]
+
+    def handle(self, resource: Resource, config: _Config | None) -> _T:
+        sig = inspect.signature(self.handler)
+        params = list(sig.parameters.values())
+
+        with_config = (
+            len(params) >= 2
+            and params[1].kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ) or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+
+        if with_config:
+            return self.handler(resource, config)  # type: ignore
+        return self.handler(resource)  # type: ignore
 
 
-class AttachmentProcessors(BaseModel, Generic[_T]):
-    attachment_processors: Sequence[AttachmentProcessor[_T]]
+class AttachmentProcessors(BaseModel, Generic[_T, _Config]):
+    config: _Config | None = None
+    attachment_processors: Sequence[AttachmentProcessor[_T, _Config]]
     text_handler: Callable[[str], _T]
     file_storage: FileStorage | None
 
@@ -66,7 +101,6 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
     async def process_attachments_iter(
         self, message: BaseMessage
     ) -> AsyncIterator[_T]:
-
         if not isinstance(message, SystemMessage):
             for attachment in message.attachments:
                 yield await self._handle_dial_resource(
@@ -116,7 +150,7 @@ class AttachmentProcessors(BaseModel, Generic[_T]):
     async def _handle_resource(self, resource: Resource) -> _T:
         for processor in self.attachment_processors:
             if resource.type in processor.supported_types:
-                return processor.handler(resource)
+                return processor.handle(resource, self.config)
 
         raise UserError(
             f"Unsupported media type: {resource.type}",
