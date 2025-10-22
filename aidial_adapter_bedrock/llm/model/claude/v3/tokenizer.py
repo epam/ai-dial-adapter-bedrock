@@ -239,6 +239,7 @@ def _tokenize_tool_system_message(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_1_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET
         ):

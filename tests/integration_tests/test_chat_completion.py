@@ -53,6 +53,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
@@ -75,6 +76,9 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_DIFFUSION_XL: _WEST,
     D.STABILITY_STABLE_DIFFUSION_XL_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_CORE_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
+    D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1: _WEST,
 }
 
 
@@ -87,6 +91,9 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_ULTRA_V1,
         D.STABILITY_STABLE_DIFFUSION_XL,
         D.STABILITY_STABLE_DIFFUSION_XL_V1,
+        D.STABILITY_STABLE_IMAGE_CORE_V1,
+        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
     }
 
 
@@ -101,6 +108,7 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
     ]
@@ -359,7 +367,7 @@ async def test_text_content_parts_in_assistant_message(
                     {"type": "text", "text": "13"},
                 ]
             ),
-            user("compute (11+22). Reply with a number."),
+            user("compute (11+22). Reply with a single number."),
         ],
         max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
     )
@@ -409,26 +417,44 @@ async def test_empty_dialog(chat: Chat):
     "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
 )
 async def test_empty_user_message(
-    deployment: Deployment, optimized_latency: bool, is_empty: bool, chat: Chat
+    deployment: Deployment,
+    optimized_latency: bool,
+    stream: bool,
+    is_empty: bool,
+    chat: Chat,
 ):
     origin = deployment.origin
 
-    if is_claude(origin) and not optimized_latency:
-        if is_empty:
+    if is_ai21(origin) and stream and not is_empty:
+        pytest.skip("A21 hangs indefinitely on this input")
+
+    converse_api_error_message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
+
+    if is_claude(origin):
+        if (
+            origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+            and is_empty
+            and optimized_latency
+        ):
+            message = converse_api_error_message
+        elif is_empty:
             message = "messages: text content blocks must be non-empty"
         else:
             message = (
                 "messages: text content blocks must contain non-whitespace text"
             )
-    elif is_llama3(origin) or is_nova(origin):
-        message = "Add text to the text field, and try again."
-    elif (
-        is_deepseek(origin)
-        or is_ai21(origin)
-        or is_cohere_command_plus(origin)
-        or (is_claude(origin) and optimized_latency)
+    elif is_ai21(origin):
+        if is_empty:
+            message = converse_api_error_message
+        else:
+            message = "Value error, message content must not be an empty string"
+    elif is_empty and (
+        is_cohere_command_plus(origin)
+        or is_llama3(origin)
+        or is_nova(origin)
+        or is_deepseek(origin)
     ):
-        message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
+        message = converse_api_error_message
     else:
         message = None
 
@@ -586,8 +612,11 @@ async def test_tool_choice_none(
         origin
         in [
             D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         ]
         and not optimized_latency
     ):
