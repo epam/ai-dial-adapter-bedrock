@@ -801,3 +801,14 @@ async def test_tool_response(
 
     for temp in test.city_temps:
         assert str(temp) in response.content
+
+
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+async def test_max_prompt_tokens(chat: Chat):
+    response = await chat(
+        max_tokens=1,
+        messages=[user("test")],
+        extra_body={"max_prompt_tokens": 200},
+    )
+    statistics = response.response.dict().get("statistics", {})
+    assert statistics.get("discarded_messages") == []
