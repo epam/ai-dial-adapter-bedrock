@@ -32,7 +32,3 @@ async def to_async_iterator(iter: Iterator[_T]) -> AsyncIterator[_T]:
             break
         else:
             yield cast(_T, item)
-
-
-async def aiter_to_list(iterator: AsyncIterator[_T]) -> list[_T]:
-    return [item async for item in iterator]

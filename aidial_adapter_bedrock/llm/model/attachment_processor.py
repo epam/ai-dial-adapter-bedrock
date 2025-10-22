@@ -29,8 +29,8 @@ from aidial_adapter_bedrock.dial_api.resource import (
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
-from aidial_adapter_bedrock.utils.concurrency import aiter_to_list
 from aidial_adapter_bedrock.utils.resource import Resource
+from aidial_adapter_bedrock.utils.stream import aiter_to_list
 
 _T = TypeVar("_T", covariant=True)
 _Config = TypeVar("_Config", bound=BaseModel, contravariant=True)
@@ -96,9 +96,11 @@ class AttachmentProcessors(BaseModel, Generic[_T, _Config]):
         return [t for t in self.supported_mime_types if t.startswith("image/")]
 
     async def process_attachments(self, message: BaseMessage) -> List[_T]:
-        return await aiter_to_list(self.process_attachments_iter(message))
+        return await aiter_to_list(self._process_attachments_iter(message)) or [
+            self.text_handler("")
+        ]
 
-    async def process_attachments_iter(
+    async def _process_attachments_iter(
         self, message: BaseMessage
     ) -> AsyncIterator[_T]:
         if not isinstance(message, SystemMessage):
@@ -115,12 +117,14 @@ class AttachmentProcessors(BaseModel, Generic[_T, _Config]):
 
         match content:
             case str():
-                yield self.text_handler(content)
+                if content:
+                    yield self.text_handler(content)
             case list():
                 for part in content:
                     match part:
                         case MessageContentTextPart(text=text):
-                            yield self.text_handler(text)
+                            if text:
+                                yield self.text_handler(text)
                         case MessageContentImagePart(image_url=image_url):
                             yield await self._handle_dial_resource(
                                 URLResource(

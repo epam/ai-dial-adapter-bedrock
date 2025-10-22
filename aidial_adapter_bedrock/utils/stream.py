@@ -1,4 +1,4 @@
-from typing import AsyncIterator, List
+from typing import AsyncIterator, List, TypeVar
 
 
 async def lstrip(stream: AsyncIterator[str]) -> AsyncIterator[str]:
@@ -75,3 +75,10 @@ async def ensure_not_empty(
 
     if all_chunks_are_empty:
         yield default
+
+
+_T = TypeVar("_T")
+
+
+async def aiter_to_list(iterator: AsyncIterator[_T]) -> list[_T]:
+    return [item async for item in iterator]
