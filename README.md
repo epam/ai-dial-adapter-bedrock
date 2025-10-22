@@ -12,17 +12,17 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
-|Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.1 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 3.7 Sonnet|anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.1 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.7 Sonnet|anthropic.claude-3-7-sonnet-20250219-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Sonnet|anthropic.claude-3-5-sonnet-20240620-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Sonnet 2.0|anthropic.claude-3-5-sonnet-20241022-v2:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Sonnet|anthropic.claude-3-sonnet-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 3.5 Haiku|anthropic.claude-3-5-haiku-20241022-v1:0|text-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|

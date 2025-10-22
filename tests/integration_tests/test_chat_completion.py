@@ -189,10 +189,14 @@ def supports_parallel_tool_calls(deployment: D) -> bool:
 
 def supports_document_understanding(deployment: D) -> bool:
     return deployment in [
-        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
-        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
     ]
 
 
