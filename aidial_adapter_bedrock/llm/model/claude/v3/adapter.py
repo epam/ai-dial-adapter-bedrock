@@ -184,6 +184,7 @@ class Adapter(ChatCompletionAdapter):
             D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         }
 
     async def configuration(self) -> Type[ClaudeConfiguration]:
