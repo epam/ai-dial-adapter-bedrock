@@ -180,10 +180,10 @@ class Adapter(ChatCompletionAdapter):
     def supports_thinking(self) -> bool:
         return self.deployment.reference_deployment_id in {
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
-            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         }
 
     async def configuration(self) -> Type[ClaudeConfiguration]:
