@@ -895,3 +895,14 @@ async def test_excel_document(optimized_latency: bool, chat: Chat):
             display_message=error_message,
         ):
             await _run()
+
+
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+async def test_max_prompt_tokens(chat: Chat):
+    response = await chat(
+        max_tokens=1,
+        messages=[user("test")],
+        extra_body={"max_prompt_tokens": 200},
+    )
+    statistics = response.response.dict().get("statistics", {})
+    assert statistics.get("discarded_messages") == []

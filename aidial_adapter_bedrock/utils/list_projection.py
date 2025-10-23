@@ -20,17 +20,13 @@ class ListProjection(Generic[_T]):
     def raw_list(self) -> List[_T]:
         return [msg for msg, _ in self.list]
 
-    def to_original_indices(self, idx: int | Iterable[int]) -> Set[int]:
+    def to_original_indices(self, indices: Iterable[int]) -> Set[int]:
         return {
             orig_index
-            for index in _to_set(idx)
+            for index in indices
             for orig_index in self.list[index][1]
         }
 
-    def append(self, elem: _T, idx: int | Iterable[int]) -> Self:
-        self.list.append((elem, _to_set(idx)))
+    def append(self, elem: _T, idx: int) -> Self:
+        self.list.append((elem, {idx}))
         return self
-
-
-def _to_set(idx: int | Iterable[int]) -> Set[int]:
-    return {idx} if isinstance(idx, int) else set(idx)
