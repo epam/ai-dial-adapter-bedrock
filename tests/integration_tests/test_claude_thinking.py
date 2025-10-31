@@ -8,7 +8,7 @@ from openai.types.chat import (
 )
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.llm.model.claude.v3.converters import MessageState
+from aidial_adapter_bedrock.llm.model.claude.v3.state import MessageState
 from tests.integration_tests.test_chat_completion import Deployment
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,

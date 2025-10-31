@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "aidial-adapter-bedrock"
-version = "0.34.0rc"
+version = "0.35.0rc"
 description = "DIAL adapter for AWS Bedrock"
 authors = [{ name = "EPAM RAIL", email = "SpecialEPM-DIALDevTeam@epam.com" }]
 license = "Apache-2.0"
@@ -29,7 +29,7 @@ aidial-sdk = { version = "0.23.0", extras = ["telemetry"] }
 anthropic = { version = "0.71.0", extras = ["bedrock"] }
 # Only for the tokenizer for Claude v1/v2 models
 anthropic_bedrock = "0.8.0"
-fastapi = "0.116.1"
+fastapi = "0.120.2"
 openai = "1.40.0"
 uvicorn = "0.23.2"
 pydantic = "1.10.17"

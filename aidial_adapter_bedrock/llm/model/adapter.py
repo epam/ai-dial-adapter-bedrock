@@ -79,6 +79,7 @@ async def get_bedrock_adapter(
                 return await converse_adapter.create(
                     tools_support=ToolsSupport.ALWAYS,
                     supported_image_types=ConverseImageType.all(),
+                    supported_document_types=ConverseDocumentType.all(),
                 )
             else:
                 return await claude_v3.create_adapter(

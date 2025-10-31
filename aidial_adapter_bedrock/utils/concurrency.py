@@ -10,17 +10,17 @@ from typing import (
     cast,
 )
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-async def make_async(func: Callable[[], T]) -> T:
+async def make_async(func: Callable[[], _T]) -> _T:
     with ThreadPoolExecutor(max_workers=1) as executor:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(executor, func)
 
 
-async def to_async_iterator(iter: Iterator[T]) -> AsyncIterator[T]:
-    def _next() -> Tuple[bool, Optional[T]]:
+async def to_async_iterator(iter: Iterator[_T]) -> AsyncIterator[_T]:
+    def _next() -> Tuple[bool, Optional[_T]]:
         try:
             return False, next(iter)
         except StopIteration:
@@ -31,4 +31,4 @@ async def to_async_iterator(iter: Iterator[T]) -> AsyncIterator[T]:
         if is_end:
             break
         else:
-            yield cast(T, item)
+            yield cast(_T, item)
