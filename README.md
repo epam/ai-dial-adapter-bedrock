@@ -306,8 +306,9 @@ Copy `.env.example` to `.env` and customize it for your environment:
 
 |Variable|Default|Description|
 |---|---|---|
-|AWS_ACCESS_KEY_ID|NA|AWS credentials with access to Bedrock service|
-|AWS_SECRET_ACCESS_KEY|NA|AWS credentials with access to Bedrock service|
+|AWS_ACCESS_KEY_ID|NA|AWS credentials with an access to the Bedrock service|
+|AWS_SECRET_ACCESS_KEY|NA|AWS credentials with an access to the Bedrock service|
+|AWS_SESSION_TOKEN|NA|AWS session token with an access the Bedrock service|
 |AWS_DEFAULT_REGION||AWS region e.g. `us-east-1`|
 |AWS_ASSUME_ROLE_ARN|| AWS assume role ARN e.g. `arn:aws:iam::123456789012:role/RoleName`|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
@@ -415,7 +416,8 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
       "extraData": {
         "region": "eu-west-1",
         "aws_access_key_id": "key_id_2",
-        "aws_secret_access_key": "access_key_2"
+        "aws_secret_access_key": "access_key_2",
+        "aws_session_token": "optional session token"
       }
     },
     {
@@ -438,6 +440,7 @@ The fields in the extra data override the corresponding environment variables:
 |`region`|`AWS_DEFAULT_REGION`|
 |`aws_access_key_id`|`AWS_ACCESS_KEY_ID`|
 |`aws_secret_access_key`|`AWS_SECRET_ACCESS_KEY`|
+|`aws_session_token`|`AWS_SESSION_TOKEN`|
 |`aws_assume_role_arn`|`AWS_ASSUME_ROLE_ARN`|
 
 ## Authentication

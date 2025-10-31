@@ -20,11 +20,13 @@ class ClientCredentialArgs(BaseModel):
 class AWSClientCredentials(BaseModel):
     aws_access_key_id: str
     aws_secret_access_key: str
+    aws_session_token: str | None = None
 
     def get_credentials(self) -> Tuple[datetime | None, ClientCredentialArgs]:
         return None, ClientCredentialArgs(
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
+            aws_session_token=self.aws_session_token,
         )
 
 
@@ -113,6 +115,7 @@ class UpstreamConfigData(BaseModel):
     region: str = Field(default_factory=get_aws_default_region)
     aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_session_token: str | None = os.getenv("AWS_SESSION_TOKEN")
     aws_assume_role_arn: str | None = os.getenv("AWS_ASSUME_ROLE_ARN")
 
     def _get_client_credentials(
@@ -123,6 +126,7 @@ class UpstreamConfigData(BaseModel):
             return AWSClientCredentials(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
+                aws_session_token=self.aws_session_token,
             )
 
         if self.aws_assume_role_arn:
