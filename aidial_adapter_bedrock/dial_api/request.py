@@ -19,8 +19,8 @@ from aidial_sdk.chat_completion.request import (
     MessageContentRefusalPart,
 )
 from aidial_sdk.exceptions import RequestValidationError
-from aidial_sdk.pydantic_v1 import ValidationError as PydanticValidationError
 from pydantic import BaseModel
+from pydantic.v1 import ValidationError as PydanticValidationError
 
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import (
