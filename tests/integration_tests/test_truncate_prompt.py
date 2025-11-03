@@ -235,7 +235,13 @@ async def test_truncate_prompt(
             actual_exc, test.expected.type
         ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
         assert test.expected.status_code == actual_exc.response.status_code
-        assert re.search(test.expected.message, actual_exc.response.text)
+
+        message = test.expected.message
+        err = actual_exc.response.text
+
+        assert re.search(
+            message, err
+        ), f"The actual error message ({err!r}) doesn't match the expected regexp ({message!r})"
     else:
         actual_output = await run_truncate_prompt()
 
