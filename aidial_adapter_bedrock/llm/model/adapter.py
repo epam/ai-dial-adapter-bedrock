@@ -70,6 +70,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS
+            | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_1_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU
@@ -78,6 +79,7 @@ async def get_bedrock_adapter(
                 return await converse_adapter.create(
                     tools_support=ToolsSupport.ALWAYS,
                     supported_image_types=ConverseImageType.all(),
+                    supported_document_types=ConverseDocumentType.all(),
                 )
             else:
                 return await claude_v3.create_adapter(

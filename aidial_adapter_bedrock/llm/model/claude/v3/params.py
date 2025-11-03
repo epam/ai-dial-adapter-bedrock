@@ -1,6 +1,6 @@
 from typing import List, TypedDict
 
-from anthropic import NotGiven
+from anthropic import Omit
 from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
@@ -15,11 +15,11 @@ class ClaudeParameters(TypedDict):
     """
 
     max_tokens: int
-    stop_sequences: List[str] | NotGiven
-    system: str | List[TextBlockParam] | NotGiven
-    temperature: float | NotGiven
-    top_p: float | NotGiven
-    tools: List[ToolParam] | NotGiven
-    tool_choice: ToolChoice | NotGiven
-    thinking: ThinkingConfigParam | NotGiven
-    betas: List[AnthropicBetaParam] | NotGiven
+    stop_sequences: List[str] | Omit
+    system: str | List[TextBlockParam] | Omit
+    temperature: float | Omit
+    top_p: float | Omit
+    tools: List[ToolParam] | Omit
+    tool_choice: ToolChoice | Omit
+    thinking: ThinkingConfigParam | Omit
+    betas: List[AnthropicBetaParam] | Omit

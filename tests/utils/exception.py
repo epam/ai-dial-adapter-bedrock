@@ -48,8 +48,12 @@ async def expected_exception(
 
         assert isinstance(
             e, cls
-        ), f"Actual exception type ({type(e)}) doesn't match the expected one ({cls})"
+        ), f"The actual exception type ({type(e)}) doesn't match the expected one ({cls})"
         actual_status_code = getattr(e, "status_code", None)
         assert actual_status_code == status_code
-        assert re.search(message, str(e))
+        assert re.search(
+            message, str(e)
+        ), f"The actual error message ({str(e)!r}) doesn't match the expected regexp ({message!r})"
         assert (e.body or {}).get("display_message") == display_message  # type: ignore
+    else:
+        assert False, f"The test didn't raise the expected exception {cls}"

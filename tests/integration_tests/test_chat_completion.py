@@ -7,7 +7,12 @@ from openai import AsyncAzureOpenAI, BadRequestError, UnprocessableEntityError
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
-from tests.integration_tests.constants import DOG_PICTURE, DOG_PICTURE_CONTENT
+from tests.integration_tests.constants import (
+    DOG_PICTURE,
+    DOG_PICTURE_CONTENT,
+    EXCEL_DOCUMENT_RESOURCE,
+    PDF_DOCUMENT_RESOURCE,
+)
 from tests.unit_tests.test_configuration import (
     deployments_supporting_optimized_latency,
 )
@@ -53,6 +58,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
@@ -75,6 +81,9 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_DIFFUSION_XL: _WEST,
     D.STABILITY_STABLE_DIFFUSION_XL_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_CORE_V1: _WEST,
+    D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
+    D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1: _WEST,
 }
 
 
@@ -87,6 +96,9 @@ def is_retired_model(deployment: D) -> bool:
         D.AI21_J2_ULTRA_V1,
         D.STABILITY_STABLE_DIFFUSION_XL,
         D.STABILITY_STABLE_DIFFUSION_XL_V1,
+        D.STABILITY_STABLE_IMAGE_CORE_V1,
+        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
     }
 
 
@@ -101,6 +113,7 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
     ]
@@ -172,6 +185,19 @@ def supports_parallel_tool_calls(deployment: D) -> bool:
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AMAZON_NOVA_MICRO,
     ] and supports_tools(deployment)
+
+
+def supports_document_understanding(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+    ]
 
 
 def is_llama3(deployment: D) -> bool:
@@ -359,7 +385,7 @@ async def test_text_content_parts_in_assistant_message(
                     {"type": "text", "text": "13"},
                 ]
             ),
-            user("compute (11+22). Reply with a number."),
+            user("compute (11+22). Reply with a single number."),
         ],
         max_tokens=10 if not is_reasoning_model(deployment.origin) else 512,
     )
@@ -409,26 +435,44 @@ async def test_empty_dialog(chat: Chat):
     "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
 )
 async def test_empty_user_message(
-    deployment: Deployment, optimized_latency: bool, is_empty: bool, chat: Chat
+    deployment: Deployment,
+    optimized_latency: bool,
+    stream: bool,
+    is_empty: bool,
+    chat: Chat,
 ):
     origin = deployment.origin
 
-    if is_claude(origin) and not optimized_latency:
-        if is_empty:
+    if is_ai21(origin) and stream and not is_empty:
+        pytest.skip("A21 hangs indefinitely on this input")
+
+    converse_api_error_message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
+
+    if is_claude(origin):
+        if (
+            origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+            and is_empty
+            and optimized_latency
+        ):
+            message = converse_api_error_message
+        elif is_empty:
             message = "messages: text content blocks must be non-empty"
         else:
             message = (
                 "messages: text content blocks must contain non-whitespace text"
             )
-    elif is_llama3(origin) or is_nova(origin):
-        message = "Add text to the text field, and try again."
-    elif (
-        is_deepseek(origin)
-        or is_ai21(origin)
-        or is_cohere_command_plus(origin)
-        or (is_claude(origin) and optimized_latency)
+    elif is_ai21(origin):
+        if is_empty:
+            message = converse_api_error_message
+        else:
+            message = "Value error, message content must not be an empty string"
+    elif is_empty and (
+        is_cohere_command_plus(origin)
+        or is_llama3(origin)
+        or is_nova(origin)
+        or is_deepseek(origin)
     ):
-        message = "The text field in the ContentBlock object at messages.0.content.0 is blank. Add text to the text field, and try again."
+        message = converse_api_error_message
     else:
         message = None
 
@@ -586,8 +630,11 @@ async def test_tool_choice_none(
         origin
         in [
             D.ANTHROPIC_CLAUDE_V4_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         ]
         and not optimized_latency
     ):
@@ -772,3 +819,90 @@ async def test_tool_response(
 
     for temp in test.city_temps:
         assert str(temp) in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_document_understanding), deployments),
+    ids=display_deployment,
+)
+async def test_pdf_document(deployment: D, optimized_latency: bool, chat: Chat):
+    async def _run():
+        query = (
+            "From which novel does the first page of the attached document quote? "
+            "Which animal is depicted on the second page?"
+        )
+
+        return await chat(
+            messages=[
+                user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE),
+            ],
+        )
+
+    if (
+        not optimized_latency
+        and deployment.origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+    ):
+        # For some reason Claude 3.5 Haiku via Bedrock API doesn't support PDF,
+        # but via Converse API - it does.
+        async with expected_exception(
+            cls=openai.BadRequestError,
+            status_code=400,
+            message="'claude-3-5-haiku-20241022' does not support PDF input.",
+        ):
+            await _run()
+    else:
+        content = (await _run()).content.lower()
+
+        if optimized_latency:
+            # ConverseAPI isn't able to parse images unless citations are enabled
+            # which is currently not enabled automatically.
+            words = ["christmas", "carol"]
+        else:
+            words = ["christmas", "carol", "cat"]
+
+        for w in words:
+            assert w in content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_document_understanding), deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
+async def test_excel_document(optimized_latency: bool, chat: Chat):
+    async def _run():
+        return await chat(
+            messages=[
+                user_with_attachment_url(
+                    "how many cells there are in the given spreadsheet excluding headers?",
+                    EXCEL_DOCUMENT_RESOURCE,
+                ),
+            ],
+        )
+
+    if optimized_latency:
+        # Converse API supports Excel documents, whereas Anthropic API - doesn't
+        response = await _run()
+        assert "6" in response.content.lower()
+    else:
+        error_message = "Unsupported media type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        async with expected_exception(
+            cls=openai.UnprocessableEntityError,
+            status_code=422,
+            message=error_message,
+            display_message=error_message,
+        ):
+            await _run()
+
+
+@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+async def test_max_prompt_tokens(chat: Chat):
+    response = await chat(
+        max_tokens=1,
+        messages=[user("test")],
+        extra_body={"max_prompt_tokens": 200},
+    )
+    statistics = response.response.dict().get("statistics", {})
+    assert statistics.get("discarded_messages") == []

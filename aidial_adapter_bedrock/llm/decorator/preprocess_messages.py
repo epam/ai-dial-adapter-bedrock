@@ -13,7 +13,7 @@ from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 def preprocess_messages_decorator(
-    on_messages: Callable[[List[Message]], ListProjection[Message]]
+    on_messages: Callable[[List[Message]], ListProjection[Message]],
 ) -> ChatCompletionTransformer:
     return lambda adapter: PreprocessMessagesDecorator(
         on_messages=on_messages, adapter=adapter
@@ -31,7 +31,9 @@ class PreprocessMessagesDecorator(ChatCompletionDecorator):
     ) -> None:
         new_messages = self.on_messages(messages)
         await self.adapter.chat(consumer, params, new_messages.raw_list)
-        if discarded_messages := consumer.get_discarded_messages() is not None:
+        if (
+            discarded_messages := consumer.get_discarded_messages()
+        ) is not None:
             discarded_messages = list(
                 new_messages.to_original_indices(discarded_messages)
             )

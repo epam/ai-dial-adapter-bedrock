@@ -9,6 +9,7 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
 
+from anthropic import Omit
 from pydantic import BaseModel
 
 
@@ -67,6 +68,9 @@ def _to_dict(obj: Any, **kwargs) -> Any:
 
     if is_dataclass(type(obj)):
         return rec(asdict(obj))
+
+    if isinstance(obj, Omit):
+        return "omit"
 
     return obj
 
