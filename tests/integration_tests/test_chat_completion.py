@@ -823,6 +823,31 @@ async def test_tool_response(
 
 @pytest.mark.parametrize(
     "deployment",
+    select(pred(supports_tools), deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize("test", [ToolCallTest(1)], ids=lambda x: x.get_id())
+@pytest.mark.parametrize("stream", [True], ids=["stream"])
+@pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
+async def test_tool_call_with_empty_message(
+    deployment: Deployment, test: ToolCallTest, chat: Chat
+):
+    origin = deployment.origin
+
+    messages = [
+        *test.messages(not is_llama3(origin)),
+        test.tool_request(content=""),
+        *test.tool_responses(),
+    ]
+
+    response = await chat(messages=messages, tools=test.tools)
+
+    for temp in test.city_temps:
+        assert str(temp) in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
     select(pred(supports_document_understanding), deployments),
     ids=display_deployment,
 )
