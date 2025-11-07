@@ -63,7 +63,9 @@ class ToolCallTest:
     def function_name(self) -> str:
         return self.functions[0]["name"]
 
-    def tool_request(self) -> ChatCompletionMessageParam:
+    def tool_request(
+        self, content: str | None = None
+    ) -> ChatCompletionMessageParam:
         return ai_tools(
             [
                 tool_request(
@@ -72,7 +74,8 @@ class ToolCallTest:
                     self.function_args(idx),
                 )
                 for idx in range(self.targets)
-            ]
+            ],
+            content,
         )
 
     def tool_responses(self) -> List[ChatCompletionMessageParam]:
