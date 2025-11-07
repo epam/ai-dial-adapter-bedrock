@@ -24,6 +24,11 @@ IMAGE_TO_IMAGE_SUPPORTED_MODELS = [
     (ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1, _WEST),
 ]
 
+TEXT_TO_IMAGE_SUPPORTED_MODELS = IMAGE_TO_IMAGE_SUPPORTED_MODELS + [
+    (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1, _WEST),
+    (ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1_1, _WEST),
+]
+
 VISION_MODEL = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET.US
 
 
@@ -72,7 +77,7 @@ def vision_model(get_openai_client):
     return get_openai_client(VISION_MODEL.value, region=_WEST)
 
 
-@pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
+@pytest.mark.parametrize("deployment, region", TEXT_TO_IMAGE_SUPPORTED_MODELS)
 async def test_text_to_image(
     vision_model: AsyncAzureOpenAI,
     get_openai_client: Callable[..., AsyncAzureOpenAI],
@@ -172,7 +177,7 @@ async def test_image_to_image(
 
 
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("deployment, region", IMAGE_TO_IMAGE_SUPPORTED_MODELS)
+@pytest.mark.parametrize("deployment, region", TEXT_TO_IMAGE_SUPPORTED_MODELS)
 async def test_content_filtering(
     get_openai_client: Callable[..., AsyncAzureOpenAI],
     deployment: ChatCompletionDeployment,
