@@ -60,8 +60,12 @@ def ai_function(
 
 def ai_tools(
     tool_calls: List[ChatCompletionMessageToolCallParam],
+    content: str | None = None,
 ) -> ChatCompletionAssistantMessageParam:
-    return {"role": "assistant", "tool_calls": tool_calls}
+    ret = {"role": "assistant", "tool_calls": tool_calls}
+    if content is not None:
+        ret["content"] = content
+    return ret  # type: ignore
 
 
 def user(

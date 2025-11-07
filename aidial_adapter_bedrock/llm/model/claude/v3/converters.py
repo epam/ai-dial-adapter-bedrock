@@ -152,7 +152,7 @@ async def to_claude_messages(
                     content = [
                         create_tool_use_block(call) for call in message.calls
                     ]
-                    if (text_content := message.content) is not None:
+                    if text_content := message.content:
                         content.insert(0, create_text_block(text_content))
 
             case HumanToolResultMessage():
