@@ -2,10 +2,8 @@ from typing import assert_never
 
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
-import aidial_adapter_bedrock.llm.model.ai21 as ai21
 import aidial_adapter_bedrock.llm.model.amazon as amazon
 import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
-import aidial_adapter_bedrock.llm.model.stability.v1 as stability_v1
 from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
     AdapterEmbeddingsDeployment,
@@ -88,13 +86,6 @@ async def get_bedrock_adapter(
                     upstream_config,
                 )
         case (
-            ChatCompletionDeployment.AI21_J2_JUMBO_INSTRUCT
-            | ChatCompletionDeployment.AI21_J2_GRANDE_INSTRUCT
-            | ChatCompletionDeployment.AI21_J2_MID_V1
-            | ChatCompletionDeployment.AI21_J2_ULTRA_V1
-        ):
-            return ai21.create_adapter(await get_bedrock_client(), model)
-        case (
             ChatCompletionDeployment.AI21_JAMBA_1_5_LARGE_V1
             | ChatCompletionDeployment.AI21_JAMBA_1_5_MINI_V1
         ):
@@ -103,18 +94,9 @@ async def get_bedrock_adapter(
                 supported_document_types=ConverseDocumentType.all(),
             )
         case (
-            ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL
-            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1
-        ):
-            return stability_v1.create_adapter(
-                await get_bedrock_client(), model, api_key
-            )
-        case (
-            ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
-            | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1
+            ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1_1
-            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1
             | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1
         ):
             adapter = StabilityV2Adapter.create(
