@@ -119,6 +119,17 @@ class TestCase:
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
 
+    async def get_converse_adapter(self):
+        client = await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1"))
+        return ConverseAdapter(
+            deployment="test",
+            bedrock=client,
+            support_tools=True,
+            storage=None,
+            supported_image_types=self.supported_image_types,
+            supported_document_types=self.supported_document_types,
+        )
+
 
 def _create_document_test_cases() -> List[TestCase]:
     return [
@@ -670,27 +681,18 @@ TEST_CASES = [
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
 async def test_converse_adapter(test_case: TestCase):
-    adapter = ConverseAdapter(
-        deployment="test",
-        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
-        support_tools=True,
-        storage=None,
-        supported_image_types=test_case.supported_image_types,
-        supported_document_types=test_case.supported_document_types,
-    )
+    adapter = await test_case.get_converse_adapter()
     construct_coro = adapter.construct_converse_params(
-        messages=test_case.messages,
-        params=test_case.params,
+        messages=test_case.messages, params=test_case.params
     )
 
-    if test_case.expected_error is not None:
-        with pytest.raises(test_case.expected_error.type) as exc_info:
-            converse_request = await construct_coro
-        error_message = getattr(exc_info.value, "message", None) or getattr(
-            exc_info.value, "error_message", None
+    if (err := test_case.expected_error) is not None:
+        with pytest.raises(err.type) as e:
+            await construct_coro
+        message = getattr(e.value, "message", None) or getattr(
+            e.value, "error_message", None
         )
-        assert isinstance(error_message, str)
-        assert error_message == test_case.expected_error.message
+        assert message == err.message
     else:
         converse_request = await construct_coro
         assert converse_request == test_case.expected_output
@@ -700,27 +702,19 @@ async def test_converse_adapter(test_case: TestCase):
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
 async def test_converse_prompt_tokenizer(test_case: TestCase):
-    adapter = ConverseAdapter(
-        deployment="test",
-        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
-        support_tools=True,
-        storage=None,
-        supported_image_types=test_case.supported_image_types,
-        supported_document_types=test_case.supported_document_types,
-    )
+    adapter = await test_case.get_converse_adapter()
     construct_coro = adapter.count_prompt_tokens(
-        messages=test_case.messages,
-        params=test_case.params,
+        messages=test_case.messages, params=test_case.params
     )
 
-    if test_case.expected_error is not None:
-        with pytest.raises(test_case.expected_error.type) as exc_info:
+    if (err := test_case.expected_error) is not None:
+        with pytest.raises(err.type) as e:
             await construct_coro
-        error_message = getattr(exc_info.value, "message", None) or getattr(
-            exc_info.value, "error_message", None
+        message = getattr(e.value, "message", None) or getattr(
+            e.value, "error_message", None
         )
-        assert isinstance(error_message, str)
-        assert error_message == test_case.expected_error.message
+        assert message == err.message
+
     else:
         prompt_tokens = await construct_coro
         assert prompt_tokens > 0
