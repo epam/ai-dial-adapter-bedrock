@@ -35,11 +35,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Meta|Llama 3.1 8B Instruct|meta.llama3-1-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Meta|Llama 3 Chat 70B Instruct|meta.llama3-70b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
 |Meta|Llama 3 Chat 8B Instruct|meta.llama3-8b-instruct-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
-|Stability AI|SDXL 1.0|stability.stable-diffusion-xl-v1|text-to-image|❌|🟡|❌|❌|Bedrock API|
-|Stability AI|SD3 Large 1.0|stability.sd3-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
-|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:(0\|1)|text-to-image|❌|🟡|❌|✅|Bedrock API|
-|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:(0\1)|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:1|text-to-image|❌|🟡|❌|✅|Bedrock API|
+|Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:1|text-to-image|❌|🟡|❌|✅|Bedrock API|
 |Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|

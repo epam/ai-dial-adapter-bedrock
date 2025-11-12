@@ -45,10 +45,6 @@ _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
 _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AMAZON_TITAN_TG1_LARGE: _WEST,
-    D.AI21_J2_GRANDE_INSTRUCT: _EAST_1,
-    D.AI21_J2_JUMBO_INSTRUCT: _EAST_1,
-    D.AI21_J2_MID_V1: _EAST_1,
-    D.AI21_J2_ULTRA_V1: _EAST_1,
     D.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
     D.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
     D.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
@@ -79,27 +75,13 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AMAZON_NOVA_PRO.US: _EAST_1,
     D.AMAZON_NOVA_LITE: _EAST_1,
     D.DEEPSEEK_R1_V2.US: _EAST_1,
-    D.STABILITY_STABLE_DIFFUSION_XL: _WEST,
-    D.STABILITY_STABLE_DIFFUSION_XL_V1: _WEST,
-    D.STABILITY_STABLE_IMAGE_CORE_V1: _WEST,
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
-    D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1: _WEST,
 }
 
 
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
-    return deployment in {
-        D.AI21_J2_GRANDE_INSTRUCT,
-        D.AI21_J2_JUMBO_INSTRUCT,
-        D.AI21_J2_MID_V1,
-        D.AI21_J2_ULTRA_V1,
-        D.STABILITY_STABLE_DIFFUSION_XL,
-        D.STABILITY_STABLE_DIFFUSION_XL_V1,
-        D.STABILITY_STABLE_IMAGE_CORE_V1,
-        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
-        D.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
-    }
+    return deployment in {D.STABILITY_STABLE_IMAGE_ULTRA_V1}
 
 
 def is_claude(deployment: D) -> bool:
@@ -240,8 +222,6 @@ def is_deepseek(deployment: D) -> bool:
 
 def is_ai21(deployment: D) -> bool:
     return deployment in [
-        D.AI21_J2_GRANDE_INSTRUCT,
-        D.AI21_J2_JUMBO_INSTRUCT,
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AI21_JAMBA_1_5_LARGE_V1,
     ]

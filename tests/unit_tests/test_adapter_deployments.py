@@ -92,16 +92,6 @@ test_cases: List[TestCase] = [
         error='None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {"xxx": "yyy"}. Remap the deployments to the supported Bedrock deployments to fix the error.',
     ),
     TestCase(
-        desc="chat completion redirects",
-        compat={},
-        checks=[
-            supported(
-                ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL,
-                redirect=ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_XL_V1,
-            ),
-        ],
-    ),
-    TestCase(
         desc="compat chat+embeddings",
         compat={
             "xxx": _CHAT_MODEL_1.value,

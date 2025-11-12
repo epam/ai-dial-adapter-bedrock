@@ -108,11 +108,9 @@ class StabilityV3Configuration(StabilityImageConfiguration):
 
 
 Stability_V2_V3 = Literal[
-    ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1,
     ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1,
     ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1,
     ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1_1,
-    ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1,
     ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1,
 ]
 
@@ -152,8 +150,7 @@ class Spec(BaseModel):
 def _get_spec(deployment: Stability_V2_V3) -> Spec:
     match deployment:
         case (
-            ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1
-            | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1
+            ChatCompletionDeployment.STABILITY_STABLE_IMAGE_CORE_V1_1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1
             | ChatCompletionDeployment.STABILITY_STABLE_IMAGE_ULTRA_V1_1
         ):
@@ -163,10 +160,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
                 height_constraints=None,
                 configuration_cls=StabilityImageConfiguration,
             )
-        case (
-            ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_LARGE_V1
-            | ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1
-        ):
+        case ChatCompletionDeployment.STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1:
             return Spec(
                 image_to_image_supported=True,
                 width_constraints=(640, 1536),
