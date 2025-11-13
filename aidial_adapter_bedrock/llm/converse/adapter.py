@@ -1,5 +1,5 @@
 from logging import DEBUG
-from typing import Any, Awaitable, Callable, List, Tuple, Type
+from typing import Awaitable, Callable, List, Tuple, Type
 
 from aidial_sdk.chat_completion import Message as DialMessage
 
@@ -15,6 +15,9 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
+from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
+    default_converse_tokenizer_factory,
+)
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
     to_converse_messages,
@@ -28,7 +31,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
     ConverseDocumentType,
     ConverseImageType,
-    ConverseMessage,
+    ConverseMessages,
     ConverseRequestWrapper,
     ConverseTools,
     GuardrailConfig,
@@ -46,8 +49,6 @@ from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-ConverseMessages = List[Tuple[ConverseMessage, Any]]
-
 
 class ConverseAdapter(ChatCompletionAdapter):
     deployment: str
@@ -60,7 +61,8 @@ class ConverseAdapter(ChatCompletionAdapter):
     input_tokenizer_factory: Callable[
         [ConverseDeployment, ConverseRequestWrapper],
         Callable[[ConverseMessages], Awaitable[int]],
-    ]
+    ] = default_converse_tokenizer_factory
+
     support_tools: bool
     partitioner: Callable[[ConverseMessages], List[int]] = (
         turn_based_partitioner
