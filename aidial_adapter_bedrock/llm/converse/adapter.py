@@ -118,11 +118,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     def get_tool_config(self, params: ModelParameters) -> ConverseTools | None:
         if params.tool_config and not self.support_tools:
             raise ValidationError("Tools are not supported")
-        return (
-            to_converse_tools(params.tool_config)
-            if params.tool_config
-            else None
-        )
+        return to_converse_tools(params.tool_config)
 
     async def construct_converse_params(
         self,

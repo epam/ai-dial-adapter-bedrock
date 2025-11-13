@@ -50,7 +50,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
 )
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig, ToolsMode
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (
@@ -446,7 +446,8 @@ TEST_CASES = [
                     )
                 ],
                 tool_choice="required",
-                tool_ids=None,
+                tools_mode=ToolsMode.TOOLS,
+                tool_ids={},
             )
         ),
         expected_output=ConverseRequestWrapper(
@@ -528,7 +529,8 @@ TEST_CASES = [
                 tool_choice=ToolChoice(
                     type="function", function=FunctionChoice(name="get_weather")
                 ),
-                tool_ids=None,
+                tools_mode=ToolsMode.TOOLS,
+                tool_ids={},
             )
         ),
         expected_output=ConverseRequestWrapper(

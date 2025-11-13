@@ -10,6 +10,6 @@ class ConverseAdapterWithStreamingEmulation(ConverseAdapter):
     """
 
     def is_stream(self, params: ModelParameters) -> bool:
-        if self.get_tool_config(params):
+        if params.tool_config is not None:
             return False
         return params.stream

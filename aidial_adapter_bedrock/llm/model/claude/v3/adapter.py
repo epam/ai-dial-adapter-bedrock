@@ -119,8 +119,8 @@ from aidial_adapter_bedrock.llm.model.claude.v3.tokenizer import (
     tokenize_text,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.tools import (
+    function_to_tool_messages,
     process_tools_block,
-    process_with_tools,
 )
 from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
@@ -229,7 +229,9 @@ class Adapter(ChatCompletionAdapter):
 
         tools = omit
         tool_choice: ToolChoice | Omit = omit
-        if (tool_config := params.tool_config) is not None:
+        if (
+            tool_config := params.tool_config
+        ) is not None and tool_config.tools:
             tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
 
             match tool_config.tool_choice:
@@ -251,8 +253,7 @@ class Adapter(ChatCompletionAdapter):
             # to one in the adapter itself for the functions mode.
 
         parsed_messages = [
-            process_with_tools(parse_dial_message(m), params.tools_mode)
-            for m in messages
+            function_to_tool_messages(parse_dial_message(m)) for m in messages
         ]
 
         system_prompt, claude_messages = await to_claude_messages(
