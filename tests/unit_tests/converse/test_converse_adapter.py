@@ -59,13 +59,6 @@ from tests.integration_tests.constants import (
 )
 
 
-async def _input_tokenizer_factory(_deployment, _params):
-    async def _test_tokenizer(_messages) -> int:
-        return 100
-
-    return _test_tokenizer
-
-
 @dataclass(frozen=True)
 class UndefinedValue(str):
     """Sentinel object for values that should be ignored in comparisons."""
@@ -125,6 +118,17 @@ class TestCase:
     params: ModelParameters = field(default_factory=ModelParameters)
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
+
+    async def get_converse_adapter(self):
+        client = await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1"))
+        return ConverseAdapter(
+            deployment="test",
+            bedrock=client,
+            support_tools=True,
+            storage=None,
+            supported_image_types=self.supported_image_types,
+            supported_document_types=self.supported_document_types,
+        )
 
 
 def _create_document_test_cases() -> List[TestCase]:
@@ -679,32 +683,40 @@ TEST_CASES = [
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
 async def test_converse_adapter(test_case: TestCase):
-    adapter = ConverseAdapter(
-        deployment="test",
-        bedrock=await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1")),
-        tokenize_text=lambda x: len(x),
-        input_tokenizer_factory=_input_tokenizer_factory,  # type: ignore
-        support_tools=True,
-        storage=None,
-        supported_image_types=test_case.supported_image_types,
-        supported_document_types=test_case.supported_document_types,
-    )
+    adapter = await test_case.get_converse_adapter()
     construct_coro = adapter.construct_converse_params(
-        messages=test_case.messages,
-        params=test_case.params,
+        messages=test_case.messages, params=test_case.params
     )
 
-    if test_case.expected_error is not None:
-        with pytest.raises(test_case.expected_error.type) as exc_info:
-            converse_request = await construct_coro
-        assert hasattr(exc_info.value, "message") or hasattr(
-            exc_info.value, "error_message"
+    if (err := test_case.expected_error) is not None:
+        with pytest.raises(err.type) as e:
+            await construct_coro
+        message = getattr(e.value, "message", None) or getattr(
+            e.value, "error_message", None
         )
-        error_message = getattr(exc_info.value, "message", None) or getattr(
-            exc_info.value, "error_message"
-        )
-        assert isinstance(error_message, str)
-        assert error_message == test_case.expected_error.message
+        assert message == err.message
     else:
         converse_request = await construct_coro
         assert converse_request == test_case.expected_output
+
+
+@pytest.mark.parametrize(
+    "test_case", TEST_CASES, ids=lambda test_case: test_case.name
+)
+async def test_converse_prompt_tokenizer(test_case: TestCase):
+    adapter = await test_case.get_converse_adapter()
+    construct_coro = adapter.count_prompt_tokens(
+        messages=test_case.messages, params=test_case.params
+    )
+
+    if (err := test_case.expected_error) is not None:
+        with pytest.raises(err.type) as e:
+            await construct_coro
+        message = getattr(e.value, "message", None) or getattr(
+            e.value, "error_message", None
+        )
+        assert message == err.message
+
+    else:
+        prompt_tokens = await construct_coro
+        assert prompt_tokens > 0
