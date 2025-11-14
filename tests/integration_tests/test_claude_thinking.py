@@ -145,7 +145,7 @@ async def test_claude_thinking_with_function_calling(
     messages.append(bot_message1.dict())  # type: ignore
 
     tool_calls = bot_message1.tool_calls
-    assert tool_calls is not None
+    assert tool_calls is not None, "No tool calls were made"
     assert len(tool_calls) == len(cities)
 
     for tool_call, temp in zip(tool_calls, temps):

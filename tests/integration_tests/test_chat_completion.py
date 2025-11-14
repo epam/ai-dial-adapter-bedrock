@@ -679,7 +679,7 @@ async def test_forced_tool_choice(chat: Chat):
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None
+    assert tool_calls is not None, "No tool calls were made"
     assert len(tool_calls) == 1
 
     function = tool_calls[0].function
@@ -815,7 +815,7 @@ async def test_tool_call(
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None
+    assert tool_calls is not None, "No tool calls were made"
 
     expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
