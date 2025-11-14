@@ -3,7 +3,6 @@ from logging import DEBUG
 from typing import List, Optional, Tuple, Type, assert_never
 
 from aidial_sdk.chat_completion import Message as DialMessage
-from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock, Omit, omit
 from anthropic._resource import AsyncAPIResource
 from anthropic.lib.streaming import (
@@ -55,11 +54,6 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaThinkingBlock as ThinkingBlock
 from anthropic.types.beta import BetaThinkingConfigParam as ThinkingConfigParam
-from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
-from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
-from anthropic.types.beta import BetaToolChoiceNoneParam as ToolChoiceNoneParam
-from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
-from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolUseBlock as ToolUseBlock
 from anthropic.types.beta import (
     BetaWebFetchToolResultBlock as WebFetchToolResultBlock,
@@ -227,30 +221,7 @@ class Adapter(ChatCompletionAdapter):
         if len(messages) == 0:
             raise ValidationError("List of messages must not be empty")
 
-        tools = omit
-        tool_choice: ToolChoice | Omit = omit
-        if (
-            tool_config := params.tool_config
-        ) is not None and tool_config.tools:
-            tools = [to_claude_tool_config(tool) for tool in tool_config.tools]
-
-            match tool_config.tool_choice:
-                case DialToolChoice(function=function):
-                    tool_choice = ToolChoiceToolParam(
-                        type="tool", name=function.name
-                    )
-                case "required":
-                    tool_choice = ToolChoiceAnyParam(type="any")
-                case "auto":
-                    tool_choice = ToolChoiceAutoParam(type="auto")
-                case "none":
-                    tool_choice = ToolChoiceNoneParam(type="none")
-                case _:
-                    assert_never(tool_config.tool_choice)
-
-            # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
-            # by older Claude3 versions, so we limit the number of generated function calls
-            # to one in the adapter itself for the functions mode.
+        tools_config = to_claude_tool_config(params.tool_config)
 
         parsed_messages = [
             function_to_tool_messages(parse_dial_message(m)) for m in messages
@@ -286,8 +257,8 @@ class Adapter(ChatCompletionAdapter):
             system=system_prompt or omit,
             temperature=temperature,
             top_p=params.top_p or omit,
-            tools=tools,
-            tool_choice=tool_choice,
+            tools=(tools_config and tools_config.tools) or omit,
+            tool_choice=(tools_config and tools_config.tool_choice) or omit,
             thinking=thinking,
             betas=configuration.betas or omit,
         )
