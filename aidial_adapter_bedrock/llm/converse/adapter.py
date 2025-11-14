@@ -56,6 +56,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     storage: FileStorage | None
     supported_image_types: list[ConverseImageType]
     supported_document_types: list[ConverseDocumentType]
+    ensure_non_empty_tool_descriptions: bool
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
@@ -121,7 +122,9 @@ class ConverseAdapter(ChatCompletionAdapter):
         if params.tool_config and not self.support_tools:
             raise ValidationError("Tools are not supported")
         return (
-            to_converse_tools(params.tool_config)
+            to_converse_tools(
+                params.tool_config, self.ensure_non_empty_tool_descriptions
+            )
             if params.tool_config
             else None
         )
