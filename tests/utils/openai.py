@@ -335,6 +335,11 @@ async def tokenize(
     return response.json()
 
 
+GET_CURRENT_TIME_FUNCTION: FunctionDefinition = {
+    "name": "get_current_time",
+    "description": "return the current time",
+}
+
 GET_WEATHER_FUNCTION: FunctionDefinition = {
     "name": "get_temperature",
     "description": "Get reliable information about the temperature in the given city",

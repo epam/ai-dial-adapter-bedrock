@@ -19,6 +19,7 @@ from tests.unit_tests.test_configuration import (
 from tests.utils.exception import ExpectedException, expected_exception
 from tests.utils.json import match_objects
 from tests.utils.openai import (
+    GET_CURRENT_TIME_FUNCTION,
     GET_WEATHER_FUNCTION,
     ChatCompletionArgs,
     ChatCompletionResult,
@@ -879,6 +880,34 @@ async def test_tool_call_with_empty_message(
 
     for temp in test.city_temps:
         assert str(temp) in response.content
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools), deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize("stream", [True], ids=["stream"])
+@pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
+@pytest.mark.parametrize(
+    "description", ["", " \n\t", None], ids=["empty", "whitespace", "missing"]
+)
+async def test_tool_call_with_vacuous_description(
+    description: str | None, chat: Chat
+):
+    func_def = GET_CURRENT_TIME_FUNCTION.copy()
+    if description is None:
+        func_def.pop("description")
+    else:
+        func_def["description"] = description
+
+    response = await chat(
+        messages=[user("what time is it?")],
+        tools=[function_to_tool(func_def)],
+    )
+    assert response.finish_reasons == ["tool_calls"]
+    assert response.tool_calls is not None, "No tools were called"
+    assert response.tool_calls[0].function.name == "get_current_time"
 
 
 @pytest.mark.parametrize(

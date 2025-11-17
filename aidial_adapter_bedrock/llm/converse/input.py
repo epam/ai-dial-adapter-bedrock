@@ -43,6 +43,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseMessage,
     ConverseRole,
     ConverseTextPart,
+    ConverseToolConfig,
     ConverseToolResultPart,
     ConverseTools,
     ConverseToolSpec,
@@ -72,25 +73,29 @@ def to_converse_role(role: DialRole) -> ConverseRole:
             assert_never(role)
 
 
-def to_converse_tools(tools_config: ToolsConfig | None) -> ConverseTools | None:
+def to_converse_tools(
+    tools_config: ToolsConfig | None, ensure_non_empty_descriptions: bool
+) -> ConverseTools | None:
     if tools_config is None or not tools_config.tools:
         return None
 
     tools: list[ConverseToolSpec | ConverseCachePointPart] = []
     for tool in tools_config.tools:
         function = tool.function
-        tools.append(
-            {
-                "toolSpec": {
-                    "name": function.name,
-                    "description": function.description or "",
-                    "inputSchema": {
-                        "json": function.parameters
-                        or {"type": "object", "properties": {}}
-                    },
-                }
-            }
-        )
+        tools_spec: ConverseToolConfig = {
+            "name": function.name,
+            "inputSchema": {
+                "json": function.parameters
+                or {"type": "object", "properties": {}}
+            },
+        }
+
+        if ensure_non_empty_descriptions:
+            tools_spec["description"] = function.description or " "
+        elif function.description:
+            tools_spec["description"] = function.description
+
+        tools.append({"toolSpec": tools_spec})
 
         if cache_point_part := _get_cache_point_part(tool):
             tools.append(cache_point_part)
