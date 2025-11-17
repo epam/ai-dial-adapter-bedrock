@@ -44,6 +44,7 @@ class ConverseAdapterFactory(BaseModel):
         tools_support: ToolsSupport = ToolsSupport.NONE,
         supported_image_types: list[ConverseImageType] | None = None,
         supported_document_types: list[ConverseDocumentType] | None = None,
+        ensure_non_empty_tool_descriptions: bool = False,
     ) -> ChatCompletionAdapter:
         cls = (
             ConverseAdapterWithStreamingEmulation
@@ -59,6 +60,7 @@ class ConverseAdapterFactory(BaseModel):
             support_tools=tools_support != ToolsSupport.NONE,
             supported_image_types=supported_image_types or [],
             supported_document_types=supported_document_types or [],
+            ensure_non_empty_tool_descriptions=ensure_non_empty_tool_descriptions,
         )
         return compose_decorators(
             preprocess_messages_decorator(default_preprocess_messages),
