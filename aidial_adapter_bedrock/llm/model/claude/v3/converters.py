@@ -1,6 +1,7 @@
 from typing import Iterable, List, Literal, Optional, Set, Tuple, assert_never
 
 from aidial_sdk.chat_completion import FinishReason, Tool
+from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from anthropic.types.beta import (
     BetaCacheControlEphemeralParam as CacheControlEphemeralParam,
 )
@@ -12,8 +13,14 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta import BetaStopReason as ClaudeStopReason
 from anthropic.types.beta import BetaTextBlockParam as TextBlockParam
+from anthropic.types.beta import BetaToolChoiceAnyParam as ToolChoiceAnyParam
+from anthropic.types.beta import BetaToolChoiceAutoParam as ToolChoiceAutoParam
+from anthropic.types.beta import BetaToolChoiceNoneParam as ToolChoiceNoneParam
+from anthropic.types.beta import BetaToolChoiceParam as ToolChoice
+from anthropic.types.beta import BetaToolChoiceToolParam as ToolChoiceToolParam
 from anthropic.types.beta import BetaToolParam as ToolParam
 from anthropic.types.beta import BetaUsage as Usage
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 from aidial_adapter_bedrock.llm.errors import ValidationError
@@ -37,7 +44,7 @@ from aidial_adapter_bedrock.llm.model.claude.v3.config import Configuration
 from aidial_adapter_bedrock.llm.model.claude.v3.state import (
     get_message_content_from_state,
 )
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig, ToolsMode
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
@@ -217,7 +224,7 @@ def to_dial_usage(usage: Usage) -> TokenUsage:
     )
 
 
-def to_claude_tool_config(tool: Tool) -> ToolParam:
+def _to_claude_tool(tool: Tool) -> ToolParam:
     function = tool.function
     tool_param = ToolParam(
         input_schema=function.parameters
@@ -230,3 +237,39 @@ def to_claude_tool_config(tool: Tool) -> ToolParam:
         tool_param["cache_control"] = _claude_cache_breakpoint
 
     return tool_param
+
+
+def _to_claude_tool_choice(
+    tool_choice: Literal["auto", "none", "required"] | DialToolChoice,
+) -> ToolChoice:
+    # NOTE tool_choice.disable_parallel_tool_use=True option isn't supported
+    # by older Claude3 versions, so we limit the number of generated function calls
+    # to one in the adapter itself for the functions mode.
+
+    match tool_choice:
+        case DialToolChoice(function=function):
+            return ToolChoiceToolParam(type="tool", name=function.name)
+        case "required":
+            return ToolChoiceAnyParam(type="any")
+        case "auto":
+            return ToolChoiceAutoParam(type="auto")
+        case "none":
+            return ToolChoiceNoneParam(type="none")
+        case _:
+            assert_never(tool_choice)
+
+
+class ClaudeToolsConfig(BaseModel):
+    tools: List[ToolParam]
+    tool_choice: ToolChoice
+
+
+def to_claude_tool_config(
+    tools_config: ToolsConfig | None,
+) -> ClaudeToolsConfig | None:
+    if tools_config is None or not tools_config.tools:
+        return None
+
+    tools = [_to_claude_tool(tool) for tool in tools_config.tools]
+    tool_choice = _to_claude_tool_choice(tools_config.tool_choice)
+    return ClaudeToolsConfig(tools=tools, tool_choice=tool_choice)

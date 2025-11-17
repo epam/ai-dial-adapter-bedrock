@@ -13,7 +13,7 @@ from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.model.claude.v3.adapter import (
     Adapter as Claude_V3,
 )
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig, ToolsMode
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from tests.utils.messages import ai, sys, user, user_with_image
@@ -59,6 +59,7 @@ _TOOL_CONFIG = ToolsConfig(
     tools=[Tool(type="function", function=Function(name="function"))],
     tool_choice="auto",
     tool_ids={},
+    tools_mode=ToolsMode.TOOLS,
 )
 
 _PER_MESSAGE_TOKENS = 5

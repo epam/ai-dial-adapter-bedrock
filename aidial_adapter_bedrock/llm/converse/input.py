@@ -74,8 +74,11 @@ def to_converse_role(role: DialRole) -> ConverseRole:
 
 
 def to_converse_tools(
-    tools_config: ToolsConfig, ensure_non_empty_descriptions: bool
-) -> ConverseTools:
+    tools_config: ToolsConfig | None, ensure_non_empty_descriptions: bool
+) -> ConverseTools | None:
+    if tools_config is None or not tools_config.tools:
+        return None
+
     tools: list[ConverseToolSpec | ConverseCachePointPart] = []
     for tool in tools_config.tools:
         function = tool.function

@@ -680,7 +680,7 @@ async def test_forced_tool_choice(chat: Chat):
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None
+    assert tool_calls is not None, "No tool calls were made"
     assert len(tool_calls) == 1
 
     function = tool_calls[0].function
@@ -693,6 +693,61 @@ async def test_forced_tool_choice(chat: Chat):
         },
         json.loads(function.arguments),
     )
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_tools), deployments),
+    ids=display_deployment,
+)
+async def test_tool_calls_without_tool_definitions(
+    deployment: D, optimized_latency: bool, chat: Chat
+):
+    origin = deployment.origin
+    if origin == D.ANTHROPIC_CLAUDE_V3_SONNET:
+        exc = ExpectedException(
+            type=BadRequestError,
+            message="Requests which include `tool_use` or `tool_result` blocks must define tools.",
+            status_code=400,
+        )
+    elif is_claude(origin) and not optimized_latency:
+        exc = None
+    else:
+        # All Converse API based models fail with the validation error
+        exc = ExpectedException(
+            type=BadRequestError,
+            message="The toolConfig field must be defined when using toolUse and toolResult content blocks",
+            status_code=400,
+        )
+
+    async def _run():
+        return await chat(
+            messages=[
+                user("what time is it?"),
+                ai_tools(
+                    [
+                        {
+                            "type": "function",
+                            "id": "tool-call-id1",
+                            "function": {
+                                "name": "get_current_time",
+                                "arguments": "{}",
+                            },
+                        }
+                    ]
+                ),
+                tool_response(id="tool-call-id1", content="01:22 AM"),
+                ai("It's 01:22 AM"),
+                user("Now compute (2+3). Reply with a single digit"),
+            ],
+        )
+
+    if exc:
+        async with expected_exception(exc):
+            await _run()
+    else:
+        response = await _run()
+        assert "5" in response.content
 
 
 @pytest.mark.parametrize(
@@ -761,7 +816,7 @@ async def test_tool_call(
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None
+    assert tool_calls is not None, "No tool calls were made"
 
     expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
