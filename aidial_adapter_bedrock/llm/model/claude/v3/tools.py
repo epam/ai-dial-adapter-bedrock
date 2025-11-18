@@ -28,7 +28,6 @@ def to_dial_function_call(block: ToolUseBlock, streaming: bool) -> FunctionCall:
 
 def to_dial_tool_call(block: ToolUseBlock, streaming: bool) -> ToolCall:
     return ToolCall(
-        index=None,
         id=block.id,
         type="function",
         function=to_dial_function_call(block, streaming),
@@ -83,7 +82,6 @@ def function_to_tool_messages(
                 content=message.content,
                 calls=[
                     ToolCall(
-                        index=None,
                         id=message.call.name,
                         type="function",
                         function=message.call,
