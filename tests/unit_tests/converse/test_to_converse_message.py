@@ -77,7 +77,6 @@ async def test_to_converse_message_tool_call_no_content():
         role=DialRole.ASSISTANT,
         tool_calls=[
             ToolCall(
-                index=None,
                 id="123",
                 type="function",
                 function=FunctionCall(
@@ -107,7 +106,6 @@ async def test_to_converse_message_tool_call_with_content():
         content="Calling a function",
         tool_calls=[
             ToolCall(
-                index=None,
                 id="123",
                 type="function",
                 function=FunctionCall(
@@ -137,7 +135,6 @@ async def test_to_converse_message_multiple_tool_calls():
         role=DialRole.ASSISTANT,
         tool_calls=[
             ToolCall(
-                index=None,
                 id="123",
                 type="function",
                 function=FunctionCall(
@@ -145,7 +142,6 @@ async def test_to_converse_message_multiple_tool_calls():
                 ),
             ),
             ToolCall(
-                index=None,
                 id="456",
                 type="function",
                 function=FunctionCall(

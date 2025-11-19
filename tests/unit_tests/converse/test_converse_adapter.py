@@ -507,7 +507,6 @@ TEST_CASES = [
                 content=None,
                 tool_calls=[
                     ToolCall(
-                        index=0,
                         id="call_123",
                         type="function",
                         function=FunctionCall(
