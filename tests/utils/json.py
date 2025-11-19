@@ -18,7 +18,9 @@ def match_objects(expected: Any, actual: Any) -> bool:
     elif callable(expected):
         assert expected(actual)
     elif isinstance(expected, re.Pattern) and isinstance(actual, str):
-        assert expected.match(actual)
+        assert expected.match(
+            actual
+        ), f"The actual string {actual!r} doesn't match the expected pattern {expected!r}"
     else:
         assert expected == actual
 
