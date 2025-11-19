@@ -5,7 +5,16 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedro
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal, Required, TypedDict, Union
+from typing import (
+    Any,
+    List,
+    Literal,
+    NotRequired,
+    Required,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
@@ -92,7 +101,7 @@ ConverseContentPart = Union[
 
 class ConverseToolConfig(TypedDict):
     name: str
-    description: str
+    description: NotRequired[str]
     inputSchema: dict
 
 
@@ -201,3 +210,6 @@ class ConverseDocumentType(str, Enum):
     @classmethod
     def all(cls) -> list["ConverseDocumentType"]:
         return list(cls)
+
+
+ConverseMessages = List[Tuple[ConverseMessage, Any]]

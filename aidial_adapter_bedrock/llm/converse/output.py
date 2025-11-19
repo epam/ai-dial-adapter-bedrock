@@ -95,7 +95,6 @@ async def process_streaming(
                             call=DialToolCall(
                                 type="function",
                                 id=current_tool_use["toolUseId"],
-                                index=None,
                                 function=DialFunctionCall(
                                     name=current_tool_use["name"],
                                     arguments=current_tool_use["input"],
@@ -156,7 +155,6 @@ def process_non_streaming(
                         call=DialToolCall(
                             type="function",
                             id=tool_use["toolUseId"],
-                            index=None,
                             function=DialFunctionCall(
                                 name=tool_use["name"],
                                 arguments=json.dumps(tool_use["input"]),
