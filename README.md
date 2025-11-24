@@ -45,9 +45,17 @@
     - [Test](#test)
     - [Clean](#clean)
 
+---
+
 # Overview
 
-The project implements [AI DIAL API](https://epam-rail.com/dial_api) for language models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
+LLM Adapters unify the APIs of respective LLMs to align with the Unified Protocol of DIAL Core. Each Adapter operates within a dedicated container. Multi-modality allows supporting non-textual communications such as image-to-text, text-to-image, file transfers and more.
+
+The project implements [AI DIAL API](https://dialx.ai/dial_api) for language models and embedding models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
+
+![ai-dial-core](https://docs.dialx.ai/assets/images/adapters-62587fb74cfb1c4225c20c08273ec5bc.svg)
+
+---
 
 ## Supported models
 
@@ -109,6 +117,8 @@ The model adapters differ in what SDKs/APIs they are based on:
 1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
 2. [Bedrock API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html) - the original Bedrock API for calling chat completion models
 3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Converse API.
+
+---
 
 #### Configurable models
 
@@ -307,6 +317,8 @@ E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment 
 
 [Check](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html#inference-profiles-support-system) that your AWS Bedrock account supports cross-region inference for a particular model before using it.
 
+---
+
 ### Embedding models
 
 The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embeddings` endpoint:
@@ -318,6 +330,8 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 |Titan Embeddings G1 – Text v1.2|amazon.titan-embed-text-v1|text-to-embedding|
 |Cohere Embed English|cohere.embed-english-v3|text-to-embedding|
 |Cohere Multilingual|cohere.embed-multilingual-v3|text-to-embedding|
+
+---
 
 ## Environment Variables
 
@@ -508,6 +522,8 @@ The adapter supports authentication with Anthropic API for Claude deployments.
     2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
 
     The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to map it to a corresponding name from **AWS Bedrock** in the [compatibility mapping](#compatibility-mode). The adapter returns 404 when such a mapping is missing.
+
+---
 
 ## Development
 
