@@ -28,9 +28,7 @@ class MessageState(BaseModel):
 def get_message_content_from_state(
     idx: int, message: AIRegularMessage | AIToolCallMessage
 ) -> List[ContentBlockParam] | None:
-    if (cc := message.custom_content) is not None and (
-        state_dict := cc.state
-    ) is not None:
+    if (cc := message.custom_content) and (state_dict := cc.state):
         try:
             state = MessageState.parse_obj(state_dict)
             return [block.to_dict() for block in state.claude_message_content]  # type: ignore
@@ -38,6 +36,5 @@ def get_message_content_from_state(
             log.error(
                 f"Invalid state at the path 'messages[{idx}].custom_content.state': {e}"
             )
-            return None
 
     return None
