@@ -75,6 +75,7 @@ async def create_anthropic_client(
         anthropic_client = AsyncAnthropic(
             api_key=upstream_config.api_key,
             http_client=http_client,
+            max_retries=0,
         )
         return (None, anthropic_client)
     else:
@@ -85,6 +86,7 @@ async def create_anthropic_client(
             aws_secret_key=creds.aws_secret_access_key,
             aws_session_token=creds.aws_session_token,
             http_client=http_client,
+            max_retries=0,
         )
         return expiration, anthropic_client
 
@@ -99,7 +101,11 @@ async def create_boto_client(
     config = botocore.client.Config(  # type: ignore
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
         # Greater number of connections *don't block* each other.
-        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
+        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS,
+        retries={
+            "mode": "standard",
+            "total_max_attempts": get_env_int("AWS_MAX_ATTEMPTS", 1),
+        },
     )
 
     # NOTE: Session isn't thread-safe, but client is.
