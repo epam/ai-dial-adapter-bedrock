@@ -75,9 +75,9 @@ class AdapterDeployments(BaseModel):
         for deployment_id, supported_id in compat_mapping.items():
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
-                    f"'{deployment_id}' deployment is already natively supported by the adapter, but it is also mapped to '{supported_id}' in the COMPATIBILITY_MAPPING variable. "
-                    f"To avoid this warning and ensure you retain all features of '{deployment_id}', remove it from the mapping. "
-                    f"Otherwise, you may lose features that exist in '{deployment_id}' but are missing in '{supported_id}'."
+                    f"{deployment_id!r} deployment is already natively supported by the adapter, but it is also mapped to {supported_id!r} in the COMPATIBILITY_MAPPING variable. "
+                    f"To avoid this warning and ensure you retain all features of {deployment_id!r}, remove it from the mapping. "
+                    f"Otherwise, you may lose features that exist in {deployment_id!r} but are missing in {supported_id!r}."
                 )
 
                 if (
