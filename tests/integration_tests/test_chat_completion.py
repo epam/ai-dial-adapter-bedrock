@@ -680,7 +680,7 @@ async def test_forced_tool_choice(chat: Chat):
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None, "No tool calls were made"
+    assert tool_calls is not None, "Tool calls are missing"
     assert len(tool_calls) == 1
 
     function = tool_calls[0].function
@@ -805,7 +805,7 @@ async def test_function_response(
 @pytest.mark.parametrize(
     "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
 )
-async def test_tool_call(
+async def test_tool_call_basic(
     deployment: Deployment, test: ToolCallTest, chat: Chat
 ):
     origin = deployment.origin
@@ -816,7 +816,7 @@ async def test_tool_call(
     )
 
     tool_calls = response.tool_calls
-    assert tool_calls is not None, "No tool calls were made"
+    assert tool_calls is not None, "Tool calls are missing"
 
     expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
@@ -906,7 +906,7 @@ async def test_tool_call_with_vacuous_description(
         tools=[function_to_tool(func_def)],
     )
     assert response.finish_reasons == ["tool_calls"]
-    assert response.tool_calls is not None, "No tools were called"
+    assert response.tool_calls is not None, "Tool calls are missing"
     assert response.tool_calls[0].function.name == "get_current_time"
 
 
