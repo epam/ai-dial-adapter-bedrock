@@ -1,4 +1,5 @@
 import json
+import os
 from abc import ABC
 from datetime import datetime
 from functools import cache
@@ -40,6 +41,15 @@ ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
 BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
     "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
 )
+ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
+
+
+def _get_botocore_max_retry_attempts():
+    if (value := os.getenv("BOTOCORE_MAX_RETRY_ATTEMPTS")) is not None:
+        return int(value)
+    if (value := os.getenv("AWS_MAX_ATTEMPTS")) is not None:
+        return int(value) - 1
+    return 0
 
 
 @cache
@@ -75,6 +85,7 @@ async def create_anthropic_client(
         anthropic_client = AsyncAnthropic(
             api_key=upstream_config.api_key,
             http_client=http_client,
+            max_retries=ANTHROPIC_MAX_RETRY_ATTEMPTS,
         )
         return (None, anthropic_client)
     else:
@@ -85,6 +96,7 @@ async def create_anthropic_client(
             aws_secret_key=creds.aws_secret_access_key,
             aws_session_token=creds.aws_session_token,
             http_client=http_client,
+            max_retries=ANTHROPIC_MAX_RETRY_ATTEMPTS,
         )
         return expiration, anthropic_client
 
@@ -99,7 +111,11 @@ async def create_boto_client(
     config = botocore.client.Config(  # type: ignore
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
         # Greater number of connections *don't block* each other.
-        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS
+        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS,
+        retries={
+            "mode": "standard",
+            "total_max_attempts": 1 + _get_botocore_max_retry_attempts(),
+        },
     )
 
     # NOTE: Session isn't thread-safe, but client is.
