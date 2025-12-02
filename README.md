@@ -350,6 +350,8 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |COMPATIBILITY_MAPPING|{}|A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#compatibility-mode) section.|
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
+|BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
+|ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
 
 ### Resource limits
 

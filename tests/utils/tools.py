@@ -32,7 +32,11 @@ class ToolCallTest:
         query = f"Tell me what's the temperature in {' and in '.join(self.city_names)} in celsius?"
         messages: List[ChatCompletionMessageParam] = []
         if with_system:
-            messages.append(sys("act as a helpful assistant"))
+            messages.append(
+                sys(
+                    "Act as a helpful assistant. For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially."
+                )
+            )
         messages.extend([user("2+3=?"), ai("5"), user(query)])
         return messages
 
