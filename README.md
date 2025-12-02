@@ -1,6 +1,61 @@
+<h1 align="center">
+  DIAL Bedrock Adapter
+</h1>
+<p align="center">
+  <p align="center">
+  <a href="https://dialx.ai/">
+    <img src="https://dialx.ai/dialx_logo.svg" alt="About DIALX">
+  </a>
+</p>
+<h4 align="center">
+  <a href="https://discord.gg/ukzj9U9tEe">
+    <img src="https://img.shields.io/static/v1?label=DIALX%20Community%20on&message=Discord&color=blue&logo=Discord&style=flat-square" alt="Discord">
+  </a>
+</h4>
+
+- [Overview](#overview)
+  - [Supported models](#supported-models)
+    - [Chat completion models](#chat-completion-models)
+      - [Implementation basis](#implementation-basis)
+      - [Configurable models](#configurable-models)
+        - [Converse API models](#converse-api-models)
+          - [Performance configuration](#performance-configuration)
+          - [Guardrail configuration](#guardrail-configuration)
+          - [Claude 3/4 models](#claude-34-models)
+        - [Claude 3.7 Sonnet](#claude-37-sonnet)
+        - [Claude models](#claude-models)
+        - [Stability AI models](#stability-ai-models)
+      - [Prompt caching](#prompt-caching)
+      - [Cross-region inference](#cross-region-inference)
+    - [Embedding models](#embedding-models)
+  - [Environment Variables](#environment-variables)
+    - [Resource limits](#resource-limits)
+    - [Default `max_tokens` for Claude models](#default-max_tokens-for-claude-models)
+  - [Compatibility mode](#compatibility-mode)
+  - [Load balancing](#load-balancing)
+  - [Authentication](#authentication)
+    - [AWS Bedrock](#aws-bedrock)
+    - [Anthropic API](#anthropic-api)
+  - [Development](#development)
+    - [Development environment](#development-environment)
+    - [IDE configuration](#ide-configuration)
+    - [Make on Windows](#make-on-windows)
+    - [Run](#run)
+    - [Lint](#lint)
+    - [Test](#test)
+    - [Clean](#clean)
+
+---
+
 # Overview
 
-The project implements [AI DIAL API](https://epam-rail.com/dial_api) for language models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
+LLM Adapters unify the APIs of respective LLMs to align with the Unified Protocol of DIAL Core. Each Adapter operates within a dedicated container. Multi-modality allows supporting non-textual communications such as image-to-text, text-to-image, file transfers and more.
+
+The project implements [AI DIAL API](https://dialx.ai/dial_api) for language models and embedding models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
+
+![ai-dial-core](https://docs.dialx.ai/assets/images/adapters-62587fb74cfb1c4225c20c08273ec5bc.svg)
+
+---
 
 ## Supported models
 
@@ -62,6 +117,8 @@ The model adapters differ in what SDKs/APIs they are based on:
 1. [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html) - the single API unifying different chat completion models
 2. [Bedrock API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html) - the original Bedrock API for calling chat completion models
 3. [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) - the SDK for Anthropic Claude models that provides finer control over the model than the Converse API.
+
+---
 
 #### Configurable models
 
@@ -150,8 +207,8 @@ Not every model supports all flags. Refer to the official documentation before u
 
 The models accept optional configuration with the following fields:
 
-* `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
-* `negative_prompt: str` - a prompt to be used for negative examples
+- `aspect_ratio: str` - one of "16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"
+- `negative_prompt: str` - a prompt to be used for negative examples
 
 #### Prompt caching
 
@@ -260,6 +317,8 @@ E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment 
 
 [Check](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html#inference-profiles-support-system) that your AWS Bedrock account supports cross-region inference for a particular model before using it.
 
+---
+
 ### Embedding models
 
 The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embeddings` endpoint:
@@ -272,31 +331,7 @@ The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embe
 |Cohere Embed English|cohere.embed-english-v3|text-to-embedding|
 |Cohere Multilingual|cohere.embed-multilingual-v3|text-to-embedding|
 
-## Developer environment
-
-This project uses [Python>=3.11](https://www.python.org/downloads/) and [Poetry>=2.1.1](https://python-poetry.org/) as a dependency manager.
-
-Check out Poetry's [documentation on how to install it](https://python-poetry.org/docs/#installation) on your system before proceeding.
-
-To install requirements:
-
-```sh
-poetry install
-```
-
-This will install all requirements for running the package, linting, formatting and tests.
-
-### IDE configuration
-
-The recommended IDE is [VSCode](https://code.visualstudio.com/).
-Open the project in VSCode and install the recommended extensions.
-
-The VSCode is configured to use PEP-8 compatible formatter [Black](https://black.readthedocs.io/en/stable/index.html).
-
-Alternatively you can use [PyCharm](https://www.jetbrains.com/pycharm/).
-
-Set-up the Black formatter for PyCharm [manually](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) or
-install PyCharm>=2023.2 with [built-in Black support](https://blog.jetbrains.com/pycharm/2023/07/2023-2/#black).
+---
 
 ## Environment Variables
 
@@ -330,7 +365,7 @@ The following environment variables reveal adapter's implementation details and 
 |ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
 
-## Default `max_tokens` for Claude models
+### Default `max_tokens` for Claude models
 
 Unlike OpenAI models, Claude models require the `max_tokens` parameter in the chat completion request.
 
@@ -460,57 +495,93 @@ The adapter supports authentication with Anthropic API for Claude deployments.
 2. Find which **AWS Bedrock** model name corresponds to the chosen **Claude API** model name on the same documentation page. Let's call it `AWS_BEDROCK_MODEL_NAME`.
 3. Add the Claude deployment to the DIAL Core configuration with API key configured on a per upstream basis:
 
-  ```json
-  {
-    "models": {
-      "dial-claude-deployment-name": {
-        "endpoint": "${ADAPTER_ORIGIN}/deployments/${CLAUDE_API_MODEL_NAME}/chat/completions",
-        "upstreams": [
-          {
-            "key": "${ANTHROPIC_API_KEY}"
-          }
-        ]
+    ```json
+    {
+      "models": {
+        "dial-claude-deployment-name": {
+          "endpoint": "${ADAPTER_ORIGIN}/deployments/${CLAUDE_API_MODEL_NAME}/chat/completions",
+          "upstreams": [
+            {
+              "key": "${ANTHROPIC_API_KEY}"
+            }
+          ]
+        }
       }
     }
-  }
-  ```
+    ```
 
-  Note that there is no need to configure the upstream endpoint, since there is only one endpoint for the model inference in the Anthropic API and it will be used by default: `https://api.anthropic.com/v1/messages`.
+    Note that there is no need to configure the upstream endpoint, since there is only one endpoint for the model inference in the Anthropic API and it will be used by default: `https://api.anthropic.com/v1/messages`.
 
 4. Declare the following [compatibility mapping](#compatibility-mode) in the Bedrock adapter environment:
 
-  ```ini
-  COMPATIBILITY_MAPPING={"${CLAUDE_API_MODEL_NAME}":"${AWS_BEDROCK_MODEL_NAME}"}
-  ```
+    ```ini
+    COMPATIBILITY_MAPPING={"${CLAUDE_API_MODEL_NAME}":"${AWS_BEDROCK_MODEL_NAME}"}
+    ```
 
-  The compatibility mapping is required, because the same Anthropic models have [different model names](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in **Claude API** and **AWS Bedrock**. For example:
+    The compatibility mapping is required, because the same Anthropic models have [different model names](https://docs.anthropic.com/en/docs/about-claude/models/overview#model-names) in **Claude API** and **AWS Bedrock**. For example:
 
-  1. `claude-sonnet-4-5-20250929` _(`${CLAUDE_API_MODEL_NAME}`)_ in **Claude API** corresponds to
-  2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
+    1. `claude-sonnet-4-5-20250929` _(`${CLAUDE_API_MODEL_NAME}`)_ in **Claude API** corresponds to
+    2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
 
-  The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to map it to a corresponding name from **AWS Bedrock** in the [compatibility mapping](#compatibility-mode). The adapter returns 404 when such a mapping is missing.
+    The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to map it to a corresponding name from **AWS Bedrock** in the [compatibility mapping](#compatibility-mode). The adapter returns 404 when such a mapping is missing.
 
-## Run
+---
 
-Run the development server:
+## Development
+
+### Development environment
+
+This project uses [Python>=3.11](https://www.python.org/downloads/) and [Poetry>=2.1.1](https://python-poetry.org/) as a dependency manager.
+
+Check out Poetry's [documentation on how to install it](https://python-poetry.org/docs/#installation) on your system before proceeding.
+
+To install requirements:
+
+```sh
+poetry install
+```
+
+This will install all requirements for running the package, linting, formatting and tests.
+
+### IDE configuration
+
+The recommended IDE is [VS Code](https://code.visualstudio.com/).
+Open the project in VS Code and install the recommended extensions.
+VS Code is configured to use PEP-8 compatible formatter [Black](https://black.readthedocs.io/en/stable/index.html).
+
+Alternatively you can use [PyCharm](https://www.jetbrains.com/pycharm/).
+Set up the Black in PyCharm [manually](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) or
+install PyCharm>=2023.2 with [built-in Black support](https://blog.jetbrains.com/pycharm/2023/07/2023-2/#black).
+
+### Make on Windows
+
+As of now, Windows distributions do not include the make tool. To run make commands, the tool can be installed using
+the following command (since [Windows 10](https://learn.microsoft.com/en-us/windows/package-manager/winget/)):
+
+```sh
+winget install GnuWin32.Make
+```
+
+For convenience, the tool folder can be added to the PATH environment variable as `C:\Program Files (x86)\GnuWin32\bin`.
+The command definitions inside Makefile should be cross-platform to keep the development environment setup simple.
+
+### Run
+
+Run the development server locally:
 
 ```sh
 make serve
 ```
 
-Open `localhost:5001/docs` to make sure the server is up and running.
-
-### Docker
-
-Run the server in Docker:
+Run the server from a Docker container:
 
 ```sh
 make docker_serve
 ```
 
-## Lint
+### Lint
 
-Run the linting before committing:
+Don't forget to run the linting before committing:
 
 ```sh
 make lint
@@ -522,27 +593,27 @@ To auto-fix formatting issues run:
 make format
 ```
 
-## Test
+### Test
 
-Run unit tests locally:
+To run the unit tests locally:
 
 ```sh
 make test
 ```
 
-Run unit tests in Docker:
+To run the unit tests from the Docker container:
 
 ```sh
 make docker_test
 ```
 
-Run integration tests locally:
+To run the integration tests locally:
 
 ```sh
 make integration_tests
 ```
 
-## Clean
+### Clean
 
 To remove the virtual environment and build artifacts:
 
