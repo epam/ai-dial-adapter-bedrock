@@ -16,9 +16,13 @@ def match_objects(expected: Any, actual: Any) -> bool:
         for i in range(len(expected)):
             match_objects(expected[i], actual[i])
     elif callable(expected):
-        assert expected(actual)
+        assert expected(
+            actual
+        ), f"The predicate failed on the actual result: {actual}"
     elif isinstance(expected, re.Pattern) and isinstance(actual, str):
-        assert expected.match(actual)
+        assert expected.match(
+            actual
+        ), f"The regexp {expected!r} doesn't match the string {actual!r}"
     else:
         assert expected == actual
 
