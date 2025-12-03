@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from typing import Dict, Generic, Iterable, List, Protocol, Self, TypeVar
 
@@ -114,3 +115,17 @@ class RegionInferenceDeployment(Enum):
             ret.append(deployment.value)
             ret.extend(deployment._get_region_variants())
         return ret
+
+    @classmethod
+    def from_string(cls, model_id: str) -> Self | None:
+        for deployment in cls:
+            deployment_id: str = deployment.value
+            if model_id.endswith(deployment_id):
+                prefix = model_id.removesuffix(deployment_id)
+                if prefix == "" or _is_valid_region_prefix(prefix):
+                    return deployment
+        return None
+
+
+def _is_valid_region_prefix(s: str) -> bool:
+    return re.fullmatch(r"\w+\.", s) is not None

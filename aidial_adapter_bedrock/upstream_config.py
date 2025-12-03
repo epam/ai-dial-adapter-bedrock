@@ -141,12 +141,10 @@ class OverrideNameUpstreamConfig(BaseModel):
     class Config:
         allow_population_by_field_name = True
 
-    override_name: str | None = Field(default=None, alias="overrideName")
+    compatible_model_id: str | None = None
 
 
-def extract_upstream_from_upstream_config(
-    request: FromRequestDeploymentMixin,
-) -> str | None:
+def get_compatible_model_id(request: FromRequestDeploymentMixin) -> str | None:
     if (extra := request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)) is None:
         return None
 
@@ -159,4 +157,4 @@ def extract_upstream_from_upstream_config(
         )
         return None
 
-    return None if conf is None else conf.override_name
+    return None if conf is None else conf.compatible_model_id

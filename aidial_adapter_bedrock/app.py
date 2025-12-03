@@ -36,8 +36,7 @@ async def models():
     )
 
 
-for deployment_id, deployment in deployments.chat_completions.items():
-    app.add_chat_completion(deployment_id, BedrockChatCompletion(deployment))
-
-for deployment_id, deployment in deployments.embeddings.items():
-    app.add_embeddings(deployment_id, BedrockEmbeddings(deployment))
+app.add_chat_completion(
+    "{deployment_id}", BedrockChatCompletion(deployments.chat_completions)
+)
+app.add_embeddings("{deployment_id}", BedrockEmbeddings(deployments.embeddings))

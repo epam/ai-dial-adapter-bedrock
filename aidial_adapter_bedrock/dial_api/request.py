@@ -18,7 +18,6 @@ from aidial_sdk.chat_completion.request import (
     ChatCompletionRequest,
     MessageContentRefusalPart,
 )
-from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
 from aidial_sdk.exceptions import RequestValidationError
 from pydantic import BaseModel
 from pydantic.v1 import ValidationError as PydanticValidationError
@@ -104,12 +103,6 @@ class ModelParameters(BaseModel):
                 msg = f"Invalid request. Path: 'custom_fields.configuration.{path}', error: {error['msg']}"
 
             raise RequestValidationError(msg)
-
-
-def extract_upstream_from_override_name(
-    request: FromRequestDeploymentMixin,
-) -> str | None:
-    return request.headers.get("x-dial-override-name")
 
 
 def collect_text_content(

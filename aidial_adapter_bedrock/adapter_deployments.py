@@ -1,27 +1,48 @@
 import json
-from enum import Enum
-from typing import Dict, Generic, Iterable, Self, Tuple, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Generic,
+    Iterable,
+    Protocol,
+    Self,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
+from aidial_sdk.exceptions import DeploymentNotFoundError
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
-from aidial_adapter_bedrock.dial_api.request import (
-    extract_upstream_from_override_name,
-)
-from aidial_adapter_bedrock.upstream_config import (
-    extract_upstream_from_upstream_config,
-)
+from aidial_adapter_bedrock.upstream_config import get_compatible_model_id
+from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_D = TypeVar("_D", bound=Enum)
-_T = TypeVar("_T", bound=Enum)
+
+class ReadableStrEnum(Protocol):
+    @classmethod
+    def from_string(cls, model_id: str) -> Self | None: ...
+
+    @property
+    def value(self) -> str: ...
 
 
-class AdapterDeployment(BaseModel, Generic[_D]):
+if TYPE_CHECKING:
+    ReadableStrEnumT = ReadableStrEnum
+else:
+    from enum import Enum as ReadableStrEnumT
+
+
+_T = TypeVar("_T", bound=ReadableStrEnumT)
+_R = TypeVar("_R", bound=ReadableStrEnumT)
+
+
+class AdapterDeployment(BaseModel, Generic[_T]):
     adapter_deployment_id: str
     """
     The deployment id under which the model is served by the Adapter
@@ -34,7 +55,7 @@ class AdapterDeployment(BaseModel, Generic[_D]):
     The upstream request to the Bedrock service will use this deployment id.
     """
 
-    reference_deployment_id: _D
+    reference_deployment_id: _T
     """
     The reference Bedrock deployment which is known to share
     the same API as `upstream_deployment_id`.
@@ -42,7 +63,7 @@ class AdapterDeployment(BaseModel, Generic[_D]):
 
     @classmethod
     def supported(
-        cls, *, deployment_id: str | None = None, upstream: _D
+        cls, *, deployment_id: str | None = None, upstream: _T
     ) -> Self:
         return cls(
             adapter_deployment_id=deployment_id or upstream.value,
@@ -50,21 +71,21 @@ class AdapterDeployment(BaseModel, Generic[_D]):
             reference_deployment_id=upstream,
         )
 
-    def compat(self, deployment_id: str) -> "AdapterDeployment[_D]":
+    def compat(self, deployment_id: str) -> "AdapterDeployment[_T]":
         return AdapterDeployment(
             adapter_deployment_id=deployment_id,
             upstream_deployment_id=deployment_id,
             reference_deployment_id=self.reference_deployment_id,
         )
 
-    def clone(self, reference_deployment_id: _T) -> "AdapterDeployment[_T]":
+    def clone(self, reference_deployment_id: _R) -> "AdapterDeployment[_R]":
         return AdapterDeployment(
             adapter_deployment_id=self.adapter_deployment_id,
             upstream_deployment_id=self.upstream_deployment_id,
             reference_deployment_id=reference_deployment_id,
         )
 
-    def with_upstream(self, upstream: str | None) -> "AdapterDeployment[_D]":
+    def with_upstream(self, upstream: str | None) -> "AdapterDeployment[_T]":
         if upstream is None:
             return self
 
@@ -73,44 +94,44 @@ class AdapterDeployment(BaseModel, Generic[_D]):
         return ret
 
 
+COMPATIBILITY_MAPPING = get_str_dict("COMPATIBILITY_MAPPING")
+
+
 def resolve_upstream(
-    deployment: AdapterDeployment[_T], request: FromRequestDeploymentMixin
+    cls: Type[_T], request: FromRequestDeploymentMixin
 ) -> AdapterDeployment[_T]:
-    override_name_upstream = extract_upstream_from_upstream_config(request)
-    override_name_top_level = extract_upstream_from_override_name(request)
-    override_name_compat_mapping = (
-        deployment.upstream_deployment_id
-        if deployment.upstream_deployment_id != deployment.adapter_deployment_id
-        else None
+    reference_model_from_upstream = get_compatible_model_id(request)
+
+    upstream_deployment_id = request.original_request.path_params[
+        "deployment_id"
+    ]
+
+    reference_model_from_compat_mapping = COMPATIBILITY_MAPPING.get(
+        upstream_deployment_id
     )
 
-    # In order of precedence
-    upstream_options = [
-        (
-            "overrideName from the upstream configuration",
-            override_name_upstream,
-        ),
-        (
-            "overrideName from the deployment configuration",
-            override_name_top_level,
-        ),
-        ("COMPATIBILITY_MAPPING", override_name_compat_mapping),
-        ("adapter deployment id", deployment.adapter_deployment_id),
-    ]
+    reference_model = (
+        reference_model_from_upstream
+        or reference_model_from_compat_mapping
+        or upstream_deployment_id
+    )
 
-    upstream_options = [
-        (origin, name)
-        for (origin, name) in upstream_options
-        if name is not None
-    ]
-    upstream = upstream_options[0][1]
+    reference_deployment_id: _T | None = cls.from_string(reference_model)
 
-    if len(upstream_options) > 1:
-        log.debug(
-            f"Selected upstream {upstream!r} for the options: {json.dumps(upstream_options)}"
+    if reference_deployment_id is None:
+        raise DeploymentNotFoundError(
+            f"The deployment id {reference_model!r} is unknown. "
+            "It isn't one of the supported deployment ids. "
+            "Either fix it if it's a typo, or "
+            "set upstreams[*].extraData.compatible_model_id configuration field "
+            f"equal to the one of the supported deployment ids compatible with {reference_model!r}."
         )
 
-    return deployment.with_upstream(upstream)
+    return AdapterDeployment[_T](
+        adapter_deployment_id=upstream_deployment_id,
+        upstream_deployment_id=upstream_deployment_id,
+        reference_deployment_id=reference_deployment_id,
+    )
 
 
 AdapterChatCompletionDeployment = AdapterDeployment[ChatCompletionDeployment]
@@ -177,23 +198,18 @@ class AdapterDeployments(BaseModel):
 
 
 def _create_deployments(
-    compat_mapping: Dict[str, str],
-    upstream_deployments: Iterable[_D],
-    *,
-    redirects: Dict[_D, _D] | None = None,
-) -> Tuple[Dict[str, str], Dict[str, AdapterDeployment[_D]]]:
+    compat_mapping: Dict[str, str], upstream_deployments: Iterable[_T]
+) -> Tuple[Dict[str, str], Dict[str, AdapterDeployment[_T]]]:
     compat_mapping = compat_mapping.copy()
-    redirects = redirects or {}
 
-    supported: Dict[str, AdapterDeployment[_D]] = {}
+    supported: Dict[str, AdapterDeployment[_T]] = {}
     for upstream in upstream_deployments:
         deployment_id = upstream.value
         supported[deployment_id] = AdapterDeployment.supported(
-            deployment_id=deployment_id,
-            upstream=redirects.get(upstream, upstream),
+            deployment_id=deployment_id, upstream=upstream
         )
 
-    compat: Dict[str, AdapterDeployment[_D]] = {}
+    compat: Dict[str, AdapterDeployment[_T]] = {}
     for deployment_id, supported_deployment_id in list(compat_mapping.items()):
         if (
             supported_deployment := supported.get(supported_deployment_id)

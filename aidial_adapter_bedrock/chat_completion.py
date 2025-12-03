@@ -1,4 +1,4 @@
-from typing import List, assert_never
+from typing import Dict, List, assert_never
 
 from aidial_sdk.chat_completion import (
     ChatCompletion,
@@ -30,6 +30,7 @@ from aidial_adapter_bedrock.adapter_deployments import (
     AdapterChatCompletionDeployment,
     resolve_upstream,
 )
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
@@ -42,17 +43,19 @@ from aidial_adapter_bedrock.server.exceptions import (
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
+Deployments = Dict[str, AdapterChatCompletionDeployment]
+
 
 class BedrockChatCompletion(ChatCompletion):
-    orig_deployment: AdapterChatCompletionDeployment
+    deployments: Deployments
 
-    def __init__(self, deployment: AdapterChatCompletionDeployment) -> None:
-        self.orig_deployment = deployment
+    def __init__(self, deployments: Deployments) -> None:
+        self.deployments = deployments
 
     def _get_deployment(
         self, request: FromRequestDeploymentMixin
     ) -> AdapterChatCompletionDeployment:
-        return resolve_upstream(self.orig_deployment, request)
+        return resolve_upstream(ChatCompletionDeployment, request)
 
     async def _get_model(
         self, request: FromRequestDeploymentMixin

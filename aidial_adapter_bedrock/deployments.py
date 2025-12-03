@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Literal
+from typing import List, Literal, Self
 
 from aidial_adapter_bedrock.utils.region_deployment import (
     RegionInferenceDeployment,
@@ -79,3 +79,10 @@ class EmbeddingsDeployment(Enum):
     @classmethod
     def deployments(cls) -> List[str]:
         return [e.value for e in cls]
+
+    @classmethod
+    def from_string(cls, model_id: str) -> Self | None:
+        for deployment in cls:
+            if deployment.value == model_id:
+                return deployment
+        return None
