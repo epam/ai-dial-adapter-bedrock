@@ -43,12 +43,6 @@ _R = TypeVar("_R", bound=ReadableStrEnumT)
 
 
 class AdapterDeployment(BaseModel, Generic[_T]):
-    adapter_deployment_id: str
-    """
-    The deployment id under which the model is served by the Adapter
-    at the route /openai/deployments/{deployment_id}/(chat/completions|embeddings)
-    """
-
     upstream_deployment_id: str
     """
     The deployment id of the corresponding Bedrock model.
@@ -62,36 +56,23 @@ class AdapterDeployment(BaseModel, Generic[_T]):
     """
 
     @classmethod
-    def supported(
-        cls, *, deployment_id: str | None = None, upstream: _T
-    ) -> Self:
+    def supported(cls, *, upstream: _T) -> Self:
         return cls(
-            adapter_deployment_id=deployment_id or upstream.value,
             upstream_deployment_id=upstream.value,
             reference_deployment_id=upstream,
         )
 
     def compat(self, deployment_id: str) -> "AdapterDeployment[_T]":
         return AdapterDeployment(
-            adapter_deployment_id=deployment_id,
             upstream_deployment_id=deployment_id,
             reference_deployment_id=self.reference_deployment_id,
         )
 
     def clone(self, reference_deployment_id: _R) -> "AdapterDeployment[_R]":
         return AdapterDeployment(
-            adapter_deployment_id=self.adapter_deployment_id,
             upstream_deployment_id=self.upstream_deployment_id,
             reference_deployment_id=reference_deployment_id,
         )
-
-    def with_upstream(self, upstream: str | None) -> "AdapterDeployment[_T]":
-        if upstream is None:
-            return self
-
-        ret = self.copy()
-        ret.upstream_deployment_id = upstream
-        return ret
 
 
 COMPATIBILITY_MAPPING = get_str_dict("COMPATIBILITY_MAPPING")
@@ -128,7 +109,6 @@ def resolve_upstream(
         )
 
     return AdapterDeployment[_T](
-        adapter_deployment_id=upstream_deployment_id,
         upstream_deployment_id=upstream_deployment_id,
         reference_deployment_id=reference_deployment_id,
     )
@@ -204,9 +184,8 @@ def _create_deployments(
 
     supported: Dict[str, AdapterDeployment[_T]] = {}
     for upstream in upstream_deployments:
-        deployment_id = upstream.value
-        supported[deployment_id] = AdapterDeployment.supported(
-            deployment_id=deployment_id, upstream=upstream
+        supported[upstream.value] = AdapterDeployment.supported(
+            upstream=upstream
         )
 
     compat: Dict[str, AdapterDeployment[_T]] = {}

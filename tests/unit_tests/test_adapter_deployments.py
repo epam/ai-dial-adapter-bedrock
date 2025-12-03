@@ -28,7 +28,6 @@ class supported:
             deployment = deployments.embeddings.get(deployment_name)
 
         assert deployment is not None
-        assert deployment.adapter_deployment_id == deployment_name
         if self.redirect is not None:
             assert deployment.upstream_deployment_id == self.redirect.value
             assert deployment.reference_deployment_id == self.redirect
@@ -49,7 +48,6 @@ class compat:
             deployment = deployments.embeddings.get(self.deployment_id)
 
         assert deployment is not None
-        assert deployment.adapter_deployment_id == self.deployment_id
         assert deployment.upstream_deployment_id == self.deployment_id
         assert deployment.reference_deployment_id == self.reference
 
