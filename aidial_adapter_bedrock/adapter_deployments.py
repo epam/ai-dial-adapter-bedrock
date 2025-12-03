@@ -2,11 +2,18 @@ import json
 from enum import Enum
 from typing import Dict, Generic, Iterable, Self, Tuple, TypeVar
 
+from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
+)
+from aidial_adapter_bedrock.dial_api.request import (
+    extract_upstream_from_override_name,
+)
+from aidial_adapter_bedrock.upstream_config import (
+    extract_upstream_from_upstream_config,
 )
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -56,6 +63,54 @@ class AdapterDeployment(BaseModel, Generic[_D]):
             upstream_deployment_id=self.upstream_deployment_id,
             reference_deployment_id=reference_deployment_id,
         )
+
+    def with_upstream(self, upstream: str | None) -> "AdapterDeployment[_D]":
+        if upstream is None:
+            return self
+
+        ret = self.copy()
+        ret.upstream_deployment_id = upstream
+        return ret
+
+
+def resolve_upstream(
+    deployment: AdapterDeployment[_T], request: FromRequestDeploymentMixin
+) -> AdapterDeployment[_T]:
+    override_name_upstream = extract_upstream_from_upstream_config(request)
+    override_name_top_level = extract_upstream_from_override_name(request)
+    override_name_compat_mapping = (
+        deployment.upstream_deployment_id
+        if deployment.upstream_deployment_id != deployment.adapter_deployment_id
+        else None
+    )
+
+    # In order of precedence
+    upstream_options = [
+        (
+            "overrideName from the upstream configuration",
+            override_name_upstream,
+        ),
+        (
+            "overrideName from the deployment configuration",
+            override_name_top_level,
+        ),
+        ("COMPATIBILITY_MAPPING", override_name_compat_mapping),
+        ("adapter deployment id", deployment.adapter_deployment_id),
+    ]
+
+    upstream_options = [
+        (origin, name)
+        for (origin, name) in upstream_options
+        if name is not None
+    ]
+    upstream = upstream_options[0][1]
+
+    if len(upstream_options) > 1:
+        log.debug(
+            f"Selected upstream {upstream!r} for the options: {json.dumps(upstream_options)}"
+        )
+
+    return deployment.with_upstream(upstream)
 
 
 AdapterChatCompletionDeployment = AdapterDeployment[ChatCompletionDeployment]

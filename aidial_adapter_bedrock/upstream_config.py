@@ -10,6 +10,8 @@ from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
+_UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
+
 
 class ClientCredentialArgs(BaseModel):
     aws_access_key_id: str | None = None
@@ -55,8 +57,6 @@ class AWSAssumeRoleCredentials(BaseModel):
 
 
 class CloudUpstreamConfig(BaseModel):
-    _UPSTREAM_CONFIG_HEADER_NAME: ClassVar[str] = "x-upstream-extra-data"
-
     region: str
     credentials: AWSClientCredentials | AWSAssumeRoleCredentials | None = None
 
@@ -64,7 +64,7 @@ class CloudUpstreamConfig(BaseModel):
     async def from_request(
         cls, request: FromRequestDeploymentMixin
     ) -> "CloudUpstreamConfig":
-        conf = request.headers.get(cls._UPSTREAM_CONFIG_HEADER_NAME)
+        conf = request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)
         upstream_config = (
             UpstreamConfigData.parse_raw(conf) if conf else UpstreamConfigData()
         )
@@ -135,3 +135,28 @@ class UpstreamConfigData(BaseModel):
             )
 
         return None
+
+
+class OverrideNameUpstreamConfig(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
+
+    override_name: str | None = Field(default=None, alias="overrideName")
+
+
+def extract_upstream_from_upstream_config(
+    request: FromRequestDeploymentMixin,
+) -> str | None:
+    if (extra := request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)) is None:
+        return None
+
+    try:
+        conf = OverrideNameUpstreamConfig.parse_raw(extra)
+    except Exception as e:
+        log.error(
+            f"Request header {_UPSTREAM_CONFIG_HEADER_NAME!r} doesn't contain"
+            f" valid override name configuration: {e}"
+        )
+        return None
+
+    return None if conf is None else conf.override_name
