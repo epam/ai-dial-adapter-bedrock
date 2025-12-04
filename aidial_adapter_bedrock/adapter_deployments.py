@@ -3,7 +3,6 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     Generic,
-    Iterable,
     Protocol,
     Self,
     Tuple,
@@ -112,7 +111,7 @@ def resolve_deployment(
 
     if compatible_deployment_id is None:
         raise DeploymentNotFoundError(
-            f"The deployment id {compatible_id!r} isn't one of the supported deployment ids. "
+            f"The deployment id {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
             "Either fix it if it's a typo, or "
             "set upstreams[*].extraData.compatible_model_id configuration field "
             f"equal to the one of the supported deployment ids compatible with {compatible_id!r}."
@@ -162,51 +161,102 @@ class AdapterDeployments(BaseModel):
                         f"The embeddings deployment {deployment_id!r} is mapped onto the chat completion deployment {supported_id!r}"
                     )
 
-        cross_region_mapping = (
-            ChatCompletionDeployment.create_cross_region_inference_mapping()
+        residual_compat_mapping, chat_completions = _create_deployments(
+            ChatCompletionDeployment, compat_mapping
         )
-        compat_mapping = cross_region_mapping | compat_mapping
-
-        compat_mapping, chat_completions = _create_deployments(
-            compat_mapping, ChatCompletionDeployment
-        )
-        compat_mapping, embeddings = _create_deployments(
-            compat_mapping, EmbeddingsDeployment
+        residual_compat_mapping, embeddings = _create_deployments(
+            EmbeddingsDeployment, residual_compat_mapping
         )
 
-        if compat_mapping:
+        if residual_compat_mapping:
             raise ValueError(
-                f"None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {json.dumps(compat_mapping)}. "
+                f"None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {json.dumps(residual_compat_mapping)}. "
                 f"Remap the deployments to the supported Bedrock deployments to fix the error."
             )
 
         ret = cls(chat_completions=chat_completions, embeddings=embeddings)
 
-        log.debug(f"Adapter deployments: {ret.json()}")
+        log.debug(f"Static compatibility deployments: {ret.json()}")
+        if msg := ret._deprecation_warning():
+            log.warning(msg)
 
-        return ret
+        return ret._enrich_with_supported_deployments()
+
+    def _deprecation_warning(self) -> str | None:
+        deployments = self.embeddings | self.chat_completions
+        if not deployments:
+            return None
+
+        def create_model_entry(
+            deployment: (
+                AdapterEmbeddingsDeployment | AdapterChatCompletionDeployment
+            ),
+        ) -> dict:
+            is_chat = isinstance(
+                deployment.compatible_deployment_id, ChatCompletionDeployment
+            )
+            ty = "chat" if is_chat else "embedding"
+            endpoint = "chat/completions" if is_chat else "embeddings"
+            compatible_id = deployment.compatible_deployment_id.value
+            extra = {"compatible_deployment_id": compatible_id}
+            return {
+                "type": ty,
+                "endpoint": f"$ADAPTER_ORIGIN/openai/deployments/{deployment.upstream_deployment_id}/{endpoint}",
+                "upstreams": [{"extraData": extra}],
+            }
+
+        models, idx = {}, 1
+        for deployment in sorted(deployments.values(), key=str):
+            models[f"$DIAL_DEPLOYMENT_ID{idx}"] = create_model_entry(deployment)
+            idx += 1
+        config = {"models": models}
+
+        return f"COMPATIBILITY_MAPPING env variable is deprecated in favour of per-upstream configuration in DIAL Core config. You may remove the entries from the env variable one-by-one and amend configurations for corresponding deployments in the DIAL Core config: {json.dumps(config)}"
+
+    def _enrich_with_supported_deployments(self) -> "AdapterDeployments":
+        chat_completions = self.chat_completions.copy()
+        for deployment in ChatCompletionDeployment:
+            for variant in deployment.variants:
+                if variant not in self.chat_completions:
+                    chat_completions[variant] = AdapterDeployment(
+                        upstream_deployment_id=variant,
+                        compatible_deployment_id=deployment,
+                    )
+
+        embeddings = self.embeddings.copy()
+        for deployment in EmbeddingsDeployment:
+            variant = deployment.value
+            if variant not in self.chat_completions:
+                embeddings[variant] = AdapterDeployment(
+                    upstream_deployment_id=variant,
+                    compatible_deployment_id=deployment,
+                )
+
+        return AdapterDeployments(
+            chat_completions=chat_completions, embeddings=embeddings
+        )
 
 
 def _create_deployments(
-    compat_mapping: Dict[str, str], upstream_deployments: Iterable[_T]
+    cls: Type[_T], compat_mapping: Dict[str, str]
 ) -> Tuple[Dict[str, str], Dict[str, AdapterDeployment[_T]]]:
-    compat_mapping = compat_mapping.copy()
-
-    supported: Dict[str, AdapterDeployment[_T]] = {}
-    for upstream in upstream_deployments:
-        supported[upstream.value] = AdapterDeployment.supported(upstream)
-
+    leftovers: Dict[str, str] = {}
     compat: Dict[str, AdapterDeployment[_T]] = {}
-    for deployment_id, supported_deployment_id in list(compat_mapping.items()):
-        if (
-            supported_deployment := supported.get(supported_deployment_id)
-        ) is None:
-            continue
 
-        compat_mapping.pop(deployment_id)
-        compat[deployment_id] = supported_deployment.compat(deployment_id)
+    for deployment_id, supported_deployment_id in compat_mapping.items():
+        compatible_deployment_id: _T | None = cls.from_string(
+            supported_deployment_id
+        )
 
-    return compat_mapping, supported | compat
+        if compatible_deployment_id is None:
+            leftovers[deployment_id] = supported_deployment_id
+        else:
+            compat[deployment_id] = AdapterDeployment(
+                upstream_deployment_id=deployment_id,
+                compatible_deployment_id=compatible_deployment_id,
+            )
+
+    return leftovers, compat
 
 
 def get_static_deployments() -> AdapterDeployments:

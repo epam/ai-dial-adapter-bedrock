@@ -18,7 +18,6 @@ class Checker(Protocol):
 @dataclass
 class supported:
     deployment_id: ChatCompletionDeployment | EmbeddingsDeployment
-    redirect: ChatCompletionDeployment | EmbeddingsDeployment | None = None
 
     def check(self, deployments: AdapterDeployments):
         deployment_name = self.deployment_id.value
@@ -28,12 +27,8 @@ class supported:
             deployment = deployments.embeddings.get(deployment_name)
 
         assert deployment is not None
-        if self.redirect is not None:
-            assert deployment.upstream_deployment_id == self.redirect.value
-            assert deployment.compatible_deployment_id == self.redirect
-        else:
-            assert deployment.upstream_deployment_id == deployment_name
-            assert deployment.compatible_deployment_id == self.deployment_id
+        assert deployment.upstream_deployment_id == deployment_name
+        assert deployment.compatible_deployment_id == self.deployment_id
 
 
 @dataclass
@@ -70,9 +65,9 @@ _CHAT_MODEL_2 = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
 _EMBEDDING_MODEL = EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2
 
 _outdated_mapping_warning_message = (
-    "'{deployment_id}' deployment is already natively supported by the adapter, but it is also mapped to '{supported_id}' in the COMPATIBILITY_MAPPING variable. "
-    "To avoid this warning and ensure you retain all features of '{deployment_id}', remove it from the mapping. "
-    "Otherwise, you may lose features that exist in '{deployment_id}' but are missing in '{supported_id}'."
+    "{deployment_id!r} deployment is already natively supported by the adapter, but it is also mapped to {supported_id!r} in the COMPATIBILITY_MAPPING variable. "
+    "To avoid this warning and ensure you retain all features of {deployment_id!r}, remove it from the mapping. "
+    "Otherwise, you may lose features that exist in {deployment_id!r} but are missing in {supported_id!r}."
 )
 
 test_cases: List[TestCase] = [
@@ -164,9 +159,5 @@ def test_compat_mapping(caplog, test_case: TestCase):
             for checker in test_case.checks:
                 checker.check(deployments)
 
-    log_records = caplog.record_tuples
-
     if warn_message := test_case.warning:
-        assert len(log_records) == 1
-        _name, _level, message = log_records[0]
-        assert message == warn_message
+        assert warn_message in caplog.text
