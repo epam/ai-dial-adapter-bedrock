@@ -49,68 +49,78 @@ class AdapterDeployment(BaseModel, Generic[_T]):
     The upstream request to the Bedrock service will use this deployment id.
     """
 
-    reference_deployment_id: _T
+    compatible_deployment_id: _T
     """
-    The reference Bedrock deployment which is known to share
+    The reference Bedrock deployment that is known to share
     the same API as `upstream_deployment_id`.
     """
 
     @classmethod
-    def supported(cls, *, upstream: _T) -> Self:
+    def supported(cls, deployment: _T) -> Self:
         return cls(
-            upstream_deployment_id=upstream.value,
-            reference_deployment_id=upstream,
+            upstream_deployment_id=deployment.value,
+            compatible_deployment_id=deployment,
         )
 
-    def compat(self, deployment_id: str) -> "AdapterDeployment[_T]":
+    def compat(self, upstream_deployment_id: str) -> "AdapterDeployment[_T]":
         return AdapterDeployment(
-            upstream_deployment_id=deployment_id,
-            reference_deployment_id=self.reference_deployment_id,
+            upstream_deployment_id=upstream_deployment_id,
+            compatible_deployment_id=self.compatible_deployment_id,
         )
 
-    def clone(self, reference_deployment_id: _R) -> "AdapterDeployment[_R]":
+    def clone(self, compatible_deployment_id: _R) -> "AdapterDeployment[_R]":
         return AdapterDeployment(
             upstream_deployment_id=self.upstream_deployment_id,
-            reference_deployment_id=reference_deployment_id,
+            compatible_deployment_id=compatible_deployment_id,
         )
 
 
 COMPATIBILITY_MAPPING = get_str_dict("COMPATIBILITY_MAPPING")
 
 
-def resolve_upstream(
+def resolve_deployment_from_request(
     cls: Type[_T], request: FromRequestDeploymentMixin
 ) -> AdapterDeployment[_T]:
-    reference_model_from_upstream = get_compatible_model_id(request)
+    deployment_id = request.original_request.path_params["deployment_id"]
+    return resolve_deployment(
+        cls,
+        upstream_deployment_id=deployment_id,
+        compat_mapping=COMPATIBILITY_MAPPING,
+        compatible_id_from_upstream=get_compatible_model_id(request),
+    )
 
-    upstream_deployment_id = request.original_request.path_params[
-        "deployment_id"
-    ]
 
-    reference_model_from_compat_mapping = COMPATIBILITY_MAPPING.get(
+def resolve_deployment(
+    cls: Type[_T],
+    *,
+    upstream_deployment_id: str,
+    compat_mapping: dict[str, str] | None = None,
+    compatible_id_from_upstream: str | None = None,
+) -> AdapterDeployment[_T]:
+
+    compatible_id_from_compat_mapping = (compat_mapping or {}).get(
         upstream_deployment_id
     )
 
-    reference_model = (
-        reference_model_from_upstream
-        or reference_model_from_compat_mapping
+    compatible_id = (
+        compatible_id_from_upstream
+        or compatible_id_from_compat_mapping
         or upstream_deployment_id
     )
 
-    reference_deployment_id: _T | None = cls.from_string(reference_model)
+    compatible_deployment_id: _T | None = cls.from_string(compatible_id)
 
-    if reference_deployment_id is None:
+    if compatible_deployment_id is None:
         raise DeploymentNotFoundError(
-            f"The deployment id {reference_model!r} is unknown. "
-            "It isn't one of the supported deployment ids. "
+            f"The deployment id {compatible_id!r} isn't one of the supported deployment ids. "
             "Either fix it if it's a typo, or "
             "set upstreams[*].extraData.compatible_model_id configuration field "
-            f"equal to the one of the supported deployment ids compatible with {reference_model!r}."
+            f"equal to the one of the supported deployment ids compatible with {compatible_id!r}."
         )
 
     return AdapterDeployment[_T](
         upstream_deployment_id=upstream_deployment_id,
-        reference_deployment_id=reference_deployment_id,
+        compatible_deployment_id=compatible_deployment_id,
     )
 
 
@@ -184,9 +194,7 @@ def _create_deployments(
 
     supported: Dict[str, AdapterDeployment[_T]] = {}
     for upstream in upstream_deployments:
-        supported[upstream.value] = AdapterDeployment.supported(
-            upstream=upstream
-        )
+        supported[upstream.value] = AdapterDeployment.supported(upstream)
 
     compat: Dict[str, AdapterDeployment[_T]] = {}
     for deployment_id, supported_deployment_id in list(compat_mapping.items()):
@@ -199,3 +207,7 @@ def _create_deployments(
         compat[deployment_id] = supported_deployment.compat(deployment_id)
 
     return compat_mapping, supported | compat
+
+
+def get_static_deployments() -> AdapterDeployments:
+    return AdapterDeployments.create(compat_mapping=COMPATIBILITY_MAPPING)

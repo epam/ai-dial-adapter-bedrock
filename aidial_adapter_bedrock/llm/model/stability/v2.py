@@ -189,7 +189,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             client=client,
             deployment=deployment,
             storage=storage,
-            spec=_get_spec(deployment.reference_deployment_id),
+            spec=_get_spec(deployment.compatible_deployment_id),
         )
 
     async def configuration(self) -> Type[BaseModel]:

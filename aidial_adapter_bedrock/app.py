@@ -1,12 +1,11 @@
 from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 
-from aidial_adapter_bedrock.adapter_deployments import AdapterDeployments
+from aidial_adapter_bedrock.adapter_deployments import get_static_deployments
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.embeddings import BedrockEmbeddings
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
-from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import configure_loggers
 
 app = DIALApp(
@@ -20,9 +19,7 @@ app = DIALApp(
 # logging=True configuration.
 configure_loggers()
 
-deployments = AdapterDeployments.create(
-    compat_mapping=get_str_dict("COMPATIBILITY_MAPPING")
-)
+deployments = get_static_deployments()
 
 
 @app.get("/openai/models")
@@ -36,7 +33,5 @@ async def models():
     )
 
 
-app.add_chat_completion(
-    "{deployment_id}", BedrockChatCompletion(deployments.chat_completions)
-)
-app.add_embeddings("{deployment_id}", BedrockEmbeddings(deployments.embeddings))
+app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
+app.add_embeddings("{deployment_id}", BedrockEmbeddings())

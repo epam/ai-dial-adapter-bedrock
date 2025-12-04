@@ -19,7 +19,7 @@ from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from tests.utils.messages import ai, sys, user, user_with_image
 
 _DEPLOYMENT = AdapterDeployment.supported(
-    upstream=ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_OPUS
 )
 
 

@@ -30,10 +30,10 @@ class supported:
         assert deployment is not None
         if self.redirect is not None:
             assert deployment.upstream_deployment_id == self.redirect.value
-            assert deployment.reference_deployment_id == self.redirect
+            assert deployment.compatible_deployment_id == self.redirect
         else:
             assert deployment.upstream_deployment_id == deployment_name
-            assert deployment.reference_deployment_id == self.deployment_id
+            assert deployment.compatible_deployment_id == self.deployment_id
 
 
 @dataclass
@@ -49,7 +49,7 @@ class compat:
 
         assert deployment is not None
         assert deployment.upstream_deployment_id == self.deployment_id
-        assert deployment.reference_deployment_id == self.reference
+        assert deployment.compatible_deployment_id == self.reference
 
 
 @dataclass
