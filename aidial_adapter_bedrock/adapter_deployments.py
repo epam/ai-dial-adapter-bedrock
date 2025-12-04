@@ -22,6 +22,11 @@ from aidial_adapter_bedrock.upstream_config import get_compatible_model_id
 from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
+_UPSTREAM_CONFIG_PATH = (
+    "upstreams[*].extraData.compatible_model_id field in the DIAL Core config"
+)
+_COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING env variable"
+
 
 class ReadableStrEnum(Protocol):
     @classmethod
@@ -96,6 +101,18 @@ def resolve_deployment(
     compat_mapping: dict[str, str] | None = None,
     compatible_id_from_upstream: str | None = None,
 ) -> AdapterDeployment[_T]:
+    if (
+        compatible_id_from_upstream is not None
+        and cls.from_string(upstream_deployment_id) is not None
+    ):
+        log.warning(
+            f"{upstream_deployment_id!r} deployment is already natively supported by the adapter, "
+            f"but it is also mapped to {compatible_id_from_upstream!r} in {_UPSTREAM_CONFIG_PATH}. "
+            f"To avoid this warning and ensure you retain all features of {upstream_deployment_id!r}, "
+            "remove the corresponding field. "
+            f"Otherwise, you may lose features that exist in {upstream_deployment_id!r} but "
+            f"are missing in {compatible_id_from_upstream!r}."
+        )
 
     compatible_id_from_compat_mapping = (compat_mapping or {}).get(
         upstream_deployment_id
@@ -110,12 +127,29 @@ def resolve_deployment(
     compatible_deployment_id: _T | None = cls.from_string(compatible_id)
 
     if compatible_deployment_id is None:
-        raise DeploymentNotFoundError(
-            f"The deployment id {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
-            "Either fix it if it's a typo, or "
-            "set upstreams[*].extraData.compatible_model_id configuration field "
-            f"equal to the one of the supported deployment ids compatible with {compatible_id!r}."
-        )
+        if (
+            compatible_id_from_upstream is None
+            and compatible_id_from_compat_mapping is None
+        ):
+            msg = (
+                f"The deployment id {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
+                f"Either replace it with a supported deployment id, or set {_UPSTREAM_CONFIG_PATH} "
+                f"equal to a supported deployment id that is compatible with {compatible_id!r}."
+            )
+        elif compatible_id_from_upstream is not None:
+            msg = (
+                f"{compatible_id!r} is declared as a deployment id that is compatible with {upstream_deployment_id!r} via {_UPSTREAM_CONFIG_PATH}. "
+                f"However, {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
+                f"Replace it with a supported deployment id to avoid this error."
+            )
+        else:
+            msg = (
+                f"{compatible_id!r} is declared as a deployment id that is compatible with {upstream_deployment_id!r} via {_COMPAT_MAPPING_NAME}. "
+                f"However, {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
+                f"Replace it with a supported deployment id to avoid this error."
+            )
+
+        raise DeploymentNotFoundError(msg)
 
     return AdapterDeployment[_T](
         upstream_deployment_id=upstream_deployment_id,
@@ -140,7 +174,8 @@ class AdapterDeployments(BaseModel):
         for deployment_id, supported_id in compat_mapping.items():
             if deployment_id in chat_completions or deployment_id in embeddings:
                 log.warning(
-                    f"{deployment_id!r} deployment is already natively supported by the adapter, but it is also mapped to {supported_id!r} in the COMPATIBILITY_MAPPING variable. "
+                    f"{deployment_id!r} deployment is already natively supported by the adapter, "
+                    f"but it is also mapped to {supported_id!r} in the {_COMPAT_MAPPING_NAME}. "
                     f"To avoid this warning and ensure you retain all features of {deployment_id!r}, remove it from the mapping. "
                     f"Otherwise, you may lose features that exist in {deployment_id!r} but are missing in {supported_id!r}."
                 )
@@ -170,7 +205,8 @@ class AdapterDeployments(BaseModel):
 
         if residual_compat_mapping:
             raise ValueError(
-                f"None of the values in the following compatibility mapping corresponds to a Bedrock deployment supported by the adapter: {json.dumps(residual_compat_mapping)}. "
+                f"None of the values in the following compatibility mapping corresponds to a "
+                f"Bedrock deployment supported by the adapter: {json.dumps(residual_compat_mapping)}. "
                 f"Remap the deployments to the supported Bedrock deployments to fix the error."
             )
 
@@ -211,7 +247,11 @@ class AdapterDeployments(BaseModel):
             idx += 1
         config = {"models": models}
 
-        return f"COMPATIBILITY_MAPPING env variable is deprecated in favour of per-upstream configuration in DIAL Core config. You may remove the entries from the env variable one-by-one and amend configurations for corresponding deployments in the DIAL Core config: {json.dumps(config)}"
+        return (
+            f"{_COMPAT_MAPPING_NAME} is deprecated in favour of per-upstream configuration in DIAL Core config. "
+            "You may remove the entries from the env variable one-by-one and amend configurations "
+            f"for corresponding deployments in the DIAL Core config: {json.dumps(config)}"
+        )
 
     def _enrich_with_supported_deployments(self) -> "AdapterDeployments":
         chat_completions = self.chat_completions.copy()

@@ -65,7 +65,7 @@ _CHAT_MODEL_2 = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
 _EMBEDDING_MODEL = EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V2
 
 _outdated_mapping_warning_message = (
-    "{deployment_id!r} deployment is already natively supported by the adapter, but it is also mapped to {supported_id!r} in the COMPATIBILITY_MAPPING variable. "
+    "{deployment_id!r} deployment is already natively supported by the adapter, but it is also mapped to {supported_id!r} in the COMPATIBILITY_MAPPING env variable. "
     "To avoid this warning and ensure you retain all features of {deployment_id!r}, remove it from the mapping. "
     "Otherwise, you may lose features that exist in {deployment_id!r} but are missing in {supported_id!r}."
 )
