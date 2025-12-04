@@ -1,4 +1,5 @@
 {
+  "files.trimTrailingWhitespace": true,
   "cSpell.enabled": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
