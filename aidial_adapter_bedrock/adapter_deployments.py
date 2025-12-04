@@ -22,9 +22,7 @@ from aidial_adapter_bedrock.upstream_config import get_compatible_model_id
 from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_UPSTREAM_CONFIG_PATH = (
-    "upstreams[*].extraData.compatible_model_id field in the DIAL Core config"
-)
+_UPSTREAM_CONFIG_PATH = "upstreams[*].extraData.compatible_deployment_id field in the DIAL Core config"
 _COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING env variable"
 
 
