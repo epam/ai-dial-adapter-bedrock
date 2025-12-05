@@ -141,7 +141,7 @@ class OverrideNameUpstreamConfig(BaseModel):
     class Config:
         allow_population_by_field_name = True
 
-    compatible_deployment_id: str | None = None
+    compatible_model_id: str | None = None
 
 
 def get_compatible_model_id(request: FromRequestDeploymentMixin) -> str | None:
@@ -157,4 +157,4 @@ def get_compatible_model_id(request: FromRequestDeploymentMixin) -> str | None:
         )
         return None
 
-    return None if conf is None else conf.compatible_deployment_id
+    return None if conf is None else conf.compatible_model_id

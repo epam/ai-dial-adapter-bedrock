@@ -1041,7 +1041,7 @@ async def test_reject_extra_message_fields(chat: Chat):
 
 async def test_compatible_deployment_id(get_openai_client, stream: bool):
     deployment = D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US
-    upstream_config = {"compatible_deployment_id": deployment.value}
+    upstream_config = {"compatible_model_id": deployment.value}
     openai_client = get_openai_client(
         "xxx",
         extra_headers={"x-upstream-extra-data": json.dumps(upstream_config)},

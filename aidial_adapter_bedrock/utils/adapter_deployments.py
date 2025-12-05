@@ -22,7 +22,9 @@ from aidial_adapter_bedrock.utils.compatibility_mapping import (
 )
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-_UPSTREAM_CONFIG_PATH = "upstreams[*].extraData.compatible_deployment_id field in the DIAL Core config"
+_UPSTREAM_CONFIG_PATH = (
+    "upstreams[*].extraData.compatible_model_id field in the DIAL Core config"
+)
 
 _T = TypeVar("_T", bound=ReadableStrEnumT)
 
@@ -69,9 +71,9 @@ def resolve_upstream_deployment_id(
         or upstream_deployment_id
     )
 
-    compatible_deployment_id: _T | None = cls.from_string(compatible_id)
+    compatible_model_id: _T | None = cls.from_string(compatible_id)
 
-    if compatible_deployment_id is None:
+    if compatible_model_id is None:
         if (
             compatible_id_from_upstream is None
             and compatible_id_from_compat_mapping is None
@@ -105,7 +107,7 @@ def resolve_upstream_deployment_id(
 
     return AdapterDeployment[_T](
         upstream_deployment_id=upstream_deployment_id,
-        reference_deployment_id=compatible_deployment_id,
+        reference_deployment_id=compatible_model_id,
     )
 
 

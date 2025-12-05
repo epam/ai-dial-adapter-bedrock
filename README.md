@@ -63,7 +63,7 @@ The project implements [AI DIAL API](https://dialx.ai/dial_api) for language mod
 
 ### Chat completion models
 
-The following models support `POST SERVER_URL/openai/deployments/DEPLOYMENT_NAME/chat/completions` endpoint along with an optional support of `POST /tokenize` and `POST /truncate_prompt` endpoints:
+The following models support `POST SERVER_URL/openai/deployments/MODEL_ID/chat/completions` endpoint along with an optional support of `POST /tokenize` and `POST /truncate_prompt` endpoints:
 
 Note that a model supports `/truncate_prompt` endpoint if and only if it supports `max_prompt_tokens` request parameter.
 
@@ -323,7 +323,7 @@ E.g. `Claude 3.5 Sonnet 2.0` model can be accessed via the following deployment 
 
 ### Embedding models
 
-The following models support `SERVER_URL/openai/deployments/DEPLOYMENT_NAME/embeddings` endpoint:
+The following models support `SERVER_URL/openai/deployments/MODEL_ID/embeddings` endpoint:
 
 |Model|Deployment name|Modality|
 |---|---|---|
@@ -398,7 +398,7 @@ Make sure the default doesn't exceed Claude's [max output tokens](https://docs.a
 
 ## Compatibility mode
 
-The Adapter supports a predefined list of AWS Bedrock deployments. The [Supported models](#supported-models) section lists the models. These models could be accessed via `/openai/deployments/{deployment_name}/(chat_completions|embeddings)` endpoints. The Adapter won't recognize any other deployment name and will result in 404 error.
+The Adapter supports a predefined list of AWS Bedrock deployments. The [Supported models](#supported-models) section lists the models. These models could be accessed via `/openai/deployments/MODEL_ID/(chat_completions|embeddings)` endpoints. The Adapter won't recognize any other deployment name and will result in 404 error.
 
 Now, suppose AWS Bedrock released a new version of a model, e.g. `anthropic.claude-3-5-sonnet-20250210-v3:0` that is a better version of an older `anthropic.claude-3-5-sonnet-20241022-v2:0` model.
 
@@ -426,7 +426,7 @@ E.g. the following configuration enables `anthropic.claude-3-5-sonnet-20250210-v
       "upstreams": [
         {
           "extraData": {
-            "compatible_deployment_id": "anthropic.claude-3-5-sonnet-20241022-v2:0"
+            "compatible_model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0"
           }
         }
       ]
@@ -443,12 +443,12 @@ Naturally, this will only work if the APIs of v2 and v3 deployments are compatib
 1. The requests utilizing the modalities supported by both v2 and v3 will work just fine.
 2. However, the requests with modalities that are supported by v3 _(e.g. audio)_ and aren't supported by v2, won't be processed correctly. You will have to wait until the adapter supports the v3 deployment natively.
 
-When a version of the adapter supporting the v3 model is released, you may migrate to it and safely remove the `compatible_deployment_id` from the DIAL Core config.
+When a version of the adapter supporting the v3 model is released, you may migrate to it and safely remove the `compatible_model_id` from the DIAL Core config.
 
-Note that setting `compatible_deployment_id=stability.stable-image-ultra-v1:0` will be ineffectual, since the APIs of the two model and their capabilities are drastically different.
+Note that setting `compatible_model_id=stability.stable-image-ultra-v1:0` will be ineffectual, since the APIs of the two model and their capabilities are drastically different.
 
 > [!IMPORTANT]
-> If the DIAL deployment has many upstreams, the `compatible_deployment_id` field should be set in all of the upstreams.
+> If the DIAL deployment has many upstreams, the `compatible_model_id` field should be set in all of the upstreams.
 
 ### Compatibility configuration in Adapter
 
@@ -535,7 +535,7 @@ The adapter supports authentication with Anthropic API for Claude deployments.
             {
               "key": "${ANTHROPIC_API_KEY}",
               "extraData": {
-                "compatible_deployment_id": "${AWS_BEDROCK_MODEL_NAME}"
+                "compatible_model_id": "${AWS_BEDROCK_MODEL_NAME}"
               }
             }
           ]
@@ -551,7 +551,7 @@ The adapter supports authentication with Anthropic API for Claude deployments.
     1. `claude-sonnet-4-5-20250929` _(`${CLAUDE_API_MODEL_NAME}`)_ in **Claude API** corresponds to
     2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
 
-    The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to specify the corresponding name from **AWS Bedrock** in the [compatible_deployment_id](#compatibility-configuration-in-dial-core-config) field. Otherwise, the adapter returns 404.
+    The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to specify the corresponding name from **AWS Bedrock** in the [compatible_model_id](#compatibility-configuration-in-dial-core-config) field. Otherwise, the adapter returns 404.
 
 ---
 

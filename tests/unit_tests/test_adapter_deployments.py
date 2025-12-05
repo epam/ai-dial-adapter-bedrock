@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.utils.adapter_deployments import (
 
 
 def _invalid_upstream_config_error(upstream_id: str, compat_id: str) -> str:
-    return f"{compat_id!r} is declared as a deployment id that is compatible with {upstream_id!r} via upstreams[*].extraData.compatible_deployment_id field in the DIAL Core config. However, {compat_id!r} isn't one of the deployment ids supported by the adapter. Replace it with a supported deployment id to avoid this error."
+    return f"{compat_id!r} is declared as a deployment id that is compatible with {upstream_id!r} via upstreams[*].extraData.compatible_model_id field in the DIAL Core config. However, {compat_id!r} isn't one of the deployment ids supported by the adapter. Replace it with a supported deployment id to avoid this error."
 
 
 def _invalid_compat_mapping_error(upstream_id: str, compat_id: str) -> str:
@@ -24,7 +24,7 @@ def _invalid_compat_mapping_error(upstream_id: str, compat_id: str) -> str:
 
 
 def _invalid_upstream_deployment_id(deployment_id: str) -> str:
-    return f"The deployment id {deployment_id!r} isn't one of the deployment ids supported by the adapter. Either replace it with a supported deployment id, or set upstreams[*].extraData.compatible_deployment_id field in the DIAL Core config equal to a supported deployment id that is compatible with {deployment_id!r}."
+    return f"The deployment id {deployment_id!r} isn't one of the deployment ids supported by the adapter. Either replace it with a supported deployment id, or set upstreams[*].extraData.compatible_model_id field in the DIAL Core config equal to a supported deployment id that is compatible with {deployment_id!r}."
 
 
 def _compat_mapping_deprecation_warning(
@@ -32,7 +32,7 @@ def _compat_mapping_deprecation_warning(
 ) -> str:
     return (
         """
-COMPATIBILITY_MAPPING env variable is deprecated in favour of per-upstream configuration in the DIAL Core config. You may remove the entries from the env variable one-by-one and amend configurations for corresponding deployments in the DIAL Core config: {"models": {"$DIAL_DEPLOYMENT_ID1": {"type": "chat", "endpoint": "$ADAPTER_ORIGIN/openai/deployments/$unsupported_id/chat/completions", "upstreams": [{"extraData": {"compatible_deployment_id": "$supported_id"}}]}}}
+COMPATIBILITY_MAPPING env variable is deprecated in favour of per-upstream configuration in the DIAL Core config. You may remove the entries from the env variable one-by-one and amend configurations for corresponding deployments in the DIAL Core config: {"models": {"$DIAL_DEPLOYMENT_ID1": {"type": "chat", "endpoint": "$ADAPTER_ORIGIN/openai/deployments/$unsupported_id/chat/completions", "upstreams": [{"extraData": {"compatible_model_id": "$supported_id"}}]}}}
 """.strip()
         .replace("$unsupported_id", unsupported_id)
         .replace("$supported_id", supported_id)

@@ -98,7 +98,7 @@ def _compat_mapping_deprecation_warning(deployments: Dict[str, Any]) -> str:
         type = "chat" if is_chat else "embedding"
         endpoint = "chat/completions" if is_chat else "embeddings"
         compatible_id = deployment.reference_deployment_id.value
-        extra = {"compatible_deployment_id": compatible_id}
+        extra = {"compatible_model_id": compatible_id}
         return {
             "type": type,
             "endpoint": f"$ADAPTER_ORIGIN/openai/deployments/{deployment.upstream_deployment_id}/{endpoint}",
