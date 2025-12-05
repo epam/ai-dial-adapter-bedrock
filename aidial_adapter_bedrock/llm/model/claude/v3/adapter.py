@@ -172,7 +172,7 @@ class Adapter(ChatCompletionAdapter):
 
     @property
     def supports_thinking(self) -> bool:
-        return self.deployment.compatible_deployment_id in {
+        return self.deployment.reference_deployment_id in {
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
             D.ANTHROPIC_CLAUDE_V4_OPUS,
             D.ANTHROPIC_CLAUDE_V4_1_OPUS,
@@ -189,7 +189,7 @@ class Adapter(ChatCompletionAdapter):
     @property
     def attachment_processors(self) -> AttachmentProcessors:
         # Document support: https://docs.anthropic.com/en/docs/build-with-claude/pdf-support#supported-platforms-and-models
-        supports_documents = self.deployment.compatible_deployment_id in {
+        supports_documents = self.deployment.reference_deployment_id in {
             D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
             D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
             D.ANTHROPIC_CLAUDE_V3_5_SONNET,
@@ -274,7 +274,7 @@ class Adapter(ChatCompletionAdapter):
         discarded_messages, messages = await truncate_prompt(
             messages=request.messages.list,
             tokenizer=create_tokenizer(
-                self.deployment.compatible_deployment_id, request.params
+                self.deployment.reference_deployment_id, request.params
             ),
             keep_message=keep_last,
             partitioner=turn_based_partitioner,
@@ -325,7 +325,7 @@ class Adapter(ChatCompletionAdapter):
     ) -> int:
         request = await self._prepare_claude_request(params, messages)
         return await create_tokenizer(
-            self.deployment.compatible_deployment_id, request.params
+            self.deployment.reference_deployment_id, request.params
         )(request.messages.list)
 
     async def count_completion_tokens(self, string: str) -> int:

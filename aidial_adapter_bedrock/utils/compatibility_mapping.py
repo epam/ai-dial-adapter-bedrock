@@ -11,7 +11,7 @@ from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 COMPATIBILITY_MAPPING = get_str_dict("COMPATIBILITY_MAPPING")
-_COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING env variable"
+COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING env variable"
 
 
 def _validate_compat_mapping(compat_mapping: Dict[str, str]):
@@ -24,7 +24,7 @@ def _validate_compat_mapping(compat_mapping: Dict[str, str]):
         if unsupported_id in chat_completions or unsupported_id in embeddings:
             log.warning(
                 f"{unsupported_id!r} deployment is already natively supported by the adapter, "
-                f"but it is also mapped to {supported_id!r} in the {_COMPAT_MAPPING_NAME}. "
+                f"but it is also mapped to {supported_id!r} in the {COMPAT_MAPPING_NAME}. "
                 f"To avoid this warning and ensure you retain all features of {unsupported_id!r}, remove it from the mapping. "
                 f"Otherwise, you may lose features that exist in {unsupported_id!r} but are missing in {supported_id!r}."
             )
@@ -57,12 +57,12 @@ def parse_compat_mapping(compat_mapping: Dict[str, str]):
         if deployment := ChatCompletionDeployment.from_string(supported_id):
             chat[unsupported_id] = AdapterDeployment(
                 upstream_deployment_id=unsupported_id,
-                compatible_deployment_id=deployment,
+                reference_deployment_id=deployment,
             )
         elif deployment := EmbeddingsDeployment.from_string(supported_id):
             embeddings[unsupported_id] = AdapterDeployment(
                 upstream_deployment_id=unsupported_id,
-                compatible_deployment_id=deployment,
+                reference_deployment_id=deployment,
             )
         else:
             unknown[unsupported_id] = supported_id
@@ -93,11 +93,11 @@ def _compat_mapping_deprecation_warning(deployments: Dict[str, Any]) -> str:
         ),
     ) -> dict:
         is_chat = isinstance(
-            deployment.compatible_deployment_id, ChatCompletionDeployment
+            deployment.reference_deployment_id, ChatCompletionDeployment
         )
         type = "chat" if is_chat else "embedding"
         endpoint = "chat/completions" if is_chat else "embeddings"
-        compatible_id = deployment.compatible_deployment_id.value
+        compatible_id = deployment.reference_deployment_id.value
         extra = {"compatible_deployment_id": compatible_id}
         return {
             "type": type,
@@ -112,7 +112,7 @@ def _compat_mapping_deprecation_warning(deployments: Dict[str, Any]) -> str:
     config = {"models": models}
 
     return (
-        f"{_COMPAT_MAPPING_NAME} is deprecated in favour of per-upstream configuration in the DIAL Core config. "
+        f"{COMPAT_MAPPING_NAME} is deprecated in favour of per-upstream configuration in the DIAL Core config. "
         "You may remove the entries from the env variable one-by-one and amend configurations "
         f"for corresponding deployments in the DIAL Core config: {json.dumps(config)}"
     )

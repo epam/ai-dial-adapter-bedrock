@@ -16,7 +16,7 @@ from aidial_adapter_bedrock.utils.adapter_deployment import (
     ReadableStrEnumT,
 )
 from aidial_adapter_bedrock.utils.compatibility_mapping import (
-    _COMPAT_MAPPING_NAME,
+    COMPAT_MAPPING_NAME,
     COMPATIBILITY_MAPPING,
     parse_compat_mapping,
 )
@@ -89,7 +89,7 @@ def resolve_upstream_deployment_id(
             )
         else:
             msg = (
-                f"{compatible_id!r} is declared as a deployment id that is compatible with {upstream_deployment_id!r} via {_COMPAT_MAPPING_NAME}. "
+                f"{compatible_id!r} is declared as a deployment id that is compatible with {upstream_deployment_id!r} via {COMPAT_MAPPING_NAME}. "
                 f"However, {compatible_id!r} isn't one of the deployment ids supported by the adapter. "
                 f"Replace it with a supported deployment id to avoid this error."
             )
@@ -105,7 +105,7 @@ def resolve_upstream_deployment_id(
 
     return AdapterDeployment[_T](
         upstream_deployment_id=upstream_deployment_id,
-        compatible_deployment_id=compatible_deployment_id,
+        reference_deployment_id=compatible_deployment_id,
     )
 
 
@@ -130,7 +130,7 @@ class AdapterDeployments(BaseModel):
                 if variant not in self.chat:
                     chat[variant] = AdapterDeployment(
                         upstream_deployment_id=variant,
-                        compatible_deployment_id=deployment,
+                        reference_deployment_id=deployment,
                     )
 
         embeddings = self.embeddings.copy()
@@ -139,7 +139,7 @@ class AdapterDeployments(BaseModel):
             if variant not in self.embeddings:
                 embeddings[variant] = AdapterDeployment(
                     upstream_deployment_id=variant,
-                    compatible_deployment_id=deployment,
+                    reference_deployment_id=deployment,
                 )
 
         return AdapterDeployments(chat=chat, embeddings=embeddings)

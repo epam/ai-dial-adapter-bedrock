@@ -58,7 +58,7 @@ async def get_bedrock_adapter(
         deployment=model, get_client=get_bedrock_client, api_key=api_key
     )
 
-    match deployment.compatible_deployment_id:
+    match deployment.reference_deployment_id:
         case (
             ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_SONNET
@@ -81,7 +81,7 @@ async def get_bedrock_adapter(
                 )
             else:
                 return await claude_v3.create_adapter(
-                    deployment.clone(deployment.compatible_deployment_id),
+                    deployment.clone(deployment.reference_deployment_id),
                     api_key,
                     upstream_config,
                 )
@@ -101,7 +101,7 @@ async def get_bedrock_adapter(
         ):
             adapter = StabilityV2Adapter.create(
                 await get_bedrock_client(),
-                deployment.clone(deployment.compatible_deployment_id),
+                deployment.clone(deployment.reference_deployment_id),
                 api_key,
             )
             return replicator_decorator()(adapter)
@@ -171,7 +171,7 @@ async def get_embeddings_model(
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
     client = await Bedrock.acreate(upstream_config)
-    match deployment.compatible_deployment_id:
+    match deployment.reference_deployment_id:
         case EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(
                 client, model, supports_dimensions=False

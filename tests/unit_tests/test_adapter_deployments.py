@@ -63,7 +63,7 @@ class supported:
 
         assert deployment is not None
         assert deployment.upstream_deployment_id == deployment_name
-        assert deployment.compatible_deployment_id == self.deployment_id
+        assert deployment.reference_deployment_id == self.deployment_id
 
 
 @dataclass
@@ -79,7 +79,7 @@ class compat:
 
         assert deployment is not None
         assert deployment.upstream_deployment_id == self.deployment_id
-        assert deployment.compatible_deployment_id == self.reference
+        assert deployment.reference_deployment_id == self.reference
 
 
 @dataclass
@@ -221,7 +221,7 @@ def test_existing_upstream_deployment_from_request_no_region():
     )
 
     assert deployment.upstream_deployment_id == _CHAT_MODEL_1.value
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 @pytest.mark.parametrize("region", _known_regions)
@@ -232,7 +232,7 @@ def test_existing_upstream_deployment_from_request_with_region(region: str):
     )
 
     assert deployment.upstream_deployment_id == upstream
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 def test_existing_upstream_deployment_from_request_with_unknown_region(caplog):
@@ -242,7 +242,7 @@ def test_existing_upstream_deployment_from_request_with_unknown_region(caplog):
     )
 
     assert deployment.upstream_deployment_id == upstream
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
     assert _unknown_region_warning(upstream, "unknown_region") in caplog.text
 
@@ -266,7 +266,7 @@ def test_existing_upstream_deployment_from_compat_mapping():
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 @pytest.mark.parametrize("region", _known_regions)
@@ -281,7 +281,7 @@ def test_existing_upstream_deployment_from_compat_mapping_with_region(
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 def test_non_existing_upstream_deployment_from_upstream_config(caplog):
@@ -303,7 +303,7 @@ def test_existing_upstream_deployment_from_upstream_config_no_compat_mapping():
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 @pytest.mark.parametrize("region", _known_regions)
@@ -317,7 +317,7 @@ def test_existing_upstream_deployment_from_upstream_config_no_compat_mapping_wit
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
 
 def test_existing_upstream_deployment_from_upstream_config_no_compat_mapping_with_unknown_region(
@@ -331,7 +331,7 @@ def test_existing_upstream_deployment_from_upstream_config_no_compat_mapping_wit
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
 
     assert _unknown_region_warning(compat, "unknown_region") in caplog.text
 
@@ -345,4 +345,4 @@ def test_existing_upstream_deployment_from_upstream_config_with_compat_mapping()
     )
 
     assert deployment.upstream_deployment_id == "xxx"
-    assert deployment.compatible_deployment_id == _CHAT_MODEL_1
+    assert deployment.reference_deployment_id == _CHAT_MODEL_1
