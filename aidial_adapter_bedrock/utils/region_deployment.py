@@ -100,7 +100,7 @@ class RegionInferenceDeployment(Enum):
                 if not isinstance(parsed, InferenceRegion):
                     log.warning(
                         f"{model_id!r} has unexpected cross-region prefix {parsed!r} that "
-                        f"doesn't match ony of the supported prefixes: {InferenceRegion.prefixes()}."
+                        f"doesn't match any of the supported prefixes: {InferenceRegion.prefixes()}."
                     )
 
                 return deployment
@@ -109,7 +109,7 @@ class RegionInferenceDeployment(Enum):
 
 def _parse_region_prefix(s: str) -> InferenceRegion | str | None:
     for region in InferenceRegion:
-        if region.value == f"{s}.":
+        if f"{region.value}." == s:
             return region
 
     if m := re.fullmatch(r"(\w+)\.", s):
