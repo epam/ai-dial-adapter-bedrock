@@ -26,10 +26,6 @@ from aidial_sdk.deployment.truncate_prompt import (
 )
 from typing_extensions import override
 
-from aidial_adapter_bedrock.adapter_deployments import (
-    AdapterChatCompletionDeployment,
-    resolve_deployment_from_request,
-)
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
@@ -41,6 +37,10 @@ from aidial_adapter_bedrock.server.exceptions import (
     not_implemented_handler,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
+from aidial_adapter_bedrock.utils.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+    resolve_upstream_deployment_id_from_request,
+)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
@@ -48,7 +48,7 @@ class BedrockChatCompletion(ChatCompletion):
     def _get_deployment(
         self, request: FromRequestDeploymentMixin
     ) -> AdapterChatCompletionDeployment:
-        return resolve_deployment_from_request(
+        return resolve_upstream_deployment_id_from_request(
             ChatCompletionDeployment, request
         )
 

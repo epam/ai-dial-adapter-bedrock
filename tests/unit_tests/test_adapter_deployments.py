@@ -4,11 +4,11 @@ from typing import Dict, List, Protocol
 
 import pytest
 
-from aidial_adapter_bedrock.adapter_deployments import AdapterDeployments
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
     EmbeddingsDeployment,
 )
+from aidial_adapter_bedrock.utils.adapter_deployments import AdapterDeployments
 
 
 class Checker(Protocol):
@@ -22,7 +22,7 @@ class supported:
     def check(self, deployments: AdapterDeployments):
         deployment_name = self.deployment_id.value
         if isinstance(self.deployment_id, ChatCompletionDeployment):
-            deployment = deployments.chat_completions.get(deployment_name)
+            deployment = deployments.chat.get(deployment_name)
         else:
             deployment = deployments.embeddings.get(deployment_name)
 
@@ -38,7 +38,7 @@ class compat:
 
     def check(self, deployments: AdapterDeployments):
         if isinstance(self.reference, ChatCompletionDeployment):
-            deployment = deployments.chat_completions.get(self.deployment_id)
+            deployment = deployments.chat.get(self.deployment_id)
         else:
             deployment = deployments.embeddings.get(self.deployment_id)
 

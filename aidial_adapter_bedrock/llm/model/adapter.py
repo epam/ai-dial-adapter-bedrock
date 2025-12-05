@@ -4,10 +4,6 @@ from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.amazon as amazon
 import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
-from aidial_adapter_bedrock.adapter_deployments import (
-    AdapterChatCompletionDeployment,
-    AdapterEmbeddingsDeployment,
-)
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
@@ -40,6 +36,10 @@ from aidial_adapter_bedrock.llm.converse.types import (
 from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 from aidial_adapter_bedrock.upstream_config import UpstreamConfig
+from aidial_adapter_bedrock.utils.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+    AdapterEmbeddingsDeployment,
+)
 
 
 async def get_bedrock_adapter(

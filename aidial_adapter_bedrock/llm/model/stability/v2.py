@@ -11,7 +11,6 @@ from PIL import Image
 from pydantic import BaseModel
 from typing_extensions import assert_never
 
-from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
@@ -33,6 +32,7 @@ from aidial_adapter_bedrock.llm.model.stability.message import (
 )
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
+from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 from aidial_adapter_bedrock.utils.resource import Resource
