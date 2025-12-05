@@ -1037,3 +1037,27 @@ async def test_reject_extra_message_fields(chat: Chat):
         extra_message = {"extra-message-field": "extra-message-value"}
         messages = [{"role": "user", "content": "2+2=?", **extra_message}]
         await chat(messages=messages, max_tokens=1)  # type: ignore
+
+
+async def test_compatible_deployment_id(get_openai_client, stream: bool):
+    deployment = D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US
+    upstream_config = {"compatible_deployment_id": deployment.value}
+    openai_client = get_openai_client(
+        "xxx",
+        extra_headers={"x-upstream-extra-data": json.dumps(upstream_config)},
+    )
+
+    msg = "The provided model identifier is invalid."
+    with pytest.raises(openai.BadRequestError, match=msg):
+        await chat_completion(
+            openai_client, stream=stream, messages=[user("test")]
+        )
+
+
+async def test_unknown_deployment_id(get_openai_client, stream: bool):
+    openai_client = get_openai_client("xxx")
+
+    with pytest.raises(openai.NotFoundError, match="Deployment not found"):
+        await chat_completion(
+            openai_client, stream=stream, messages=[user("test")]
+        )

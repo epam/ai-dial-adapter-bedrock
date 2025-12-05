@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from enum import Enum
 from typing import Generic, List, Protocol, Self, TypeVar
 
@@ -29,21 +30,10 @@ class RegionDeployment(Protocol, Generic[_Origin]):
     def value(self) -> str: ...
 
 
+@dataclass(frozen=True)
 class DeploymentVariant(Generic[_Origin]):
-    _origin: _Origin
-    _value: str
-
-    def __init__(self, origin: _Origin, value: str) -> None:
-        self._origin = origin
-        self._value = value
-
-    @property
-    def origin(self) -> _Origin:
-        return self._origin
-
-    @property
-    def value(self) -> str:
-        return self._value
+    origin: _Origin
+    value: str
 
 
 class RegionInferenceDeployment(Enum):
