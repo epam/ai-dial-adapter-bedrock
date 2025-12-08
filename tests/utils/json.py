@@ -22,7 +22,7 @@ def match_objects(expected: Any, actual: Any) -> bool:
     elif isinstance(expected, re.Pattern) and isinstance(actual, str):
         assert expected.match(
             actual
-        ), f"The regexp {expected!r} doesn't match the string {actual!r}"
+        ), f"The actual string {actual!r} doesn't match the expected pattern {expected!r}"
     else:
         assert expected == actual
 
