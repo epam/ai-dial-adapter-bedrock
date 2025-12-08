@@ -664,6 +664,33 @@ async def test_tool_choice_none(
 
 @pytest.mark.parametrize(
     "deployment",
+    select(pred(supports_tools), deployments),
+    ids=display_deployment,
+)
+async def test_tool_call_zero_parameters(chat: Chat):
+    response = await chat(
+        messages=[user("What time is it?")],
+        tools=[
+            function_to_tool(
+                {
+                    "name": "get_current_time",
+                    "description": "return the current time",
+                }
+            )
+        ],
+    )
+
+    tool_calls = response.tool_calls
+    assert tool_calls is not None, "Tool calls are missing"
+    assert tool_calls[0].type == "function"
+    function = tool_calls[0].function
+    assert function.name == "get_current_time"
+    assert function.arguments == "{}"
+    assert response.finish_reasons == ["tool_calls"]
+
+
+@pytest.mark.parametrize(
+    "deployment",
     select(pred(supports_forced_tool_choice), deployments),
     ids=display_deployment,
 )
