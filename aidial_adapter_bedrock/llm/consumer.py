@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import ContextManager, Optional, Protocol, Self
+from typing import ContextManager, List, Optional, Protocol, Self
 
 from aidial_sdk.chat_completion import (
     Attachment,
@@ -18,8 +19,24 @@ from aidial_adapter_bedrock.llm.lazy_stage import LazyStage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
-class ToolUseMessage(Protocol):
+class _ArgumentConsumer(Protocol):
     def append_arguments(self, arguments: str) -> Self: ...
+
+
+@dataclasses.dataclass
+class ToolUseMessage:
+    call: _ArgumentConsumer
+    snapshot: str
+
+    def append_arguments(self, arguments: str) -> Self:
+        self.call.append_arguments(arguments)
+        self.snapshot += arguments
+        return self
+
+    def close(self) -> Self:
+        if not self.snapshot.strip():
+            self.append_arguments("{}")
+        return self
 
 
 class Consumer(ContextManager, ABC):
@@ -77,6 +94,7 @@ class ChoiceConsumer(Consumer):
 
     _root: Optional[Consumer]
     _choice: Optional[Choice]
+    _tool_calls: List[ToolUseMessage]
 
     def __init__(self, response: Response, root: Optional[Consumer] = None):
         self.response = response
@@ -86,6 +104,7 @@ class ChoiceConsumer(Consumer):
 
         self._choice = None
         self._root = root
+        self._tool_calls = []
 
     def fork(self) -> Consumer:
         return ChoiceConsumer(self.response, self._root or self)
@@ -111,6 +130,9 @@ class ChoiceConsumer(Consumer):
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
+        for tool_call in self._tool_calls:
+            tool_call.close()
+
         if exc is None and self._choice is not None:
             self._choice.close()
 
@@ -161,17 +183,27 @@ class ChoiceConsumer(Consumer):
             return self.discarded_messages
 
     def create_function_tool_call(self, call: ToolCall) -> ToolUseMessage:
-        return self.choice.create_function_tool_call(
-            id=call.id,
-            name=call.function.name,
-            arguments=call.function.arguments,
+        tool_call = ToolUseMessage(
+            call=self.choice.create_function_tool_call(
+                id=call.id,
+                name=call.function.name,
+                arguments=call.function.arguments,
+            ),
+            snapshot=call.function.arguments,
         )
+        self._tool_calls.append(tool_call)
+        return tool_call
 
     def create_function_call(self, call: FunctionCall) -> ToolUseMessage:
-        return self.choice.create_function_call(
-            name=call.name,
-            arguments=call.arguments,
+        tool_call = ToolUseMessage(
+            call=self.choice.create_function_call(
+                name=call.name,
+                arguments=call.arguments,
+            ),
+            snapshot=call.arguments,
         )
+        self._tool_calls.append(tool_call)
+        return tool_call
 
     @property
     def has_function_call(self) -> bool:
