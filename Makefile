@@ -55,7 +55,7 @@ help:
 	@echo 'build                        - build the source and wheels archives'
 	@echo 'clean                        - clean virtual env and build artifacts'
 	@echo 'docs                         - build the documentation'
-	@echo 'publish'                     - publish the Docker image to the registry'
+	@echo 'publish                      - publish the Docker image to the registry'
 	@echo '-- LINTING --'
 	@echo 'format                       - run code formatters'
 	@echo 'lint                         - run linters'
