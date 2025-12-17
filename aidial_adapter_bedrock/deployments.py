@@ -45,6 +45,10 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     META_LLAMA3_2_11B_INSTRUCT_V1 = "meta.llama3-2-11b-instruct-v1:0"
     META_LLAMA3_2_90B_INSTRUCT_V1 = "meta.llama3-2-90b-instruct-v1:0"
     META_LLAMA3_3_70B_INSTRUCT_V1 = "meta.llama3-3-70b-instruct-v1:0"
+    META_LLAMA4_MAVERICK_17B_INSTRUCT_V1 = (
+        "meta.llama4-maverick-17b-instruct-v1:0"
+    )
+    META_LLAMA4_SCOUT_17B_INSTRUCT_V1 = "meta.llama4-scout-17b-instruct-v1:0"
 
     COHERE_COMMAND_R_V1 = "cohere.command-r-v1:0"
     COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
