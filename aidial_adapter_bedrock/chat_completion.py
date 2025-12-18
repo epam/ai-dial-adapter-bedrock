@@ -26,9 +26,7 @@ from aidial_sdk.deployment.truncate_prompt import (
 )
 from typing_extensions import override
 
-from aidial_adapter_bedrock.adapter_deployments import (
-    AdapterChatCompletionDeployment,
-)
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
@@ -39,20 +37,26 @@ from aidial_adapter_bedrock.server.exceptions import (
     not_implemented_handler,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
+from aidial_adapter_bedrock.utils.adapter_deployments import (
+    AdapterChatCompletionDeployment,
+    resolve_upstream_deployment_id_from_request,
+)
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
 class BedrockChatCompletion(ChatCompletion):
-    deployment: AdapterChatCompletionDeployment
-
-    def __init__(self, deployment: AdapterChatCompletionDeployment) -> None:
-        self.deployment = deployment
+    def _get_deployment(
+        self, request: FromRequestDeploymentMixin
+    ) -> AdapterChatCompletionDeployment:
+        return resolve_upstream_deployment_id_from_request(
+            ChatCompletionDeployment, request
+        )
 
     async def _get_model(
         self, request: FromRequestDeploymentMixin
     ) -> ChatCompletionAdapter:
         return await get_bedrock_adapter(
-            deployment=self.deployment,
+            deployment=self._get_deployment(request),
             api_key=request.api_key,
             upstream_config=await parse_upstream_config(request),
             request=request if isinstance(request, Request) else None,
@@ -68,7 +72,8 @@ class BedrockChatCompletion(ChatCompletion):
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):
-        response.set_model(self.deployment.upstream_deployment_id)
+        deployment = self._get_deployment(request)
+        response.set_model(deployment.upstream_deployment_id)
 
         model = await self._get_model(request)
         params = ModelParameters.create(request)

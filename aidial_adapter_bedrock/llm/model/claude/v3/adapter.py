@@ -62,7 +62,6 @@ from anthropic.types.beta import (
     BetaWebSearchToolResultBlock as WebSearchToolResultBlock,
 )
 
-from aidial_adapter_bedrock.adapter_deployments import AdapterDeployment
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.deployments import ClaudeDeployment
@@ -123,6 +122,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
     truncate_prompt,
 )
 from aidial_adapter_bedrock.upstream_config import UpstreamConfig
+from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log

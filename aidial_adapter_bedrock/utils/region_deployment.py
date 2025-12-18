@@ -1,5 +1,9 @@
+import re
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Generic, Iterable, List, Protocol, Self, TypeVar
+from typing import Generic, List, Protocol, Self, TypeVar
+
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
@@ -7,6 +11,12 @@ class InferenceRegion(Enum):
     US = "us"
     EU = "eu"
     APAC = "apac"
+    JP = "jp"
+    GLOBAL = "global"
+
+    @classmethod
+    def prefixes(cls) -> str:
+        return ", ".join(p.value for p in cls)
 
 
 _Origin = TypeVar("_Origin", bound=Enum, covariant=True)
@@ -20,21 +30,10 @@ class RegionDeployment(Protocol, Generic[_Origin]):
     def value(self) -> str: ...
 
 
+@dataclass(frozen=True)
 class DeploymentVariant(Generic[_Origin]):
-    _origin: _Origin
-    _value: str
-
-    def __init__(self, origin: _Origin, value: str) -> None:
-        self._origin = origin
-        self._value = value
-
-    @property
-    def origin(self) -> _Origin:
-        return self._origin
-
-    @property
-    def value(self) -> str:
-        return self._value
+    origin: _Origin
+    value: str
 
 
 class RegionInferenceDeployment(Enum):
@@ -62,55 +61,48 @@ class RegionInferenceDeployment(Enum):
     def _get_region_variant(self, region: InferenceRegion) -> str:
         return f"{region.value}.{self.value}"
 
-    def _get_region_variants(self) -> List[str]:
-        if self._is_region_variant():
-            return []
-        return [self._get_region_variant(region) for region in InferenceRegion]
-
-    def _is_region_variant(self) -> bool:
-        return any(
-            self.value.startswith(f"{region.value}.")
-            for region in InferenceRegion
-        )
-
-    def _cross_region_inference_mapping(self) -> Dict[str, str]:
-        """
-        Return the mapping from regional variants to the original deployment:
-            {   us.deployment: deployment,
-                eu.deployment: deployment,
-                apac.deployment: deployment
-            }
-        """
-        return {variant: self.value for variant in self._get_region_variants()}
+    @property
+    def variants(self) -> List[str]:
+        return [self.value] + [
+            self._get_region_variant(region) for region in InferenceRegion
+        ]
 
     @classmethod
-    def create_cross_region_inference_mapping(cls) -> Dict[str, str]:
-        """
-        Return the mapping from all regional variants to their respective original deployments.
-            {   us.deployment1: deployment1,
-                eu.deployment1: deployment1,
-                apac.deployment1: deployment1,
-                us.deployment2: deployment2,
-                eu.deployment2: deployment2,
-                apac.deployment2: deployment2,
-                ...
-            }
-        """
-
-        return {
-            k: v
-            for deployment in cls
-            for k, v in deployment._cross_region_inference_mapping().items()
-        }
-
-    @classmethod
-    def deployments(cls) -> Iterable[str]:
+    def deployments(cls) -> List[str]:
         """
         Return a list of all regional and non-regional deployments:
         [deployment1, us.deployment1, eu.deployment1, apac.deployment1, deployment2, ...]
         """
-        ret: List[str] = []
+        return [v for d in cls for v in d.variants]
+
+    @classmethod
+    def from_string(cls, model_id: str) -> Self | None:
         for deployment in cls:
-            ret.append(deployment.value)
-            ret.extend(deployment._get_region_variants())
-        return ret
+            deployment_id: str = deployment.value
+            if model_id.endswith(deployment_id):
+                prefix = model_id.removesuffix(deployment_id)
+                if prefix == "":
+                    return deployment
+
+                if (parsed := _parse_region_prefix(prefix)) is None:
+                    continue
+
+                if not isinstance(parsed, InferenceRegion):
+                    log.warning(
+                        f"{model_id!r} has unexpected cross-region prefix {parsed!r} that "
+                        f"doesn't match any of the supported prefixes: {InferenceRegion.prefixes()}."
+                    )
+
+                return deployment
+        return None
+
+
+def _parse_region_prefix(s: str) -> InferenceRegion | str | None:
+    for region in InferenceRegion:
+        if f"{region.value}." == s:
+            return region
+
+    if m := re.fullmatch(r"(\w+)\.", s):
+        return m.group(1)
+
+    return None
