@@ -70,6 +70,8 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.META_LLAMA3_2_11B_INSTRUCT_V1.US: _WEST,
     D.META_LLAMA3_2_90B_INSTRUCT_V1.US: _WEST,
     D.META_LLAMA3_3_70B_INSTRUCT_V1: _EAST_2,
+    D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1.US: _WEST,
+    D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1.US: _WEST,
     D.COHERE_COMMAND_R_V1: _WEST,
     D.COHERE_COMMAND_R_PLUS_V1: _WEST,
     D.AMAZON_NOVA_MICRO: _EAST_1,
@@ -106,6 +108,8 @@ def is_vision_model(deployment: D) -> bool:
     return deployment in [
         D.META_LLAMA3_2_11B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
+        D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
     ] or (
@@ -135,6 +139,8 @@ def supports_tools(deployment: D) -> bool:
         D.META_LLAMA3_1_405B_INSTRUCT_V1,
         D.META_LLAMA3_2_90B_INSTRUCT_V1,
         D.META_LLAMA3_3_70B_INSTRUCT_V1,
+        D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
+        D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
         # D.AMAZON_NOVA_MICRO,
         D.AMAZON_NOVA_PRO,
@@ -183,7 +189,7 @@ def supports_document_understanding(deployment: D) -> bool:
     ]
 
 
-def is_llama3(deployment: D) -> bool:
+def is_llama(deployment: D) -> bool:
     return deployment in [
         D.META_LLAMA3_8B_INSTRUCT_V1,
         D.META_LLAMA3_70B_INSTRUCT_V1,
@@ -449,7 +455,7 @@ async def test_empty_user_message(
             message = "Value error, message content must not be an empty string"
     elif is_empty and (
         is_cohere_command_plus(origin)
-        or is_llama3(origin)
+        or is_llama(origin)
         or is_nova(origin)
         or is_deepseek(origin)
     ):
@@ -567,7 +573,7 @@ async def test_stop_sequence(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(is_llama3), deployments),
+    select(pred(is_llama), deployments),
     ids=display_deployment,
 )
 async def test_llama_out_of_turn_dialog(chat: Chat):
@@ -583,7 +589,7 @@ async def test_llama_out_of_turn_dialog(chat: Chat):
 
 @pytest.mark.parametrize(
     "deployment",
-    select(pred(is_llama3), deployments),
+    select(pred(is_llama), deployments),
     ids=display_deployment,
 )
 async def test_llama_many_system_messages(chat: Chat):
@@ -791,7 +797,7 @@ async def test_function_call(
     origin = deployment.origin
 
     response = await chat(
-        messages=test.messages(not is_llama3(origin)),
+        messages=test.messages(not is_llama(origin)),
         functions=test.functions,
     )
 
@@ -814,7 +820,7 @@ async def test_function_response(
 ):
     origin = deployment.origin
     messages = [
-        *test.messages(not is_llama3(origin)),
+        *test.messages(not is_llama(origin)),
         test.function_request(0),
         test.function_response(0),
     ]
@@ -838,7 +844,7 @@ async def test_tool_call_basic(
     origin = deployment.origin
 
     response = await chat(
-        messages=test.messages(not is_llama3(origin)),
+        messages=test.messages(not is_llama(origin)),
         tools=test.tools,
     )
 
@@ -873,7 +879,7 @@ async def test_tool_response(
     origin = deployment.origin
 
     messages = [
-        *test.messages(not is_llama3(origin)),
+        *test.messages(not is_llama(origin)),
         test.tool_request(),
         *test.tool_responses(),
     ]
@@ -898,7 +904,7 @@ async def test_tool_call_with_empty_message(
     origin = deployment.origin
 
     messages = [
-        *test.messages(not is_llama3(origin)),
+        *test.messages(not is_llama(origin)),
         test.tool_request(content=""),
         *test.tool_responses(),
     ]

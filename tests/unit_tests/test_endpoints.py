@@ -39,6 +39,8 @@ test_cases: List[Tuple[D, bool, bool, bool]] = [
     (D.META_LLAMA3_2_3B_INSTRUCT_V1, True, True, True),
     (D.META_LLAMA3_2_11B_INSTRUCT_V1, True, True, True),
     (D.META_LLAMA3_2_90B_INSTRUCT_V1, True, True, True),
+    (D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1, True, True, True),
+    (D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1, True, True, True),
     (D.COHERE_COMMAND_R_V1, True, True, True),
     (D.COHERE_COMMAND_R_PLUS_V1, True, True, True),
     (D.DEEPSEEK_R1_V2, True, True, True),
