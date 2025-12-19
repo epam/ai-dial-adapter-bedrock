@@ -74,11 +74,22 @@ def _parse_anthropic_streaming_error(text: str) -> DialException | None:
     return None
 
 
-def _create_error(status_code: int, message: str) -> DialException:
+def _copy_headers(e: APIStatusError, keys: list[str]) -> dict[str, str] | None:
+    copied_headers: dict[str, str] = {}
+    for key in keys:
+        if key in e.response.headers:
+            copied_headers[key] = e.response.headers[key]
+    return copied_headers or None
+
+
+def _create_error(
+    status_code: int, message: str, headers: dict[str, str] | None = None
+) -> DialException:
     return DialException(
         status_code=status_code,
         type=_get_exception_type(status_code),
         message=message,
+        headers=headers,
     )
 
 
@@ -184,7 +195,11 @@ def to_dial_exception(e: Exception) -> DialException:
 
     if isinstance(e, APIStatusError):
         message = _get_anthropic_error_message(e)
-        return _create_error(e.status_code, message)
+        # We want to save Retry-After header if it presents:
+        # https://platform.claude.com/docs/en/api/rate-limits#tier-1
+
+        headers = _copy_headers(e, ["Retry-After"])
+        return _create_error(e.status_code, message, headers)
 
     if isinstance(e, ValidationError):
         return e.to_dial_exception()
