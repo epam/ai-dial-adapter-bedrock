@@ -30,7 +30,7 @@ from aidial_sdk.exceptions import (
     InvalidRequestError,
     ResourceNotFoundError,
 )
-from anthropic import APIStatusError
+from anthropic import APIStatusError, RateLimitError
 from botocore.exceptions import ClientError
 
 from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
@@ -72,6 +72,27 @@ def _parse_anthropic_streaming_error(text: str) -> DialException | None:
         message = message.replace("\\'", "'")
         return _create_error(code, message)
     return None
+
+
+def _parse_anthropic_rate_limit_error(
+    e: RateLimitError,
+) -> DialException | None:
+    # We want to save Retry-After header if it presents:
+    # https://platform.claude.com/docs/en/api/rate-limits#tier-1
+
+    headers = e.response.headers
+    if headers is None:
+        return None
+
+    retry_after = headers.get("Retry-After")
+    if retry_after is None:
+        return None
+
+    return DialException(
+        message=e.message,
+        status_code=e.status_code,
+        headers={"Retry-After": retry_after},
+    )
 
 
 def _create_error(status_code: int, message: str) -> DialException:
@@ -181,6 +202,12 @@ def to_dial_exception(e: Exception) -> DialException:
 
         status_code = _get_status_code(response)
         return _create_error(status_code, str(e))
+
+    # This should be before APIStatusError, as RateLimitError extend it
+    if isinstance(e, RateLimitError):
+        exc = _parse_anthropic_rate_limit_error(e)
+        if exc is not None:
+            return exc
 
     if isinstance(e, APIStatusError):
         message = _get_anthropic_error_message(e)

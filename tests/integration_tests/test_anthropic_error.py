@@ -65,3 +65,51 @@ async def test_anthropic_error_streaming(get_openai_client, streaming: bool):
         "type": "invalid_request_error",
         "message": "messages.1.content.1.text.citations: Extra inputs are not permitted",
     }
+
+
+@respx.mock
+@pytest.mark.parametrize("streaming", [False, True])
+async def test_anthropic_error_rate_limit(
+    get_openai_client,
+    streaming: bool,
+):
+    client: openai.AsyncAzureOpenAI = get_openai_client(
+        _DEPLOYMENT.value, region=_REGION
+    )
+    client.max_retries = 0
+
+    endpoint = "invoke-with-response-stream" if streaming else "invoke"
+
+    respx.post(
+        f"https://bedrock-runtime.{_REGION}.amazonaws.com/model/{_DEPLOYMENT.value}/{endpoint}",
+    ).respond(
+        status_code=429,
+        json={
+            "type": "error",
+            "error": {
+                "type": "rate_limit_error",
+                "message": (
+                    "This request would exceed the rate limit for your organization "
+                    "(test-org-id) of 30,000 input tokens per minute."
+                ),
+            },
+            "request_id": "req_test_123",
+        },
+        headers={
+            "Content-Type": "application/json",
+            "Retry-After": "9",
+        },
+    )
+
+    with pytest.raises(openai.RateLimitError) as exc_info:
+        await chat_completion(
+            client,
+            messages=[user("test")],
+            stream=streaming,
+        )
+
+    exc = exc_info.value
+
+    assert exc.status_code == 429
+    assert exc.response.headers is not None
+    assert exc.response.headers.get("Retry-After") == "9"
