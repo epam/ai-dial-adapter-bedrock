@@ -2,6 +2,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from aidial_adapter_anthropic.dial_api.request import ModelParameters
 from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_anthropic.llm.consumer import Consumer
 from aidial_sdk.chat_completion import FinishReason, Message
 from pydantic import BaseModel
@@ -12,7 +13,6 @@ from aidial_adapter_bedrock.llm.chat_emulator import (
     post_process_completion_stream,
 )
 from aidial_adapter_bedrock.llm.chat_model import (
-    ChatCompletionAdapter,
     TextCompletionAdapter,
     default_preprocess_messages,
     keep_last_and_system_messages,

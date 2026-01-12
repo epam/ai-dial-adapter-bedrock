@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Protocol, Set, Tuple, Type, runtime_checkable
+from typing import Any, List, Set, Tuple
 
 from aidial_adapter_anthropic.dial_api.request import (
     ModelParameters,
@@ -11,40 +11,7 @@ from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
-
-
-@runtime_checkable
-class ChatCompletionAdapter(Protocol):
-
-    async def chat(
-        self,
-        consumer: Consumer,
-        params: ModelParameters,
-        messages: List[Message],
-    ) -> None: ...
-
-    async def configuration(self) -> Type[BaseModel]: ...
-
-    async def count_prompt_tokens(
-        self, params: ModelParameters, messages: List[Message]
-    ) -> int: ...
-
-    async def count_completion_tokens(self, string: str) -> int: ...
-
-    async def compute_discarded_messages(
-        self, params: ModelParameters, messages: List[Message]
-    ) -> DiscardedMessages | None:
-        """
-        The method truncates the list of messages to fit
-        into the token limit set in `params.max_prompt_tokens`.
-
-        If the limit isn't provided, then it returns None.
-        Otherwise, returns the indices of _discarded_ messages which should be
-        removed from the list to make the rest fit into the token limit.
-        """
-        ...
 
 
 class TextCompletionAdapter(ABC, BaseModel):

@@ -1,16 +1,15 @@
 from typing import Callable, List
 
 from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_anthropic.llm.consumer import Consumer
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-from aidial_adapter_bedrock.utils.pydantic import AnyModel
 
 
-class ChatCompletionDecorator(AnyModel):
+class ChatCompletionDecorator(ChatCompletionAdapter):
     adapter: ChatCompletionAdapter
 
     async def chat(

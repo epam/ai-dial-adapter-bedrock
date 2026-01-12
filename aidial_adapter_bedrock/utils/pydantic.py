@@ -9,8 +9,3 @@ class ExtraForbidModel(BaseModel):
 class ExtraAllowModel(BaseModel):
     class Config:
         extra = "allow"
-
-
-class AnyModel(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True

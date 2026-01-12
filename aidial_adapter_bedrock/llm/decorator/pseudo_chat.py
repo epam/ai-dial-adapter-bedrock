@@ -1,17 +1,14 @@
 from typing import Callable, List
 
 from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_anthropic.llm.consumer import Consumer
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
-from aidial_adapter_bedrock.llm.chat_model import (
-    ChatCompletionAdapter,
-    TextCompletionAdapter,
-)
+from aidial_adapter_bedrock.llm.chat_model import TextCompletionAdapter
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-from aidial_adapter_bedrock.utils.pydantic import AnyModel
 
 
 def pseudo_chat_adapter(
@@ -22,7 +19,7 @@ def pseudo_chat_adapter(
     )
 
 
-class PseudoChatAdapter(AnyModel):
+class PseudoChatAdapter(ChatCompletionAdapter):
     chat_emulator: ChatEmulator
     adapter: TextCompletionAdapter
 

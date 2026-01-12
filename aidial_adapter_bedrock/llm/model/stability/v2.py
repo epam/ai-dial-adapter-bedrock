@@ -3,6 +3,7 @@ from typing import List, Literal, Optional, Tuple, Type
 
 from aidial_adapter_anthropic.dial_api.request import ModelParameters
 from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_anthropic.llm.consumer import Consumer
 from aidial_adapter_anthropic.llm.errors import UserError
 from aidial_sdk.chat_completion import Attachment, Message
@@ -33,7 +34,7 @@ from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
-from aidial_adapter_bedrock.utils.pydantic import AnyModel, ExtraAllowModel
+from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -170,7 +171,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
             return assert_never(deployment)
 
 
-class StabilityV2Adapter(AnyModel):
+class StabilityV2Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Stability_V2_V3]
     client: Bedrock
     storage: Optional[FileStorage]

@@ -1,3 +1,4 @@
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_anthropic.llm.model.claude.v3.adapter import (
     create_adapter as create_anthropic_adapter,
 )
@@ -5,7 +6,6 @@ from aidial_adapter_anthropic.llm.model.claude.v3.adapter import (
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.deployments import ClaudeDeployment
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 

@@ -1,5 +1,6 @@
 from typing import assert_never
 
+from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.amazon as amazon
@@ -21,7 +22,6 @@ from aidial_adapter_bedrock.embedding.cohere.embed_text import (
 from aidial_adapter_bedrock.embedding.embeddings_adapter import (
     EmbeddingsAdapter,
 )
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
 from aidial_adapter_bedrock.llm.converse.configuration import (
     has_converse_api_configuration,
 )
