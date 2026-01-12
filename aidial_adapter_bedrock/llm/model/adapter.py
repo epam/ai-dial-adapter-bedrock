@@ -3,7 +3,7 @@ from typing import assert_never
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.amazon as amazon
-import aidial_adapter_bedrock.llm.model.claude.v3.adapter as claude_v3
+import aidial_adapter_bedrock.llm.model.claude.adapter as claude_v3
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,

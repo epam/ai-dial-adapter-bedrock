@@ -1,6 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Self, Union
 
+from aidial_adapter_anthropic.dial_api.request import (
+    collect_text_content,
+    is_plain_text_content,
+    is_system_role,
+    is_text_content,
+    to_message_content,
+)
+from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import (
     Attachment,
     CacheBreakpoint,
@@ -16,15 +24,6 @@ from aidial_sdk.chat_completion import (
     ToolCall,
 )
 from pydantic import BaseModel
-
-from aidial_adapter_bedrock.dial_api.request import (
-    collect_text_content,
-    is_plain_text_content,
-    is_system_role,
-    is_text_content,
-    to_message_content,
-)
-from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 class MessageABC(ABC, BaseModel):

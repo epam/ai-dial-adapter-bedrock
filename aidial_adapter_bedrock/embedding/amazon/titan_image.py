@@ -8,6 +8,7 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 import asyncio
 from typing import AsyncIterator, List, Self, Tuple
 
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings.request import EmbeddingsRequest
@@ -33,7 +34,6 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
 
 IMAGE_MEDIA_TYPES = ["image/png"]

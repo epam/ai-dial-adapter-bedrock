@@ -4,6 +4,11 @@ import uuid
 from dataclasses import dataclass
 from typing import List, Set, Tuple, assert_never
 
+from aidial_adapter_anthropic.dial_api.request import (
+    ToolsConfig,
+    is_system_role,
+)
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
@@ -17,7 +22,6 @@ from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
-from aidial_adapter_bedrock.dial_api.request import ToolsConfig, is_system_role
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
     UnsupportedContentType,
@@ -49,7 +53,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseToolSpec,
     ConverseToolUsePart,
 )
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.resource import Resource

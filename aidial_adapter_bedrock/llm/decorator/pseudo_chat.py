@@ -1,15 +1,17 @@
 from typing import Callable, List
 
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.consumer import Consumer
 from aidial_sdk.chat_completion import Message
+from pydantic import BaseModel
 
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_emulator import ChatEmulator
 from aidial_adapter_bedrock.llm.chat_model import (
     ChatCompletionAdapter,
     TextCompletionAdapter,
 )
-from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.pydantic import AnyModel
 
 
 def pseudo_chat_adapter(
@@ -20,7 +22,7 @@ def pseudo_chat_adapter(
     )
 
 
-class PseudoChatAdapter(ChatCompletionAdapter):
+class PseudoChatAdapter(AnyModel):
     chat_emulator: ChatEmulator
     adapter: TextCompletionAdapter
 
@@ -47,3 +49,11 @@ class PseudoChatAdapter(ChatCompletionAdapter):
 
     async def count_completion_tokens(self, string: str) -> int:
         return await self.adapter.count_completion_tokens(string)
+
+    async def configuration(self) -> type[BaseModel]:
+        raise NotImplementedError()
+
+    async def compute_discarded_messages(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> List[int] | None:
+        raise NotImplementedError()

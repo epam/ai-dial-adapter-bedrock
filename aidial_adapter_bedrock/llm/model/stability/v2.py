@@ -1,6 +1,10 @@
 from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
+from aidial_adapter_anthropic.llm.consumer import Consumer
+from aidial_adapter_anthropic.llm.errors import UserError
 from aidial_sdk.chat_completion import Attachment, Message
 from aidial_sdk.exceptions import (
     InternalServerError,
@@ -13,7 +17,6 @@ from typing_extensions import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.resource import (
     DialResource,
     UnsupportedContentType,
@@ -22,10 +25,6 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
 )
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.errors import UserError
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,
@@ -34,7 +33,7 @@ from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
-from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
+from aidial_adapter_bedrock.utils.pydantic import AnyModel, ExtraAllowModel
 from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -171,7 +170,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
             return assert_never(deployment)
 
 
-class StabilityV2Adapter(ChatCompletionAdapter):
+class StabilityV2Adapter(AnyModel):
     deployment: AdapterDeployment[Stability_V2_V3]
     client: Bedrock
     storage: Optional[FileStorage]
@@ -268,3 +267,11 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             if self.storage:
                 attachment = await save_to_storage(self.storage, attachment)
             consumer.add_attachment(attachment)
+
+    async def count_prompt_tokens(
+        self, params: ModelParameters, messages: List[Message]
+    ) -> int:
+        raise NotImplementedError()
+
+    async def count_completion_tokens(self, string: str) -> int:
+        raise NotImplementedError()

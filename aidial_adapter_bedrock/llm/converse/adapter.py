@@ -1,17 +1,17 @@
 from logging import DEBUG
 from typing import Awaitable, Callable, List, Tuple, Type
 
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.consumer import Consumer
+from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import Message as DialMessage
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.chat_model import (
-    ChatCompletionAdapter,
     keep_last,
     turn_based_partitioner,
 )
-from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
@@ -38,7 +38,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
     PerformanceConfig,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 from aidial_adapter_bedrock.llm.truncate_prompt import (
     DiscardedMessages,
@@ -48,9 +47,10 @@ from aidial_adapter_bedrock.utils.json import json_dumps_short, remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
+from aidial_adapter_bedrock.utils.pydantic import AnyModel
 
 
-class ConverseAdapter(ChatCompletionAdapter):
+class ConverseAdapter(AnyModel):
     deployment: str
     bedrock: Bedrock
     storage: FileStorage | None

@@ -23,6 +23,7 @@ from enum import Enum
 from functools import wraps
 from typing import assert_never
 
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
 from aidial_sdk.exceptions import DeploymentNotFoundError
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
@@ -33,7 +34,6 @@ from aidial_sdk.exceptions import (
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 

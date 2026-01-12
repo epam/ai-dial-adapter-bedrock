@@ -1,5 +1,8 @@
 from typing import List, assert_never
 
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.consumer import ChoiceConsumer
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
 from aidial_sdk.chat_completion import (
     ChatCompletion,
     ConfigurationRequest,
@@ -27,10 +30,7 @@ from aidial_sdk.deployment.truncate_prompt import (
 from typing_extensions import override
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_bedrock.llm.consumer import ChoiceConsumer
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.model.adapter import get_bedrock_adapter
 from aidial_adapter_bedrock.server.exceptions import (
     dial_exception_decorator,

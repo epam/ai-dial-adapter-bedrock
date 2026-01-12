@@ -1,43 +1,37 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Set, Tuple, Type
+from typing import Any, List, Protocol, Set, Tuple, Type, runtime_checkable
 
-from aidial_sdk.chat_completion import Message
-from pydantic import BaseModel
-
-from aidial_adapter_bedrock.dial_api.request import (
+from aidial_adapter_anthropic.dial_api.request import (
     ModelParameters,
     collect_text_content,
     is_system_role,
 )
-from aidial_adapter_bedrock.llm.consumer import Consumer
-from aidial_adapter_bedrock.llm.errors import ValidationError
+from aidial_adapter_anthropic.llm.consumer import Consumer
+from aidial_adapter_anthropic.llm.errors import ValidationError
+from aidial_sdk.chat_completion import Message
+from pydantic import BaseModel
+
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class ChatCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+@runtime_checkable
+class ChatCompletionAdapter(Protocol):
 
-    @abstractmethod
     async def chat(
         self,
         consumer: Consumer,
         params: ModelParameters,
         messages: List[Message],
-    ) -> None:
-        pass
+    ) -> None: ...
 
-    async def configuration(self) -> Type[BaseModel]:
-        raise NotImplementedError
+    async def configuration(self) -> Type[BaseModel]: ...
 
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: List[Message]
-    ) -> int:
-        raise NotImplementedError
+    ) -> int: ...
 
-    async def count_completion_tokens(self, string: str) -> int:
-        raise NotImplementedError
+    async def count_completion_tokens(self, string: str) -> int: ...
 
     async def compute_discarded_messages(
         self, params: ModelParameters, messages: List[Message]
@@ -50,7 +44,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
         Otherwise, returns the indices of _discarded_ messages which should be
         removed from the list to make the rest fit into the token limit.
         """
-        raise NotImplementedError
+        ...
 
 
 class TextCompletionAdapter(ABC, BaseModel):
@@ -66,10 +60,10 @@ class TextCompletionAdapter(ABC, BaseModel):
     async def count_prompt_tokens(
         self, params: ModelParameters, prompt: str
     ) -> int:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     async def count_completion_tokens(self, string: str) -> int:
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 def default_preprocess_messages(

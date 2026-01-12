@@ -1,4 +1,5 @@
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 
 

@@ -2,6 +2,12 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import pytest
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
+from aidial_adapter_anthropic.llm.tools.tools_config import (
+    ToolsConfig,
+    ToolsMode,
+)
 from aidial_sdk.chat_completion.request import (
     Attachment,
     CacheBreakpoint,
@@ -22,7 +28,6 @@ from aidial_sdk.chat_completion.request import (
 )
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_DOCUMENT_TYPE_TO_MIME,
@@ -49,8 +54,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseToolUsePart,
     InferenceConfig,
 )
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig, ToolsMode
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (

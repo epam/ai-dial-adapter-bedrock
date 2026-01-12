@@ -84,7 +84,10 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
-    return deployment in {D.STABILITY_STABLE_IMAGE_ULTRA_V1}
+    return deployment in {
+        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.AMAZON_TITAN_TG1_LARGE,
+    }
 
 
 def is_claude(deployment: D) -> bool:

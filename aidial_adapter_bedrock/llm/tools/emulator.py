@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from aidial_adapter_anthropic.llm.tools.tools_config import ToolsConfig
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 
@@ -11,7 +12,6 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
     parse_dial_message,
 )
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 
 
 class ToolsEmulator(ABC, BaseModel):

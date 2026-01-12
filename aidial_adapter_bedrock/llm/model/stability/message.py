@@ -1,5 +1,6 @@
 from typing import List, Tuple, assert_never
 
+from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import (
     Message,
     MessageContentImagePart,
@@ -16,7 +17,6 @@ from aidial_adapter_bedrock.dial_api.resource import (
     DialResource,
     URLResource,
 )
-from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 def parse_message(

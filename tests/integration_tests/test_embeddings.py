@@ -3,10 +3,10 @@ from itertools import product
 from typing import Any, Callable, List
 
 import pytest
+from aidial_adapter_anthropic.llm.consumer import Attachment
 from openai.types import CreateEmbeddingResponse
 
 from aidial_adapter_bedrock.deployments import EmbeddingsDeployment
-from aidial_adapter_bedrock.llm.consumer import Attachment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from tests.utils.openai import sanitize_test_name
 from tests.utils.validation import check_enum_completeness

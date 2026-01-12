@@ -13,6 +13,7 @@ from typing import (
     runtime_checkable,
 )
 
+from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
 from aidial_sdk.chat_completion import (
     MessageContentImagePart,
     MessageContentRefusalPart,
@@ -27,7 +28,6 @@ from aidial_adapter_bedrock.dial_api.resource import (
     URLResource,
 )
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.llm.message import BaseMessage, SystemMessage
 from aidial_adapter_bedrock.utils.resource import Resource
 from aidial_adapter_bedrock.utils.stream import aiter_to_list

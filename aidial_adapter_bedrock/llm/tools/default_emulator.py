@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from aidial_adapter_anthropic.llm.tools.tools_config import ToolsConfig
+
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,
     AIToolCallMessage,
@@ -7,7 +9,6 @@ from aidial_adapter_bedrock.llm.message import (
     ToolMessage,
 )
 from aidial_adapter_bedrock.llm.tools.emulator import ToolsEmulator
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 

@@ -1,9 +1,10 @@
 from typing import Callable, List, Tuple, assert_never
 
+from aidial_adapter_anthropic.dial_api.request import ModelParameters
+from aidial_adapter_anthropic.llm.consumer import Consumer, ConsumerDecorator
+from aidial_adapter_anthropic.llm.tools.tools_config import ToolsConfig
 from aidial_sdk.chat_completion import FinishReason, Message
 
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.llm.consumer import Consumer, ConsumerDecorator
 from aidial_adapter_bedrock.llm.decorator.base import (
     ChatCompletionDecorator,
     ChatCompletionTransformer,
@@ -16,12 +17,11 @@ from aidial_adapter_bedrock.llm.tools.emulator import (
     ToolsEmulator,
     emulate_tools,
 )
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsConfig
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
 def tools_emulator_decorator(
-    tools_emulator_factor: Callable[[ToolsConfig], ToolsEmulator]
+    tools_emulator_factor: Callable[[ToolsConfig], ToolsEmulator],
 ) -> ChatCompletionTransformer:
     return lambda adapter: ToolsEmulatorDecorator(
         tools_emulator_factory=tools_emulator_factor, adapter=adapter
