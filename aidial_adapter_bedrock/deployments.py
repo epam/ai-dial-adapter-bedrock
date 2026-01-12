@@ -10,7 +10,6 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     AMAZON_NOVA_PRO = "amazon.nova-pro-v1:0"
     AMAZON_NOVA_LITE = "amazon.nova-lite-v1:0"
     AMAZON_NOVA_MICRO = "amazon.nova-micro-v1:0"
-    AMAZON_TITAN_TG1_LARGE = "amazon.titan-tg1-large"
 
     AI21_JAMBA_1_5_LARGE_V1 = "ai21.jamba-1-5-large-v1:0"
     AI21_JAMBA_1_5_MINI_V1 = "ai21.jamba-1-5-mini-v1:0"

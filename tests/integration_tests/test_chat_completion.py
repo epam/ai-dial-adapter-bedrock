@@ -45,7 +45,6 @@ _WEST = "us-west-2"
 _EAST_1 = "us-east-1"
 _EAST_2 = "us-east-2"
 _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
-    D.AMAZON_TITAN_TG1_LARGE: _WEST,
     D.AI21_JAMBA_1_5_LARGE_V1: _EAST_1,
     D.AI21_JAMBA_1_5_MINI_V1: _EAST_1,
     D.ANTHROPIC_CLAUDE_V3_SONNET.US: _WEST,
@@ -84,6 +83,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
+    # Retired models: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html#versions-for-eol
     return deployment in {D.STABILITY_STABLE_IMAGE_ULTRA_V1}
 
 
