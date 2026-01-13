@@ -3,6 +3,7 @@ import re
 from typing import Any, Callable, List, Optional, Required, TypedDict, Unpack
 
 import httpx
+from aidial_adapter_anthropic.dial.resource import Resource
 from aidial_sdk.utils.merge_chunks import (
     cleanup_indices,
     merge_chat_completion_chunks,
@@ -38,7 +39,6 @@ from openai.types.chat.completion_create_params import Function
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 
-from aidial_adapter_bedrock.utils.resource import Resource
 from tests.utils.json import match_objects
 
 

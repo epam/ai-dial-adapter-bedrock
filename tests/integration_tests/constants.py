@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from aidial_adapter_bedrock.utils.resource import Resource
+from aidial_adapter_anthropic.dial.resource import Resource
 
 BLUE_PNG_PICTURE = Resource.from_base64(
     type="image/png",

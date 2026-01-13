@@ -23,7 +23,7 @@ from enum import Enum
 from functools import wraps
 from typing import assert_never
 
-from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
+from aidial_adapter_anthropic.adapter.errors import UserError, ValidationError
 from aidial_sdk.exceptions import DeploymentNotFoundError
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (

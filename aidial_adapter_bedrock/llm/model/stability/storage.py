@@ -1,6 +1,5 @@
-from aidial_adapter_anthropic.llm.consumer import Attachment
-
-from aidial_adapter_bedrock.dial_api.storage import FileStorage
+from aidial_adapter_anthropic.dial.consumer import Attachment
+from aidial_adapter_anthropic.dial.storage import FileStorage
 
 
 async def save_to_storage(

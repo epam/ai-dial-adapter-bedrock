@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Set, Tuple
 
-from aidial_adapter_anthropic.dial_api.request import (
+from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.dial.consumer import Consumer
+from aidial_adapter_anthropic.dial.request import (
     ModelParameters,
     collect_text_content,
     is_system_role,
 )
-from aidial_adapter_anthropic.llm.consumer import Consumer
-from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 

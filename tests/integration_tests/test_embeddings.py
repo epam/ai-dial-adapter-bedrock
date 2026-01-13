@@ -3,7 +3,7 @@ from itertools import product
 from typing import Any, Callable, List
 
 import pytest
-from aidial_adapter_anthropic.llm.consumer import Attachment
+from aidial_adapter_anthropic.dial.consumer import Attachment
 from openai.types import CreateEmbeddingResponse
 
 from aidial_adapter_bedrock.deployments import EmbeddingsDeployment

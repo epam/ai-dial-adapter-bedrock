@@ -2,10 +2,10 @@ import json
 from logging import DEBUG
 from typing import Any, AsyncIterator, Dict, assert_never
 
-from aidial_adapter_anthropic.dial_api.request import ModelParameters
-from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
-from aidial_adapter_anthropic.llm.consumer import Consumer
-from aidial_adapter_anthropic.llm.tools.tools_config import ToolsMode
+from aidial_adapter_anthropic.dial.consumer import Consumer
+from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.token_usage import TokenUsage
+from aidial_adapter_anthropic.dial.tools import ToolsMode
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import ToolCall as DialToolCall

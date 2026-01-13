@@ -1,4 +1,4 @@
-from aidial_adapter_anthropic.llm.errors import ValidationError
+from aidial_adapter_anthropic.adapter.errors import ValidationError
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 
 

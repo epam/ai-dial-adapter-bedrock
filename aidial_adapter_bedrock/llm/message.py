@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Self, Union
 
-from aidial_adapter_anthropic.dial_api.request import (
+from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.dial.request import (
     collect_text_content,
     is_plain_text_content,
     is_system_role,
     is_text_content,
     to_message_content,
 )
-from aidial_adapter_anthropic.llm.errors import ValidationError
 from aidial_sdk.chat_completion import (
     Attachment,
     CacheBreakpoint,

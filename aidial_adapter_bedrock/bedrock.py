@@ -10,7 +10,7 @@ import anthropic
 import boto3
 import botocore
 import httpx
-from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
+from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field

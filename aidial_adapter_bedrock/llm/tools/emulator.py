@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from aidial_adapter_anthropic.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_anthropic.dial.tools import ToolsConfig
 from aidial_sdk.chat_completion import Message
 from pydantic import BaseModel
 

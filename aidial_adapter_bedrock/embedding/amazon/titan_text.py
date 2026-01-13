@@ -8,7 +8,7 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 import asyncio
 from typing import AsyncIterator, List, Self, Tuple
 
-from aidial_adapter_anthropic.llm.errors import ValidationError
+from aidial_adapter_anthropic.adapter.errors import ValidationError
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 

@@ -8,7 +8,12 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 import asyncio
 from typing import AsyncIterator, List, Self, Tuple
 
-from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
+from aidial_adapter_anthropic.adapter.errors import UserError, ValidationError
+from aidial_adapter_anthropic.dial.resource import AttachmentResource
+from aidial_adapter_anthropic.dial.storage import (
+    FileStorage,
+    create_file_storage,
+)
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings.request import EmbeddingsRequest
@@ -19,12 +24,7 @@ from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
 )
-from aidial_adapter_bedrock.dial_api.resource import AttachmentResource
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
-from aidial_adapter_bedrock.dial_api.storage import (
-    FileStorage,
-    create_file_storage,
-)
 from aidial_adapter_bedrock.embedding.amazon.response import (
     call_embedding_model,
 )

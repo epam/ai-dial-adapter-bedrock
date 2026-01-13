@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from aidial_adapter_anthropic.llm.tools.tools_config import ToolsConfig
+from aidial_adapter_anthropic.dial.tools import ToolsConfig
 
 from aidial_adapter_bedrock.llm.message import (
     AIFunctionCallMessage,

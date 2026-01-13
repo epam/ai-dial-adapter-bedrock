@@ -1,11 +1,20 @@
 from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
-from aidial_adapter_anthropic.dial_api.request import ModelParameters
-from aidial_adapter_anthropic.dial_api.token_usage import TokenUsage
-from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_anthropic.llm.consumer import Consumer
-from aidial_adapter_anthropic.llm.errors import UserError
+from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
+from aidial_adapter_anthropic.adapter.errors import UserError
+from aidial_adapter_anthropic.dial.consumer import Consumer
+from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.resource import (
+    DialResource,
+    Resource,
+    UnsupportedContentType,
+)
+from aidial_adapter_anthropic.dial.storage import (
+    FileStorage,
+    create_file_storage,
+)
+from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_sdk.chat_completion import Attachment, Message
 from aidial_sdk.exceptions import (
     InternalServerError,
@@ -18,14 +27,6 @@ from typing_extensions import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.dial_api.resource import (
-    DialResource,
-    UnsupportedContentType,
-)
-from aidial_adapter_bedrock.dial_api.storage import (
-    FileStorage,
-    create_file_storage,
-)
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,
@@ -35,7 +36,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
-from aidial_adapter_bedrock.utils.resource import Resource
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 SUPPORTED_IMAGE_EXTENSIONS = ["jpeg", "jpe", "jpg", "png", "webp"]

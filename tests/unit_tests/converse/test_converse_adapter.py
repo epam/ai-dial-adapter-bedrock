@@ -2,12 +2,9 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import pytest
-from aidial_adapter_anthropic.dial_api.request import ModelParameters
-from aidial_adapter_anthropic.llm.errors import UserError, ValidationError
-from aidial_adapter_anthropic.llm.tools.tools_config import (
-    ToolsConfig,
-    ToolsMode,
-)
+from aidial_adapter_anthropic.adapter.errors import UserError, ValidationError
+from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.tools import ToolsConfig, ToolsMode
 from aidial_sdk.chat_completion.request import (
     Attachment,
     CacheBreakpoint,
