@@ -6,6 +6,7 @@ from aidial_adapter_anthropic.llm.model.claude.adapter import (
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.deployments import ClaudeDeployment
+from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 
@@ -46,6 +47,7 @@ async def create_adapter(
         deployment.upstream_deployment_id,
         api_key,
         client,
+        default_max_tokens=CLAUDE_DEFAULT_MAX_TOKENS,
         supports_thinking=_supports_thinking(ref),
         supports_documents=_supports_documents(ref),
     )
