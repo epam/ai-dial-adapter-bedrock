@@ -3,7 +3,6 @@ from typing import assert_never
 from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
-import aidial_adapter_bedrock.llm.model.amazon as amazon
 import aidial_adapter_bedrock.llm.model.claude.adapter as claude_v3
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import (
@@ -105,8 +104,6 @@ async def get_bedrock_adapter(
                 api_key,
             )
             return replicator_decorator()(adapter)
-        case ChatCompletionDeployment.AMAZON_TITAN_TG1_LARGE:
-            return amazon.create_adapter(await get_bedrock_client(), model)
         case (
             ChatCompletionDeployment.COHERE_COMMAND_R_V1
             | ChatCompletionDeployment.COHERE_COMMAND_R_PLUS_V1
