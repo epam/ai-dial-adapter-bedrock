@@ -1,5 +1,5 @@
 from aidial_adapter_anthropic.llm.chat_model import ChatCompletionAdapter
-from aidial_adapter_anthropic.llm.model.claude.v3.adapter import (
+from aidial_adapter_anthropic.llm.model.claude.adapter import (
     create_adapter as create_anthropic_adapter,
 )
 
