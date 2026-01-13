@@ -7,7 +7,6 @@ from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from tests.utils.validation import check_enum_completeness
 
 test_cases: List[Tuple[D, bool, bool, bool]] = [
-    (D.AMAZON_TITAN_TG1_LARGE, True, True, False),
     (D.AMAZON_NOVA_PRO, True, True, True),
     (D.AMAZON_NOVA_LITE, True, True, True),
     (D.AMAZON_NOVA_MICRO, True, True, True),

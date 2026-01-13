@@ -97,7 +97,6 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Stability AI|Stable Diffusion 3.5 Large|stability.sd3-5-large-v1:0|(text/image)-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Image Ultra 1.0|stability.stable-image-ultra-v1:1|text-to-image|❌|🟡|❌|✅|Bedrock API|
 |Stability AI|Stable Image Core 1.0|stability.stable-image-core-v1:1|text-to-image|❌|🟡|❌|✅|Bedrock API|
-|Amazon|Titan Text G1 - Express|amazon.titan-tg1-large|text-to-text|🟡|🟡|❌|❌|Bedrock API|
 |Amazon|Nova Pro|amazon.nova-pro-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Amazon|Nova Lite|amazon.nova-lite-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Amazon|Nova Micro|amazon.nova-micro-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|

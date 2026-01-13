@@ -4,14 +4,13 @@ from abc import ABC
 from datetime import datetime
 from functools import cache
 from logging import DEBUG
-from typing import Any, AsyncIterator, Mapping, Optional, Tuple, Unpack
+from typing import Any, Mapping, Optional, Tuple, Unpack
 
 import anthropic
 import boto3
 import botocore
 import httpx
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
-from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
@@ -199,32 +198,6 @@ class Bedrock:
             log.debug(f"response['body']: {json_dumps_short(body_dict)}")
 
         return body_dict, response_headers
-
-    async def ainvoke_streaming(
-        self, model: str, args: dict
-    ) -> AsyncIterator[dict]:
-        if log.isEnabledFor(DEBUG):
-            log.debug(
-                f"request: {json_dumps_short({'model': model, 'args': args})}"
-            )
-
-        params = self._create_invoke_params(model, args)
-        response = await make_async(
-            lambda: self.client.invoke_model_with_response_stream(**params)
-        )
-
-        if log.isEnabledFor(DEBUG):
-            log.debug(f"response: {json_dumps_short(response)}")
-
-        body: EventStream = response["body"]
-
-        async for event in to_async_iterator(iter(body)):
-            chunk = event.get("chunk")
-            if chunk:
-                chunk_dict = json.loads(chunk.get("bytes").decode())
-                if log.isEnabledFor(DEBUG):
-                    log.debug(f"chunk: {json_dumps_short(chunk_dict)}")
-                yield chunk_dict
 
 
 class InvocationMetrics(BaseModel):
