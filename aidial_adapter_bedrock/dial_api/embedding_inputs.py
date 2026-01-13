@@ -9,7 +9,7 @@ from typing import (
     cast,
 )
 
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 

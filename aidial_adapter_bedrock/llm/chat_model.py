@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Set, Tuple
 
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import (
     ModelParameters,

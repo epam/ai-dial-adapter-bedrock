@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Self, Union
 
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial.request import (
     collect_text_content,
     is_plain_text_content,

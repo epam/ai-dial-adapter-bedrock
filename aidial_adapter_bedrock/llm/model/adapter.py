@@ -1,6 +1,6 @@
 from typing import assert_never
 
-from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
+from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.claude.adapter as anthropic_claude

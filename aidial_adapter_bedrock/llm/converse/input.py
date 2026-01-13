@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from typing import List, Set, Tuple, assert_never
 
-from aidial_adapter_anthropic.adapter.errors import UserError, ValidationError
+from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.request import ToolsConfig, is_system_role
 from aidial_adapter_anthropic.dial.resource import (
     AttachmentResource,
@@ -12,7 +12,6 @@ from aidial_adapter_anthropic.dial.resource import (
     UnsupportedContentType,
     URLResource,
 )
-from aidial_adapter_anthropic.dial.storage import FileStorage
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
@@ -26,6 +25,7 @@ from aidial_sdk.chat_completion import ToolChoice as DialToolChoice
 from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
+from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_DOCUMENT_TYPE_TO_MIME,
     CONVERSE_IMAGE_TYPE_TO_MIME,

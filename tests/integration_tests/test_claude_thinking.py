@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Mapping
 
 import pytest
-from aidial_adapter_anthropic.claude.state import MessageState
+from aidial_adapter_anthropic.adapter.claude import MessageState
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolMessageParam,

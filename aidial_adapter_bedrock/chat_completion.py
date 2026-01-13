@@ -1,7 +1,10 @@
 from typing import List, assert_never
 
-from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
-from aidial_adapter_anthropic.adapter.errors import UserError, ValidationError
+from aidial_adapter_anthropic.adapter import (
+    ChatCompletionAdapter,
+    UserError,
+    ValidationError,
+)
 from aidial_adapter_anthropic.dial.consumer import ChoiceConsumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
 from aidial_sdk.chat_completion import (

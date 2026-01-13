@@ -1,6 +1,6 @@
 from typing import List, Tuple, assert_never
 
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial.resource import (
     AttachmentResource,
     DialResource,

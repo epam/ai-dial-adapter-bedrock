@@ -5,11 +5,11 @@ from unittest.mock import patch
 import openai
 import pytest
 from aidial_adapter_anthropic.dial.resource import Resource
-from aidial_adapter_anthropic.dial.storage import FileStorage
 from openai import APIStatusError, AsyncAzureOpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from tests.integration_tests.constants import BLUE_PNG_PICTURE, DOG_PICTURE
 from tests.utils.mock_storage import MockFileStorage
 from tests.utils.openai import (

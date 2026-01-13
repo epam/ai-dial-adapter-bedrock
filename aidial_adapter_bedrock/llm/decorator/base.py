@@ -1,6 +1,6 @@
 from typing import Callable, List
 
-from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
+from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
 from aidial_sdk.chat_completion import Message

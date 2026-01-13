@@ -1,18 +1,13 @@
 from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
-from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
-from aidial_adapter_anthropic.adapter.errors import UserError
+from aidial_adapter_anthropic.adapter import ChatCompletionAdapter, UserError
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
 from aidial_adapter_anthropic.dial.resource import (
     DialResource,
     Resource,
     UnsupportedContentType,
-)
-from aidial_adapter_anthropic.dial.storage import (
-    FileStorage,
-    create_file_storage,
 )
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_sdk.chat_completion import Attachment, Message
@@ -27,6 +22,10 @@ from typing_extensions import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
+from aidial_adapter_bedrock.dial_api.storage import (
+    FileStorage,
+    create_file_storage,
+)
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,

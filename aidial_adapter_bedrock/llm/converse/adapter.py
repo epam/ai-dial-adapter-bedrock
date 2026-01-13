@@ -1,14 +1,16 @@
 from logging import DEBUG
 from typing import Awaitable, Callable, List, Tuple, Type
 
-from aidial_adapter_anthropic.adapter.base import ChatCompletionAdapter
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import (
+    ChatCompletionAdapter,
+    ValidationError,
+)
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
-from aidial_adapter_anthropic.dial.storage import FileStorage
 from aidial_sdk.chat_completion import Message as DialMessage
 
 from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,

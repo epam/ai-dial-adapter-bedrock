@@ -8,7 +8,7 @@ https://docs.cohere.com/reference/embed
 
 from typing import AsyncIterator, List, Self
 
-from aidial_adapter_anthropic.adapter.errors import ValidationError
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings.request import EmbeddingsRequest
 
