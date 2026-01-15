@@ -13,7 +13,7 @@ develop = true
 [package.dependencies]
 aidial-sdk = ">=0.28.0,<1"
 aiohttp = ">=3.13.3,<4"
-anthropic = {version = ">=0.71.0,<1", extras = ["bedrock"]}
+anthropic = ">=0.75.0,<1"
 pillow = ">=10.4.0,<11"
 pydantic = ">=1.10.17,<3"
 
@@ -271,14 +271,14 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.71.0"
+version = "0.75.0"
 description = "The official Python library for the anthropic API"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "anthropic-0.71.0-py3-none-any.whl", hash = "sha256:85c5015fcdbdc728390f11b17642a65a4365d03b12b799b18b6cc57e71fdb327"},
-    {file = "anthropic-0.71.0.tar.gz", hash = "sha256:eb8e6fa86d049061b3ef26eb4cbae0174ebbff21affa6de7b3098da857d8de6a"},
+    {file = "anthropic-0.75.0-py3-none-any.whl", hash = "sha256:ea8317271b6c15d80225a9f3c670152746e88805a7a61e14d4a374577164965b"},
+    {file = "anthropic-0.75.0.tar.gz", hash = "sha256:e8607422f4ab616db2ea5baacc215dd5f028da99ce2f022e33c7c535b29f3dfb"},
 ]
 
 [package.dependencies]
@@ -294,7 +294,7 @@ sniffio = "*"
 typing-extensions = ">=4.10,<5"
 
 [package.extras]
-aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.8)"]
+aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.9)"]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
 vertex = ["google-auth[requests] (>=2,<3)"]
 
@@ -2655,4 +2655,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "dba469f264de06a93e26a732986553dff41c1a2df38e797a076e62da298043e2"
+content-hash = "728b0f272942cac38536f5c9a6ec9db3da1c9fdf182f3c02d0798867398883d0"
