@@ -93,7 +93,7 @@ from aidial_adapter_bedrock.llm.model.attachment_processor import (
 from aidial_adapter_bedrock.llm.model.claude.v3.blocks import (
     IMAGE_ATTACHMENT_PROCESSOR,
     PDF_ATTACHMENT_PROCESSOR,
-    TEXT_ATTACHMENT_PROCESSOR,
+    PLAIN_TEXT_ATTACHMENT_PROCESSOR,
     create_text_block,
 )
 from aidial_adapter_bedrock.llm.model.claude.v3.config import (
@@ -205,7 +205,7 @@ class Adapter(ChatCompletionAdapter):
             attachment_processors=(
                 [IMAGE_ATTACHMENT_PROCESSOR]
                 + (
-                    [PDF_ATTACHMENT_PROCESSOR, TEXT_ATTACHMENT_PROCESSOR]
+                    [PDF_ATTACHMENT_PROCESSOR, PLAIN_TEXT_ATTACHMENT_PROCESSOR]
                     if supports_documents
                     else []
                 )
