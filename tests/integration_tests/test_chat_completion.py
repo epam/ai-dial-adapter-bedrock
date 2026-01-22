@@ -11,6 +11,7 @@ from tests.integration_tests.constants import (
     DOG_PICTURE,
     DOG_PICTURE_CONTENT,
     EXCEL_DOCUMENT_RESOURCE,
+    MARKDOWN_DOCUMENT_RESOURCE,
     PDF_DOCUMENT_RESOURCE,
 )
 from tests.unit_tests.test_configuration import (
@@ -1017,6 +1018,25 @@ async def test_excel_document(optimized_latency: bool, chat: Chat):
             display_message=error_message,
         ):
             await _run()
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_document_understanding), deployments),
+    ids=display_deployment,
+)
+@pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
+async def test_markdown_document(chat: Chat):
+    response = await chat(
+        messages=[
+            user_with_attachment_url(
+                "what does the Markdown document say?",
+                MARKDOWN_DOCUMENT_RESOURCE,
+            ),
+        ],
+    )
+
+    assert "hello" in response.content.lower()
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
