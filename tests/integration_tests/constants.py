@@ -22,6 +22,10 @@ EXCEL_DOCUMENT_RESOURCE = Resource(
     data=Path("tests/assets/table.xlsx").read_bytes(),
 )
 
+MARKDOWN_DOCUMENT_RESOURCE = Resource(
+    type="text/markdown", data=Path("tests/assets/doc.md").read_bytes()
+)
+
 SAMPLE_DOCUMENT_RESOURCE = Resource.from_base64(
     type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     data_base64="iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAF0lEQVR4nGNkYPjPwMDAwMDAxAADCBYAG10BBdmz9y8AAAAASUVORK5CYII=",
