@@ -52,7 +52,7 @@ def create_text_document_block(
     return RequestDocumentBlockParam(
         source=PlainTextSourceParam(
             data=resource.data.decode("utf-8"),
-            media_type=resource.type,  # type: ignore
+            media_type="text/plain",
             type="text",
         ),
         type="document",
@@ -66,7 +66,7 @@ def create_pdf_document_block(
     return RequestDocumentBlockParam(
         source=Base64PDFSourceParam(
             data=resource.data_base64,
-            media_type=resource.type,  # type: ignore
+            media_type="application/pdf",
             type="base64",
         ),
         type="document",
@@ -108,7 +108,23 @@ PDF_ATTACHMENT_PROCESSOR = AttachmentProcessor(
     handler=create_pdf_document_block,
 )
 
-TEXT_ATTACHMENT_PROCESSOR = AttachmentProcessor(
-    supported_types={"text/plain": {"txt"}},
+PLAIN_TEXT_ATTACHMENT_PROCESSOR = AttachmentProcessor(
+    supported_types={
+        "text/plain": {"txt"},
+        "text/html": {"html", "htm"},
+        "text/css": {"css"},
+        "text/javascript": {"js"},
+        "application/x-javascript": {"js"},
+        "text/x-typescript": {"ts"},
+        "application/x-typescript": {"ts"},
+        "text/csv": {"csv"},
+        "text/markdown": {"md"},
+        "text/x-python": {"py"},
+        "application/x-python-code": {"py"},
+        "application/json": {"json"},
+        "text/xml": {"xml"},
+        "application/rtf": {"rtf"},
+        "text/rtf": {"rtf"},
+    },
     handler=create_text_document_block,
 )
