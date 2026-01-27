@@ -2,7 +2,7 @@ import dataclasses
 from typing import Literal, assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
-from aidial_adapter_anthropic.adapter.claude import CrudeClaudeTokenizer
+from aidial_adapter_anthropic.adapter.claude import ApproximateTokenizer
 from aidial_adapter_anthropic.adapter.claude import (
     create_adapter as create_anthropic_adapter,
 )
@@ -42,11 +42,11 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
 
 
 @dataclasses.dataclass
-class _Tokenizer(CrudeClaudeTokenizer):
+class _Tokenizer(ApproximateTokenizer):
     deployment: ClaudeDeployment
 
     @override
-    def _tokenize_tool_system_message(
+    def tokenize_tool_system_message(
         self, tool_choice: Literal["none", "auto", "any", "tool"]
     ) -> int:
         # See for the reference:
@@ -92,7 +92,7 @@ async def create_adapter(
         deployment=deployment.upstream_deployment_id,
         storage=create_file_storage(api_key),
         client=client,
-        tokenizer=_Tokenizer(deployment.reference_deployment_id),
+        custom_tokenizer=_Tokenizer(deployment.reference_deployment_id),
         default_max_tokens=CLAUDE_DEFAULT_MAX_TOKENS,
         supports_thinking=_supports_thinking(ref),
         supports_documents=_supports_documents(ref),
