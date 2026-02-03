@@ -5,16 +5,9 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedro
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import (
-    Any,
-    List,
-    Literal,
-    NotRequired,
-    Required,
-    Tuple,
-    TypedDict,
-    Union,
-)
+from typing import Any, List, Literal, NotRequired, Required, Tuple, Union
+
+from typing_extensions import TypedDict
 
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.list_projection import ListProjection

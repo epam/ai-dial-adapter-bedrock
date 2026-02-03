@@ -6,6 +6,7 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 """
 
 import asyncio
+from dataclasses import dataclass
 from typing import AsyncIterator, List, Self, Tuple
 
 from aidial_sdk.chat_completion import Attachment
@@ -134,6 +135,7 @@ class AmazonResponse(BaseModel):
     embedding: List[float]
 
 
+@dataclass
 class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock

@@ -15,10 +15,7 @@ from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class ChatCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+class ChatCompletionAdapter(ABC):
     @abstractmethod
     async def chat(
         self,
@@ -53,10 +50,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
         raise NotImplementedError
 
 
-class TextCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+class TextCompletionAdapter(ABC):
     @abstractmethod
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

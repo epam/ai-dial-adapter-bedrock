@@ -6,6 +6,7 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-embed.html
 https://docs.cohere.com/reference/embed
 """
 
+from dataclasses import dataclass
 from typing import AsyncIterator, List, Self
 
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -55,6 +56,7 @@ def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
     )
 
 
+@dataclass
 class CohereTextEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock

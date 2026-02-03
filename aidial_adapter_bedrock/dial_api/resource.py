@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from aidial_sdk.chat_completion import Attachment
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from aidial_adapter_bedrock.dial_api.storage import FileStorage, download_file
 from aidial_adapter_bedrock.utils.resource import Resource
@@ -34,8 +34,8 @@ class UnsupportedContentType(ValidationError):
 
 
 class DialResource(ABC, BaseModel):
-    entity_name: str = Field(default=None)
-    supported_types: List[str] | None = Field(default=None)
+    entity_name: str | None = None
+    supported_types: List[str] | None = None
 
     @abstractmethod
     async def download(self, storage: FileStorage | None) -> Resource: ...
@@ -71,10 +71,10 @@ class URLResource(DialResource):
     url: str
     content_type: str | None = None
 
-    @root_validator
-    def validator(cls, values):
-        values["entity_name"] = values.get("entity_name") or "URL"
-        return values
+    @model_validator(mode="after")
+    def default_entity_name(self):
+        self.entity_name = self.entity_name or "URL"
+        return self
 
     async def download(self, storage: FileStorage | None) -> Resource:
         type = await self.get_content_type()
@@ -105,10 +105,10 @@ class URLResource(DialResource):
 class AttachmentResource(DialResource):
     attachment: Attachment
 
-    @validator("attachment", pre=True)
+    @field_validator("attachment", mode="before")
     def parse_attachment(cls, value):
         if isinstance(value, dict):
-            attachment = Attachment.parse_obj(value)
+            attachment = Attachment.model_validate(value)
             # Working around the issue of defaulting missing type to a markdown:
             # https://github.com/epam/ai-dial-sdk/blob/2835107e950c89645a2b619fecba2518fa2d7bb1/aidial_sdk/chat_completion/request.py#L22
             if "type" not in value:
@@ -116,10 +116,10 @@ class AttachmentResource(DialResource):
             return attachment
         return value
 
-    @root_validator(pre=True)
-    def validator(cls, values):
-        values["entity_name"] = values.get("entity_name") or "attachment"
-        return values
+    @model_validator(mode="after")
+    def default_entity_name(self):
+        self.entity_name = self.entity_name or "attachment"
+        return self
 
     async def download(self, storage: FileStorage | None) -> Resource:
         type = await self.get_content_type()

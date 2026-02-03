@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, List
 
 from aidial_sdk.chat_completion import Message
@@ -9,6 +10,7 @@ from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
+@dataclass
 class ChatCompletionDecorator(ChatCompletionAdapter):
     adapter: ChatCompletionAdapter
 

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from logging import DEBUG
 from typing import Awaitable, Callable, List, Tuple, Type
 
@@ -50,6 +51,7 @@ from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
+@dataclass
 class ConverseAdapter(ChatCompletionAdapter):
     deployment: str
     bedrock: Bedrock
@@ -57,6 +59,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     supported_image_types: list[ConverseImageType]
     supported_document_types: list[ConverseDocumentType]
     ensure_non_empty_tool_descriptions: bool
+    support_tools: bool
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
@@ -64,7 +67,6 @@ class ConverseAdapter(ChatCompletionAdapter):
         Callable[[ConverseMessages], Awaitable[int]],
     ] = default_converse_tokenizer_factory
 
-    support_tools: bool
     partitioner: Callable[[ConverseMessages], List[int]] = (
         turn_based_partitioner
     )

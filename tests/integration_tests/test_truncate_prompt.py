@@ -94,7 +94,7 @@ def get_test_cases(deployment: RegionDeployment) -> List[TestCase]:
             message=json.dumps(
                 {
                     "error": {
-                        "message": "Your request contained invalid structure on path inputs.0.messages.0.role. value is not a valid enumeration member; permitted: 'system', 'developer', 'user', 'assistant', 'function', 'tool'",
+                        "message": "Your request contained invalid structure on path inputs.0.messages.0.role. Input should be 'system', 'developer', 'user', 'assistant', 'function' or 'tool'",
                         "type": "invalid_request_error",
                         "code": "400",
                     }

@@ -46,7 +46,7 @@ def _make_key(args: tuple, kwargs: dict) -> str:
 
     def default(obj):
         if isinstance(obj, BaseModel):
-            return obj.json(**dump_args)
+            return json.dumps(obj.model_dump(), **dump_args)
         raise TypeError(f"Cannot serialize object of type {type(obj)!r}")
 
     return json.dumps([args, kwargs], **dump_args, default=default)

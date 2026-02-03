@@ -6,6 +6,7 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 """
 
 import asyncio
+from dataclasses import dataclass
 from typing import AsyncIterator, List, Self, Tuple
 
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -50,6 +51,7 @@ def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
     )
 
 
+@dataclass
 class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
     model: str
     client: Bedrock

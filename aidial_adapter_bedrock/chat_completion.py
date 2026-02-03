@@ -68,7 +68,7 @@ class BedrockChatCompletion(ChatCompletion):
     async def configuration(self, request: ConfigurationRequest):
         model = await self._get_model(request)
         cls = await model.configuration()
-        return cls.schema()
+        return cls.model_json_schema()
 
     @dial_exception_decorator
     async def chat_completion(self, request: Request, response: Response):

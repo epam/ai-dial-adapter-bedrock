@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, List
 
 from aidial_sdk.chat_completion import Message
@@ -20,6 +21,7 @@ def preprocess_messages_decorator(
     )
 
 
+@dataclass
 class PreprocessMessagesDecorator(ChatCompletionDecorator):
     on_messages: Callable[[List[Message]], ListProjection[Message]]
 

@@ -36,3 +36,6 @@ resolutions:
     - message: ".*PyPI::anyio:4\\.12\\.0.*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "MIT License: https://github.com/agronholm/anyio/blob/4.12.0/LICENSE"
+    - message: ".*PyPI::typing-extensions:4\\.15\\.0.*"
+      reason: "CANT_FIX_EXCEPTION"
+      comment: "Same as CPython: https://github.com/python/typing_extensions/blob/4.15.0/LICENSE"

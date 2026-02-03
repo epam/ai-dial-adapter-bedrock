@@ -153,7 +153,7 @@ def get_test_case(
 image_attachment = Attachment(
     type="image/png",
     url="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png",
-).dict()
+).model_dump()
 
 
 def get_image_test_cases(

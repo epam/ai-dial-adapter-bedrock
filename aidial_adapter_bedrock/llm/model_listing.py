@@ -1,6 +1,7 @@
-from typing import List, TypedDict
+from typing import List
 
 import boto3
+from typing_extensions import TypedDict
 
 
 class BedrockModelId(TypedDict):
@@ -14,4 +15,5 @@ def get_all_bedrock_models(region: str) -> List[str]:
     models: List[BedrockModelId] = bedrock.list_foundation_models()[
         "modelSummaries"
     ]
+    return [model["modelId"] for model in models]
     return [model["modelId"] for model in models]
