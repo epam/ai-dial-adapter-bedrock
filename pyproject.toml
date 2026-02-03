@@ -25,25 +25,26 @@ package-mode = false
 [tool.poetry.dependencies]
 boto3 = "1.37.24"
 botocore = "1.37.24"
-aidial-sdk = { version = "0.28.0", extras = ["telemetry"] }
+aidial-sdk = { version = "0.32.0", extras = ["telemetry"] }
 anthropic = { version = "0.71.0", extras = ["bedrock"] }
 fastapi = "0.120.2"
 openai = "1.40.0"
 uvicorn = "0.23.2"
-pydantic = "1.10.17"
+pydantic = "2.10.4"
 numpy = "2.0.0"
 pillow = "10.4.0"
 aiohttp = "3.13.3"
 
 [tool.poetry.group.test.dependencies]
 pytest-asyncio = "0.21.1"
-pytest = "7.4.0"
+pytest = "7.4.3"
 python-dotenv = "1.0.0"
 pytest-dotenv = "^0.5.2"
 pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
 pytest-sugar = "^1.0.0"
 pytest-timeout = "^2.3.1"
+pytest-env = "1.1.1"
 respx = "^0.22.0"
 allure-pytest = "^2.13.5"
 
@@ -59,6 +60,7 @@ nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results --timeout=60"
+env = ["PYDANTIC_V2=1"]
 generate_report_on_test = true
 env_override_existing_values = 1
 testpaths = ["tests"]

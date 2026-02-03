@@ -61,7 +61,7 @@ def _to_dict(obj: Any, **kwargs) -> Any:
         return tuple(rec(element) for element in obj)
 
     if isinstance(obj, BaseModel):
-        return rec(obj.dict())
+        return rec(obj.model_dump())
 
     if hasattr(obj, "to_dict"):
         return rec(obj.to_dict())

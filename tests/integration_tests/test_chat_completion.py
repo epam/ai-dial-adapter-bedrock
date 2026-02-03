@@ -1046,7 +1046,7 @@ async def test_max_prompt_tokens(chat: Chat):
         messages=[user("test")],
         extra_body={"max_prompt_tokens": 200},
     )
-    statistics = response.response.dict().get("statistics", {})
+    statistics = response.response.model_dump().get("statistics", {})
     assert statistics.get("discarded_messages") == []
 
 
@@ -1069,7 +1069,7 @@ async def test_reject_extra_top_level_fields(chat: Chat):
     async with expected_exception(
         cls=openai.BadRequestError,
         status_code=400,
-        message="Your request contained invalid structure on path extra-top-field. extra fields not permitted",
+        message="Your request contained invalid structure on path extra-top-field. Extra inputs are not permitted",
     ):
         await chat(
             messages=[{"role": "user", "content": "2+2=?"}],
@@ -1085,7 +1085,7 @@ async def test_reject_extra_message_fields(chat: Chat):
     async with expected_exception(
         cls=openai.BadRequestError,
         status_code=400,
-        message="Your request contained invalid structure on path messages.0.extra-message-field. extra fields not permitted",
+        message="Your request contained invalid structure on path messages.0.extra-message-field. Extra inputs are not permitted",
     ):
         extra_message = {"extra-message-field": "extra-message-value"}
         messages = [{"role": "user", "content": "2+2=?", **extra_message}]

@@ -20,7 +20,7 @@ from aidial_sdk.chat_completion.request import (
 )
 from aidial_sdk.exceptions import RequestValidationError
 from pydantic import BaseModel
-from pydantic.v1 import ValidationError as PydanticValidationError
+from pydantic import ValidationError as PydanticValidationError
 
 from aidial_adapter_bedrock.llm.errors import ValidationError
 from aidial_adapter_bedrock.llm.tools.tools_config import (
@@ -82,9 +82,6 @@ class ModelParameters(BaseModel):
             configuration=configuration,
         )
 
-    def add_stop_sequences(self, stop: List[str]) -> "ModelParameters":
-        return self.copy(update={"stop": [*self.stop, *stop]})
-
     @property
     def tools_mode(self) -> ToolsMode | None:
         if self.tool_config is not None:
@@ -93,7 +90,7 @@ class ModelParameters(BaseModel):
 
     def parse_configuration(self, cls: Type[_Model]) -> _Model:
         try:
-            return cls.parse_obj(self.configuration or {})
+            return cls.model_validate(self.configuration or {})
         except PydanticValidationError as e:
             if self.configuration is None:
                 msg = "The configuration at path 'custom_fields.configuration' is missing."

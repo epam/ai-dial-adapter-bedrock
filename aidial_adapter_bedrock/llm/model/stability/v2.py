@@ -210,7 +210,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
 
         configuration = params.parse_configuration(await self.configuration())
         configuration_dict = (
-            {} if configuration is None else configuration.dict()
+            {} if configuration is None else configuration.model_dump()
         )
 
         message = validate_last_message(messages)
@@ -256,7 +256,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             ),
         )
 
-        stability_response = StabilityV2Response.parse_obj(response)
+        stability_response = StabilityV2Response.model_validate(response)
         stability_response.throw_if_error()
 
         consumer.append_content(stability_response.content())

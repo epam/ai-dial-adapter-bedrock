@@ -3,11 +3,12 @@ import hashlib
 import io
 import mimetypes
 import os
-from typing import Mapping, Optional, TypedDict
+from typing import Mapping, Optional
 from urllib.parse import unquote, urljoin
 
 import aiohttp
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 

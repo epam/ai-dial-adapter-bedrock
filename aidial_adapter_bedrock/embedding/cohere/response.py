@@ -19,7 +19,7 @@ async def call_embedding_model(
     client: Bedrock, model: str, request: dict
 ) -> Tuple[List[List[float]], int]:
     body, headers = await client.ainvoke_non_streaming(model, request)
-    response = CohereResponse.parse_obj(body)
+    response = CohereResponse.model_validate(body)
 
     input_tokens = prompt_tokens_from_headers(headers) or 0
     return response.embeddings, input_tokens

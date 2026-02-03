@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Set, Tuple, Type
 
 from aidial_sdk.chat_completion import Message
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from aidial_adapter_bedrock.dial_api.request import (
     ModelParameters,
@@ -16,8 +16,7 @@ from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class ChatCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @abstractmethod
     async def chat(
@@ -54,8 +53,7 @@ class ChatCompletionAdapter(ABC, BaseModel):
 
 
 class TextCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @abstractmethod
     async def predict(

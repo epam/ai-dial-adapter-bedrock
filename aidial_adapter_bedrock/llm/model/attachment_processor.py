@@ -18,7 +18,7 @@ from aidial_sdk.chat_completion import (
     MessageContentRefusalPart,
     MessageContentTextPart,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -47,8 +47,7 @@ class HandlerWithConfig(Protocol, Generic[_T, _Config]):
 
 
 class AttachmentProcessor(BaseModel, Generic[_T, _Config]):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     supported_types: Dict[str, Set[str]]
     """MIME type to file extensions mapping"""
