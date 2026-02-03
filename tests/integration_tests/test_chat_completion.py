@@ -211,7 +211,9 @@ def supports_document_understanding(deployment: D) -> bool:
 
 
 def is_reasoning_model(deployment: D) -> bool:
-    return deployment in [D.DEEPSEEK_R1_V2]
+    # The models with reasoning feature enabled by default
+    # and no way to disable it.
+    return is_deepseek(deployment)
 
 
 @pytest.fixture
