@@ -134,6 +134,26 @@ vision_deployments_not_llama3_2_90b = select(
 )
 
 
+def is_llama(deployment: D) -> bool:
+    return "meta.llama" in deployment.value
+
+
+def is_cohere_command_plus(deployment: D) -> bool:
+    return "cohere.command" in deployment.value
+
+
+def is_nova(deployment: D) -> bool:
+    return "amazon.nova" in deployment.value
+
+
+def is_deepseek(deployment: D) -> bool:
+    return "deepseek" in deployment.value
+
+
+def is_ai21(deployment: D) -> bool:
+    return "ai21." in deployment.value
+
+
 def supports_tools(deployment: D) -> bool:
     return is_claude(deployment) or deployment in [
         D.META_LLAMA3_1_70B_INSTRUCT_V1,
@@ -190,49 +210,8 @@ def supports_document_understanding(deployment: D) -> bool:
     ]
 
 
-def is_llama(deployment: D) -> bool:
-    return deployment in [
-        D.META_LLAMA3_8B_INSTRUCT_V1,
-        D.META_LLAMA3_70B_INSTRUCT_V1,
-        D.META_LLAMA3_1_8B_INSTRUCT_V1,
-        D.META_LLAMA3_1_70B_INSTRUCT_V1,
-        D.META_LLAMA3_1_405B_INSTRUCT_V1,
-        D.META_LLAMA3_2_1B_INSTRUCT_V1,
-        D.META_LLAMA3_2_3B_INSTRUCT_V1,
-        D.META_LLAMA3_2_11B_INSTRUCT_V1,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
-        D.META_LLAMA3_3_70B_INSTRUCT_V1,
-    ]
-
-
-def is_cohere_command_plus(deployment: D) -> bool:
-    return deployment in [
-        D.COHERE_COMMAND_R_V1,
-        D.COHERE_COMMAND_R_PLUS_V1,
-    ]
-
-
-def is_nova(deployment: D) -> bool:
-    return deployment in [
-        D.AMAZON_NOVA_MICRO,
-        D.AMAZON_NOVA_PRO,
-        D.AMAZON_NOVA_LITE,
-    ]
-
-
 def is_reasoning_model(deployment: D) -> bool:
     return deployment in [D.DEEPSEEK_R1_V2]
-
-
-def is_deepseek(deployment: D) -> bool:
-    return deployment in [D.DEEPSEEK_R1_V2]
-
-
-def is_ai21(deployment: D) -> bool:
-    return deployment in [
-        D.AI21_JAMBA_1_5_MINI_V1,
-        D.AI21_JAMBA_1_5_LARGE_V1,
-    ]
 
 
 @pytest.fixture

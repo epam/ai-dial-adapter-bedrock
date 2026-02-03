@@ -55,7 +55,7 @@ async def _download_resource(
 
 
 class StabilityV2Response(BaseModel):
-    images: List[str] | None
+    images: List[str] | None = None
     # None will indicate that the request was successful
     # Possible values:
     # "Filter reason: prompt"
@@ -63,7 +63,7 @@ class StabilityV2Response(BaseModel):
     # "Filter reason: input image"
     # "Inference error"
     # null
-    finish_reasons: List[Optional[str]] | None
+    finish_reasons: List[Optional[str]] | None = None
 
     def content(self) -> str:
         return " "

@@ -59,7 +59,7 @@ flake8 = "6.0.0"
 nox = "^2023.4.22"
 
 [tool.pytest.ini_options]
-addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results --timeout=60"
+addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results --clean-alluredir --timeout=60"
 env = ["PYDANTIC_V2=1"]
 generate_report_on_test = true
 env_override_existing_values = 1
