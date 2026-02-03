@@ -13,8 +13,14 @@ from aidial_adapter_bedrock.upstream_config import (
 
 
 @dataclass
+class OriginalRequest:
+    headers: dict[str, str]
+
+
+@dataclass
 class FakeRequest:
     headers: dict[str, str]
+    original_request: OriginalRequest
 
 
 class TestAWSClientConfigFactory:
@@ -27,7 +33,9 @@ class TestAWSClientConfigFactory:
             headers["x-upstream-extra-data"] = json.dumps(extra_data)
         if api_key is not None:
             headers["x-upstream-key"] = api_key
-        return FakeRequest(headers=headers)
+        return FakeRequest(
+            headers=headers, original_request=OriginalRequest(headers=headers)
+        )
 
     async def test__get_client_config__default_region_in_config__no_extra(self):
         request = self._get_request()

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, List, Set, Tuple
 
 from aidial_adapter_anthropic.adapter import ValidationError
@@ -9,15 +10,12 @@ from aidial_adapter_anthropic.dial.request import (
     is_system_role,
 )
 from aidial_sdk.chat_completion import Message
-from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
-class TextCompletionAdapter(ABC, BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+@dataclass
+class TextCompletionAdapter(ABC):
     @abstractmethod
     async def predict(
         self, consumer: Consumer, params: ModelParameters, prompt: str

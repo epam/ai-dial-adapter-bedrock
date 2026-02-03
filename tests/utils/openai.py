@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Callable, List, Optional, Required, TypedDict, Unpack
+from typing import Any, Callable, List, Optional, Required, Unpack
 
 import httpx
 from aidial_adapter_anthropic.dial.resource import Resource
@@ -38,6 +38,7 @@ from openai.types.chat.chat_completion_message_tool_call_param import (
 from openai.types.chat.completion_create_params import Function
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from tests.utils.json import match_objects
 
@@ -258,7 +259,7 @@ async def chat_completion(
         if isinstance(response, AsyncStream):
             chunks: List[dict] = []
             async for chunk in response:
-                chunks.append(chunk.dict())
+                chunks.append(chunk.model_dump())
 
             response_dict = merge_chat_completion_chunks(*chunks)
 
@@ -268,7 +269,7 @@ async def chat_completion(
 
             response_dict["object"] = "chat.completion"
 
-            return ChatCompletion.parse_obj(response_dict)
+            return ChatCompletion.model_validate(response_dict)
         else:
             return response
 

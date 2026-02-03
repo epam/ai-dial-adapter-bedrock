@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, List
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 
 
+@dataclass
 class ChatCompletionDecorator(ChatCompletionAdapter):
     adapter: ChatCompletionAdapter
 

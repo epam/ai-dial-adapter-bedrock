@@ -84,10 +84,10 @@ async def test_claude_thinking_no_function_calling(
 
     bot_message1 = response1.response.choices[0].message
     state_dict1 = bot_message1.custom_content["state"]  # type: ignore
-    state1 = MessageState.parse_obj(state_dict1)
+    state1 = MessageState.model_validate(state_dict1)
     assert len(state1.claude_message_content) == 2
 
-    messages.append(bot_message1.dict())  # type: ignore
+    messages.append(bot_message1.model_dump())  # type: ignore
     messages.append(user("5+5=?"))
 
     response2 = await chat_completion(
@@ -96,7 +96,7 @@ async def test_claude_thinking_no_function_calling(
 
     bot_message2 = response2.response.choices[0].message
     state_dict2 = bot_message2.custom_content["state"]  # type: ignore
-    state2 = MessageState.parse_obj(state_dict2)
+    state2 = MessageState.model_validate(state_dict2)
     assert len(state2.claude_message_content) == 2
 
 
@@ -139,10 +139,10 @@ async def test_claude_thinking_with_function_calling(
 
     bot_message1 = response1.response.choices[0].message
     state_dict1 = bot_message1.custom_content["state"]  # type: ignore
-    state1 = MessageState.parse_obj(state_dict1)
+    state1 = MessageState.model_validate(state_dict1)
     assert len(state1.claude_message_content) > 0
 
-    messages.append(bot_message1.dict())  # type: ignore
+    messages.append(bot_message1.model_dump())  # type: ignore
 
     tool_calls = bot_message1.tool_calls
     assert tool_calls is not None, "No tool calls were made"
@@ -167,7 +167,7 @@ async def test_claude_thinking_with_function_calling(
 
     bot_message2 = response2.response.choices[0].message
     state_dict2 = bot_message2.custom_content["state"]  # type: ignore
-    state2 = MessageState.parse_obj(state_dict2)
+    state2 = MessageState.model_validate(state_dict2)
     assert len(state2.claude_message_content) > 0
 
     for temp in temps:

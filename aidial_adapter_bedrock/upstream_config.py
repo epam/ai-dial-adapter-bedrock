@@ -4,7 +4,7 @@ from typing import ClassVar, Optional, Tuple
 
 import boto3
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import get_aws_default_region
@@ -64,9 +64,13 @@ class CloudUpstreamConfig(BaseModel):
     async def from_request(
         cls, request: FromRequestDeploymentMixin
     ) -> "CloudUpstreamConfig":
-        conf = request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)
+        conf = request.original_request.headers.get(
+            _UPSTREAM_CONFIG_HEADER_NAME
+        )
         upstream_config = (
-            UpstreamConfigData.parse_raw(conf) if conf else UpstreamConfigData()
+            UpstreamConfigData.model_validate_json(conf)
+            if conf
+            else UpstreamConfigData()
         )
 
         return cls(
@@ -93,7 +97,9 @@ class ApiKeyUpstreamConfig(BaseModel):
     def from_request(
         cls, request: FromRequestDeploymentMixin
     ) -> Optional["ApiKeyUpstreamConfig"]:
-        key = request.headers.get(cls._UPSTREAM_API_KEY_HEADER_NAME)
+        key = request.original_request.headers.get(
+            cls._UPSTREAM_API_KEY_HEADER_NAME
+        )
         return None if key is None else cls(api_key=key)
 
 
@@ -138,18 +144,21 @@ class UpstreamConfigData(BaseModel):
 
 
 class OverrideNameUpstreamConfig(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     compatible_model_id: str | None = None
 
 
 def get_compatible_model_id(request: FromRequestDeploymentMixin) -> str | None:
-    if (extra := request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)) is None:
+    if (
+        extra := request.original_request.headers.get(
+            _UPSTREAM_CONFIG_HEADER_NAME
+        )
+    ) is None:
         return None
 
     try:
-        conf = OverrideNameUpstreamConfig.parse_raw(extra)
+        conf = OverrideNameUpstreamConfig.model_validate_json(extra)
     except Exception as e:
         log.error(
             f"Request header {_UPSTREAM_CONFIG_HEADER_NAME!r} doesn't contain"

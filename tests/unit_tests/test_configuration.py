@@ -57,11 +57,17 @@ async def test_support_optimized_latency(
 _invalid_configuration_test_cases = [
     (
         {"thinking": {"type": "enabled", "budget_tokens": "hello"}},
-        "Invalid request. Path: 'custom_fields.configuration.thinking.budget_tokens', error: value is not a valid integer",
+        (
+            "Invalid request. Path: 'custom_fields.configuration.thinking.ThinkingConfigEnabled.budget_tokens', "
+            "error: Input should be a valid integer, unable to parse string as an integer"
+        ),
     ),
     (
         {"extra_field": "extra value"},
-        "Invalid request. Path: 'custom_fields.configuration.extra_field', error: extra fields not permitted",
+        (
+            "Invalid request. Path: 'custom_fields.configuration.extra_field', "
+            "error: Extra inputs are not permitted"
+        ),
     ),
 ]
 

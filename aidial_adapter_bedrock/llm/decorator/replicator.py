@@ -22,7 +22,7 @@ class ReplicatorDecorator(ChatCompletionDecorator):
         params: ModelParameters,
         messages: List[Message],
     ) -> None:
-        params1 = params.copy()
+        params1 = params.model_copy()
         params1.n = 1
 
         async def _chat(root_consumer: Consumer):

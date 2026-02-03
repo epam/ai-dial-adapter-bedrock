@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
@@ -53,7 +54,7 @@ async def _download_resource(
 
 
 class StabilityV2Response(BaseModel):
-    images: List[str] | None
+    images: List[str] | None = None
     # None will indicate that the request was successful
     # Possible values:
     # "Filter reason: prompt"
@@ -61,7 +62,7 @@ class StabilityV2Response(BaseModel):
     # "Filter reason: input image"
     # "Inference error"
     # null
-    finish_reasons: List[Optional[str]] | None
+    finish_reasons: List[Optional[str]] | None = None
 
     def content(self) -> str:
         return " "
@@ -170,6 +171,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
             return assert_never(deployment)
 
 
+@dataclass
 class StabilityV2Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Stability_V2_V3]
     client: Bedrock
@@ -209,7 +211,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
 
         configuration = params.parse_configuration(await self.configuration())
         configuration_dict = (
-            {} if configuration is None else configuration.dict()
+            {} if configuration is None else configuration.model_dump()
         )
 
         message = validate_last_message(messages)
@@ -255,7 +257,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             ),
         )
 
-        stability_response = StabilityV2Response.parse_obj(response)
+        stability_response = StabilityV2Response.model_validate(response)
         stability_response.throw_if_error()
 
         consumer.append_content(stability_response.content())
