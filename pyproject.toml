@@ -70,6 +70,8 @@ filterwarnings = [
   "ignore::ResourceWarning:",
   # muting warnings coming from opentelemetry package
   "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
+  # UserWarning: Pydantic serializer warnings
+  "ignore::UserWarning",
 ]
 
 [tool.pyright]
