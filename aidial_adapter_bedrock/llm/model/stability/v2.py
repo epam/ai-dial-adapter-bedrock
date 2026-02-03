@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from io import BytesIO
 from typing import List, Literal, Optional, Tuple, Type
 
@@ -171,6 +172,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
             return assert_never(deployment)
 
 
+@dataclass
 class StabilityV2Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Stability_V2_V3]
     client: Bedrock

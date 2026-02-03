@@ -1,4 +1,5 @@
 import inspect
+from dataclasses import dataclass
 from typing import (
     AsyncIterator,
     Callable,
@@ -18,7 +19,7 @@ from aidial_sdk.chat_completion import (
     MessageContentRefusalPart,
     MessageContentTextPart,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.dial_api.resource import (
     AttachmentResource,
@@ -46,9 +47,8 @@ class HandlerWithConfig(Protocol, Generic[_T, _Config]):
     def __call__(self, resource: Resource, config: _Config | None) -> _T: ...
 
 
-class AttachmentProcessor(BaseModel, Generic[_T, _Config]):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
+@dataclass
+class AttachmentProcessor(Generic[_T, _Config]):
     supported_types: Dict[str, Set[str]]
     """MIME type to file extensions mapping"""
 
@@ -72,11 +72,12 @@ class AttachmentProcessor(BaseModel, Generic[_T, _Config]):
         return self.handler(resource)  # type: ignore
 
 
-class AttachmentProcessors(BaseModel, Generic[_T, _Config]):
-    config: _Config | None = None
+@dataclass
+class AttachmentProcessors(Generic[_T, _Config]):
     attachment_processors: Sequence[AttachmentProcessor[_T, _Config]]
     text_handler: Callable[[str], _T]
     file_storage: FileStorage | None
+    config: _Config | None = None
 
     @property
     def supported_types(self) -> Dict[str, Set[str]]:
