@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from typing import List, Mapping
 
 import pytest
+from aidial_adapter_anthropic.adapter.claude import MessageState
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolMessageParam,
 )
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from aidial_adapter_bedrock.llm.model.claude.v3.state import MessageState
 from tests.integration_tests.test_chat_completion import Deployment
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,

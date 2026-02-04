@@ -9,10 +9,9 @@ from typing import (
     cast,
 )
 
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings.request import EmbeddingsRequest
-
-from aidial_adapter_bedrock.llm.errors import ValidationError
 
 T = TypeVar("T")
 

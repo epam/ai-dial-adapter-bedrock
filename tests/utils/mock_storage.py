@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from typing import Dict
 
-from aidial_adapter_bedrock.dial_api.storage import FileMetadata, FileStorage
+from aidial_adapter_anthropic.dial.storage import FileMetadata, FileStorage
 
 
 class MockFileStorage(FileStorage):

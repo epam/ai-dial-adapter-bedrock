@@ -2,19 +2,19 @@ import json
 from logging import DEBUG
 from typing import Any, AsyncIterator, Dict, assert_never
 
+from aidial_adapter_anthropic.dial.consumer import Consumer
+from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.token_usage import TokenUsage
+from aidial_adapter_anthropic.dial.tools import ToolsMode
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
 from aidial_sdk.exceptions import RuntimeServerError
 
-from aidial_adapter_bedrock.dial_api.request import ModelParameters
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
-from aidial_adapter_bedrock.llm.consumer import Consumer
 from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_TO_DIAL_FINISH_REASON,
 )
 from aidial_adapter_bedrock.llm.converse.types import ConverseStopReason
-from aidial_adapter_bedrock.llm.tools.tools_config import ToolsMode
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 

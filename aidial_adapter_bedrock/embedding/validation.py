@@ -1,6 +1,5 @@
+from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.embeddings.request import EmbeddingsRequest
-
-from aidial_adapter_bedrock.llm.errors import ValidationError
 
 
 def validate_embeddings_request(

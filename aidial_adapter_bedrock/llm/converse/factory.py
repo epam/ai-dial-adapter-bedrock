@@ -1,14 +1,12 @@
 from enum import Enum
 from typing import Awaitable, Callable
 
+from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
-from aidial_adapter_bedrock.llm.chat_model import (
-    ChatCompletionAdapter,
-    default_preprocess_messages,
-)
+from aidial_adapter_bedrock.llm.chat_model import default_preprocess_messages
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
     default_converse_tokenizer_factory,

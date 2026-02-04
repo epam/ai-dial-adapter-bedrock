@@ -9,6 +9,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import AsyncIterator, List, Self, Tuple
 
+from aidial_adapter_anthropic.adapter import UserError, ValidationError
+from aidial_adapter_anthropic.dial.resource import AttachmentResource
 from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
 from aidial_sdk.embeddings.request import EmbeddingsRequest
@@ -19,7 +21,6 @@ from aidial_adapter_bedrock.dial_api.embedding_inputs import (
     EMPTY_INPUT_LIST_ERROR,
     collect_embedding_inputs,
 )
-from aidial_adapter_bedrock.dial_api.resource import AttachmentResource
 from aidial_adapter_bedrock.dial_api.response import make_embeddings_response
 from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
@@ -34,7 +35,6 @@ from aidial_adapter_bedrock.embedding.embeddings_adapter import (
 from aidial_adapter_bedrock.embedding.validation import (
     validate_embeddings_request,
 )
-from aidial_adapter_bedrock.llm.errors import UserError, ValidationError
 from aidial_adapter_bedrock.utils.json import remove_nones
 
 IMAGE_MEDIA_TYPES = ["image/png"]

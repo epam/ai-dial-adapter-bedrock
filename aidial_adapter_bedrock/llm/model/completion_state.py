@@ -1,9 +1,8 @@
 from typing import Dict
 
+from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_sdk.chat_completion import FinishReason
 from pydantic import BaseModel
-
-from aidial_adapter_bedrock.dial_api.token_usage import TokenUsage
 
 FinishReasons = Dict[int, FinishReason]
 
