@@ -25,9 +25,9 @@ package-mode = false
 [tool.poetry.dependencies]
 boto3 = "1.37.24"
 botocore = "1.37.24"
-aidial-adapter-anthropic = "0.2.0"
+aidial-adapter-anthropic = { git = "https://github.com/epam/ai-dial-adapter-anthropic.git", branch = "feat/support-structured-outputs" }
 aidial-sdk = { version = "0.32.0", extras = ["telemetry"] }
-anthropic = { version = "0.75.0", extras = ["bedrock"] }
+anthropic = { version = "0.79.0", extras = ["bedrock"] }
 fastapi = "0.120.2"
 uvicorn = "0.23.2"
 pydantic = "2.10.4"

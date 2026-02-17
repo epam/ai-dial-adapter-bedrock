@@ -210,6 +210,27 @@ def supports_document_understanding(deployment: D) -> bool:
     ]
 
 
+def supports_json_object_response_format(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+    ]
+
+
+def supports_json_schema_response_format(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+    ]
+
+
 def is_reasoning_model(deployment: D) -> bool:
     # The models with reasoning feature enabled by default
     # and no way to disable it.
@@ -1095,3 +1116,45 @@ async def test_unknown_deployment_id(get_openai_client, stream: bool):
         await chat_completion(
             openai_client, stream=stream, messages=[user("test")]
         )
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_json_object_response_format), deployments),
+    ids=display_deployment,
+)
+async def test_json_object_response_format(chat: Chat):
+    response = await chat(
+        messages=[user("extract name and surname from 'John Doe'")],
+        output_config={"type": "json_object"},
+    )
+    assert isinstance(json.loads(response.content), (dict, list))
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_json_schema_response_format), deployments),
+    ids=display_deployment,
+)
+async def test_json_schema_response_format(chat: Chat):
+    response = await chat(
+        messages=[user("extract name and surname from 'John Doe'")],
+        output_config={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "PersonInfo",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "NameField": {"type": "string"},
+                        "SurnameField": {"type": "string"},
+                    },
+                    "required": ["NameField", "SurnameField"],
+                },
+            },
+        },
+    )
+    assert json.loads(response.content) == {
+        "NameField": "John",
+        "SurnameField": "Doe",
+    }
