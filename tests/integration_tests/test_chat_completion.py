@@ -1124,11 +1124,15 @@ async def test_unknown_deployment_id(get_openai_client, stream: bool):
     ids=display_deployment,
 )
 async def test_json_object_response_format(chat: Chat):
-    response = await chat(
-        messages=[user("extract name and surname from 'John Doe'")],
-        output_config={"type": "json_object"},
-    )
-    assert isinstance(json.loads(response.content), (dict, list))
+    async with expected_exception(
+        cls=UnprocessableEntityError,
+        status_code=422,
+        message="Response format JSON object isn't supported. Use response format JSON schema instead.",
+    ):
+        await chat(
+            messages=[user("extract name and surname from 'John Doe'")],
+            output_config={"type": "json_object"},
+        )
 
 
 @pytest.mark.parametrize(
