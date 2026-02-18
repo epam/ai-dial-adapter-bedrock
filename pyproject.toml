@@ -25,14 +25,14 @@ package-mode = false
 [tool.poetry.dependencies]
 boto3 = "1.37.24"
 botocore = "1.37.24"
-aidial-adapter-anthropic = "0.2.0"
+aidial-adapter-anthropic = "0.3.0"
 aidial-sdk = { version = "0.32.0", extras = ["telemetry"] }
-anthropic = { version = "0.75.0", extras = ["bedrock"] }
+anthropic = { version = "0.79.0", extras = ["bedrock"] }
 fastapi = "0.120.2"
 uvicorn = "0.23.2"
 pydantic = "2.10.4"
 numpy = "2.0.0"
-pillow = "10.4.0"
+pillow = "12.1.1"
 
 [tool.poetry.group.test.dependencies]
 openai = "1.40.0"
