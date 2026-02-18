@@ -42,3 +42,6 @@ resolutions:
     - message: ".*PyPI::opentelemetry.*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "ORT cannot pickup license"
+    - message: ".*PyPI::pillow.*"
+      reason: "CANT_FIX_EXCEPTION"
+      comment: "ORT cannot pickup license"
