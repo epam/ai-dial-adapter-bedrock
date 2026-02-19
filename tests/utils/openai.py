@@ -35,7 +35,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call_param import (
     Function as ToolFunction,
 )
-from openai.types.chat.completion_create_params import Function
+from openai.types.chat.completion_create_params import Function, ResponseFormat
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -221,7 +221,7 @@ class ChatCompletionArgs(TypedDict, total=False):
     tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float | None
     configuration: dict | None
-    response_format: dict | None
+    response_format: ResponseFormat | None
     extra_body: dict | None
 
 
