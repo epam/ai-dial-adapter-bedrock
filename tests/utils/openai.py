@@ -35,7 +35,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call_param import (
     Function as ToolFunction,
 )
-from openai.types.chat.completion_create_params import Function
+from openai.types.chat.completion_create_params import Function, ResponseFormat
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -221,6 +221,7 @@ class ChatCompletionArgs(TypedDict, total=False):
     tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float | None
     configuration: dict | None
+    response_format: ResponseFormat | None
     extra_body: dict | None
 
 
@@ -240,6 +241,7 @@ async def chat_completion(
         functions = kwargs.get("functions")
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
+        response_format = kwargs.get("response_format")
 
         response = await client.chat.completions.create(
             model="dummy-model",
@@ -253,6 +255,7 @@ async def chat_completion(
             functions=NOT_GIVEN if functions is None else functions,
             tool_choice=tool_choice or NOT_GIVEN,
             tools=NOT_GIVEN if tools is None else tools,
+            response_format=response_format or NOT_GIVEN,
             extra_body=extra_body,
         )
 
