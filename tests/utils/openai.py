@@ -241,7 +241,7 @@ async def chat_completion(
         functions = kwargs.get("functions")
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
-        response_format = kwargs.get("output_config")
+        response_format = kwargs.get("response_format")
 
         response = await client.chat.completions.create(
             model="dummy-model",

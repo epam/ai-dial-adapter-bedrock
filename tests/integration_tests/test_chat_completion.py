@@ -1130,7 +1130,7 @@ async def test_json_object_response_format(chat: Chat):
     ):
         await chat(
             messages=[user("extract name and surname from 'John Doe'")],
-            output_config={"type": "json_object"},
+            response_format={"type": "json_object"},
         )
 
 
@@ -1142,7 +1142,7 @@ async def test_json_object_response_format(chat: Chat):
 async def test_json_schema_response_format(chat: Chat):
     response = await chat(
         messages=[user("extract name and surname from 'John Doe'")],
-        output_config={
+        response_format={
             "type": "json_schema",
             "json_schema": {
                 "name": "PersonInfo",
@@ -1159,5 +1159,37 @@ async def test_json_schema_response_format(chat: Chat):
     )
     assert json.loads(response.content) == {
         "NameField": "John",
+        "SurnameField": "Doe",
+    }
+
+
+@pytest.mark.parametrize(
+    "deployment",
+    select(pred(supports_json_schema_response_format), deployments),
+    ids=display_deployment,
+)
+async def test_json_schema_nested_objects_response_format(chat: Chat):
+    response = await chat(
+        messages=[user("extract name and surname from 'John Doe'")],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "PersonInfo",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "NameField": {
+                            "type": "object",
+                            "properties": {"Value": {"type": "string"}},
+                        },
+                        "SurnameField": {"type": "string"},
+                    },
+                    "required": ["NameField", "SurnameField"],
+                },
+            },
+        },
+    )
+    assert json.loads(response.content) == {
+        "NameField": {"Value": "John"},
         "SurnameField": "Doe",
     }
