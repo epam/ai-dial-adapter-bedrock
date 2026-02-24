@@ -22,9 +22,11 @@ def _supports_thinking(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     }
 
 
@@ -35,9 +37,11 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     }
 
 
@@ -61,8 +65,10 @@ class _Tokenizer(ApproximateTokenizer):
                     | D.ANTHROPIC_CLAUDE_V4_SONNET
                     | D.ANTHROPIC_CLAUDE_V4_OPUS
                     | D.ANTHROPIC_CLAUDE_V4_1_OPUS
+                    | D.ANTHROPIC_CLAUDE_V4_6_OPUS
                     | D.ANTHROPIC_CLAUDE_V4_5_HAIKU
                     | D.ANTHROPIC_CLAUDE_V4_5_SONNET
+                    | D.ANTHROPIC_CLAUDE_V4_6_SONNET
                 ):
                     return (346, 313)
                 case D.ANTHROPIC_CLAUDE_V3_OPUS:

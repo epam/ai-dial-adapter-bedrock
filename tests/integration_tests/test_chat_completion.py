@@ -56,7 +56,9 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_6_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
@@ -100,8 +102,10 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     ]
 
 
@@ -204,9 +208,11 @@ def supports_document_understanding(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     ]
 
 
@@ -217,16 +223,20 @@ def supports_json_object_response_format(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     ]
 
 
 def supports_json_schema_response_format(deployment: D) -> bool:
     return deployment in [
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     ]
 
 
@@ -620,10 +630,12 @@ async def test_tool_choice_none(
         in [
             D.ANTHROPIC_CLAUDE_V4_OPUS,
             D.ANTHROPIC_CLAUDE_V4_1_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_6_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
             D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
             D.ANTHROPIC_CLAUDE_V4_5_SONNET,
+            D.ANTHROPIC_CLAUDE_V4_6_SONNET,
         ]
         and not optimized_latency
     ):
