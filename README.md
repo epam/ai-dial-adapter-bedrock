@@ -457,9 +457,6 @@ Note that setting `compatible_model_id=stability.stable-image-ultra-v1:0` will b
 
 ### Compatibility configuration in Adapter
 
-> [!IMPORTANT]
-> Model compatibility configuration via `COMPATIBILITY_MAPPING` env variable has been deprecated since 0.37.0 in favour of [configuration on the DIAL Core side](#compatibility-configuration-in-dial-core-config) in DIAL Core config. It's usage is discouraged, but it will still work for the foreseeable future.
-
 `COMPATIBILITY_MAPPING` env variable enables compatibility mode on the adapter level.
 It hold a mapping from unsupported deployment ids to supported deployment ids.
 
@@ -468,6 +465,10 @@ E.g. the following mapping enables `anthropic.claude-3-5-sonnet-20250210-v3:0` v
 ```ini
 COMPATIBILITY_MAPPING={"anthropic.claude-3-5-sonnet-20250210-v3:0": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
 ```
+
+> [!IMPORTANT]
+> Model compatibility configuration using the `COMPATIBILITY_MAPPING` environment variable has been **deprecated since 0.37.0** in favor of [configuration in DIAL Core](#compatibility-configuration-in-dial-core-config).
+> While still supported for now, its use is discouraged and it may be removed in a future release.
 
 ## Load balancing
 
