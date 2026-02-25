@@ -416,6 +416,8 @@ There are two way to enable compatibility mode in the adapter.
 
 ### Compatibility configuration in DIAL Core config
 
+**Since:** 0.37.0
+
 It's possible to define compatible model on per-upstream basis in the DIAL Core configuration.
 
 E.g. the following configuration enables `anthropic.claude-3-5-sonnet-20250210-v3:0` model _(that isn't supported by the Adapter natively)_ via `anthropic.claude-3-5-sonnet-20241022-v2:0` model _(that is supported by the Adapter natively)_:
@@ -456,7 +458,7 @@ Note that setting `compatible_model_id=stability.stable-image-ultra-v1:0` will b
 ### Compatibility configuration in Adapter
 
 > [!IMPORTANT]
-> Model compatibility configuration via `COMPATIBILITY_MAPPING` env variable has been deprecated in favour of [configuration on the DIAL Core side](#compatibility-configuration-in-dial-core-config) in DIAL Core config.
+> Model compatibility configuration via `COMPATIBILITY_MAPPING` env variable has been deprecated since 0.37.0 in favour of [configuration on the DIAL Core side](#compatibility-configuration-in-dial-core-config) in DIAL Core config. It's usage is discouraged, but it will still work for the foreseeable future.
 
 `COMPATIBILITY_MAPPING` env variable enables compatibility mode on the adapter level.
 It hold a mapping from unsupported deployment ids to supported deployment ids.
