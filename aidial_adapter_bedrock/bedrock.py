@@ -88,7 +88,7 @@ async def create_anthropic_client(
         )
         return (None, anthropic_client)
     else:
-        (expiration, creds) = await upstream_config.get_credentials()
+        expiration, creds = await upstream_config.get_credentials()
         anthropic_client = AsyncAnthropicBedrock(
             aws_region=upstream_config.region,
             aws_access_key=creds.aws_access_key_id,
@@ -105,7 +105,7 @@ async def create_boto_client(
     service_name: str, upstream_config: CloudUpstreamConfig
 ) -> Tuple[datetime | None, Any]:
 
-    (expiration, creds) = await upstream_config.get_credentials()
+    expiration, creds = await upstream_config.get_credentials()
 
     config = botocore.client.Config(  # type: ignore
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
