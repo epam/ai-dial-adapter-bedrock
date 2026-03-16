@@ -79,7 +79,7 @@ class TestAWSClientConfigFactory:
 
         assert conf.region == "test-region"
 
-        (_expiration, creds) = await conf.get_credentials()
+        _expiration, creds = await conf.get_credentials()
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
         assert creds.aws_secret_access_key == "key"
@@ -106,7 +106,7 @@ class TestAWSClientConfigFactory:
 
         assert conf.region == "test-region"
 
-        (_expiration, creds) = await conf.get_credentials()
+        _expiration, creds = await conf.get_credentials()
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
         assert creds.aws_secret_access_key == "key"

@@ -82,7 +82,7 @@ class _Tokenizer(ApproximateTokenizer):
                 case _:
                     assert_never(self.deployment)
 
-        (tokens1, tokens2) = _tokens()
+        tokens1, tokens2 = _tokens()
         return tokens1 if tool_choice in ("auto", "none") else tokens2
 
 

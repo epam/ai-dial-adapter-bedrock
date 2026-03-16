@@ -24,7 +24,7 @@ def ttl_cache(
         key = _make_key(args, kwargs)
 
         async with _locks[key]:
-            (expiry, value) = _cache.get(key, (None, None))
+            expiry, value = _cache.get(key, (None, None))
 
             if value is not None:
                 if expiry is None:
@@ -34,7 +34,7 @@ def ttl_cache(
                 else:
                     log.debug("cache entry has expired")
 
-            (expiration, value) = await func(*args, **kwargs)
+            expiration, value = await func(*args, **kwargs)
             _cache[key] = (expiration, value)
             return value
 
