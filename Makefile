@@ -1,24 +1,23 @@
 PORT ?= 5001
 IMAGE_NAME ?= ai-dial-adapter-bedrock
 PLATFORM ?= linux/amd64
-DEV_PYTHON ?= 3.11
 DOCKER ?= docker
-VENV_DIR ?= .venv
-POETRY ?= $(VENV_DIR)/bin/poetry
-POETRY_VERSION ?= 2.1.1
+POETRY ?= poetry
+POETRY_PYTHON ?= python
 PYDANTIC_V2 ?= 1
 ARGS ?=
+
+-include .env.dev
+export
 
 .PHONY: all init_env install build serve clean lint format test integration_tests docker_build docker_run
 
 all: build
 
 init_env:
-	python -m venv $(VENV_DIR)
-	$(VENV_DIR)/bin/pip install poetry==$(POETRY_VERSION) --quiet
+	$(POETRY) env use $(POETRY_PYTHON)
 
 install: init_env
-	$(POETRY) env use python$(DEV_PYTHON)
 	$(POETRY) install
 
 build: install
