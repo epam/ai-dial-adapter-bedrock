@@ -22,7 +22,7 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 def to_dial_finish_reason(
     converse_stop_reason: ConverseStopReason,
 ) -> DialFinishReason:
-    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON.keys():
+    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON:
         raise RuntimeServerError(
             f"Unsupported converse stop reason: {converse_stop_reason}"
         )
@@ -70,7 +70,6 @@ async def process_streaming(
         elif (content_block := event.get("contentBlockDelta")) and (
             delta := content_block.get("delta")
         ):
-
             if message := delta.get("text"):
                 consumer.append_content(message)
 
@@ -141,12 +140,14 @@ def process_non_streaming(
         if text := content_block.get("text"):
             consumer.append_content(text)
 
-        # NOTE: reasoningContent.readactedContent and reasoningContent.reasoningText.signature
+        # NOTE: > reasoningContent.readactedContent and reasoningContent.reasoningText.signature
         # are ignored since they are only relevant for Claude 3.7
-        if reasoning_content := content_block.get("reasoningContent"):
-            if reasoning_text := reasoning_content.get("reasoningText"):
-                if text := reasoning_text.get("text"):
-                    thinking_stage.append_content(text)
+        if (
+            (reasoning_content := content_block.get("reasoningContent"))
+            and (reasoning_text := reasoning_content.get("reasoningText"))
+            and (text := reasoning_text.get("text"))
+        ):
+            thinking_stage.append_content(text)
 
         if tool_use := content_block.get("toolUse"):
             match params.tools_mode:

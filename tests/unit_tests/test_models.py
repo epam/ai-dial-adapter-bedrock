@@ -21,9 +21,9 @@ def assert_models_subset(actual_models: List[str]):
         EmbeddingsDeployment
     )
 
-    assert set(expected_models).issubset(
-        set(actual_models)
-    ), f"Expected models: {expected_models}, Actual models: {actual_models}"
+    assert set(expected_models).issubset(set(actual_models)), (
+        f"Expected models: {expected_models}, Actual models: {actual_models}"
+    )
 
 
 async def test_model_list_openai(get_openai_client):

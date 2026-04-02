@@ -16,7 +16,6 @@ _T = TypeVar("_T")
 def ttl_cache(
     func: Callable[_P, Coroutine[Any, Any, Tuple[datetime | None, _T]]],
 ) -> Callable[_P, Coroutine[Any, Any, _T]]:
-
     _cache: dict[str, Tuple[datetime | None, _T]] = {}
     _locks: dict[str, Lock] = defaultdict(Lock)
 
@@ -27,9 +26,9 @@ def ttl_cache(
             expiry, value = _cache.get(key, (None, None))
 
             if value is not None:
-                if expiry is None:
-                    return value
-                elif ensure_utc(expiry) > now_utc() + timedelta(minutes=1):
+                if expiry is None or ensure_utc(expiry) > now_utc() + timedelta(
+                    minutes=1
+                ):
                     return value
                 else:
                     log.debug("cache entry has expired")

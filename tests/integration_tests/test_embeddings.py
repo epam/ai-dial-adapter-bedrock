@@ -109,7 +109,6 @@ def get_test_case(
     embedding_instr: str | None,
     dimensions: int | None,
 ) -> TestCase:
-
     custom_fields = {}
 
     if embedding_instr:

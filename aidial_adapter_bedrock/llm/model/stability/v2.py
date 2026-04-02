@@ -50,18 +50,18 @@ async def _download_resource(
         raise UserError(
             error_message=f"Unsupported image type: {e.type}",
             usage_message=f"Supported image types: {', '.join(SUPPORTED_IMAGE_EXTENSIONS)}",
-        )
+        ) from None
 
 
 class StabilityV2Response(BaseModel):
     images: List[str] | None = None
     # None will indicate that the request was successful
     # Possible values:
-    # "Filter reason: prompt"
-    # "Filter reason: output image"
-    # "Filter reason: input image"
-    # "Inference error"
-    # null
+    #   | "Filter reason: prompt"
+    #   | "Filter reason: output image"
+    #   | "Filter reason: input image"
+    #   | "Inference error"
+    #   | null
     finish_reasons: List[Optional[str]] | None = None
 
     def content(self) -> str:
@@ -208,7 +208,6 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: List[Message],
     ) -> None:
-
         configuration = params.parse_configuration(await self.configuration())
         configuration_dict = (
             {} if configuration is None else configuration.model_dump()

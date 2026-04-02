@@ -127,7 +127,6 @@ class UpstreamConfigData(BaseModel):
     def _get_client_credentials(
         self,
     ) -> AWSClientCredentials | AWSAssumeRoleCredentials | None:
-
         if self.aws_access_key_id and self.aws_secret_access_key:
             return AWSClientCredentials(
                 aws_access_key_id=self.aws_access_key_id,

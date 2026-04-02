@@ -319,7 +319,6 @@ async def tokenize(
     model: str,
     messages: List[ChatCompletionMessageParam],
 ) -> dict:
-
     request = {
         "inputs": [
             {
@@ -386,9 +385,9 @@ def is_valid_tool_call(
 ) -> bool:
     assert calls is not None, "Tool calls are missing"
 
-    assert tool_call_idx < len(
-        calls
-    ), f"Tool call #{tool_call_idx+1} is missing. Generated {len(calls)} tool call(s)."
+    assert tool_call_idx < len(calls), (
+        f"Tool call #{tool_call_idx + 1} is missing. Generated {len(calls)} tool call(s)."
+    )
     call = calls[tool_call_idx]
 
     function = call.function

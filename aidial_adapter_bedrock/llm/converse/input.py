@@ -287,11 +287,8 @@ async def _get_converse_message_content(
                                 to_converse_multi_modal_part(resource)
                             )
                         except UnsupportedContentType as e:
-                            raise UserError(
-                                error_message=_unsupported_multi_modal_error(
-                                    e.type
-                                )
-                            )
+                            msg = _unsupported_multi_modal_error(e.type)
+                            raise UserError(error_message=msg) from None
                     case MessageContentRefusalPart():
                         raise ValidationError(
                             "Refusal messages aren't supported"
@@ -320,7 +317,7 @@ async def _get_converse_message_content(
             except UnsupportedContentType as e:
                 raise UserError(
                     error_message=_unsupported_multi_modal_error(e.type),
-                )
+                ) from None
 
     if message.function_call and message.tool_calls:
         raise ValidationError(
@@ -351,7 +348,6 @@ async def to_converse_message(
     supported_image_types: list[ConverseImageType] | None = None,
     supported_document_types: list[ConverseDocumentType] | None = None,
 ) -> ConverseMessage:
-
     return {
         "role": to_converse_role(message.role),
         "content": await _get_converse_message_content(

@@ -150,7 +150,7 @@ async def test_claude_thinking_with_function_calling(
     assert tool_calls is not None, "No tool calls were made"
     assert len(tool_calls) == len(cities)
 
-    for tool_call, temp in zip(tool_calls, temps):
+    for tool_call, temp in zip(tool_calls, temps, strict=False):
         messages.append(
             ChatCompletionToolMessageParam(
                 role="tool",

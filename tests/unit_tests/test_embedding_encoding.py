@@ -26,9 +26,9 @@ vectors = [
 def test_to_base64_and_back(vector: List[float]):
     actual_vector = base64_to_vector(vector_to_base64(vector))
 
-    assert np.allclose(
-        vector, actual_vector, equal_nan=True
-    ), f"Expected: {vector}, Actual: {actual_vector}"
+    assert np.allclose(vector, actual_vector, equal_nan=True), (
+        f"Expected: {vector}, Actual: {actual_vector}"
+    )
 
 
 @pytest.mark.parametrize("vector", vectors)

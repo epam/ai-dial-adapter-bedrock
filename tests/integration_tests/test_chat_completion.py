@@ -867,9 +867,9 @@ async def test_tool_call_basic(
 
     expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
-    assert (
-        len(tool_calls) >= expected_calls
-    ), f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
+    assert len(tool_calls) >= expected_calls, (
+        f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
+    )
 
     for idx, tool_call in enumerate(tool_calls):
         function_call = tool_call.function

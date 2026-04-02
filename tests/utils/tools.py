@@ -73,7 +73,7 @@ class ToolCallTest:
         return ai_tools(
             [
                 tool_request(
-                    f"{self.function_name}_{idx+1}",
+                    f"{self.function_name}_{idx + 1}",
                     self.function_name,
                     self.function_args(idx),
                 )
@@ -85,7 +85,7 @@ class ToolCallTest:
     def tool_responses(self) -> List[ChatCompletionMessageParam]:
         return [
             tool_response(
-                f"{self.function_name}_{idx+1}",
+                f"{self.function_name}_{idx + 1}",
                 f"{self.city_temps[idx]} celsius",
             )
             for idx in range(self.targets)

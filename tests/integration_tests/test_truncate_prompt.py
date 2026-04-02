@@ -231,23 +231,23 @@ async def test_truncate_prompt(
 
         actual_exc = exc_info.value
 
-        assert isinstance(
-            actual_exc, test.expected.type
-        ), f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
+        assert isinstance(actual_exc, test.expected.type), (
+            f"Actual exception type ({type(actual_exc)}) doesn't match the expected one ({test.expected.type})"
+        )
         assert test.expected.status_code == actual_exc.response.status_code
 
         message = test.expected.message
         err = actual_exc.response.text
 
-        assert re.search(
-            message, err
-        ), f"The actual error message ({err!r}) doesn't match the expected regexp ({message!r})"
+        assert re.search(message, err), (
+            f"The actual error message ({err!r}) doesn't match the expected regexp ({message!r})"
+        )
     else:
         actual_output = await run_truncate_prompt()
 
         if isinstance(test.expected, dict):
             match_objects(test.expected, actual_output)
         else:
-            assert test.expected(
-                actual_output
-            ), f"Failed output test, actual output: {actual_output}"
+            assert test.expected(actual_output), (
+                f"Failed output test, actual output: {actual_output}"
+            )

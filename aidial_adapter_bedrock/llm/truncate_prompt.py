@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Awaitable, Callable, List, Optional, Set, Tuple, TypeVar
 
-from aidial_sdk.exceptions import ContextLengthExceededError
-from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
+    ContextLengthExceededError,
     InvalidRequestError,
     TruncatePromptSystemAndLastUserError,
 )
+from aidial_sdk.exceptions import HTTPException as DialException
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.list import omit_by_indices, select_by_indices
@@ -162,4 +162,4 @@ async def compute_discarded_messages(
         kept_indices.update(chunk_indices)
 
     all_indices = set(range(n))
-    return sorted(list(all_indices - kept_indices))
+    return sorted(all_indices - kept_indices)

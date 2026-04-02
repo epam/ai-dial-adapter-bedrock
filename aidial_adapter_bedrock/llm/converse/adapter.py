@@ -192,7 +192,6 @@ class ConverseAdapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: List[DialMessage],
     ) -> None:
-
         converse_params = await self.construct_converse_params(messages, params)
         discarded_messages, converse_params = await self._discard_messages(
             converse_params, params.max_prompt_tokens

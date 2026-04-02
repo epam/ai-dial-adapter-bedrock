@@ -104,7 +104,6 @@ async def create_anthropic_client(
 async def create_boto_client(
     service_name: str, upstream_config: CloudUpstreamConfig
 ) -> Tuple[datetime | None, Any]:
-
     expiration, creds = await upstream_config.get_credentials()
 
     config = botocore.client.Config(  # type: ignore
@@ -175,7 +174,6 @@ class Bedrock:
     async def ainvoke_non_streaming(
         self, model: str, args: dict
     ) -> Tuple[Body, Headers]:
-
         if log.isEnabledFor(DEBUG):
             log.debug(
                 f"request: {json_dumps_short({'model': model, 'args': args})}"

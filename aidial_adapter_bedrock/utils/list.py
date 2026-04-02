@@ -18,7 +18,6 @@ def group_by(
     init: Callable[[_T], _V],
     merge: Callable[[_V, _T], _V],
 ) -> List[_V]:
-
     def _gen():
         if not lst:
             return

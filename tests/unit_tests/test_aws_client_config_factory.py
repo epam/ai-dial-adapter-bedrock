@@ -82,7 +82,7 @@ class TestAWSClientConfigFactory:
         _expiration, creds = await conf.get_credentials()
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
-        assert creds.aws_secret_access_key == "key"
+        assert creds.aws_secret_access_key == "key"  # noqa: S105
 
     @mock.patch.object(
         AWSAssumeRoleCredentials,
@@ -91,8 +91,8 @@ class TestAWSClientConfigFactory:
             datetime.now(),
             ClientCredentialArgs(
                 aws_access_key_id="key_id",
-                aws_secret_access_key="key",
-                aws_session_token="session_token",
+                aws_secret_access_key="key",  # noqa: S106
+                aws_session_token="session_token",  # noqa: S106
             ),
         ),
     )
@@ -109,8 +109,8 @@ class TestAWSClientConfigFactory:
         _expiration, creds = await conf.get_credentials()
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
-        assert creds.aws_secret_access_key == "key"
-        assert creds.aws_session_token == "session_token"
+        assert creds.aws_secret_access_key == "key"  # noqa: S105
+        assert creds.aws_session_token == "session_token"  # noqa: S105
 
     async def test__get_client_config__api_key_config(self):
         request = self._get_request(api_key="api-key")

@@ -30,7 +30,7 @@ def get_str_dict(name: str) -> Dict[str, str]:
     except Exception:
         raise ValueError(
             f"{name} env variable doesn't contain a valid string to string JSON dictionary"
-        )
+        ) from None
 
 
 @cache

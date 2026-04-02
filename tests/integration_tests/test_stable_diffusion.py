@@ -145,7 +145,6 @@ async def test_image_to_image(
     region: str,
     message: ChatCompletionMessageParam,
 ):
-
     client: AsyncAzureOpenAI = get_openai_client(
         deployment.value, region=region
     )

@@ -113,7 +113,7 @@ async def get_bedrock_adapter(
             return await converse_adapter.create(
                 tools_support=ToolsSupport.ALWAYS,
                 # Cohere models fail on missing tool description:
-                # "validationException: Invalid parameter combination",
+                # > "validationException: Invalid parameter combination",
                 # even though other Converse models are fine with it.
                 ensure_non_empty_tool_descriptions=True,
                 supported_document_types=ConverseDocumentType.all(),

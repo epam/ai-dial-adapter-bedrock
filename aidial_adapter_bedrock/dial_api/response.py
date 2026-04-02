@@ -1,8 +1,7 @@
 from typing import List, Literal, Self
 
-from aidial_sdk.embeddings import Embedding
+from aidial_sdk.embeddings import Embedding, Usage
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
-from aidial_sdk.embeddings import Usage
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.embedding.encoding import vector_to_base64
@@ -47,7 +46,6 @@ def make_embeddings_response(
     vectors: List[List[float]],
     prompt_tokens: int,
 ) -> EmbeddingsResponse:
-
     embeddings = [_encode_vector(encoding_format, v) for v in vectors]
 
     data: List[Embedding] = [

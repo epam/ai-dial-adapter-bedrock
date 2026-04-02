@@ -149,7 +149,6 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
     async def embeddings(
         self, request: EmbeddingsRequest
     ) -> EmbeddingsResponse:
-
         validate_embeddings_request(
             request,
             supports_type=False,

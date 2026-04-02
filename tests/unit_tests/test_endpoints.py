@@ -64,9 +64,9 @@ async def assert_feature(
         response = await http_client.post(
             endpoint, json=payload, headers=headers
         )
-    assert (
-        response.status_code != 404
-    ) == is_supported, f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
+    assert (response.status_code != 404) == is_supported, (
+        f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
+    )
 
 
 @pytest.mark.parametrize(

@@ -63,7 +63,7 @@ class ConverseDocumentPart(TypedDict):
 class ConverseToolUseConfig(TypedDict):
     toolUseId: str
     name: str
-    #  {...}|[...]|123|123.4|'string'|True|None
+    #  > {...}|[...]|123|123.4|'string'|True|None
     input: Any
 
 
