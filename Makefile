@@ -1,6 +1,7 @@
 PORT ?= 5001
 IMAGE_NAME ?= ai-dial-adapter-bedrock
 PLATFORM ?= linux/amd64
+VENV_DIR ?= .venv
 DOCKER ?= docker
 POETRY ?= poetry
 POETRY_PYTHON ?= python
@@ -42,6 +43,9 @@ test: install
 integration_tests: install
 	$(POETRY) run -- nox -s integration_tests -- $(ARGS)
 
+install_git_hooks: install
+	$(VENV_DIR)/bin/pre-commit install
+
 docker_test:
 	$(DOCKER) build --platform $(PLATFORM) -f Dockerfile.test -t $(IMAGE_NAME):test .
 	$(DOCKER) run --platform $(PLATFORM) --rm $(IMAGE_NAME):test
@@ -56,6 +60,7 @@ help:
 	@echo 'clean                        - clean virtual env and build artifacts'
 	@echo 'docs                         - build the documentation'
 	@echo 'publish                      - publish the Docker image to the registry'
+	@echo 'install_git_hooks            - install the git hooks'
 	@echo '-- LINTING --'
 	@echo 'format                       - run code formatters'
 	@echo 'lint                         - run linters'
