@@ -57,6 +57,7 @@ flake8 = "6.0.0"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2023.4.22"
+pre-commit = "^4.5.1"
 
 [tool.pytest.ini_options]
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results --clean-alluredir --timeout=60"
