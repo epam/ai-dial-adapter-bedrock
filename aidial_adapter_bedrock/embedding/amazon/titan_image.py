@@ -6,8 +6,9 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Self, Tuple
+from typing import Self
 
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.resource import AttachmentResource
@@ -65,7 +66,7 @@ def create_titan_request(
     )
 
 
-def _validate_content_type(content_type: str, supported_types: List[str]):
+def _validate_content_type(content_type: str, supported_types: list[str]):
     if content_type not in supported_types:
         raise UserError(
             f"Unsupported attachment content type: {content_type}. "
@@ -95,7 +96,7 @@ def get_requests(
         else:
             return await on_attachment(text)
 
-    async def on_mixed(inputs: List[str | Attachment]) -> AmazonRequest:
+    async def on_mixed(inputs: list[str | Attachment]) -> AmazonRequest:
         if len(inputs) == 0:
             raise EMPTY_INPUT_LIST_ERROR
         elif len(inputs) == 1:
@@ -132,7 +133,7 @@ def get_requests(
 
 class AmazonResponse(BaseModel):
     inputTextTokenCount: int
-    embedding: List[float]
+    embedding: list[float]
 
 
 @dataclass
@@ -157,7 +158,7 @@ class AmazonTitanImageEmbeddings(EmbeddingsAdapter):
 
         async def compute_embeddings(
             req: AmazonRequest,
-        ) -> Tuple[List[float], int]:
+        ) -> tuple[list[float], int]:
             embedding, text_tokens = await call_embedding_model(
                 self.client,
                 self.model,

@@ -1,11 +1,7 @@
 import asyncio
+from collections.abc import AsyncIterator, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
-    AsyncIterator,
-    Callable,
-    Iterator,
-    Optional,
-    Tuple,
     TypeVar,
     cast,
 )
@@ -20,7 +16,7 @@ async def make_async(func: Callable[[], _T]) -> _T:
 
 
 async def to_async_iterator(iter: Iterator[_T]) -> AsyncIterator[_T]:
-    def _next() -> Tuple[bool, Optional[_T]]:
+    def _next() -> tuple[bool, _T | None]:
         try:
             return False, next(iter)
         except StopIteration:

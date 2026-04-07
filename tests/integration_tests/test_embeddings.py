@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import product
-from typing import Any, Callable, List
+from typing import Any
 
 import pytest
 from aidial_adapter_anthropic.dial.consumer import Attachment
@@ -28,7 +29,7 @@ class ModelSpec:
     """Is the request parameter for embedding type required?"""
 
 
-specs: List[ModelSpec] = [
+specs: list[ModelSpec] = [
     ModelSpec(
         deployment=EmbeddingsDeployment.AMAZON_TITAN_EMBED_TEXT_V1,
         default_dimensions=1536,
@@ -74,7 +75,7 @@ class TestCase:
     __test__ = False
 
     deployment: EmbeddingsDeployment
-    input: str | List[str]
+    input: str | list[str]
     extra_body: dict
 
     expected: Callable[[CreateEmbeddingResponse], None] | Exception
@@ -86,7 +87,7 @@ class TestCase:
 
 
 def check_embeddings_response(
-    input: str | List[str],
+    input: str | list[str],
     custom_input: list[Any] | None,
     dimensions: int,
 ) -> Callable[[CreateEmbeddingResponse], None]:
@@ -102,7 +103,7 @@ def check_embeddings_response(
 
 def get_test_case(
     spec: ModelSpec,
-    input: str | List[str],
+    input: str | list[str],
     custom_input: list[Any] | None,
     encoding_format: str | None,
     embedding_type: str | None,
@@ -156,7 +157,7 @@ image_attachment = Attachment(
 
 
 def get_image_test_cases(
-    input: str | List[str],
+    input: str | list[str],
     custom_input: list[Any] | None,
     exception: Exception | None,
 ) -> TestCase:

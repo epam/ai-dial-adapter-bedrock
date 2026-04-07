@@ -1,12 +1,11 @@
 import json
 import os
 from functools import cache
-from typing import Dict, Optional
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
-def get_env(name: str, err_msg: Optional[str] = None) -> str:
+def get_env(name: str, err_msg: str | None = None) -> str:
     if (val := os.getenv(name)) is None:
         raise Exception(err_msg or f"{name} env variable is not set")
     return val
@@ -16,7 +15,7 @@ def get_env_int(name: str, default: int) -> int:
     return int(os.getenv(name) or default)
 
 
-def get_str_dict(name: str) -> Dict[str, str]:
+def get_str_dict(name: str) -> dict[str, str]:
     if (val := os.getenv(name)) is None:
         return {}
 

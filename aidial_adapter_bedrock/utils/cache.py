@@ -1,8 +1,9 @@
 import json
 from asyncio import Lock
 from collections import defaultdict
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
-from typing import Any, Callable, Coroutine, ParamSpec, Tuple, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 from pydantic import BaseModel
 
@@ -14,9 +15,9 @@ _T = TypeVar("_T")
 
 
 def ttl_cache(
-    func: Callable[_P, Coroutine[Any, Any, Tuple[datetime | None, _T]]],
+    func: Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]],
 ) -> Callable[_P, Coroutine[Any, Any, _T]]:
-    _cache: dict[str, Tuple[datetime | None, _T]] = {}
+    _cache: dict[str, tuple[datetime | None, _T]] = {}
     _locks: dict[str, Lock] = defaultdict(Lock)
 
     async def _wrapper(*args, **kwargs):

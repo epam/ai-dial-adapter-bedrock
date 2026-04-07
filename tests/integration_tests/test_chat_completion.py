@@ -1,5 +1,6 @@
 import json
-from typing import Awaitable, Callable, List, Mapping, Unpack
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Unpack
 
 import openai
 import pytest
@@ -125,7 +126,7 @@ def is_vision_model(deployment: D) -> bool:
     )
 
 
-def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
+def select(p: Selector[D], xs: list[Deployment]) -> list[Deployment]:
     return [x for x in xs if p(x.origin)]
 
 
@@ -546,7 +547,7 @@ async def _run_test_vision(
     deployment: D,
     chat: Chat,
     messages,
-    expected: str | List[str] | ExpectedException,
+    expected: str | list[str] | ExpectedException,
 ):
     async def _run():
         return await chat(max_tokens=100, messages=messages)

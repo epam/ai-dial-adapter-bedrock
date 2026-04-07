@@ -1,12 +1,10 @@
-from typing import List, Tuple
-
 import httpx
 import pytest
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from tests.utils.validation import check_enum_completeness
 
-test_cases: List[Tuple[D, bool, bool, bool]] = [
+test_cases: list[tuple[D, bool, bool, bool]] = [
     (D.AMAZON_NOVA_PRO, True, True, True),
     (D.AMAZON_NOVA_LITE, True, True, True),
     (D.AMAZON_NOVA_MICRO, True, True, True),

@@ -1,14 +1,13 @@
 import os
 import shutil
 import tempfile
-from typing import Dict
 
 from aidial_adapter_anthropic.dial.storage import FileMetadata, FileStorage
 
 
 class MockFileStorage(FileStorage):
     temp_dir: str
-    files: Dict[str, bytes]
+    files: dict[str, bytes]
 
     @classmethod
     def create(cls) -> "MockFileStorage":

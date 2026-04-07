@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, List
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from aidial_adapter_anthropic.dial.consumer import Consumer
@@ -18,7 +18,7 @@ class ChatCompletionDecorator(ChatCompletionAdapter):
         self,
         consumer: Consumer,
         params: ModelParameters,
-        messages: List[Message],
+        messages: list[Message],
     ) -> None:
         await self.adapter.chat(consumer, params, messages)
 
@@ -26,7 +26,7 @@ class ChatCompletionDecorator(ChatCompletionAdapter):
         return await self.adapter.configuration()
 
     async def count_prompt_tokens(
-        self, params: ModelParameters, messages: List[Message]
+        self, params: ModelParameters, messages: list[Message]
     ) -> int:
         return await self.adapter.count_prompt_tokens(params, messages)
 
@@ -34,7 +34,7 @@ class ChatCompletionDecorator(ChatCompletionAdapter):
         return await self.adapter.count_completion_tokens(string)
 
     async def compute_discarded_messages(
-        self, params: ModelParameters, messages: List[Message]
+        self, params: ModelParameters, messages: list[Message]
     ) -> DiscardedMessages | None:
         return await self.adapter.compute_discarded_messages(params, messages)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Type, TypeVar
+from typing import TypeVar
 
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
 from aidial_sdk.exceptions import DeploymentNotFoundError
@@ -30,7 +30,7 @@ _T = TypeVar("_T", bound=ReadableStrEnumT)
 
 
 def resolve_upstream_deployment_id_from_request(
-    cls: Type[_T], request: FromRequestDeploymentMixin
+    cls: type[_T], request: FromRequestDeploymentMixin
 ) -> AdapterDeployment[_T]:
     deployment_id = request.original_request.path_params["deployment_id"]
     return resolve_upstream_deployment_id(
@@ -42,7 +42,7 @@ def resolve_upstream_deployment_id_from_request(
 
 
 def resolve_upstream_deployment_id(
-    cls: Type[_T],
+    cls: type[_T],
     *,
     upstream_deployment_id: str,
     compat_mapping: dict[str, str] | None = None,
@@ -116,11 +116,11 @@ AdapterEmbeddingsDeployment = AdapterDeployment[EmbeddingsDeployment]
 
 
 class AdapterDeployments(BaseModel):
-    chat: Dict[str, AdapterChatCompletionDeployment]
-    embeddings: Dict[str, AdapterEmbeddingsDeployment]
+    chat: dict[str, AdapterChatCompletionDeployment]
+    embeddings: dict[str, AdapterEmbeddingsDeployment]
 
     @classmethod
-    def create(cls, *, compat_mapping: Dict[str, str]) -> AdapterDeployments:
+    def create(cls, *, compat_mapping: dict[str, str]) -> AdapterDeployments:
         chat, embeddings = parse_compat_mapping(compat_mapping)
         ret = cls(chat=chat, embeddings=embeddings)
         return ret._enrich_with_supported_deployments()

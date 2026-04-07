@@ -1,5 +1,3 @@
-from typing import Dict, List, Tuple
-
 import httpx
 import openai
 import pytest
@@ -8,8 +6,8 @@ from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
 from tests.utils.openai import chat_completion, configuration, user
 
 # Supported models and regions as per doc: https://docs.aws.amazon.com/bedrock/latest/userguide/latency-optimized-inference.html
-deployments_supporting_optimized_latency: Dict[
-    ChatCompletionDeployment, List[str]
+deployments_supporting_optimized_latency: dict[
+    ChatCompletionDeployment, list[str]
 ] = {
     ChatCompletionDeployment.AMAZON_NOVA_PRO: ["us-east-1", "us-east-2"],
     ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: ["us-east-2"],
@@ -38,7 +36,7 @@ async def _supports_optimized_latency(
 )
 async def test_support_optimized_latency(
     test_http_client: httpx.AsyncClient,
-    test: Tuple[ChatCompletionDeployment, bool],
+    test: tuple[ChatCompletionDeployment, bool],
 ):
     deployment, regions = test
 
@@ -75,7 +73,7 @@ _invalid_configuration_test_cases = [
 @pytest.mark.parametrize("test", _invalid_configuration_test_cases)
 @pytest.mark.parametrize("stream", [False, True])
 async def test_invalid_configuration(
-    get_openai_client, stream: bool, test: Tuple[dict, str]
+    get_openai_client, stream: bool, test: tuple[dict, str]
 ):
     deployment_id = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.value
     client: openai.AsyncAzureOpenAI = get_openai_client(

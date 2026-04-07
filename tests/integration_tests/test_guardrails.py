@@ -1,6 +1,6 @@
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import List, Mapping
 
 import pytest
 from openai.types.chat import ChatCompletionMessageParam
@@ -61,7 +61,7 @@ async def test_claude_with_guardrails(get_openai_client, test_case: TestCase):
         test_case.deployment.value, region=test_case.region
     )
 
-    messages: List[ChatCompletionMessageParam] = [
+    messages: list[ChatCompletionMessageParam] = [
         user("Create a playlist of heavy metal songs")
     ]
 

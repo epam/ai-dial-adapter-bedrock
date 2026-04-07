@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from aidial_sdk.chat_completion import Message
 
 from aidial_adapter_bedrock.llm.chat_model import (
@@ -16,11 +14,11 @@ from tests.utils.messages import ai, sys, user
 
 
 async def truncate_prompt_by_words(
-    messages: List[Message],
+    messages: list[Message],
     user_limit: int,
-    model_limit: Optional[int] = None,
+    model_limit: int | None = None,
 ) -> DiscardedMessages | TruncatePromptError:
-    async def _tokenize_by_words(messages: List[Message]) -> int:
+    async def _tokenize_by_words(messages: list[Message]) -> int:
         return sum(len(msg.text().split()) for msg in messages)
 
     return await compute_discarded_messages(

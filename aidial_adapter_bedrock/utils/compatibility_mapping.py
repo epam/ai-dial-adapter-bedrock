@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from aidial_adapter_bedrock.deployments import (
     ChatCompletionDeployment,
@@ -14,7 +14,7 @@ COMPATIBILITY_MAPPING = get_str_dict("COMPATIBILITY_MAPPING")
 COMPAT_MAPPING_NAME = "COMPATIBILITY_MAPPING env variable"
 
 
-def _validate_compat_mapping(compat_mapping: Dict[str, str]):
+def _validate_compat_mapping(compat_mapping: dict[str, str]):
     log.debug(f"Compatibility mapping: {json.dumps(compat_mapping)}")
 
     chat_completions = set(ChatCompletionDeployment.deployments())
@@ -46,12 +46,12 @@ def _validate_compat_mapping(compat_mapping: Dict[str, str]):
                 )
 
 
-def parse_compat_mapping(compat_mapping: Dict[str, str]):
+def parse_compat_mapping(compat_mapping: dict[str, str]):
     _validate_compat_mapping(compat_mapping)
 
-    unknown: Dict[str, str] = {}
-    chat: Dict[str, AdapterDeployment[ChatCompletionDeployment]] = {}
-    embeddings: Dict[str, AdapterDeployment[EmbeddingsDeployment]] = {}
+    unknown: dict[str, str] = {}
+    chat: dict[str, AdapterDeployment[ChatCompletionDeployment]] = {}
+    embeddings: dict[str, AdapterDeployment[EmbeddingsDeployment]] = {}
 
     for unsupported_id, supported_id in compat_mapping.items():
         if deployment := ChatCompletionDeployment.from_string(supported_id):
@@ -85,7 +85,7 @@ def parse_compat_mapping(compat_mapping: Dict[str, str]):
     return chat, embeddings
 
 
-def _compat_mapping_deprecation_warning(deployments: Dict[str, Any]) -> str:
+def _compat_mapping_deprecation_warning(deployments: dict[str, Any]) -> str:
     def create_model_entry(
         deployment: (
             AdapterDeployment[ChatCompletionDeployment]

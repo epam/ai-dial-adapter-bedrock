@@ -1,5 +1,7 @@
+import builtins
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Generic, Iterable, List, Self, Set, Tuple, TypeVar
+from typing import Generic, Self, TypeVar
 
 _T = TypeVar("_T")
 
@@ -14,19 +16,17 @@ class ListProjection(Generic[_T]):
     The subsets must be disjoint.
     """
 
-    list: List[Tuple[_T, Set[int]]] = field(default_factory=list)
+    lst: list[tuple[_T, set[int]]] = field(default_factory=list)
 
     @property
-    def raw_list(self) -> List[_T]:
-        return [msg for msg, _ in self.list]
+    def raw_list(self) -> builtins.list[_T]:
+        return [msg for msg, _ in self.lst]
 
-    def to_original_indices(self, indices: Iterable[int]) -> Set[int]:
+    def to_original_indices(self, indices: Iterable[int]) -> set[int]:
         return {
-            orig_index
-            for index in indices
-            for orig_index in self.list[index][1]
+            orig_index for index in indices for orig_index in self.lst[index][1]
         }
 
     def append(self, elem: _T, idx: int) -> Self:
-        self.list.append((elem, {idx}))
+        self.lst.append((elem, {idx}))
         return self

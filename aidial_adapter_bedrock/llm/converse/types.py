@@ -5,7 +5,7 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedro
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, List, Literal, NotRequired, Required, Tuple, Union
+from typing import Any, Literal, NotRequired, Required
 
 from typing_extensions import TypedDict
 
@@ -81,15 +81,15 @@ class ConverseToolResultPart(TypedDict):
     toolResult: ConverseToolResultConfig
 
 
-ConverseContentPart = Union[
-    ConverseTextPart,
-    ConverseJsonPart,
-    ConverseImagePart,
-    ConverseDocumentPart,
-    ConverseToolUsePart,
-    ConverseToolResultPart,
-    ConverseCachePointPart,
-]
+ConverseContentPart = (
+    ConverseTextPart
+    | ConverseJsonPart
+    | ConverseImagePart
+    | ConverseDocumentPart
+    | ConverseToolUsePart
+    | ConverseToolResultPart
+    | ConverseCachePointPart
+)
 
 
 class ConverseToolConfig(TypedDict):
@@ -205,4 +205,4 @@ class ConverseDocumentType(str, Enum):
         return list(cls)
 
 
-ConverseMessages = List[Tuple[ConverseMessage, Any]]
+ConverseMessages = list[tuple[ConverseMessage, Any]]

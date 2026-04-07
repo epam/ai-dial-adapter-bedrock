@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from enum import Enum
-from typing import Sequence, TypeVar
+from typing import TypeVar
 
 _T = TypeVar("_T", bound=Enum)
 

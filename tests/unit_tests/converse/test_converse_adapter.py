@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 
 import pytest
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
@@ -108,7 +108,7 @@ class ExpectedException:
 class TestCase:
     __test__ = False
     name: str
-    messages: List[Message]
+    messages: list[Message]
     supported_image_types: list[ConverseImageType] = field(
         default_factory=ConverseImageType.all
     )
@@ -132,7 +132,7 @@ class TestCase:
         )
 
 
-def _create_document_test_cases() -> List[TestCase]:
+def _create_document_test_cases() -> list[TestCase]:
     return [
         TestCase(
             name=f"attachment_document_{converse_type}",
@@ -152,7 +152,7 @@ def _create_document_test_cases() -> List[TestCase]:
             ],
             expected_output=ConverseRequestWrapper(
                 messages=ListProjection(
-                    list=[
+                    lst=[
                         (
                             ConverseMessage(
                                 role=ConverseRole.USER,
@@ -181,7 +181,7 @@ def _create_document_test_cases() -> List[TestCase]:
     ]
 
 
-def _create_unsupported_multi_modal_type_test_cases() -> List[TestCase]:
+def _create_unsupported_multi_modal_type_test_cases() -> list[TestCase]:
     test_cases = []
 
     # Fully unknown type
@@ -270,7 +270,7 @@ TEST_CASES = [
         messages=[Message(role=Role.USER, content="Hello, world!")],
         expected_output=ConverseRequestWrapper(
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -291,7 +291,7 @@ TEST_CASES = [
         expected_output=ConverseRequestWrapper(
             system=[ConverseTextPart(text="You are a helpful assistant.")],
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -328,7 +328,7 @@ TEST_CASES = [
                 ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -362,7 +362,7 @@ TEST_CASES = [
                 ConverseTextPart(text="You are also very friendly."),
             ],
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -398,7 +398,7 @@ TEST_CASES = [
                 CONVERSE_CACHE_POINT_PART,
             ],
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -421,7 +421,7 @@ TEST_CASES = [
         ],
         expected_output=ConverseRequestWrapper(
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -464,7 +464,7 @@ TEST_CASES = [
                 "toolChoice": {"any": {}},
             },
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -543,7 +543,7 @@ TEST_CASES = [
                 "toolChoice": {"tool": {"name": "get_weather"}},
             },
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -605,7 +605,7 @@ TEST_CASES = [
         ],
         expected_output=ConverseRequestWrapper(
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,
@@ -648,7 +648,7 @@ TEST_CASES = [
         expected_output=ConverseRequestWrapper(
             inferenceConfig=InferenceConfig(temperature=10),
             messages=ListProjection(
-                list=[
+                lst=[
                     (
                         ConverseMessage(
                             role=ConverseRole.USER,

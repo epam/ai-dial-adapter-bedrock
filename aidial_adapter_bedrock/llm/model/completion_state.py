@@ -1,14 +1,12 @@
-from typing import Dict
-
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_sdk.chat_completion import FinishReason
 from pydantic import BaseModel
 
-FinishReasons = Dict[int, FinishReason]
+FinishReasons = dict[int, FinishReason]
 
 
 class CompletionState(BaseModel):
-    finish_reasons: Dict[int, FinishReason] = {}
+    finish_reasons: dict[int, FinishReason] = {}
     usage: TokenUsage = TokenUsage()
 
     def get_single_finish_reason(self) -> FinishReason | None:

@@ -6,8 +6,9 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-embed.html
 https://docs.cohere.com/reference/embed
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Self
+from typing import Self
 
 from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -31,7 +32,7 @@ from aidial_adapter_bedrock.embedding.validation import (
 from aidial_adapter_bedrock.utils.json import remove_nones
 
 
-def create_cohere_request(texts: List[str], input_type: str) -> dict:
+def create_cohere_request(texts: list[str], input_type: str) -> dict:
     return remove_nones(
         {
             "texts": texts,
@@ -41,7 +42,7 @@ def create_cohere_request(texts: List[str], input_type: str) -> dict:
 
 
 def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
-    async def on_texts(texts: List[str]) -> str:
+    async def on_texts(texts: list[str]) -> str:
         if len(texts) == 0:
             raise EMPTY_INPUT_LIST_ERROR
         elif len(texts) == 1:

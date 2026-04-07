@@ -1,6 +1,7 @@
 import json
 import re
-from typing import Any, Callable, List, Optional, Required, Unpack
+from collections.abc import Callable
+from typing import Any, Required, Unpack
 
 import httpx
 from aidial_adapter_anthropic.dial.resource import Resource
@@ -48,7 +49,7 @@ def sys(content: str) -> ChatCompletionSystemMessageParam:
 
 
 def ai(
-    content: str | List[ChatCompletionContentPartTextParam],
+    content: str | list[ChatCompletionContentPartTextParam],
 ) -> ChatCompletionAssistantMessageParam:
     return {"role": "assistant", "content": content}
 
@@ -60,7 +61,7 @@ def ai_function(
 
 
 def ai_tools(
-    tool_calls: List[ChatCompletionMessageToolCallParam],
+    tool_calls: list[ChatCompletionMessageToolCallParam],
     content: str | None = None,
 ) -> ChatCompletionAssistantMessageParam:
     ret = {"role": "assistant", "tool_calls": tool_calls}
@@ -70,7 +71,7 @@ def ai_tools(
 
 
 def user(
-    content: str | List[ChatCompletionContentPartParam],
+    content: str | list[ChatCompletionContentPartParam],
 ) -> ChatCompletionUserMessageParam:
     return {"role": "user", "content": content}
 
@@ -184,13 +185,13 @@ class ChatCompletionResult(BaseModel):
         return self.message.content or ""
 
     @property
-    def contents(self) -> List[str]:
+    def contents(self) -> list[str]:
         return [
             choice.message.content or "" for choice in self.response.choices
         ]
 
     @property
-    def finish_reasons(self) -> List[str]:
+    def finish_reasons(self) -> list[str]:
         return [choice.finish_reason for choice in self.response.choices]
 
     @property
@@ -202,22 +203,22 @@ class ChatCompletionResult(BaseModel):
         return self.message.function_call
 
     @property
-    def tool_calls(self) -> List[ChatCompletionMessageToolCall] | None:
+    def tool_calls(self) -> list[ChatCompletionMessageToolCall] | None:
         return self.message.tool_calls
 
-    def content_contains_all(self, matches: List[Any]) -> bool:
+    def content_contains_all(self, matches: list[Any]) -> bool:
         return all(
             str(match).lower() in self.content.lower() for match in matches
         )
 
 
 class ChatCompletionArgs(TypedDict, total=False):
-    messages: Required[List[ChatCompletionMessageParam]]
-    stop: List[str] | None
+    messages: Required[list[ChatCompletionMessageParam]]
+    stop: list[str] | None
     max_tokens: int | None
     n: int | None
-    functions: List[Function] | None
-    tools: List[ChatCompletionToolParam] | None
+    functions: list[Function] | None
+    tools: list[ChatCompletionToolParam] | None
     tool_choice: ChatCompletionToolChoiceOptionParam | None
     temperature: float | None
     configuration: dict | None
@@ -260,7 +261,7 @@ async def chat_completion(
         )
 
         if isinstance(response, AsyncStream):
-            chunks: List[dict] = []
+            chunks: list[dict] = []
             async for chunk in response:
                 chunks.append(chunk.model_dump())
 
@@ -295,8 +296,8 @@ async def configuration(client: httpx.AsyncClient, model: str) -> dict | None:
 async def truncate_prompt(
     client: httpx.AsyncClient,
     model: str,
-    messages: List[ChatCompletionMessageParam],
-    max_prompt_tokens: Optional[int],
+    messages: list[ChatCompletionMessageParam],
+    max_prompt_tokens: int | None,
 ) -> dict:
     request: dict = {"messages": messages}
     if max_prompt_tokens is not None:
@@ -317,7 +318,7 @@ async def truncate_prompt(
 async def tokenize(
     client: httpx.AsyncClient,
     model: str,
-    messages: List[ChatCompletionMessageParam],
+    messages: list[ChatCompletionMessageParam],
 ) -> dict:
     request = {
         "inputs": [
@@ -377,7 +378,7 @@ def is_valid_function_call(
 
 
 def is_valid_tool_call(
-    calls: List[ChatCompletionMessageToolCall] | None,
+    calls: list[ChatCompletionMessageToolCall] | None,
     tool_call_idx: int,
     check_tool_id: Callable[[str], bool],
     expected_name: str,

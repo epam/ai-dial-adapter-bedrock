@@ -1,6 +1,7 @@
 import json
+from collections.abc import AsyncIterator
 from logging import DEBUG
-from typing import Any, AsyncIterator, Dict, assert_never
+from typing import Any, assert_never
 
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
@@ -30,7 +31,7 @@ def to_dial_finish_reason(
 
 
 def to_dial_usage(
-    converse_usage: Dict[str, Any],
+    converse_usage: dict[str, Any],
 ) -> TokenUsage:
     write = converse_usage.get("cacheWriteInputTokens") or 0
     read = converse_usage.get("cacheReadInputTokens") or 0
@@ -127,7 +128,7 @@ async def process_streaming(
 
 def process_non_streaming(
     params: ModelParameters,
-    response: Dict[str, Any],
+    response: dict[str, Any],
     consumer: Consumer,
 ) -> None:
     if log.isEnabledFor(DEBUG):

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Self, Union
+from typing import Self
 
 from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial.request import (
@@ -54,7 +54,7 @@ def _get_cache_breakpoint(message: DialMessage) -> CacheBreakpoint | None:
 
 
 class SystemMessage(BaseMessageABC):
-    content: str | List[MessageContentTextPart]
+    content: str | list[MessageContentTextPart]
     is_developer: bool = False
 
     def to_message(self) -> DialMessage:
@@ -88,7 +88,7 @@ class SystemMessage(BaseMessageABC):
 
 
 class HumanRegularMessage(BaseMessageABC):
-    content: str | List[MessageContentPart]
+    content: str | list[MessageContentPart]
     custom_content: CustomContent | None = None
 
     def to_message(self) -> DialMessage:
@@ -121,7 +121,7 @@ class HumanRegularMessage(BaseMessageABC):
         return collect_text_content(self.content)
 
     @property
-    def attachments(self) -> List[Attachment]:
+    def attachments(self) -> list[Attachment]:
         return (
             self.custom_content.attachments or [] if self.custom_content else []
         )
@@ -196,14 +196,14 @@ class HumanFunctionResultMessage(MessageABC):
 
 
 class AIRegularMessage(BaseMessageABC):
-    content: str | List[MessageContentPart]
+    content: str | list[MessageContentPart]
     """
     According to Azure OpenAI API, the assistant message could only have textual content.
     However, we leave a loophole to provide image content parts just in case
     one day multi-modal Bedrock models will be able to accept images in assistant messages.
     """
 
-    custom_content: Optional[CustomContent] = None
+    custom_content: CustomContent | None = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
@@ -238,16 +238,16 @@ class AIRegularMessage(BaseMessageABC):
         return collect_text_content(self.content)
 
     @property
-    def attachments(self) -> List[Attachment]:
+    def attachments(self) -> list[Attachment]:
         return (
             self.custom_content.attachments or [] if self.custom_content else []
         )
 
 
 class AIToolCallMessage(MessageABC):
-    calls: List[ToolCall]
-    content: Optional[str] = None
-    custom_content: Optional[CustomContent] = None
+    calls: list[ToolCall]
+    content: str | None = None
+    custom_content: CustomContent | None = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
@@ -281,7 +281,7 @@ class AIToolCallMessage(MessageABC):
 
 class AIFunctionCallMessage(MessageABC):
     call: FunctionCall
-    content: Optional[str] = None
+    content: str | None = None
 
     def to_message(self) -> DialMessage:
         return DialMessage(
@@ -311,14 +311,14 @@ class AIFunctionCallMessage(MessageABC):
         )
 
 
-BaseMessage = Union[SystemMessage, HumanRegularMessage, AIRegularMessage]
+BaseMessage = SystemMessage | HumanRegularMessage | AIRegularMessage
 
-ToolMessage = Union[
-    HumanToolResultMessage,
-    HumanFunctionResultMessage,
-    AIToolCallMessage,
-    AIFunctionCallMessage,
-]
+ToolMessage = (
+    HumanToolResultMessage
+    | HumanFunctionResultMessage
+    | AIToolCallMessage
+    | AIFunctionCallMessage
+)
 
 
 def parse_dial_message(msg: DialMessage) -> BaseMessage | ToolMessage:

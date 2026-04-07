@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import ClassVar, Optional, Tuple
+from typing import ClassVar, Optional
 
 import boto3
 from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
@@ -24,7 +24,7 @@ class AWSClientCredentials(BaseModel):
     aws_secret_access_key: str
     aws_session_token: str | None = None
 
-    def get_credentials(self) -> Tuple[datetime | None, ClientCredentialArgs]:
+    def get_credentials(self) -> tuple[datetime | None, ClientCredentialArgs]:
         return None, ClientCredentialArgs(
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
@@ -37,7 +37,7 @@ class AWSAssumeRoleCredentials(BaseModel):
 
     async def get_credentials(
         self, region: str
-    ) -> Tuple[datetime, ClientCredentialArgs]:
+    ) -> tuple[datetime, ClientCredentialArgs]:
         sts_client = await make_async(
             lambda: boto3.Session().client("sts", region_name=region)
         )
@@ -80,7 +80,7 @@ class CloudUpstreamConfig(BaseModel):
 
     async def get_credentials(
         self,
-    ) -> Tuple[datetime | None, ClientCredentialArgs]:
+    ) -> tuple[datetime | None, ClientCredentialArgs]:
         if self.credentials is None:
             return (None, ClientCredentialArgs())
         if isinstance(self.credentials, AWSClientCredentials):

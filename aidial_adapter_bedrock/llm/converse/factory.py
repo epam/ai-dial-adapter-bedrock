@@ -1,5 +1,5 @@
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Awaitable, Callable
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from pydantic import BaseModel

@@ -1,7 +1,8 @@
 import json
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable, List, assert_never
+from typing import assert_never
 
 import httpx
 import pytest
@@ -31,12 +32,12 @@ def expected_success(*args, **kwargs):
     return True
 
 
-Tokenize = Callable[[List[ChatCompletionMessageParam]], Awaitable[int]]
+Tokenize = Callable[[list[ChatCompletionMessageParam]], Awaitable[int]]
 
 
 @dataclass
 class DynamicMaxPromptTokens:
-    messages: List[ChatCompletionMessageParam]
+    messages: list[ChatCompletionMessageParam]
     post_process: Callable[[int], int] | None = None
 
     async def __call__(self, tokenize: Tokenize) -> int:
@@ -52,7 +53,7 @@ class TestCase:
 
     name: str
     deployment: RegionDeployment
-    messages: List[ChatCompletionMessageParam]
+    messages: list[ChatCompletionMessageParam]
     expected: dict | Callable[[dict], bool] | ExpectedException
     max_prompt_tokens: DynamicMaxPromptTokens | int | None
 
@@ -69,12 +70,12 @@ class TestCase:
         )
 
 
-def get_test_cases(deployment: RegionDeployment) -> List[TestCase]:
-    test_cases: List[TestCase] = []
+def get_test_cases(deployment: RegionDeployment) -> list[TestCase]:
+    test_cases: list[TestCase] = []
 
     def test_case(
         name: str,
-        messages: List[ChatCompletionMessageParam],
+        messages: list[ChatCompletionMessageParam],
         expected: (
             dict | Callable[[dict], bool] | ExpectedException
         ) = expected_success,
@@ -207,7 +208,7 @@ async def test_truncate_prompt(
         elif callable(test.max_prompt_tokens):
 
             async def tokenize_messages(
-                messages: List[ChatCompletionMessageParam],
+                messages: list[ChatCompletionMessageParam],
             ) -> int:
                 resp = await tokenize(
                     test_http_client, test.deployment.value, messages
