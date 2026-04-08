@@ -1,5 +1,6 @@
 import json
-from typing import Awaitable, Callable, List, Mapping, Unpack
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Unpack
 
 import openai
 import pytest
@@ -125,7 +126,7 @@ def is_vision_model(deployment: D) -> bool:
     )
 
 
-def select(p: Selector[D], xs: List[Deployment]) -> List[Deployment]:
+def select(p: Selector[D], xs: list[Deployment]) -> list[Deployment]:
     return [x for x in xs if p(x.origin)]
 
 
@@ -546,7 +547,7 @@ async def _run_test_vision(
     deployment: D,
     chat: Chat,
     messages,
-    expected: str | List[str] | ExpectedException,
+    expected: str | list[str] | ExpectedException,
 ):
     async def _run():
         return await chat(max_tokens=100, messages=messages)
@@ -867,9 +868,9 @@ async def test_tool_call_basic(
 
     expected_calls = test.targets if supports_parallel_tool_calls(origin) else 1
 
-    assert (
-        len(tool_calls) >= expected_calls
-    ), f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
+    assert len(tool_calls) >= expected_calls, (
+        f"Number of tools calls: actual ({len(tool_calls)}), expected ({expected_calls})"
+    )
 
     for idx, tool_call in enumerate(tool_calls):
         function_call = tool_call.function

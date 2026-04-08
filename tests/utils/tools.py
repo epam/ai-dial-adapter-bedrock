@@ -1,5 +1,3 @@
-from typing import List
-
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolParam,
@@ -28,9 +26,9 @@ class ToolCallTest:
         else:
             self.cities = [("Glasgow", 15), ("London", 20)]
 
-    def messages(self, with_system: bool) -> List[ChatCompletionMessageParam]:
+    def messages(self, with_system: bool) -> list[ChatCompletionMessageParam]:
         query = f"Tell me what's the temperature in {' and in '.join(self.city_names)} in celsius?"
-        messages: List[ChatCompletionMessageParam] = []
+        messages: list[ChatCompletionMessageParam] = []
         if with_system:
             messages.append(
                 sys(
@@ -48,19 +46,19 @@ class ToolCallTest:
         return "single_cue" if self.targets == 1 else "multiple_cues"
 
     @property
-    def city_names(self) -> List[str]:
+    def city_names(self) -> list[str]:
         return [name for name, _ in self.cities]
 
     @property
-    def city_temps(self) -> List[int]:
+    def city_temps(self) -> list[int]:
         return [temp for _, temp in self.cities]
 
     @property
-    def tools(self) -> List[ChatCompletionToolParam]:
+    def tools(self) -> list[ChatCompletionToolParam]:
         return [function_to_tool(f) for f in self.functions]
 
     @property
-    def functions(self) -> List[FunctionDefinition]:
+    def functions(self) -> list[FunctionDefinition]:
         return [GET_WEATHER_FUNCTION]
 
     @property
@@ -73,7 +71,7 @@ class ToolCallTest:
         return ai_tools(
             [
                 tool_request(
-                    f"{self.function_name}_{idx+1}",
+                    f"{self.function_name}_{idx + 1}",
                     self.function_name,
                     self.function_args(idx),
                 )
@@ -82,10 +80,10 @@ class ToolCallTest:
             content,
         )
 
-    def tool_responses(self) -> List[ChatCompletionMessageParam]:
+    def tool_responses(self) -> list[ChatCompletionMessageParam]:
         return [
             tool_response(
-                f"{self.function_name}_{idx+1}",
+                f"{self.function_name}_{idx + 1}",
                 f"{self.city_temps[idx]} celsius",
             )
             for idx in range(self.targets)

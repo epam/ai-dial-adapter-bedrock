@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from io import BytesIO
-from typing import List, Literal, Optional, Tuple, Type
+from typing import Literal, assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter, UserError
 from aidial_adapter_anthropic.dial.consumer import Consumer
@@ -19,7 +19,6 @@ from aidial_sdk.exceptions import (
 )
 from PIL import Image
 from pydantic import BaseModel
-from typing_extensions import assert_never
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
@@ -50,24 +49,24 @@ async def _download_resource(
         raise UserError(
             error_message=f"Unsupported image type: {e.type}",
             usage_message=f"Supported image types: {', '.join(SUPPORTED_IMAGE_EXTENSIONS)}",
-        )
+        ) from None
 
 
 class StabilityV2Response(BaseModel):
-    images: List[str] | None = None
+    images: list[str] | None = None
     # None will indicate that the request was successful
     # Possible values:
-    # "Filter reason: prompt"
-    # "Filter reason: output image"
-    # "Filter reason: input image"
-    # "Inference error"
-    # null
-    finish_reasons: List[Optional[str]] | None = None
+    #   | "Filter reason: prompt"
+    #   | "Filter reason: output image"
+    #   | "Filter reason: input image"
+    #   | "Inference error"
+    #   | null
+    finish_reasons: list[str | None] | None = None
 
     def content(self) -> str:
         return " "
 
-    def attachments(self) -> List[Attachment]:
+    def attachments(self) -> list[Attachment]:
         return [
             Attachment(
                 title="Image",
@@ -117,9 +116,9 @@ Stability_V2_V3 = Literal[
 
 class Spec(BaseModel):
     image_to_image_supported: bool
-    width_constraints: Tuple[int, int] | None
-    height_constraints: Tuple[int, int] | None
-    configuration_cls: Type[BaseModel]
+    width_constraints: tuple[int, int] | None
+    height_constraints: tuple[int, int] | None
+    configuration_cls: type[BaseModel]
 
     def validate_image(self, image: Resource) -> None:
         if self.width_constraints is None and self.height_constraints is None:
@@ -175,7 +174,7 @@ def _get_spec(deployment: Stability_V2_V3) -> Spec:
 class StabilityV2Adapter(ChatCompletionAdapter):
     deployment: AdapterDeployment[Stability_V2_V3]
     client: Bedrock
-    storage: Optional[FileStorage]
+    storage: FileStorage | None
     spec: Spec
 
     @classmethod
@@ -185,7 +184,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         deployment: AdapterDeployment[Stability_V2_V3],
         api_key: str,
     ):
-        storage: Optional[FileStorage] = create_file_storage(api_key)
+        storage: FileStorage | None = create_file_storage(api_key)
         return cls(
             client=client,
             deployment=deployment,
@@ -193,11 +192,11 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             spec=_get_spec(deployment.reference_deployment_id),
         )
 
-    async def configuration(self) -> Type[BaseModel]:
+    async def configuration(self) -> type[BaseModel]:
         return self.spec.configuration_cls
 
     async def compute_discarded_messages(
-        self, params: ModelParameters, messages: List[Message]
+        self, params: ModelParameters, messages: list[Message]
     ) -> DiscardedMessages | None:
         validate_last_message(messages)
         return list(range(len(messages) - 1))
@@ -206,9 +205,8 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         self,
         consumer: Consumer,
         params: ModelParameters,
-        messages: List[Message],
+        messages: list[Message],
     ) -> None:
-
         configuration = params.parse_configuration(await self.configuration())
         configuration_dict = (
             {} if configuration is None else configuration.model_dump()
@@ -271,7 +269,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
             consumer.add_attachment(attachment)
 
     async def count_prompt_tokens(
-        self, params: ModelParameters, messages: List[Message]
+        self, params: ModelParameters, messages: list[Message]
     ) -> int:
         raise NotImplementedError()
 

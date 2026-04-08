@@ -2,7 +2,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
-from typing import List, Set, Tuple, assert_never
+from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.request import ToolsConfig, is_system_role
@@ -237,7 +237,7 @@ async def _get_converse_message_content(
     storage: FileStorage | None,
     supported_image_types: list[ConverseImageType],
     supported_document_types: list[ConverseDocumentType],
-) -> List[ConverseContentPart]:
+) -> list[ConverseContentPart]:
     image_mime_types = [
         CONVERSE_IMAGE_TYPE_TO_MIME[t] for t in supported_image_types
     ]
@@ -287,11 +287,8 @@ async def _get_converse_message_content(
                                 to_converse_multi_modal_part(resource)
                             )
                         except UnsupportedContentType as e:
-                            raise UserError(
-                                error_message=_unsupported_multi_modal_error(
-                                    e.type
-                                )
-                            )
+                            msg = _unsupported_multi_modal_error(e.type)
+                            raise UserError(error_message=msg) from None
                     case MessageContentRefusalPart():
                         raise ValidationError(
                             "Refusal messages aren't supported"
@@ -320,7 +317,7 @@ async def _get_converse_message_content(
             except UnsupportedContentType as e:
                 raise UserError(
                     error_message=_unsupported_multi_modal_error(e.type),
-                )
+                ) from None
 
     if message.function_call and message.tool_calls:
         raise ValidationError(
@@ -351,7 +348,6 @@ async def to_converse_message(
     supported_image_types: list[ConverseImageType] | None = None,
     supported_document_types: list[ConverseDocumentType] | None = None,
 ) -> ConverseMessage:
-
     return {
         "role": to_converse_role(message.role),
         "content": await _get_converse_message_content(
@@ -365,9 +361,9 @@ async def to_converse_message(
 
 @dataclass
 class ExtractSystemPromptResult:
-    system_messages: List[ConverseTextPart | ConverseCachePointPart]
+    system_messages: list[ConverseTextPart | ConverseCachePointPart]
     system_message_count: int
-    non_system_messages: List[DialMessage]
+    non_system_messages: list[DialMessage]
 
 
 def _get_cache_point_part(
@@ -379,9 +375,9 @@ def _get_cache_point_part(
 
 
 def extract_converse_system_prompt(
-    messages: List[DialMessage],
+    messages: list[DialMessage],
 ) -> ExtractSystemPromptResult:
-    system_messages: List[ConverseTextPart | ConverseCachePointPart] = []
+    system_messages: list[ConverseTextPart | ConverseCachePointPart] = []
     found_non_system = False
     system_messages_count = 0
     non_system_messages = []
@@ -438,7 +434,7 @@ def extract_converse_system_prompt(
 
 
 async def to_converse_messages(
-    messages: List[DialMessage],
+    messages: list[DialMessage],
     storage: FileStorage | None = None,
     supported_image_types: list[ConverseImageType] | None = None,
     supported_document_types: list[ConverseDocumentType] | None = None,
@@ -446,9 +442,9 @@ async def to_converse_messages(
     start_offset: int = 0,
 ) -> ListProjection[ConverseMessage]:
     def _merge(
-        a: Tuple[ConverseMessage, Set[int]],
-        b: Tuple[ConverseMessage, Set[int]],
-    ) -> Tuple[ConverseMessage, Set[int]]:
+        a: tuple[ConverseMessage, set[int]],
+        b: tuple[ConverseMessage, set[int]],
+    ) -> tuple[ConverseMessage, set[int]]:
         (msg1, set1), (msg2, set2) = a, b
 
         content1 = msg1["content"]

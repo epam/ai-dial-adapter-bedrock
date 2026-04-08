@@ -1,4 +1,4 @@
-from typing import List, Tuple, assert_never
+from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial.resource import (
@@ -19,16 +19,16 @@ from aidial_sdk.chat_completion.request import (
 
 
 def parse_message(
-    message: Message, supported_types: List[str]
-) -> Tuple[str | None, List[DialResource]]:
+    message: Message, supported_types: list[str]
+) -> tuple[str | None, list[DialResource]]:
     text_prompt: str | None = None
-    image_resources: List[DialResource] = []
+    image_resources: list[DialResource] = []
 
     match message.content:
         case str(text):
             text_prompt = text
         case list():
-            text_parts: List[str] = []
+            text_parts: list[str] = []
 
             for part in message.content:
                 match part:
@@ -67,7 +67,7 @@ def parse_message(
     return text_prompt, image_resources
 
 
-def validate_last_message(messages: List[Message]):
+def validate_last_message(messages: list[Message]):
     if not messages:
         raise ValidationError("No messages provided")
 

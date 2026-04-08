@@ -6,8 +6,9 @@ https://github.com/aws-samples/amazon-bedrock-samples/blob/5752afb78e7fab49cfd42
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Self, Tuple
+from typing import Self
 
 from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.embeddings import Response as EmbeddingsResponse
@@ -36,7 +37,7 @@ def create_titan_request(input: str, dimensions: int | None) -> dict:
 
 
 def get_text_inputs(request: EmbeddingsRequest) -> AsyncIterator[str]:
-    async def on_texts(texts: List[str]) -> str:
+    async def on_texts(texts: list[str]) -> str:
         if len(texts) == 0:
             raise EMPTY_INPUT_LIST_ERROR
         elif len(texts) == 1:
@@ -68,14 +69,13 @@ class AmazonTitanTextEmbeddings(EmbeddingsAdapter):
     async def embeddings(
         self, request: EmbeddingsRequest
     ) -> EmbeddingsResponse:
-
         validate_embeddings_request(
             request,
             supports_type=False,
             supports_dimensions=self.supports_dimensions,
         )
 
-        async def compute_embeddings(req: str) -> Tuple[List[float], int]:
+        async def compute_embeddings(req: str) -> tuple[list[float], int]:
             return await call_embedding_model(
                 self.client,
                 self.model,

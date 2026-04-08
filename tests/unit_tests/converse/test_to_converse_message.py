@@ -1,7 +1,6 @@
-from aidial_sdk.chat_completion import FunctionCall
+from aidial_sdk.chat_completion import FunctionCall, ToolCall
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import Role as DialRole
-from aidial_sdk.chat_completion import ToolCall
 
 from aidial_adapter_bedrock.llm.converse.input import to_converse_message
 

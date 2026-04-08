@@ -1,5 +1,4 @@
 import asyncio
-from typing import List
 
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
@@ -20,7 +19,7 @@ class ReplicatorDecorator(ChatCompletionDecorator):
         self,
         consumer: Consumer,
         params: ModelParameters,
-        messages: List[Message],
+        messages: list[Message],
     ) -> None:
         params1 = params.model_copy()
         params1.n = 1

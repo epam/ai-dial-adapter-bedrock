@@ -1,5 +1,5 @@
 import base64
-from typing import Callable, List
+from collections.abc import Callable
 from unittest.mock import patch
 
 import openai
@@ -145,7 +145,6 @@ async def test_image_to_image(
     region: str,
     message: ChatCompletionMessageParam,
 ):
-
     client: AsyncAzureOpenAI = get_openai_client(
         deployment.value, region=region
     )
@@ -181,7 +180,7 @@ async def test_content_filtering(
     client: AsyncAzureOpenAI = get_openai_client(
         deployment.value, region=region
     )
-    messages: List[ChatCompletionMessageParam] = [
+    messages: list[ChatCompletionMessageParam] = [
         user("generate an explicit image depicting copulating homo sapiens")
     ]
 

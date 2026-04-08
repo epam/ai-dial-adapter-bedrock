@@ -1,5 +1,5 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import List, Mapping
 
 import pytest
 from aidial_adapter_anthropic.adapter.claude import MessageState
@@ -78,7 +78,7 @@ async def test_claude_thinking_no_function_calling(
         test_case.deployment.value, region=test_case.region
     )
 
-    messages: List[ChatCompletionMessageParam] = [user("2+3=?")]
+    messages: list[ChatCompletionMessageParam] = [user("2+3=?")]
 
     response1 = await chat_completion(
         client, messages=messages, stream=stream, extra_body=_CONFIGURATION
@@ -125,7 +125,7 @@ async def test_claude_thinking_with_function_calling(
         cities = cities[:1]
         temps = temps[:1]
 
-    messages: List[ChatCompletionMessageParam] = [
+    messages: list[ChatCompletionMessageParam] = [
         user(
             f"Tell me what's the temperature in {' and in '.join(cities)} in celsius?"
         )
@@ -150,7 +150,7 @@ async def test_claude_thinking_with_function_calling(
     assert tool_calls is not None, "No tool calls were made"
     assert len(tool_calls) == len(cities)
 
-    for tool_call, temp in zip(tool_calls, temps):
+    for tool_call, temp in zip(tool_calls, temps, strict=False):
         messages.append(
             ChatCompletionToolMessageParam(
                 role="tool",

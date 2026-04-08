@@ -1,5 +1,4 @@
 import base64
-from typing import List
 
 import numpy as np
 import pytest
@@ -23,16 +22,16 @@ vectors = [
 
 
 @pytest.mark.parametrize("vector", vectors)
-def test_to_base64_and_back(vector: List[float]):
+def test_to_base64_and_back(vector: list[float]):
     actual_vector = base64_to_vector(vector_to_base64(vector))
 
-    assert np.allclose(
-        vector, actual_vector, equal_nan=True
-    ), f"Expected: {vector}, Actual: {actual_vector}"
+    assert np.allclose(vector, actual_vector, equal_nan=True), (
+        f"Expected: {vector}, Actual: {actual_vector}"
+    )
 
 
 @pytest.mark.parametrize("vector", vectors)
-def test_to_vector_and_back(vector: List[float]):
+def test_to_vector_and_back(vector: list[float]):
     str = base64.b64encode(np.array(vector, dtype="float32").tobytes()).decode(
         "utf-8"
     )

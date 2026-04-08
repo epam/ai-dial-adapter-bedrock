@@ -1,6 +1,6 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logging import DEBUG
-from typing import Awaitable, Callable, List, Tuple, Type
 
 from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
@@ -69,21 +69,21 @@ class ConverseAdapter(ChatCompletionAdapter):
         Callable[[ConverseMessages], Awaitable[int]],
     ] = default_converse_tokenizer_factory
 
-    partitioner: Callable[[ConverseMessages], List[int]] = (
+    partitioner: Callable[[ConverseMessages], list[int]] = (
         turn_based_partitioner
     )
 
-    async def configuration(self) -> Type[ConverseAPIConfiguration]:
+    async def configuration(self) -> type[ConverseAPIConfiguration]:
         return ConverseAPIConfiguration
 
     async def _discard_messages(
         self, params: ConverseRequestWrapper, max_prompt_tokens: int | None
-    ) -> Tuple[DiscardedMessages | None, ConverseRequestWrapper]:
+    ) -> tuple[DiscardedMessages | None, ConverseRequestWrapper]:
         if max_prompt_tokens is None:
             return None, params
 
         discarded_messages, messages = await truncate_prompt(
-            messages=params.messages.list,
+            messages=params.messages.lst,
             tokenizer=self.input_tokenizer_factory(self.deployment, params),
             keep_message=keep_last,
             partitioner=self.partitioner,
@@ -103,18 +103,18 @@ class ConverseAdapter(ChatCompletionAdapter):
         )
 
     async def count_prompt_tokens(
-        self, params: ModelParameters, messages: List[DialMessage]
+        self, params: ModelParameters, messages: list[DialMessage]
     ) -> int:
         converse_params = await self.construct_converse_params(messages, params)
         return await self.input_tokenizer_factory(
             self.deployment, converse_params
-        )(converse_params.messages.list)
+        )(converse_params.messages.lst)
 
     async def count_completion_tokens(self, string: str) -> int:
         return self.tokenize_text(string)
 
     async def compute_discarded_messages(
-        self, params: ModelParameters, messages: List[DialMessage]
+        self, params: ModelParameters, messages: list[DialMessage]
     ) -> DiscardedMessages | None:
         converse_params = await self.construct_converse_params(messages, params)
         discarded_messages, _ = await self._discard_messages(
@@ -131,7 +131,7 @@ class ConverseAdapter(ChatCompletionAdapter):
 
     async def construct_converse_params(
         self,
-        messages: List[DialMessage],
+        messages: list[DialMessage],
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
         configuration = params.parse_configuration(await self.configuration())
@@ -144,7 +144,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             supported_document_types=self.supported_document_types,
         )
         system_messages = system_prompt_extraction.system_messages
-        if not converse_messages.list:
+        if not converse_messages.lst:
             raise ValidationError("List of messages must not be empty")
 
         performanceConfig: PerformanceConfig | None = None
@@ -190,9 +190,8 @@ class ConverseAdapter(ChatCompletionAdapter):
         self,
         consumer: Consumer,
         params: ModelParameters,
-        messages: List[DialMessage],
+        messages: list[DialMessage],
     ) -> None:
-
         converse_params = await self.construct_converse_params(messages, params)
         discarded_messages, converse_params = await self._discard_messages(
             converse_params, params.max_prompt_tokens

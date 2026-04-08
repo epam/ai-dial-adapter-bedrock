@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Protocol
+from typing import Protocol
 
 import pytest
 from aidial_sdk.exceptions import DeploymentNotFoundError
@@ -87,11 +87,11 @@ class TestCase:
     __test__ = False
 
     desc: str
-    compat: Dict[str, str]
+    compat: dict[str, str]
 
     error: str | None = None
     warning: str | None = None
-    checks: List[Checker] = field(default_factory=list)
+    checks: list[Checker] = field(default_factory=list)
 
 
 _CHAT_MODEL_1 = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_5_HAIKU
@@ -105,7 +105,7 @@ _outdated_mapping_warning_message = (
     "Otherwise, you may lose features that exist in {deployment_id!r} but are missing in {supported_id!r}."
 )
 
-test_cases: List[TestCase] = [
+test_cases: list[TestCase] = [
     TestCase(
         desc="invalid compat",
         compat={"xxx": "yyy", "zzz": "ddd"},

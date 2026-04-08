@@ -1,7 +1,7 @@
 import asyncio
 import sys
+from datetime import UTC, timedelta
 from datetime import datetime as original_datetime
-from datetime import timedelta, timezone
 
 import pytest
 from pydantic import BaseModel
@@ -16,7 +16,7 @@ class datetime(original_datetime):
 
 
 @pytest.fixture(
-    params=[None, timezone.utc],
+    params=[None, UTC],
     ids=["offset-naive", "offset-aware-utc"],
 )
 def time_zone(request):

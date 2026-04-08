@@ -24,13 +24,13 @@ from functools import wraps
 from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
-from aidial_sdk.exceptions import DeploymentNotFoundError
-from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
+    DeploymentNotFoundError,
     InternalServerError,
     InvalidRequestError,
     ResourceNotFoundError,
 )
+from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import APIStatusError
 from botocore.exceptions import ClientError
 
@@ -46,9 +46,10 @@ def _get_exception_type(status_code: int) -> str | None:
 
 
 def _get_anthropic_error_message(e: APIStatusError) -> str:
-    if isinstance(body := e.body, dict):
-        if isinstance((msg := body.get("message")), str):
-            return msg
+    if isinstance(body := e.body, dict) and isinstance(
+        (msg := body.get("message")), str
+    ):
+        return msg
     return e.message
 
 
@@ -240,6 +241,8 @@ def not_implemented_handler(func):
         try:
             return await func(*args, **kwargs)
         except NotImplementedError:
-            raise ResourceNotFoundError("The endpoint is not implemented")
+            raise ResourceNotFoundError(
+                "The endpoint is not implemented"
+            ) from None
 
     return wrapper

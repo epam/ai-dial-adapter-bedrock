@@ -1,12 +1,10 @@
-from typing import List, Tuple
-
 import httpx
 import pytest
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from tests.utils.validation import check_enum_completeness
 
-test_cases: List[Tuple[D, bool, bool, bool]] = [
+test_cases: list[tuple[D, bool, bool, bool]] = [
     (D.AMAZON_NOVA_PRO, True, True, True),
     (D.AMAZON_NOVA_LITE, True, True, True),
     (D.AMAZON_NOVA_MICRO, True, True, True),
@@ -64,9 +62,9 @@ async def assert_feature(
         response = await http_client.post(
             endpoint, json=payload, headers=headers
         )
-    assert (
-        response.status_code != 404
-    ) == is_supported, f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
+    assert (response.status_code != 404) == is_supported, (
+        f"is_supported={is_supported}, code={response.status_code}, url={endpoint}"
+    )
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Literal, Self
+from typing import Literal, Self
 
 from aidial_adapter_bedrock.utils.region_deployment import (
     RegionInferenceDeployment,
@@ -84,7 +84,7 @@ class EmbeddingsDeployment(Enum):
     COHERE_EMBED_MULTILINGUAL_V3 = "cohere.embed-multilingual-v3"
 
     @classmethod
-    def deployments(cls) -> List[str]:
+    def deployments(cls) -> list[str]:
         return [e.value for e in cls]
 
     @classmethod

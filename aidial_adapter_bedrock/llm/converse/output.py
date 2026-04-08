@@ -1,6 +1,7 @@
 import json
+from collections.abc import AsyncIterator
 from logging import DEBUG
-from typing import Any, AsyncIterator, Dict, assert_never
+from typing import Any, assert_never
 
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
@@ -22,7 +23,7 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 def to_dial_finish_reason(
     converse_stop_reason: ConverseStopReason,
 ) -> DialFinishReason:
-    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON.keys():
+    if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON:
         raise RuntimeServerError(
             f"Unsupported converse stop reason: {converse_stop_reason}"
         )
@@ -30,7 +31,7 @@ def to_dial_finish_reason(
 
 
 def to_dial_usage(
-    converse_usage: Dict[str, Any],
+    converse_usage: dict[str, Any],
 ) -> TokenUsage:
     write = converse_usage.get("cacheWriteInputTokens") or 0
     read = converse_usage.get("cacheReadInputTokens") or 0
@@ -70,7 +71,6 @@ async def process_streaming(
         elif (content_block := event.get("contentBlockDelta")) and (
             delta := content_block.get("delta")
         ):
-
             if message := delta.get("text"):
                 consumer.append_content(message)
 
@@ -128,7 +128,7 @@ async def process_streaming(
 
 def process_non_streaming(
     params: ModelParameters,
-    response: Dict[str, Any],
+    response: dict[str, Any],
     consumer: Consumer,
 ) -> None:
     if log.isEnabledFor(DEBUG):
@@ -141,12 +141,14 @@ def process_non_streaming(
         if text := content_block.get("text"):
             consumer.append_content(text)
 
-        # NOTE: reasoningContent.readactedContent and reasoningContent.reasoningText.signature
+        # NOTE: > reasoningContent.readactedContent and reasoningContent.reasoningText.signature
         # are ignored since they are only relevant for Claude 3.7
-        if reasoning_content := content_block.get("reasoningContent"):
-            if reasoning_text := reasoning_content.get("reasoningText"):
-                if text := reasoning_text.get("text"):
-                    thinking_stage.append_content(text)
+        if (
+            (reasoning_content := content_block.get("reasoningContent"))
+            and (reasoning_text := reasoning_content.get("reasoningText"))
+            and (text := reasoning_text.get("text"))
+        ):
+            thinking_stage.append_content(text)
 
         if tool_use := content_block.get("toolUse"):
             match params.tools_mode:

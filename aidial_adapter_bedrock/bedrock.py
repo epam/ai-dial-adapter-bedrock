@@ -1,10 +1,11 @@
 import json
 import os
 from abc import ABC
+from collections.abc import Mapping
 from datetime import datetime
 from functools import cache
 from logging import DEBUG
-from typing import Any, Mapping, Optional, Tuple, Unpack
+from typing import Any, Unpack
 
 import anthropic
 import boto3
@@ -66,7 +67,7 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
 @ttl_cache
 async def create_anthropic_client(
     upstream_config: UpstreamConfig,
-) -> Tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
+) -> tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
     http_client = httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
@@ -103,8 +104,7 @@ async def create_anthropic_client(
 @ttl_cache
 async def create_boto_client(
     service_name: str, upstream_config: CloudUpstreamConfig
-) -> Tuple[datetime | None, Any]:
-
+) -> tuple[datetime | None, Any]:
     expiration, creds = await upstream_config.get_credentials()
 
     config = botocore.client.Config(  # type: ignore
@@ -174,8 +174,7 @@ class Bedrock:
 
     async def ainvoke_non_streaming(
         self, model: str, args: dict
-    ) -> Tuple[Body, Headers]:
-
+    ) -> tuple[Body, Headers]:
         if log.isEnabledFor(DEBUG):
             log.debug(
                 f"request: {json_dumps_short({'model': model, 'args': args})}"
@@ -208,7 +207,7 @@ class InvocationMetrics(BaseModel):
 
 
 class ResponseWithInvocationMetricsMixin(ABC, BaseModel):
-    invocation_metrics: Optional[InvocationMetrics] = Field(
+    invocation_metrics: InvocationMetrics | None = Field(
         alias="amazon-bedrock-invocationMetrics"
     )
 

@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Generic, List, Protocol, Self, TypeVar
+from typing import Generic, Protocol, Self, TypeVar
 
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -62,13 +62,13 @@ class RegionInferenceDeployment(Enum):
         return f"{region.value}.{self.value}"
 
     @property
-    def variants(self) -> List[str]:
+    def variants(self) -> list[str]:
         return [self.value] + [
             self._get_region_variant(region) for region in InferenceRegion
         ]
 
     @classmethod
-    def deployments(cls) -> List[str]:
+    def deployments(cls) -> list[str]:
         """
         Return a list of all regional and non-regional deployments:
         [deployment1, us.deployment1, eu.deployment1, apac.deployment1, deployment2, ...]

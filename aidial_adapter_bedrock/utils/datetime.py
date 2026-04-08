@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-_default_tz = timezone.utc
+_default_tz = UTC
 
 
 def now_utc() -> datetime:

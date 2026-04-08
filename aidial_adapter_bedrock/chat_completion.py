@@ -1,4 +1,4 @@
-from typing import List, assert_never
+from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
@@ -97,7 +97,7 @@ class BedrockChatCompletion(ChatCompletion):
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
         model = await self._get_model(request)
 
-        outputs: List[TokenizeOutput] = []
+        outputs: list[TokenizeOutput] = []
         for input in request.inputs:
             match input:
                 case TokenizeInputRequest():
@@ -148,7 +148,7 @@ class BedrockChatCompletion(ChatCompletion):
     ) -> TruncatePromptResponse:
         model = await self._get_model(request)
 
-        outputs: List[TruncatePromptResult] = []
+        outputs: list[TruncatePromptResult] = []
         for input in request.inputs:
             outputs.append(await self._truncate_prompt_request(model, input))
         return TruncatePromptResponse(outputs=outputs)

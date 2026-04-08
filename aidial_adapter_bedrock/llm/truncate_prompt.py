@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable, List, Optional, Set, Tuple, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
-from aidial_sdk.exceptions import ContextLengthExceededError
-from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import (
+    ContextLengthExceededError,
     InvalidRequestError,
     TruncatePromptSystemAndLastUserError,
 )
+from aidial_sdk.exceptions import HTTPException as DialException
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.list import omit_by_indices, select_by_indices
@@ -50,11 +51,11 @@ class UserLimitOverflow(TruncatePromptError):
         )
 
 
-def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
+def _partition_indexer(chunks: list[int]) -> Callable[[int], list[int]]:
     """
     Returns a function that maps an index to indices of its partition.
     """
-    mapping: dict[int, List[int]] = {}
+    mapping: dict[int, list[int]] = {}
     offset = 0
     for size in chunks:
         chunk = list(range(offset, offset + size))
@@ -66,17 +67,17 @@ def _partition_indexer(chunks: List[int]) -> Callable[[int], List[int]]:
 
 
 _T = TypeVar("_T")
-DiscardedMessages = List[int]
+DiscardedMessages = list[int]
 
 
 async def truncate_prompt(
-    messages: List[_T],
-    tokenizer: Callable[[List[_T]], Awaitable[int]],
-    keep_message: Callable[[List[_T], int], bool],
-    partitioner: Callable[[List[_T]], List[int]],
-    model_limit: Optional[int],
-    user_limit: Optional[int],
-) -> Tuple[DiscardedMessages, List[_T]]:
+    messages: list[_T],
+    tokenizer: Callable[[list[_T]], Awaitable[int]],
+    keep_message: Callable[[list[_T], int], bool],
+    partitioner: Callable[[list[_T]], list[int]],
+    model_limit: int | None,
+    user_limit: int | None,
+) -> tuple[DiscardedMessages, list[_T]]:
     """
     Returns a list of indices of discarded messages and a list of preserved messages
     """
@@ -97,12 +98,12 @@ async def truncate_prompt(
 
 
 async def compute_discarded_messages(
-    messages: List[_T],
-    tokenizer: Callable[[List[_T]], Awaitable[int]],
-    keep_message: Callable[[List[_T], int], bool],
-    partitioner: Callable[[List[_T]], List[int]],
-    model_limit: Optional[int],
-    user_limit: Optional[int],
+    messages: list[_T],
+    tokenizer: Callable[[list[_T]], Awaitable[int]],
+    keep_message: Callable[[list[_T], int], bool],
+    partitioner: Callable[[list[_T]], list[int]],
+    model_limit: int | None,
+    user_limit: int | None,
 ) -> DiscardedMessages | TruncatePromptError:
     if (
         user_limit is not None
@@ -131,13 +132,13 @@ async def compute_discarded_messages(
             "Partition sizes must add up to the number of messages."
         )
 
-    async def _tokenize_selected(indices: Set[int]) -> int:
+    async def _tokenize_selected(indices: set[int]) -> int:
         return await tokenizer(select_by_indices(messages, indices))
 
     get_partition_indices = _partition_indexer(partition_sizes)
 
     n = len(messages)
-    kept_indices: Set[int] = {
+    kept_indices: set[int] = {
         j
         for i in range(n)
         for j in get_partition_indices(i)
@@ -162,4 +163,4 @@ async def compute_discarded_messages(
         kept_indices.update(chunk_indices)
 
     all_indices = set(range(n))
-    return sorted(list(all_indices - kept_indices))
+    return sorted(all_indices - kept_indices)
