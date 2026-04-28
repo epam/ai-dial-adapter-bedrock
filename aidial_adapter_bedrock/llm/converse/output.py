@@ -59,7 +59,7 @@ async def process_streaming(
         if (metadata := event.get("metadata")) and (
             usage := metadata.get("usage")
         ):
-            consumer.add_usage(to_dial_usage(usage))
+            await consumer.add_usage(to_dial_usage(usage))
 
         if (content_block_start := event.get("contentBlockStart")) and (
             tool_use := content_block_start.get("start", {}).get("toolUse")
@@ -72,7 +72,7 @@ async def process_streaming(
             delta := content_block.get("delta")
         ):
             if message := delta.get("text"):
-                consumer.append_content(message)
+                await consumer.append_content(message)
 
             if tool_use := delta.get("toolUse"):
                 if current_tool_use is None:
@@ -91,7 +91,7 @@ async def process_streaming(
             if current_tool_use:
                 match params.tools_mode:
                     case ToolsMode.TOOLS:
-                        consumer.create_function_tool_call(
+                        await consumer.create_function_tool_call(
                             call=DialToolCall(
                                 type="function",
                                 id=current_tool_use["toolUseId"],
@@ -104,7 +104,7 @@ async def process_streaming(
                     case ToolsMode.FUNCTIONS:
                         # ignoring multiple function calls in one response
                         if not consumer.has_function_call:
-                            consumer.create_function_call(
+                            await consumer.create_function_call(
                                 call=DialFunctionCall(
                                     name=current_tool_use["name"],
                                     arguments=current_tool_use["input"],
@@ -121,12 +121,12 @@ async def process_streaming(
         elif (message_stop := event.get("messageStop")) and (
             stop_reason := message_stop.get("stopReason")
         ):
-            consumer.close_content(to_dial_finish_reason(stop_reason))
+            await consumer.close_content(to_dial_finish_reason(stop_reason))
 
     thinking_stage.close()
 
 
-def process_non_streaming(
+async def process_non_streaming(
     params: ModelParameters,
     response: dict[str, Any],
     consumer: Consumer,
@@ -139,7 +139,7 @@ def process_non_streaming(
     message = response["output"]["message"]
     for content_block in message.get("content") or []:
         if text := content_block.get("text"):
-            consumer.append_content(text)
+            await consumer.append_content(text)
 
         # NOTE: > reasoningContent.readactedContent and reasoningContent.reasoningText.signature
         # are ignored since they are only relevant for Claude 3.7
@@ -153,7 +153,7 @@ def process_non_streaming(
         if tool_use := content_block.get("toolUse"):
             match params.tools_mode:
                 case ToolsMode.TOOLS:
-                    consumer.create_function_tool_call(
+                    await consumer.create_function_tool_call(
                         call=DialToolCall(
                             type="function",
                             id=tool_use["toolUseId"],
@@ -166,7 +166,7 @@ def process_non_streaming(
                 case ToolsMode.FUNCTIONS:
                     # ignoring multiple function calls in one response
                     if not consumer.has_function_call:
-                        consumer.create_function_call(
+                        await consumer.create_function_call(
                             call=DialFunctionCall(
                                 name=tool_use["name"],
                                 arguments=json.dumps(tool_use["input"]),
@@ -180,7 +180,7 @@ def process_non_streaming(
     thinking_stage.close()
 
     if usage := response.get("usage"):
-        consumer.add_usage(to_dial_usage(usage))
+        await consumer.add_usage(to_dial_usage(usage))
 
     if stop_reason := response.get("stopReason"):
-        consumer.close_content(to_dial_finish_reason(stop_reason))
+        await consumer.close_content(to_dial_finish_reason(stop_reason))

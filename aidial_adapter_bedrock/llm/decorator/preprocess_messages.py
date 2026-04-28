@@ -34,12 +34,12 @@ class PreprocessMessagesDecorator(ChatCompletionDecorator):
         new_messages = self.on_messages(messages)
         await self.adapter.chat(consumer, params, new_messages.raw_list)
         if (
-            discarded_messages := consumer.get_discarded_messages()
+            discarded_messages := await consumer.get_discarded_messages()
         ) is not None:
             discarded_messages = list(
                 new_messages.to_original_indices(discarded_messages)
             )
-            consumer.set_discarded_messages(discarded_messages)
+            await consumer.set_discarded_messages(discarded_messages)
 
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: list[Message]
