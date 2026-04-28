@@ -153,12 +153,14 @@ def _get_status_code(response: dict) -> int:
     )
 
 
-def _get_end_of_life_error(response: dict) -> DialException | None:
+def _get_end_of_life_error(
+    response: dict, status_code: int
+) -> DialException | None:
     eol_message = "This model version has reached the end of its life"
     if (
-        (message := response.get("message"))
+        status_code == 404
+        and (message := response.get("message"))
         and eol_message in message
-        and _get_status_code(response) == 404
     ):
         return DeploymentNotFoundError(
             message=message, display_message=eol_message, type=None
@@ -188,15 +190,18 @@ def to_dial_exception(e: Exception) -> DialException:
         if error := _get_content_filter_error(response):
             return error
 
-        if error := _get_end_of_life_error(response):
+        status_code = _get_status_code(response)
+        if error := _get_end_of_life_error(response, status_code):
             return error
 
-        status_code = _get_status_code(response)
         return _create_error(status_code, str(e))
 
     if isinstance(e, APIStatusError):
+        if error := _get_end_of_life_error(e.response.json(), e.status_code):
+            return error
+
         message = _get_anthropic_error_message(e)
-        # We want to save Retry-After header if it presents:
+        # We want to save Retry-After header if it's present:
         # https://platform.claude.com/docs/en/api/rate-limits#tier-1
 
         headers = _copy_headers(e, ["Retry-After"])
