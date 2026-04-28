@@ -181,12 +181,13 @@ def is_ai21(deployment: D) -> bool:
 
 def supports_tools(deployment: D) -> bool:
     return is_claude(deployment) or deployment in [
-        D.META_LLAMA3_1_70B_INSTRUCT_V1,
-        D.META_LLAMA3_1_405B_INSTRUCT_V1,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
-        D.META_LLAMA3_3_70B_INSTRUCT_V1,
-        D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
-        D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
+        # Llama models are supposed to support tools, but they are highly unstable
+        # D.META_LLAMA3_1_70B_INSTRUCT_V1,
+        # D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        # D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        # D.META_LLAMA3_3_70B_INSTRUCT_V1,
+        # D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
+        # D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
         # D.AMAZON_NOVA_MICRO,
         D.AMAZON_NOVA_PRO,
