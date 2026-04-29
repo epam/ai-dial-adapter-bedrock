@@ -45,6 +45,6 @@ resolutions:
     - message: ".*PyPI::opentelemetry.*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "ORT cannot pickup license"
-    - message: ".*PyPI::pillow.*"
+    - message: ".*PyPI::(pillow|aidial-sdk|aidial-adapter-anthropic).*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "ORT cannot pickup license"

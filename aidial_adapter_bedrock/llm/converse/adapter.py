@@ -199,7 +199,7 @@ class ConverseAdapter(ChatCompletionAdapter):
         if not converse_params.messages.raw_list:
             raise ValidationError("No messages left after truncation")
 
-        consumer.set_discarded_messages(discarded_messages)
+        await consumer.set_discarded_messages(discarded_messages)
 
         request = converse_params.to_request()
 
@@ -220,7 +220,7 @@ class ConverseAdapter(ChatCompletionAdapter):
                 consumer=consumer,
             )
         else:
-            process_non_streaming(
+            await process_non_streaming(
                 params=params,
                 response=await self.bedrock.aconverse_non_streaming(
                     self.deployment, **request
