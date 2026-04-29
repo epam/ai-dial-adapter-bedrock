@@ -81,7 +81,7 @@ class BedrockChatCompletion(ChatCompletion):
         model = await self._get_model(request)
         params = ModelParameters.create(request)
 
-        with ChoiceConsumer(response) as consumer:
+        async with ChoiceConsumer(response) as consumer:
             try:
                 await model.chat(consumer, params, request.messages)
             except UserError as e:
@@ -89,7 +89,7 @@ class BedrockChatCompletion(ChatCompletion):
                 await response.aflush()
                 raise e
 
-        log.debug(f"usage: {consumer.usage}")
+        log.debug(f"usage: {consumer._response_state.usage}")
 
     @override
     @dial_exception_decorator

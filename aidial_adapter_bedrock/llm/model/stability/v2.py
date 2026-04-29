@@ -258,15 +258,15 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         stability_response = StabilityV2Response.model_validate(response)
         stability_response.throw_if_error()
 
-        consumer.append_content(stability_response.content())
-        consumer.close_content()
+        await consumer.append_content(stability_response.content())
+        await consumer.close_content()
 
-        consumer.add_usage(stability_response.usage())
+        await consumer.add_usage(stability_response.usage())
 
         for attachment in stability_response.attachments():
             if self.storage:
                 attachment = await save_to_storage(self.storage, attachment)
-            consumer.add_attachment(attachment)
+            await consumer.add_attachment(attachment)
 
     async def count_prompt_tokens(
         self, params: ModelParameters, messages: list[Message]
