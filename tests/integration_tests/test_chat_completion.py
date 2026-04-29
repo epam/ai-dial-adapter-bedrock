@@ -88,7 +88,24 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
     # Retired models: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html#versions-for-eol
-    return deployment in {D.STABILITY_STABLE_IMAGE_ULTRA_V1}
+    return deployment in {
+        D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET,
+        D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+    }
+
+
+def is_legacy_model(deployment: D) -> bool:
+    # Legacy but not yet completely retired models
+    # return 404 when are being unused for 30 days.
+    return deployment in {
+        D.COHERE_COMMAND_R_PLUS_V1,
+        D.COHERE_COMMAND_R_V1,
+        D.META_LLAMA3_2_3B_INSTRUCT_V1,
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA3_1_405B_INSTRUCT_V1,
+    }
 
 
 def is_claude(deployment: D) -> bool:
@@ -131,8 +148,11 @@ def select(p: Selector[D], xs: list[Deployment]) -> list[Deployment]:
 
 
 all_deployments = list(_DEPLOYMENT_TO_REGION.keys())
-deployments = select(~pred(is_retired_model), all_deployments)
+deployments = select(
+    ~pred(is_retired_model) & ~pred(is_legacy_model), all_deployments
+)
 retired_deployments = select(pred(is_retired_model), all_deployments)
+legacy_deployments = select(pred(is_legacy_model), all_deployments)
 vision_deployments = select(pred(is_vision_model), deployments)
 vision_deployments_not_llama3_2_90b = select(
     lambda d: d.origin != D.META_LLAMA3_2_90B_INSTRUCT_V1, vision_deployments
@@ -161,12 +181,13 @@ def is_ai21(deployment: D) -> bool:
 
 def supports_tools(deployment: D) -> bool:
     return is_claude(deployment) or deployment in [
-        D.META_LLAMA3_1_70B_INSTRUCT_V1,
-        D.META_LLAMA3_1_405B_INSTRUCT_V1,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
-        D.META_LLAMA3_3_70B_INSTRUCT_V1,
-        D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
-        D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
+        # Llama models are supposed to support tools, but they are highly unstable
+        # D.META_LLAMA3_1_70B_INSTRUCT_V1,
+        # D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        # D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        # D.META_LLAMA3_3_70B_INSTRUCT_V1,
+        # D.META_LLAMA4_MAVERICK_17B_INSTRUCT_V1,
+        # D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
         # Technically, Nova Micro supports tools, but it's unstable
         # D.AMAZON_NOVA_MICRO,
         D.AMAZON_NOVA_PRO,
@@ -341,6 +362,18 @@ async def test_retired_models(chat: Chat):
         status_code=404,
         message="This model version has reached the end of its life. Please refer to the AWS documentation for more details.",
         display_message="This model version has reached the end of its life",
+    ):
+        await chat(messages=[user("test")], max_tokens=1)
+
+
+@pytest.mark.parametrize(
+    "deployment", legacy_deployments, ids=display_deployment
+)
+async def test_legacy_models(chat: Chat):
+    async with expected_exception(
+        cls=openai.NotFoundError,
+        status_code=404,
+        message="This Model is marked by provider as Legacy and you have not been actively using the model in the last 30 days. Please upgrade to an active model on Amazon Bedrock",
     ):
         await chat(messages=[user("test")], max_tokens=1)
 

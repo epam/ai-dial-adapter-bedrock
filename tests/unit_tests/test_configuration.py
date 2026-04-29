@@ -10,7 +10,6 @@ deployments_supporting_optimized_latency: dict[
     ChatCompletionDeployment, list[str]
 ] = {
     ChatCompletionDeployment.AMAZON_NOVA_PRO: ["us-east-1", "us-east-2"],
-    ChatCompletionDeployment.META_LLAMA3_1_405B_INSTRUCT_V1: ["us-east-2"],
     ChatCompletionDeployment.META_LLAMA3_1_70B_INSTRUCT_V1: [
         "us-east-2",
         "us-west-2",
