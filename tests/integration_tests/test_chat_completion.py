@@ -36,9 +36,10 @@ from tests.utils.openai import (
     user,
     user_with_attachment_data,
     user_with_attachment_url,
+    user_with_file_content_part,
     user_with_image_url,
 )
-from tests.utils.selector import Selector, pred
+from tests.utils.selector import Pred, Selector, pred
 from tests.utils.tools import ToolCallTest
 
 Deployment = RegionDeployment[D]
@@ -92,6 +93,7 @@ def is_retired_model(deployment: D) -> bool:
         D.STABILITY_STABLE_IMAGE_ULTRA_V1,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
+        D.ANTHROPIC_CLAUDE_V3_7_SONNET,
     }
 
 
@@ -144,7 +146,9 @@ def is_vision_model(deployment: D) -> bool:
 
 
 def select(p: Selector[D], xs: list[Deployment]) -> list[Deployment]:
-    return [x for x in xs if p(x.origin)]
+    ret = [x for x in xs if p(x.origin)]
+    assert ret, "The selected list of deployments is empty"
+    return ret
 
 
 all_deployments = list(_DEPLOYMENT_TO_REGION.keys())
@@ -236,6 +240,13 @@ def supports_document_understanding(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
     ]
+
+
+def supports_multi_modal_function_responses(deployment: D) -> bool:
+    return (
+        "claude" in deployment.value
+        and deployment != D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+    )
 
 
 def supports_json_object_response_format(deployment: D) -> bool:
@@ -991,99 +1002,151 @@ async def test_tool_call_with_vacuous_description(
     assert response.tool_calls[0].function.name == "get_current_time"
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_document_understanding), deployments),
-    ids=display_deployment,
-)
-async def test_pdf_document(deployment: D, optimized_latency: bool, chat: Chat):
-    async def _run():
-        query = (
-            "From which novel does the first page of the attached document quote? "
+class TestDocumentUnderstanding:
+    @pytest.fixture
+    def query(self) -> str:
+        return (
+            "Which novel the first page of the attached document quotes from? "
             "Which animal is depicted on the second page?"
         )
 
-        return await chat(
-            messages=[
-                user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE),
-            ],
+    @staticmethod
+    async def _check_response(
+        *,
+        response: Awaitable[ChatCompletionResult],
+        deployment: D,
+        optimized_latency: bool,
+    ):
+        if (
+            not optimized_latency
+            and deployment.origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+        ):
+            # For some reason Claude 3.5 Haiku via Bedrock API doesn't support PDF,
+            # but via Converse API - it does.
+            async with expected_exception(
+                cls=openai.BadRequestError,
+                status_code=400,
+                message="'claude-3-5-haiku-20241022' does not support PDF input.",
+            ):
+                await response
+        else:
+            content = (await response).content.lower()
+
+            if optimized_latency:
+                # ConverseAPI isn't able to parse images unless citations are enabled
+                # which is currently not enabled automatically.
+                words = ["christmas", "carol"]
+            else:
+                words = ["christmas", "carol", "cat"]
+
+            for w in words:
+                assert w in content
+
+    @staticmethod
+    def _deployments(predicate: Pred[D]):
+        return pytest.mark.parametrize(
+            "deployment", select(predicate, deployments), ids=display_deployment
         )
 
-    if (
-        not optimized_latency
-        and deployment.origin == D.ANTHROPIC_CLAUDE_V3_5_HAIKU
+    @_deployments(pred(supports_document_understanding))
+    async def test_document_in_attachments(
+        self, chat: Chat, query: str, optimized_latency: bool, deployment: D
     ):
-        # For some reason Claude 3.5 Haiku via Bedrock API doesn't support PDF,
-        # but via Converse API - it does.
-        async with expected_exception(
-            cls=openai.BadRequestError,
-            status_code=400,
-            message="'claude-3-5-haiku-20241022' does not support PDF input.",
-        ):
-            await _run()
-    else:
-        content = (await _run()).content.lower()
+        response = chat(
+            messages=[user_with_attachment_url(query, PDF_DOCUMENT_RESOURCE)]
+        )
+        await self._check_response(
+            response=response,
+            optimized_latency=optimized_latency,
+            deployment=deployment,
+        )
+
+    @_deployments(pred(supports_document_understanding))
+    async def test_document_in_content_part(
+        self, chat: Chat, query: str, optimized_latency: bool, deployment: D
+    ):
+        response = chat(
+            messages=[
+                user_with_file_content_part(
+                    query, "document.pdf", PDF_DOCUMENT_RESOURCE
+                )
+            ]
+        )
+        await self._check_response(
+            response=response,
+            optimized_latency=optimized_latency,
+            deployment=deployment,
+        )
+
+    @_deployments(
+        pred(supports_document_understanding)
+        & pred(supports_multi_modal_function_responses)
+    )
+    async def test_document_in_tool_result(
+        self, chat: Chat, query: str, optimized_latency: bool, deployment: D
+    ):
+        response = chat(
+            messages=[
+                user(query),
+                ai_tools(
+                    [tool_request(id="call-id", name="get_document", args={})]
+                ),
+                tool_response(
+                    id="call-id",
+                    content="here is the document",
+                    resources=[PDF_DOCUMENT_RESOURCE],
+                ),
+            ],
+            tools=[
+                function_to_tool({"name": "get_document", "parameters": {}})
+            ],
+        )
+        await self._check_response(
+            response=response,
+            optimized_latency=optimized_latency,
+            deployment=deployment,
+        )
+
+    @_deployments(pred(supports_document_understanding))
+    @pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
+    async def test_excel_document(self, optimized_latency: bool, chat: Chat):
+        async def _run():
+            return await chat(
+                messages=[
+                    user_with_attachment_url(
+                        "how many cells there are in the given spreadsheet excluding headers?",
+                        EXCEL_DOCUMENT_RESOURCE,
+                    ),
+                ],
+            )
 
         if optimized_latency:
-            # ConverseAPI isn't able to parse images unless citations are enabled
-            # which is currently not enabled automatically.
-            words = ["christmas", "carol"]
+            # Converse API supports Excel documents, whereas Anthropic API - doesn't
+            response = await _run()
+            assert "6" in response.content.lower()
         else:
-            words = ["christmas", "carol", "cat"]
+            error_message = "Unsupported media type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            async with expected_exception(
+                cls=openai.UnprocessableEntityError,
+                status_code=422,
+                message=error_message,
+                display_message=error_message,
+            ):
+                await _run()
 
-        for w in words:
-            assert w in content
-
-
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_document_understanding), deployments),
-    ids=display_deployment,
-)
-@pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
-async def test_excel_document(optimized_latency: bool, chat: Chat):
-    async def _run():
-        return await chat(
+    @_deployments(pred(supports_document_understanding))
+    @pytest.mark.parametrize("stream", [False], ids=["block"])
+    async def test_markdown_document(self, chat: Chat):
+        response = await chat(
             messages=[
                 user_with_attachment_url(
-                    "how many cells there are in the given spreadsheet excluding headers?",
-                    EXCEL_DOCUMENT_RESOURCE,
+                    "what does the Markdown document say?",
+                    MARKDOWN_DOCUMENT_RESOURCE,
                 ),
             ],
         )
 
-    if optimized_latency:
-        # Converse API supports Excel documents, whereas Anthropic API - doesn't
-        response = await _run()
-        assert "6" in response.content.lower()
-    else:
-        error_message = "Unsupported media type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        async with expected_exception(
-            cls=openai.UnprocessableEntityError,
-            status_code=422,
-            message=error_message,
-            display_message=error_message,
-        ):
-            await _run()
-
-
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_document_understanding), deployments),
-    ids=display_deployment,
-)
-@pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
-async def test_markdown_document(chat: Chat):
-    response = await chat(
-        messages=[
-            user_with_attachment_url(
-                "what does the Markdown document say?",
-                MARKDOWN_DOCUMENT_RESOURCE,
-            ),
-        ],
-    )
-
-    assert "hello" in response.content.lower()
+        assert "hello" in response.content.lower()
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)

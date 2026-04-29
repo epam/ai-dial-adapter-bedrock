@@ -122,6 +122,24 @@ def user_with_attachment_url(
     }
 
 
+def user_with_file_content_part(
+    content: str, name: str, resource: Resource
+) -> ChatCompletionUserMessageParam:
+    return {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": content},
+            {
+                "type": "file",
+                "file": {
+                    "filename": name,
+                    "file_data": resource.to_data_url(),
+                },
+            },
+        ],
+    }
+
+
 def user_with_image_url(
     content: str | None, image: Resource
 ) -> ChatCompletionUserMessageParam:
@@ -158,8 +176,21 @@ def function_response(
     return {"role": "function", "name": name, "content": content}
 
 
-def tool_response(id: str, content: str) -> ChatCompletionToolMessageParam:
-    return {"role": "tool", "tool_call_id": id, "content": content}
+def tool_response(
+    id: str, content: str, resources: list[Resource] | None = None
+) -> ChatCompletionToolMessageParam:
+    ret: ChatCompletionToolMessageParam = {
+        "role": "tool",
+        "tool_call_id": id,
+        "content": content,
+    }
+    if resources:
+        ret["custom_content"] = {  # type: ignore
+            "attachments": [
+                {"type": r.type, "url": r.to_data_url()} for r in resources
+            ]
+        }
+    return ret
 
 
 def function_to_tool(function: FunctionDefinition) -> ChatCompletionToolParam:
@@ -204,7 +235,13 @@ class ChatCompletionResult(BaseModel):
 
     @property
     def tool_calls(self) -> list[ChatCompletionMessageToolCall] | None:
-        return self.message.tool_calls
+        if (calls := self.message.tool_calls) is None:
+            return None
+        return [
+            call
+            for call in calls
+            if isinstance(call, ChatCompletionMessageToolCall)
+        ]
 
     def content_contains_all(self, matches: list[Any]) -> bool:
         return all(
