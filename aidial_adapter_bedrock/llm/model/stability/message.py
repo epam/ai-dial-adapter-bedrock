@@ -8,6 +8,8 @@ from aidial_adapter_anthropic.dial.resource import (
 )
 from aidial_sdk.chat_completion import (
     Message,
+    MessageContentAudioPart,
+    MessageContentFilePart,
     MessageContentImagePart,
     MessageContentTextPart,
     Role,
@@ -40,9 +42,17 @@ def parse_message(
                                 url=url, supported_types=supported_types
                             )
                         )
+                    case MessageContentFilePart():
+                        raise ValidationError(
+                            "File content parts aren't supported"
+                        )
+                    case MessageContentAudioPart():
+                        raise ValidationError(
+                            "Audio content parts aren't supported"
+                        )
                     case MessageContentRefusalPart():
                         raise ValidationError(
-                            "Refusal messages aren't supported"
+                            "Refusal content parts aren't supported"
                         )
                     case _:
                         assert_never(part)

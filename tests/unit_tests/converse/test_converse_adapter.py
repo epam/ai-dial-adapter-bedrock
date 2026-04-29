@@ -312,7 +312,7 @@ TEST_CASES = [
         ],
         expected_error=ExpectedException(
             type=ValidationError,
-            message="A system message can only follow system or developer message",
+            message="System message can only follow system or developer message",
         ),
     ),
     TestCase(
@@ -495,7 +495,7 @@ TEST_CASES = [
         ],
         expected_error=ExpectedException(
             type=ValidationError,
-            message="System messages cannot contain images",
+            message="System message cannot contain image content parts",
         ),
     ),
     TestCase(
