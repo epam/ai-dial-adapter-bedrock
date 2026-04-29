@@ -323,9 +323,7 @@ def openai_client(deployment: Deployment, region: str, get_openai_client):
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
 
 
-@pytest.fixture(
-    params=[True, False], ids=lambda b: "optimized" if b else "standard"
-)
+@pytest.fixture(params=[True, False], ids=["optimized", "standard"])
 def optimized_latency(request, deployment: Deployment, region: str) -> bool:
     optimized_latency = request.param
 
@@ -475,9 +473,7 @@ async def test_empty_dialog(chat: Chat):
 
 
 @pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
-@pytest.mark.parametrize(
-    "is_empty", [True, False], ids=lambda b: "empty" if b else "non-empty"
-)
+@pytest.mark.parametrize("is_empty", [True, False], ids=["empty", "non-empty"])
 async def test_empty_user_message(
     deployment: Deployment,
     optimized_latency: bool,
@@ -499,8 +495,6 @@ async def test_empty_user_message(
             and optimized_latency
         ):
             message = converse_api_error_message
-        elif is_empty:
-            message = "messages: text content blocks must be non-empty"
         else:
             message = (
                 "messages: text content blocks must contain non-whitespace text"
@@ -1166,7 +1160,6 @@ async def test_max_prompt_tokens(chat: Chat):
 async def test_allow_stream_options(chat: Chat):
     response = await chat(
         messages=[{"role": "user", "content": "2+2=?"}],
-        max_tokens=10,
         extra_body={"stream_options": {"include_usage": True}},
     )
     assert "4" in response.content

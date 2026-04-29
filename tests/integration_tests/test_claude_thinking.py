@@ -21,7 +21,6 @@ from tests.utils.openai import (
 _EAST = "us-east-1"
 
 chat_deployments: Mapping[Deployment, str] = {
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_OPUS.US: _EAST,
@@ -30,10 +29,6 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST,
 }
-
-
-def supports_parallel_tool_calls(deployment: ChatCompletionDeployment):
-    return deployment != ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET
 
 
 _CONFIGURATION = {
@@ -89,7 +84,7 @@ async def test_claude_thinking_no_function_calling(
     state1 = MessageState.model_validate(state_dict1)
     assert len(state1.claude_message_content) == 2
 
-    messages.append(bot_message1.model_dump())  # type: ignore
+    messages.append(bot_message1.model_dump(exclude_none=True))  # type: ignore
     messages.append(user("5+5=?"))
 
     response2 = await chat_completion(
@@ -121,9 +116,6 @@ async def test_claude_thinking_with_function_calling(
 
     cities = ["Glasgow", "London"]
     temps = [10, 23]
-    if not supports_parallel_tool_calls(test_case.deployment.origin):
-        cities = cities[:1]
-        temps = temps[:1]
 
     messages: list[ChatCompletionMessageParam] = [
         user(
@@ -144,7 +136,7 @@ async def test_claude_thinking_with_function_calling(
     state1 = MessageState.model_validate(state_dict1)
     assert len(state1.claude_message_content) > 0
 
-    messages.append(bot_message1.model_dump())  # type: ignore
+    messages.append(bot_message1.model_dump(exclude_none=True))  # type: ignore
 
     tool_calls = bot_message1.tool_calls
     assert tool_calls is not None, "No tool calls were made"
