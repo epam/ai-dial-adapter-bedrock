@@ -1,10 +1,18 @@
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.resource import Resource
 from aidial_adapter_anthropic.dial.tools import ToolsConfig, ToolsMode
+from aidial_sdk.chat_completion import (
+    InputAudio,
+    InputFile,
+    MessageContentAudioPart,
+    MessageContentFilePart,
+)
 from aidial_sdk.chat_completion.request import (
     Attachment,
     CacheBreakpoint,
@@ -132,10 +140,39 @@ class TestCase:
         )
 
 
-def _create_document_test_cases() -> list[TestCase]:
-    return [
-        TestCase(
-            name=f"attachment_document_{converse_type}",
+def _create_document_test_cases() -> Generator[TestCase, None, None]:
+    for mime_type, converse_type in DOCUMENT_MIME_TO_CONVERSE_TYPE.items():
+        document = Resource.from_base64(type=mime_type, data_base64="AA==")
+
+        expected_output = ConverseRequestWrapper(
+            messages=ListProjection(
+                lst=[
+                    (
+                        ConverseMessage(
+                            role=ConverseRole.USER,
+                            content=[
+                                ConverseTextPart(
+                                    text="tell me about this document"
+                                ),
+                                ConverseDocumentPart(
+                                    document=ConverseDocumentPartConfig(
+                                        name=UNDEFINED,
+                                        format=converse_type,
+                                        source=ConverseSource(
+                                            bytes=document.data
+                                        ),
+                                    )
+                                ),
+                            ],
+                        ),
+                        {0},
+                    )
+                ]
+            ),
+        )
+
+        yield TestCase(
+            name=f"document_in_attachment_{converse_type}",
             messages=[
                 Message(
                     role=Role.USER,
@@ -143,78 +180,115 @@ def _create_document_test_cases() -> list[TestCase]:
                     custom_content=CustomContent(
                         attachments=[
                             Attachment(
-                                type=mime_type,
-                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                                type=document.type, data=document.data_base64
                             )
                         ]
                     ),
                 )
             ],
-            expected_output=ConverseRequestWrapper(
-                messages=ListProjection(
-                    lst=[
-                        (
-                            ConverseMessage(
-                                role=ConverseRole.USER,
-                                content=[
-                                    ConverseTextPart(
-                                        text="tell me about this document"
-                                    ),
-                                    ConverseDocumentPart(
-                                        document=ConverseDocumentPartConfig(
-                                            name=UNDEFINED,
-                                            format=converse_type,
-                                            source=ConverseSource(
-                                                bytes=SAMPLE_DOCUMENT_RESOURCE.data
-                                            ),
-                                        )
-                                    ),
-                                ],
-                            ),
-                            {0},
-                        )
-                    ]
-                ),
-            ),
+            expected_output=expected_output,
         )
-        for mime_type, converse_type in DOCUMENT_MIME_TO_CONVERSE_TYPE.items()
-    ]
 
-
-def _create_unsupported_multi_modal_type_test_cases() -> list[TestCase]:
-    test_cases = []
-
-    # Fully unknown type
-
-    test_cases.append(
-        TestCase(
-            name="unsupported_multi_modal_type_unknown",
+        yield TestCase(
+            name=f"document_in_content_part_{converse_type}",
             messages=[
                 Message(
                     role=Role.USER,
-                    content="Describe this attachment",
-                    custom_content=CustomContent(
-                        attachments=[
-                            Attachment(
-                                type="some/unknown-type",
-                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
-                            )
-                        ]
-                    ),
+                    content=[
+                        MessageContentTextPart(
+                            type="text", text="tell me about this document"
+                        ),
+                        MessageContentFilePart(
+                            type="file",
+                            file=InputFile(file_data=document.to_data_url()),
+                        ),
+                    ],
                 )
             ],
-            expected_error=ExpectedException(
-                type=UserError,
-                message=(
-                    "Unsupported attachment type: some/unknown-type"
-                    "\nSupported image types: "
-                    + ", ".join([t.value for t in ConverseImageType.all()])
-                    + "\nSupported document types: "
-                    + ", ".join([t.value for t in ConverseDocumentType.all()])
-                ),
-            ),
+            expected_output=expected_output,
         )
+
+
+def _create_unsupported_multi_modal_type_test_cases() -> Generator[
+    TestCase, None, None
+]:
+    unsupported_document = Resource.from_base64(
+        type="some/unknown-type", data_base64="AA=="
     )
+
+    unsupported_type_error = (
+        "Unsupported attachment type: some/unknown-type"
+        "\nSupported image types: "
+        + ", ".join([t.value for t in ConverseImageType.all()])
+        + "\nSupported document types: "
+        + ", ".join([t.value for t in ConverseDocumentType.all()])
+    )
+
+    yield TestCase(
+        name="unsupported_file_in_attachment",
+        messages=[
+            Message(
+                role=Role.USER,
+                content="Describe this attachment",
+                custom_content=CustomContent(
+                    attachments=[
+                        Attachment(
+                            type=unsupported_document.type,
+                            data=unsupported_document.data_base64,
+                        )
+                    ]
+                ),
+            )
+        ],
+        expected_error=ExpectedException(
+            type=UserError, message=unsupported_type_error
+        ),
+    )
+
+    yield TestCase(
+        name="unsupported_file_in_file_content_part",
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="Describe this attachment"
+                    ),
+                    MessageContentFilePart(
+                        type="file",
+                        file=InputFile(
+                            file_data=unsupported_document.to_data_url()
+                        ),
+                    ),
+                ],
+            )
+        ],
+        expected_error=ExpectedException(
+            type=UserError, message=unsupported_type_error
+        ),
+    )
+
+    yield TestCase(
+        name="unsupported_file_in_audio_content_part",
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    MessageContentTextPart(
+                        type="text", text="Describe this attachment"
+                    ),
+                    MessageContentAudioPart(
+                        type="input_audio",
+                        input_audio=InputAudio(data="AA==", format="mp3"),
+                    ),
+                ],
+            )
+        ],
+        expected_error=ExpectedException(
+            type=ValidationError, message="Audio content parts aren't supported"
+        ),
+    )
+
     for converse_type in ConverseImageType.all() + ConverseDocumentType.all():
         supported_image_types = [
             t for t in ConverseImageType.all() if t != converse_type
@@ -236,32 +310,28 @@ def _create_unsupported_multi_modal_type_test_cases() -> list[TestCase]:
             + ", ".join([t.value for t in supported_document_types])
         )
 
-        test_cases.append(
-            TestCase(
-                name=f"unsupported_multi_modal_type_{converse_type.value}",
-                supported_image_types=supported_image_types,
-                supported_document_types=supported_document_types,
-                messages=[
-                    Message(
-                        role=Role.USER,
-                        content="Describe this attachment",
-                        custom_content=CustomContent(
-                            attachments=[
-                                Attachment(
-                                    type=mime_type,
-                                    data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
-                                )
-                            ]
-                        ),
-                    )
-                ],
-                expected_error=ExpectedException(
-                    type=UserError,
-                    message=error_message,
-                ),
-            )
+        yield TestCase(
+            name=f"unsupported_multi_modal_type_{converse_type.value}",
+            supported_image_types=supported_image_types,
+            supported_document_types=supported_document_types,
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Describe this attachment",
+                    custom_content=CustomContent(
+                        attachments=[
+                            Attachment(
+                                type=mime_type,
+                                data=SAMPLE_DOCUMENT_RESOURCE.data_base64,
+                            )
+                        ]
+                    ),
+                )
+            ],
+            expected_error=ExpectedException(
+                type=UserError, message=error_message
+            ),
         )
-    return test_cases
 
 
 TEST_CASES = [
@@ -312,7 +382,7 @@ TEST_CASES = [
         ],
         expected_error=ExpectedException(
             type=ValidationError,
-            message="A system message can only follow system or developer message",
+            message="System message can only follow system or developer message",
         ),
     ),
     TestCase(
@@ -495,7 +565,7 @@ TEST_CASES = [
         ],
         expected_error=ExpectedException(
             type=ValidationError,
-            message="System messages cannot contain images",
+            message="System message cannot contain image content parts",
         ),
     ),
     TestCase(
