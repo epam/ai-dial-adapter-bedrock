@@ -1,6 +1,7 @@
 import json
 import re
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import assert_never
 
@@ -8,16 +9,21 @@ from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.request import ToolsConfig, is_system_role
 from aidial_adapter_anthropic.dial.resource import (
     AttachmentResource,
+    DialResource,
     Resource,
     UnsupportedContentType,
     URLResource,
 )
-from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
-from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import (
+    Attachment,
+    InputFile,
+    MessageContentAudioPart,
+    MessageContentFilePart,
     MessageContentImagePart,
     MessageContentTextPart,
 )
+from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
+from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import Role as DialRole
 from aidial_sdk.chat_completion import Tool as DialTool
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
@@ -245,8 +251,8 @@ async def _get_converse_message_content(
         CONVERSE_DOCUMENT_TYPE_TO_MIME[t] for t in supported_document_types
     ]
 
-    def _unsupported_multi_modal_error(t: str) -> str:
-        message = f"Unsupported attachment type: {t}\n"
+    def _unsupported_multi_modal_error(content_type: str) -> str:
+        message = f"Unsupported attachment type: {content_type}\n"
         if not supported_image_types and not supported_document_types:
             return message + "Model does not support multi-modal"
 
@@ -266,7 +272,9 @@ async def _get_converse_message_content(
     elif message.role == DialRole.TOOL:
         return [tool_result_to_content_part(message)]
 
-    content = []
+    content: list[ConverseContentPart] = []
+    dial_resources: list[DialResource] = []
+
     match message.content:
         case str():
             if message.content:
@@ -278,20 +286,29 @@ async def _get_converse_message_content(
                         if part.text:
                             content.append({"text": part.text})
                     case MessageContentImagePart():
-                        try:
-                            resource = await URLResource(
+                        dial_resources.append(
+                            URLResource(
                                 url=part.image_url.url,
                                 supported_types=image_mime_types,
-                            ).download(storage)
-                            content.append(
-                                to_converse_multi_modal_part(resource)
                             )
-                        except UnsupportedContentType as e:
-                            msg = _unsupported_multi_modal_error(e.type)
-                            raise UserError(error_message=msg) from None
+                        )
+                    case MessageContentFilePart(file=file):
+                        attachment = _file_content_part_to_attachment(file)
+                        dial_resources.append(
+                            AttachmentResource(
+                                attachment=attachment,
+                                entity_name="file content part",
+                                supported_types=image_mime_types
+                                + document_mime_types,
+                            )
+                        )
+                    case MessageContentAudioPart():
+                        raise ValidationError(
+                            "Audio content parts aren't supported"
+                        )
                     case MessageContentRefusalPart():
                         raise ValidationError(
-                            "Refusal messages aren't supported"
+                            "Refusal content parts aren't supported"
                         )
                     case _:
                         assert_never(part)
@@ -301,23 +318,27 @@ async def _get_converse_message_content(
         case _:
             assert_never(message.content)
 
-    if message.custom_content and message.custom_content.attachments:
-        for attachment in message.custom_content.attachments:
-            try:
-                resource = await AttachmentResource(
+    if message.custom_content:
+        for attachment in message.custom_content.attachments or []:
+            dial_resources.append(
+                AttachmentResource(
                     attachment=attachment,
                     supported_types=image_mime_types + document_mime_types,
-                ).download(storage)
-                content.append(
-                    to_converse_multi_modal_part(
-                        resource,
-                        name=attachment.title,
-                    )
                 )
-            except UnsupportedContentType as e:
-                raise UserError(
-                    error_message=_unsupported_multi_modal_error(e.type),
-                ) from None
+            )
+
+    for dial_resource in dial_resources:
+        try:
+            resource = await dial_resource.download(storage)
+
+            name = None
+            if isinstance(dial_resource, AttachmentResource):
+                name = dial_resource.attachment.title
+
+            content.append(to_converse_multi_modal_part(resource, name=name))
+        except UnsupportedContentType as e:
+            msg = _unsupported_multi_modal_error(e.type)
+            raise UserError(error_message=msg) from None
 
     if message.function_call and message.tool_calls:
         raise ValidationError(
@@ -340,6 +361,24 @@ async def _get_converse_message_content(
         content.append(cache_point_part)
 
     return content
+
+
+def _file_content_part_to_attachment(file: InputFile) -> Attachment:
+    if (file_data := file.file_data) is None:
+        raise ValidationError("File content part must have file_data field")
+
+    resource = None
+    with suppress(Exception):
+        resource = Resource.from_data_url(file_data) or Resource.from_base64(
+            "application/pdf", file_data
+        )
+
+    if resource is None:
+        raise ValidationError(
+            f"Invalid file content part: file_data must be a valid data URL or base64 string: {file_data[:30]}..."
+        ) from None
+
+    return Attachment(data=resource.data_base64, type=resource.type)
 
 
 async def to_converse_message(
@@ -380,13 +419,14 @@ def extract_converse_system_prompt(
     system_messages: list[ConverseTextPart | ConverseCachePointPart] = []
     found_non_system = False
     system_messages_count = 0
-    non_system_messages = []
+    non_system_messages: list[DialMessage] = []
 
     for msg in messages:
+        role = msg.role.value.lower().capitalize()
         if is_system_role(msg.role):
             if found_non_system:
                 raise ValidationError(
-                    f"A {msg.role.value} message can only follow system or developer message"
+                    f"{role} message can only follow system or developer message"
                 )
             system_messages_count += 1
 
@@ -396,20 +436,32 @@ def extract_converse_system_prompt(
                 case list():
                     for part in msg.content:
                         match part:
-                            case MessageContentTextPart():
+                            case MessageContentTextPart(text=text):
                                 system_messages.append(
-                                    ConverseTextPart(text=part.text)
+                                    ConverseTextPart(text=text)
                                 )
                             case MessageContentImagePart():
                                 raise ValidationError(
                                     capitalize(
-                                        f"{msg.role.value} messages cannot contain images"
+                                        f"{role} message cannot contain image content parts"
+                                    )
+                                )
+                            case MessageContentFilePart():
+                                raise ValidationError(
+                                    capitalize(
+                                        f"{role} message cannot contain file content parts"
+                                    )
+                                )
+                            case MessageContentAudioPart():
+                                raise ValidationError(
+                                    capitalize(
+                                        f"{role} message cannot contain audio content parts"
                                     )
                                 )
                             case MessageContentRefusalPart():
                                 raise ValidationError(
                                     capitalize(
-                                        f"{msg.role.value} messages cannot contain refusals"
+                                        f"{role} message cannot contain refusal content parts"
                                     )
                                 )
                             case _:
