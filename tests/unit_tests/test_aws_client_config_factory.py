@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from unittest import mock
 
-import pytest
-
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     AWSAssumeRoleCredentials,
@@ -12,13 +10,6 @@ from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
     parse_upstream_config,
 )
-from aidial_adapter_bedrock.utils.env import get_aws_default_region
-
-
-@pytest.fixture(autouse=True)
-def mock_aws_region(monkeypatch):
-    get_aws_default_region.cache_clear()
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "test-region")
 
 
 @dataclass

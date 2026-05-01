@@ -5,6 +5,18 @@ import pytest
 from httpx import ASGITransport
 from openai import AsyncAzureOpenAI
 
+from aidial_adapter_bedrock.utils.env import get_aws_default_region
+
+
+@pytest.fixture(autouse=True)
+def configure_unit_tests(monkeypatch, request):
+    """
+    Set up fake environment variables for unit tests.
+    """
+    if "tests/unit_tests" in request.node.nodeid:
+        get_aws_default_region.cache_clear()
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "test-region")
+
 
 @pytest.fixture
 async def test_http_client():
