@@ -1,5 +1,6 @@
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from typing import Unpack
 
 import openai
@@ -279,22 +280,65 @@ def is_reasoning_model(deployment: D) -> bool:
     return is_deepseek(deployment)
 
 
-@pytest.fixture
-def deployment(request) -> Deployment:
-    return request.param
+@dataclass
+class DeploymentSpec:
+    region: str
+    deployment: Deployment
+    optimized_latency: bool
+
+    def get_id(self):
+        ret = f"{display_deployment(self.deployment)}"
+        if self.optimized_latency:
+            ret += "-optimized"
+        return ret
+
+
+def _deployment_spec(deployments: list[Deployment]):
+    def gen():
+        for deployment in deployments:
+            region = _DEPLOYMENT_TO_REGION.get(deployment)
+            if region is None:
+                raise ValueError(
+                    f"{deployment.value!r} is missing from the region mapping"
+                )
+
+            opt_latency_regions = (
+                deployments_supporting_optimized_latency.get(deployment.origin)
+                or []
+            )
+
+            latencies = [False]
+            if region in opt_latency_regions:
+                latencies.append(True)
+
+            for latency in latencies:
+                yield DeploymentSpec(
+                    region=region,
+                    deployment=deployment,
+                    optimized_latency=latency,
+                )
+
+    return pytest.mark.parametrize(
+        "deployment_spec", list(gen()), ids=lambda x: x.get_id()
+    )
 
 
 @pytest.fixture
-def region(deployment: Deployment) -> str:
-    region = _DEPLOYMENT_TO_REGION.get(deployment)
-    if region is None:
-        raise ValueError(
-            f"{deployment.value!r} is missing from the region mapping"
-        )
-    return region
+def deployment(deployment_spec: DeploymentSpec) -> Deployment:
+    return deployment_spec.deployment
 
 
-@pytest.fixture(params=[True, False], ids=lambda b: "stream" if b else "block")
+@pytest.fixture
+def region(deployment_spec: DeploymentSpec) -> str:
+    return deployment_spec.region
+
+
+@pytest.fixture
+def optimized_latency(deployment_spec: DeploymentSpec) -> bool:
+    return deployment_spec.optimized_latency
+
+
+@pytest.fixture(params=[True, False], ids=["stream", "block"])
 def stream(request) -> bool:
     return request.param
 
@@ -323,23 +367,6 @@ def openai_client(deployment: Deployment, region: str, get_openai_client):
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
 
 
-@pytest.fixture(params=[True, False], ids=["optimized", "standard"])
-def optimized_latency(request, deployment: Deployment, region: str) -> bool:
-    optimized_latency = request.param
-
-    opt_latency_regions = (
-        deployments_supporting_optimized_latency.get(deployment.origin) or []
-    )
-
-    supports_optimized_latency = region in opt_latency_regions
-    if not supports_optimized_latency and optimized_latency:
-        pytest.skip(
-            "The deployment and/or region doesn't support the optimized latency mode"
-        )
-
-    return optimized_latency
-
-
 @pytest.fixture
 def chat(
     optimized_latency: bool, openai_client: AsyncAzureOpenAI, stream: bool
@@ -362,9 +389,7 @@ def display_deployment(dep: Deployment):
     return sanitize_test_name(dep.value)
 
 
-@pytest.mark.parametrize(
-    "deployment", retired_deployments, ids=display_deployment
-)
+@_deployment_spec(retired_deployments)
 async def test_retired_models(chat: Chat):
     async with expected_exception(
         cls=openai.NotFoundError,
@@ -375,9 +400,7 @@ async def test_retired_models(chat: Chat):
         await chat(messages=[user("test")], max_tokens=1)
 
 
-@pytest.mark.parametrize(
-    "deployment", legacy_deployments, ids=display_deployment
-)
+@_deployment_spec(legacy_deployments)
 async def test_legacy_models(chat: Chat):
     async with expected_exception(
         cls=openai.NotFoundError,
@@ -387,7 +410,7 @@ async def test_legacy_models(chat: Chat):
         await chat(messages=[user("test")], max_tokens=1)
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_dialog_recall(deployment: Deployment, chat: Chat):
     response = await chat(
         messages=[
@@ -402,19 +425,19 @@ async def test_dialog_recall(deployment: Deployment, chat: Chat):
     assert "paris" in response.content.lower()
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_model_field(deployment: Deployment, chat: Chat):
     response = await chat(messages=[user("test")], max_tokens=1)
     assert deployment.value == response.response.model
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_2_plus_3(chat: Chat):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_text_content_parts_in_assistant_message(
     deployment: D, chat: Chat
 ):
@@ -434,13 +457,13 @@ async def test_text_content_parts_in_assistant_message(
     assert "33" in response.content
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_empty_system_message(chat: Chat):
     response = await chat(messages=[sys(""), user("compute (2+4)")])
     assert "6" in response.content
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_multiple_candidates(deployment: Deployment, chat: Chat):
     response = await chat(
         # It could take hundreds of tokens for a reasoning model
@@ -454,7 +477,7 @@ async def test_multiple_candidates(deployment: Deployment, chat: Chat):
         assert "9" in content
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_hello(chat: Chat):
     query = 'Reply with "Hello"'
     response = await chat(messages=[user(query)])
@@ -462,7 +485,7 @@ async def test_hello(chat: Chat):
     assert "hello" in content or "hi" in content
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_empty_dialog(chat: Chat):
     async with expected_exception(
         status_code=422,
@@ -472,7 +495,7 @@ async def test_empty_dialog(chat: Chat):
         await chat(max_tokens=1, messages=[])
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 @pytest.mark.parametrize("is_empty", [True, False], ids=["empty", "non-empty"])
 async def test_empty_user_message(
     deployment: Deployment,
@@ -526,9 +549,7 @@ async def test_empty_user_message(
         await _run()
 
 
-@pytest.mark.parametrize(
-    "deployment", vision_deployments, ids=display_deployment
-)
+@_deployment_spec(vision_deployments)
 async def test_vision_single_turn_with_text_part(
     deployment: D, chat: Chat, create_message_with_image
 ):
@@ -536,9 +557,7 @@ async def test_vision_single_turn_with_text_part(
     await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
 
 
-@pytest.mark.parametrize(
-    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
-)
+@_deployment_spec(vision_deployments_not_llama3_2_90b)
 async def test_vision_single_turn_with_empty_text_part(
     deployment: D, chat: Chat, create_message_with_image
 ):
@@ -546,17 +565,13 @@ async def test_vision_single_turn_with_empty_text_part(
     await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
 
 
-@pytest.mark.parametrize(
-    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
-)
+@_deployment_spec(vision_deployments_not_llama3_2_90b)
 async def test_vision_single_turn_without_text_part(deployment: D, chat: Chat):
     messages = [user_with_image_url(None, DOG_PICTURE)]
     await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
 
 
-@pytest.mark.parametrize(
-    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
-)
+@_deployment_spec(vision_deployments_not_llama3_2_90b)
 async def test_vision_two_turns(
     deployment: D, chat: Chat, create_message_with_image
 ):
@@ -570,9 +585,7 @@ async def test_vision_two_turns(
     await _run_test_vision(deployment, chat, messages, DOG_PICTURE_CONTENT)
 
 
-@pytest.mark.parametrize(
-    "deployment", vision_deployments_not_llama3_2_90b, ids=display_deployment
-)
+@_deployment_spec(vision_deployments_not_llama3_2_90b)
 async def test_vision_single_turn_with_system(
     deployment: D, chat: Chat, create_message_with_image
 ):
@@ -599,7 +612,7 @@ async def _run_test_vision(
         assert any(s in response.content.lower() for s in substrings)
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_finish_reason_length(chat: Chat):
     response = await chat(
         max_tokens=1,
@@ -611,7 +624,7 @@ async def test_finish_reason_length(chat: Chat):
     assert response.finish_reasons == ["length"]
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_stop_sequence(chat: Chat):
     stop = ["cat", "dog", "fish"]
     response = await chat(
@@ -622,11 +635,7 @@ async def test_stop_sequence(chat: Chat):
     assert not all(w in content for w in stop)
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(is_llama), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(is_llama), deployments))
 async def test_llama_out_of_turn_dialog(chat: Chat):
     async with expected_exception(
         cls=BadRequestError,
@@ -638,11 +647,7 @@ async def test_llama_out_of_turn_dialog(chat: Chat):
         )
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(is_llama), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(is_llama), deployments))
 async def test_llama_many_system_messages(chat: Chat):
     response = await chat(
         messages=[
@@ -654,11 +659,7 @@ async def test_llama_many_system_messages(chat: Chat):
     assert "7" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 async def test_tool_choice_none(
     deployment: D, optimized_latency: bool, chat: Chat
 ):
@@ -721,11 +722,7 @@ async def test_tool_choice_none(
         assert "4" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 async def test_tool_call_zero_parameters(chat: Chat):
     response = await chat(
         messages=[user("What time is it?")],
@@ -748,11 +745,7 @@ async def test_tool_call_zero_parameters(chat: Chat):
     assert response.finish_reasons == ["tool_calls"]
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_forced_tool_choice), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_forced_tool_choice), deployments))
 async def test_forced_tool_choice(chat: Chat):
     func_name = GET_WEATHER_FUNCTION["name"]
 
@@ -781,11 +774,7 @@ async def test_forced_tool_choice(chat: Chat):
     )
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 async def test_tool_calls_without_tool_definitions(
     deployment: D, optimized_latency: bool, chat: Chat
 ):
@@ -836,11 +825,7 @@ async def test_tool_calls_without_tool_definitions(
         assert "5" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize(
     "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
 )
@@ -862,11 +847,7 @@ async def test_function_call(
     assert match_objects(test.expected_function_args(0), function_args)
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize("test", [ToolCallTest(1)], ids=lambda x: x.get_id())
 async def test_function_response(
     deployment: Deployment, test: ToolCallTest, chat: Chat
@@ -883,11 +864,7 @@ async def test_function_response(
     assert str(test.city_temps[0]) in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize(
     "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
 )
@@ -918,11 +895,7 @@ async def test_tool_call_basic(
         assert match_objects(test.expected_function_args(idx), function_args)
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize(
     "test", [ToolCallTest(1), ToolCallTest(2)], ids=lambda x: x.get_id()
 )
@@ -943,11 +916,7 @@ async def test_tool_response(
         assert str(temp) in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize("test", [ToolCallTest(1)], ids=lambda x: x.get_id())
 @pytest.mark.parametrize("stream", [True], ids=["stream"])
 @pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
@@ -968,11 +937,7 @@ async def test_tool_call_with_empty_message(
         assert str(temp) in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_tools), deployments),
-    ids=display_deployment,
-)
+@_deployment_spec(select(pred(supports_tools), deployments))
 @pytest.mark.parametrize("stream", [True], ids=["stream"])
 @pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
 @pytest.mark.parametrize(
@@ -1038,9 +1003,7 @@ class TestDocumentUnderstanding:
 
     @staticmethod
     def _deployments(predicate: Pred[D]):
-        return pytest.mark.parametrize(
-            "deployment", select(predicate, deployments), ids=display_deployment
-        )
+        return _deployment_spec(select(predicate, deployments))
 
     @_deployments(pred(supports_document_understanding))
     async def test_document_in_attachments(
@@ -1102,7 +1065,7 @@ class TestDocumentUnderstanding:
         )
 
     @_deployments(pred(supports_document_understanding))
-    @pytest.mark.parametrize("stream", [False], ids=lambda _: "block")
+    @pytest.mark.parametrize("stream", [False], ids=["block"])
     async def test_excel_document(self, optimized_latency: bool, chat: Chat):
         async def _run():
             return await chat(
@@ -1143,7 +1106,7 @@ class TestDocumentUnderstanding:
         assert "hello" in response.content.lower()
 
 
-@pytest.mark.parametrize("deployment", deployments, ids=display_deployment)
+@_deployment_spec(deployments)
 async def test_max_prompt_tokens(chat: Chat):
     response = await chat(
         max_tokens=1,
@@ -1154,9 +1117,7 @@ async def test_max_prompt_tokens(chat: Chat):
     assert statistics.get("discarded_messages") == []
 
 
-@pytest.mark.parametrize(
-    "deployment", [D.META_LLAMA3_8B_INSTRUCT_V1], ids=display_deployment
-)
+@_deployment_spec([D.META_LLAMA3_8B_INSTRUCT_V1])
 async def test_allow_stream_options(chat: Chat):
     response = await chat(
         messages=[{"role": "user", "content": "2+2=?"}],
@@ -1165,9 +1126,7 @@ async def test_allow_stream_options(chat: Chat):
     assert "4" in response.content
 
 
-@pytest.mark.parametrize(
-    "deployment", [D.META_LLAMA3_8B_INSTRUCT_V1], ids=display_deployment
-)
+@_deployment_spec([D.META_LLAMA3_8B_INSTRUCT_V1])
 async def test_reject_extra_top_level_fields(chat: Chat):
     async with expected_exception(
         cls=openai.BadRequestError,
@@ -1181,9 +1140,7 @@ async def test_reject_extra_top_level_fields(chat: Chat):
         )
 
 
-@pytest.mark.parametrize(
-    "deployment", [D.META_LLAMA3_8B_INSTRUCT_V1], ids=display_deployment
-)
+@_deployment_spec([D.META_LLAMA3_8B_INSTRUCT_V1])
 async def test_reject_extra_message_fields(chat: Chat):
     async with expected_exception(
         cls=openai.BadRequestError,
@@ -1219,10 +1176,8 @@ async def test_unknown_deployment_id(get_openai_client, stream: bool):
         )
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_json_object_response_format), deployments),
-    ids=display_deployment,
+@_deployment_spec(
+    select(pred(supports_json_object_response_format), deployments)
 )
 async def test_json_object_response_format(chat: Chat):
     response = await chat(
@@ -1232,10 +1187,8 @@ async def test_json_object_response_format(chat: Chat):
     assert response is not None
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_json_schema_response_format), deployments),
-    ids=display_deployment,
+@_deployment_spec(
+    select(pred(supports_json_schema_response_format), deployments)
 )
 async def test_json_schema_response_format(chat: Chat):
     response = await chat(
@@ -1261,10 +1214,8 @@ async def test_json_schema_response_format(chat: Chat):
     }
 
 
-@pytest.mark.parametrize(
-    "deployment",
-    select(pred(supports_json_schema_response_format), deployments),
-    ids=display_deployment,
+@_deployment_spec(
+    select(pred(supports_json_schema_response_format), deployments)
 )
 async def test_json_schema_nested_objects_response_format(chat: Chat):
     response = await chat(
