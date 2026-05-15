@@ -26,6 +26,8 @@
         - [Claude models](#claude-models)
         - [Stability AI models](#stability-ai-models)
       - [Prompt caching](#prompt-caching)
+        - [Manual prompt caching](#manual-prompt-caching)
+        - [Automatic prompt caching](#automatic-prompt-caching)
       - [Cross-region inference](#cross-region-inference)
     - [Embedding models](#embedding-models)
   - [Environment Variables](#environment-variables)
@@ -219,7 +221,9 @@ The models accept optional configuration with the following fields:
 
 #### Prompt caching
 
-Certain chat completion models support prompt caching via cache breakpoint inserted in tool definitions or request messages.
+##### Manual prompt caching
+
+Certain chat completion models support **manual prompt caching** via cache breakpoint inserted in tool definitions or request messages.
 
 The adapter supports cache breakpoint for the models based on Converse API and Claude 3 models.
 
@@ -310,6 +314,83 @@ The adapter supports cache breakpoint for the models based on Converse API and C
 
 > [!NOTE]
 > Not every model supports prompt caching. Refer to the [official documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models) before utilizing any cache breakpoints.
+
+To enable manual caching you need to enable caching feature in the the DIAL Core configuration:
+
+<details> <summary>DIAL Core configuration (manual caching)</summary>
+
+```json
+{
+  "models": {
+    "dial-bedrock-deployment-id": {
+      "endpoint": "...",
+      "features": {
+        "cacheSupported": true
+      },
+      "upstreams": [
+        ...
+      ]
+    }
+  }
+}
+```
+
+</details>
+
+##### Automatic prompt caching
+
+Claude models support **automatic prompt caching** by setting the cache breakpoint at the top-level of the chat completions request:
+
+<details><summary>Automatic cache breakpoint</summary>
+
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Long system prompt"
+    },
+    {
+      "role": "user",
+      "content": "user query"
+    }
+  ],
+  "custom_fields": {
+    "cache_breakpoint": {}
+  }
+}
+```
+
+</details>
+
+To enable automatic caching in the DIAL Core configuration you need to enable auto-caching feature and optionally preset the cache breakpoint in the request defaults:
+
+<details> <summary>DIAL Core configuration (automatic caching)</summary>
+
+```json
+{
+  "models": {
+    "dial-bedrock-deployment-id": {
+      "endpoint": "...",
+      "defaults": {
+        "custom_fields": {
+          "cache_breakpoint": {}
+        }
+      },
+      "features": {
+        "autoCachingSupported": true
+      },
+      "upstreams": [
+        ...
+      ]
+    }
+  }
+}
+```
+
+</details>
+
+Find more details on the prompt caching for Claude model in the [Anthropic adapter documentation](https://github.com/epam/ai-dial-adapter-anthropic/#prompt-caching).
 
 #### Cross-region inference
 
@@ -679,4 +760,3 @@ make install_git_hooks
 
 > [!IMPORTANT]
 > This command doesn't work if you have already installed Git hooks locally or globally.
-
