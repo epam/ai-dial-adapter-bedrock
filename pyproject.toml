@@ -63,13 +63,13 @@ generate_report_on_test = true
 env_override_existing_values = 1
 testpaths = ["tests"]
 filterwarnings = [
-  "error",
-  # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
-  "ignore::ResourceWarning:",
-  # muting warnings coming from opentelemetry package
-  "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
-  # UserWarning: Pydantic serializer warnings
-  "ignore::UserWarning",
+    "error",
+    # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
+    "ignore::ResourceWarning:",
+    # muting warnings coming from opentelemetry package
+    "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
+    # UserWarning: Pydantic serializer warnings
+    "ignore::UserWarning",
 ]
 
 [tool.pyright]
@@ -85,25 +85,25 @@ line-length = 80
 
 [tool.ruff.lint]
 select = [
-  "ERA",  # flake8-eradicate
-  "B",    # flake8-builtins
-  "C4",   # flake8-comprehensions
-  "SIM",  # flake8-simplify
-  "B9",   # flake8-bugbear
-  "E",    # pycodestyle
-  "W",    # pycodestyle
-  "F",    # pyflakes
-  "I",    # flake8-isort
-  "S",    # flake8-bandit
-  "FURB", # refurb,
-  "UP",   # pyupgrade
+    "ERA",  # flake8-eradicate
+    "B",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "B9",   # flake8-bugbear
+    "E",    # pycodestyle
+    "W",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # flake8-isort
+    "S",    # flake8-bandit
+    "FURB", # refurb,
+    "UP",   # pyupgrade
 ]
 ignore = [
-  "E501", # string literal is too long
-  "S101", # Use of `assert` detected
+    "E501", # string literal is too long
+    "S101", # Use of `assert` detected
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-  "B011", # Do not `assert False`
+    "B011", # Do not `assert False`
 ]
