@@ -134,6 +134,12 @@ class ConverseAdapter(ChatCompletionAdapter):
         messages: list[DialMessage],
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
+        if params.cache_breakpoint is not None:
+            raise ValidationError(
+                "Top-level `cache_breakpoint` is not supported because the Converse API "
+                "does not support automatic caching."
+            )
+
         configuration = params.parse_configuration(await self.configuration())
         system_prompt_extraction = extract_converse_system_prompt(messages)
         converse_messages = await to_converse_messages(
