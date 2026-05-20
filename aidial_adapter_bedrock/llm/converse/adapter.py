@@ -16,6 +16,9 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,
 )
+from aidial_adapter_bedrock.llm.converse.caching import (
+    get_response_headers_for_caching,
+)
 from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
@@ -198,6 +201,10 @@ class ConverseAdapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: list[DialMessage],
     ) -> None:
+        tools = [] if params.tool_config is None else params.tool_config.tools
+        response_headers = get_response_headers_for_caching(messages, tools)
+        await consumer.set_response_headers(response_headers or {})
+
         converse_params = await self.construct_converse_params(messages, params)
         discarded_messages, converse_params = await self._discard_messages(
             converse_params, params.max_prompt_tokens

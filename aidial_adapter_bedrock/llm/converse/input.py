@@ -408,9 +408,15 @@ class ExtractSystemPromptResult:
 def _get_cache_point_part(
     message: DialMessage | DialTool,
 ) -> ConverseCachePointPart | None:
-    if not (cf := message.custom_fields) or not cf.cache_breakpoint:
+    if (cf := message.custom_fields) is None or (
+        cache_breakpoint := cf.cache_breakpoint
+    ) is None:
         return None
-    return ConverseCachePointPart(cachePoint=ConverseCachePoint(type="default"))
+
+    extra = cache_breakpoint.model_extra or {}
+    return ConverseCachePointPart(
+        cachePoint=ConverseCachePoint(type="default", **extra)
+    )
 
 
 def extract_converse_system_prompt(
