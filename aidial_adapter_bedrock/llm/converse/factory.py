@@ -16,6 +16,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseImageType,
 )
 from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
+from aidial_adapter_bedrock.llm.decorator.caching import caching_decorator
 from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
     preprocess_messages_decorator,
 )
@@ -63,4 +64,5 @@ class ConverseAdapterFactory(BaseModel):
         return compose_decorators(
             preprocess_messages_decorator(default_preprocess_messages),
             replicator_decorator(),
+            caching_decorator(),
         )(model)

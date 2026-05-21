@@ -16,9 +16,6 @@ from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
     turn_based_partitioner,
 )
-from aidial_adapter_bedrock.llm.converse.caching import (
-    get_response_headers_for_caching,
-)
 from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
@@ -137,12 +134,6 @@ class ConverseAdapter(ChatCompletionAdapter):
         messages: list[DialMessage],
         params: ModelParameters,
     ) -> ConverseRequestWrapper:
-        if params.cache_breakpoint is not None:
-            raise ValidationError(
-                "Top-level `cache_breakpoint` is not supported because the Converse API "
-                "does not support automatic caching."
-            )
-
         configuration = params.parse_configuration(await self.configuration())
         system_prompt_extraction = extract_converse_system_prompt(messages)
         converse_messages = await to_converse_messages(
@@ -201,10 +192,6 @@ class ConverseAdapter(ChatCompletionAdapter):
         params: ModelParameters,
         messages: list[DialMessage],
     ) -> None:
-        tools = [] if params.tool_config is None else params.tool_config.tools
-        response_headers = get_response_headers_for_caching(messages, tools)
-        await consumer.set_response_headers(response_headers or {})
-
         converse_params = await self.construct_converse_params(messages, params)
         discarded_messages, converse_params = await self._discard_messages(
             converse_params, params.max_prompt_tokens
