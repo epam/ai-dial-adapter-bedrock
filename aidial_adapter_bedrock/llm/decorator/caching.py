@@ -6,7 +6,7 @@ from aidial_adapter_anthropic.dial.request import ModelParameters
 from aidial_sdk.chat_completion import Message
 
 from aidial_adapter_bedrock.llm.converse.caching import (
-    get_response_headers_for_caching,
+    get_cache_info,
 )
 from aidial_adapter_bedrock.llm.decorator.base import (
     ChatCompletionDecorator,
@@ -33,6 +33,9 @@ class CachingDecorator(ChatCompletionDecorator):
             )
 
         tools = params.tool_config.tools if params.tool_config else []
-        if headers := get_response_headers_for_caching(messages, tools):
-            await consumer.set_response_headers(headers)
+        if info := get_cache_info(messages, tools):
+            consumer.get_response().set_cache_breakpoint(
+                cache_breakpoint_path=info.breakpoint_path,
+                cache_expire_at=info.expired_at,
+            )
         await self.adapter.chat(consumer, params, messages)

@@ -1,11 +1,9 @@
 import time
+from dataclasses import dataclass
 
-from aidial_sdk.chat_completion import CacheBreakpoint
+from aidial_sdk.chat_completion import CacheBreakpoint, CacheBreakpointPath
 from aidial_sdk.chat_completion import Message as DialMessage
 from aidial_sdk.chat_completion import Tool as DialTool
-
-_DIAL_CACHE_BREAKPOINT_PATH = "X-DIAL-CACHE-BREAKPOINT-PATH"
-_DIAL_CACHE_EXPIRE_AT = "X-DIAL-CACHE-EXPIRE-AT"
 
 # 5min is a default TTL for Converse API cache breakpoints
 # https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
@@ -28,9 +26,15 @@ def _ttl_from_breakpoint(breakpoint: CacheBreakpoint) -> int:
     return _DEFAULT_TTL_SEC
 
 
-def get_response_headers_for_caching(
+@dataclass
+class CacheInfo:
+    breakpoint_path: CacheBreakpointPath
+    expired_at: str
+
+
+def get_cache_info(
     messages: list[DialMessage], tools: list[DialTool]
-) -> dict | None:
+) -> CacheInfo | None:
     ttl = 0
     message_path = None
     tool_path = None
@@ -42,7 +46,7 @@ def get_response_headers_for_caching(
             and (msg_ttl := _ttl_from_breakpoint(breakpoint))
         ):
             ttl = max(ttl, msg_ttl)
-            message_path = f"prefix.body.messages[{i}]"
+            message_path = CacheBreakpointPath.messages(i)
 
     for i, tool in enumerate(tools):
         if (
@@ -51,14 +55,11 @@ def get_response_headers_for_caching(
             and (tool_ttl := _ttl_from_breakpoint(breakpoint))
         ):
             ttl = max(ttl, tool_ttl)
-            tool_path = f"prefix.body.tools[{i}]"
+            tool_path = CacheBreakpointPath.tools(i)
 
     path = message_path or tool_path
 
     if path is None:
         return None
 
-    return {
-        _DIAL_CACHE_BREAKPOINT_PATH: path,
-        _DIAL_CACHE_EXPIRE_AT: str(int(time.time()) + ttl),
-    }
+    return CacheInfo(path, str(int(time.time()) + ttl))
