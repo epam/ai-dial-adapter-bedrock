@@ -36,6 +36,6 @@ class CachingDecorator(ChatCompletionDecorator):
         if info := get_cache_info(messages, tools):
             consumer.get_response().set_cache_breakpoint(
                 cache_breakpoint_path=info.breakpoint_path,
-                cache_expire_at=info.expired_at,
+                cache_expire_at=info.expire_at,
             )
         await self.adapter.chat(consumer, params, messages)

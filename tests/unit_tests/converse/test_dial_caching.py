@@ -20,14 +20,9 @@ from aidial_sdk.chat_completion.request import (
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.converse import caching as caching_module
-from aidial_adapter_bedrock.llm.converse.caching import (
-    get_response_headers_for_caching,
-)
+from aidial_adapter_bedrock.llm.converse.caching import get_cache_info
 from aidial_adapter_bedrock.llm.converse.factory import ConverseAdapterFactory
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
-
-_DIAL_CACHE_BREAKPOINT_PATH = "X-DIAL-CACHE-BREAKPOINT-PATH"
-_DIAL_CACHE_EXPIRE_AT = "X-DIAL-CACHE-EXPIRE-AT"
 
 
 def _message(
@@ -93,20 +88,17 @@ def test_sets_headers_for_last_message_breakpoint():
         _user("third", cache_breakpoint={"ttl": "5m"}),
     ]
 
-    headers = get_response_headers_for_caching(messages, [])
+    info = get_cache_info(messages, [])
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.messages[2]",
-        _DIAL_CACHE_EXPIRE_AT: "4600",
-    }
+    assert info.breakpoint_path.path == "prefix.body.messages[2]"
+    assert info.expire_at == "4600"
 
 
 def test_does_not_set_headers_without_breakpoints():
-    headers = get_response_headers_for_caching(
-        [_user("first"), _user("second")], []
-    )
+    info = get_cache_info([_user("first"), _user("second")], [])
 
-    assert headers is None
+    assert info is None
 
 
 def test_sets_headers_for_system_message_breakpoint():
@@ -115,25 +107,21 @@ def test_sets_headers_for_system_message_breakpoint():
         _user("hello"),
     ]
 
-    headers = get_response_headers_for_caching(messages, [])
+    info = get_cache_info(messages, [])
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.messages[0]",
-        _DIAL_CACHE_EXPIRE_AT: "1300",
-    }
+    assert info.breakpoint_path.path == "prefix.body.messages[0]"
+    assert info.expire_at == "1300"
 
 
 def test_sets_headers_for_tool_breakpoint():
     tools = [_tool(cache_breakpoint={})]
 
-    headers = get_response_headers_for_caching(
-        [_user("What's the weather?")], tools
-    )
+    info = get_cache_info([_user("What's the weather?")], tools)
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.tools[0]",
-        _DIAL_CACHE_EXPIRE_AT: "1300",
-    }
+    assert info.breakpoint_path.path == "prefix.body.tools[0]"
+    assert info.expire_at == "1300"
 
 
 def test_uses_default_ttl_for_invalid_breakpoint_ttl():
@@ -142,24 +130,22 @@ def test_uses_default_ttl_for_invalid_breakpoint_ttl():
         _user("second", cache_breakpoint={"ttl": "invalid"}),
     ]
 
-    headers = get_response_headers_for_caching(messages, [])
+    info = get_cache_info(messages, [])
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.messages[1]",
-        _DIAL_CACHE_EXPIRE_AT: "1300",
-    }
+    assert info.breakpoint_path.path == "prefix.body.messages[1]"
+    assert info.expire_at == "1300"
 
 
 def test_prefers_message_path_over_tool_breakpoint():
     tools = [_tool(cache_breakpoint={"ttl": "1h"})]
     messages = [_user("first", cache_breakpoint={"ttl": "5m"})]
 
-    headers = get_response_headers_for_caching(messages, tools)
+    info = get_cache_info(messages, tools)
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.messages[0]",
-        _DIAL_CACHE_EXPIRE_AT: "4600",
-    }
+    assert info.breakpoint_path.path == "prefix.body.messages[0]"
+    assert info.expire_at == "4600"
 
 
 def test_sets_headers_for_last_tool_breakpoint():
@@ -168,11 +154,8 @@ def test_sets_headers_for_last_tool_breakpoint():
         _tool(cache_breakpoint={"ttl": "5m"}),
     ]
 
-    headers = get_response_headers_for_caching(
-        [_user("What's the weather?")], tools
-    )
+    info = get_cache_info([_user("What's the weather?")], tools)
+    assert info is not None
 
-    assert headers == {
-        _DIAL_CACHE_BREAKPOINT_PATH: "prefix.body.tools[1]",
-        _DIAL_CACHE_EXPIRE_AT: "1300",
-    }
+    assert info.breakpoint_path.path == "prefix.body.tools[1]"
+    assert info.expire_at == "1300"

@@ -29,7 +29,7 @@ def _ttl_from_breakpoint(breakpoint: CacheBreakpoint) -> int:
 @dataclass
 class CacheInfo:
     breakpoint_path: CacheBreakpointPath
-    expired_at: str
+    expire_at: str
 
 
 def get_cache_info(
