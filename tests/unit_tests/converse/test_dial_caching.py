@@ -49,11 +49,7 @@ def _sys(content: str, *, cache_breakpoint: dict | None = None) -> Message:
 
 
 def _tool(*, cache_breakpoint: dict | None = None) -> Tool:
-    function = Function(
-        name="get_weather",
-        description="Get the weather",
-        parameters={"type": "object", "properties": {}},
-    )
+    function = Function(name="get_current_time")
     custom_fields = None
     if cache_breakpoint is not None:
         custom_fields = ToolCustomFields(
