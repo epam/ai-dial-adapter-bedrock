@@ -328,7 +328,14 @@ To enable manual caching you need to enable caching feature in the the DIAL Core
         "cacheSupported": true
       },
       "upstreams": [
-        ...
+        {
+          "endpoint": "1",
+          "extraData": "..."
+        },
+        {
+          "endpoint": "2",
+          "extraData": "..."
+        }
       ]
     }
   }
@@ -337,9 +344,13 @@ To enable manual caching you need to enable caching feature in the the DIAL Core
 
 </details>
 
+Note the fictitious endpoints: with caching enabled, endpoint becomes a **required** upstream identifier. The specific values do not matter, as long as they are unique.
+
 ##### Automatic prompt caching
 
 Claude models support **automatic prompt caching** by setting the cache breakpoint at the top-level of the chat completions request:
+
+Automatic caching is only available for Claude modules connected via [Anthropic API](#anthropic-api). Bedrock doesn't not support automatic caching at the moment of writing.
 
 <details><summary>Automatic cache breakpoint</summary>
 
@@ -381,7 +392,14 @@ To enable automatic caching in the DIAL Core configuration you need to enable au
         "autoCachingSupported": true
       },
       "upstreams": [
-        ...
+        {
+          "endpoint": "1",
+          "extraData": "..."
+        },
+        {
+          "endpoint": "2",
+          "extraData": "..."
+        }
       ]
     }
   }

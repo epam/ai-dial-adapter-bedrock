@@ -22,8 +22,9 @@ class ConverseTextPart(TypedDict):
     text: str
 
 
-class ConverseCachePoint(TypedDict):
-    type: Literal["default"]
+class ConverseCachePoint(TypedDict, total=False):
+    type: Required[Literal["default"]]
+    ttl: Literal["5m", "1h"]
 
 
 class ConverseCachePointPart(TypedDict):

@@ -32,6 +32,7 @@ from aidial_sdk.chat_completion.request import MessageContentRefusalPart
 from aidial_sdk.exceptions import RuntimeServerError
 
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
+from aidial_adapter_bedrock.llm.converse.caching import ConverseCacheBreakpoint
 from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_DOCUMENT_TYPE_TO_MIME,
     CONVERSE_IMAGE_TYPE_TO_MIME,
@@ -39,7 +40,6 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     IMAGE_MIME_TO_CONVERSE_TYPE,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
-    ConverseCachePoint,
     ConverseCachePointPart,
     ConverseContentPart,
     ConverseDocumentPart,
@@ -408,9 +408,9 @@ class ExtractSystemPromptResult:
 def _get_cache_point_part(
     message: DialMessage | DialTool,
 ) -> ConverseCachePointPart | None:
-    if not (cf := message.custom_fields) or not cf.cache_breakpoint:
-        return None
-    return ConverseCachePointPart(cachePoint=ConverseCachePoint(type="default"))
+    if (cf := message.custom_fields) and (brk := cf.cache_breakpoint):
+        return ConverseCacheBreakpoint.parse(brk).to_converse_cache_point_part()
+    return None
 
 
 def extract_converse_system_prompt(
