@@ -130,11 +130,20 @@ def test_uses_default_ttl_for_invalid_breakpoint_ttl():
         _user("second", cache_breakpoint={"ttl": "invalid"}),
     ]
 
-    info = get_cache_info(messages, [])
-    assert info is not None
+    with pytest.raises(ValidationError, match="Input should be '5m' or '1h'"):
+        get_cache_info(messages, [])
 
-    assert info.breakpoint_path.path == "prefix.body.messages[1]"
-    assert info.expire_at == "1300"
+
+def test_uses_default_ttl_for_invalid_breakpoint_extra_field():
+    messages = [
+        _user("first"),
+        _user("second", cache_breakpoint={"extra-field": "test"}),
+    ]
+
+    with pytest.raises(
+        ValidationError, match="Extra inputs are not permitted "
+    ):
+        get_cache_info(messages, [])
 
 
 def test_prefers_message_path_over_tool_breakpoint():
