@@ -15,7 +15,7 @@ Prefer explicit, boring, easy-to-follow code over clever abstractions.
 
 ---
 
-# Typing
+## Typing
 
 Strict typing is required throughout the codebase.
 
@@ -38,7 +38,7 @@ Follow SDK/library types where possible.
 
 ---
 
-# Naming
+## Naming
 
 Use concise, descriptive, and context-independent names.
 
@@ -52,7 +52,7 @@ Avoid:
 
 ---
 
-# Testing
+## Testing
 
 Prefer mocking HTTP boundaries rather than internal implementation details.
 
@@ -66,24 +66,24 @@ Tests should validate externally observable behavior, not implementation details
 
 ---
 
-# Design Principles
+## Design Principles
 
-## Readability
+### Readability
 
 Readability is the primary optimization target.
 
 Prefer simple control flow and explicit behavior over abstraction-heavy designs.
 
-## Composability
+### Composability
 
 Prefer small, reusable components with clear semantics over monolithic classes or functions.
 A component’s behavior should ideally be understandable from its name and type signature alone.
 
-## DRY
+### DRY
 
 Avoid duplicated logic, but do not sacrifice readability for aggressive deduplication.
 
-## Law of Demeter
+### Law of Demeter
 
 Modules and functions should interact only with their direct dependencies.
 
