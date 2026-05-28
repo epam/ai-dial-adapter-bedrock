@@ -6,9 +6,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
 
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
-from aidial_adapter_bedrock.upstream_config import ApiKeyUpstreamConfig
+from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 
-_UPSTREAM_KEY_HEADER = "x-upstream-key"
 _FORWARDED_REQUEST_HEADERS: frozenset[str] = frozenset(
     {"anthropic-version", "anthropic-beta"}
 )
@@ -33,25 +32,9 @@ def _pick_response_headers(headers: httpx.Headers) -> dict[str, str]:
 
 
 async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
-    api_key = request.headers.get(_UPSTREAM_KEY_HEADER)
-    if not api_key:
-        return Response(
-            content=json.dumps(
-                {
-                    "type": "error",
-                    "error": {
-                        "type": "authentication_error",
-                        "message": f"Missing {_UPSTREAM_KEY_HEADER!r} header",
-                    },
-                }
-            ),
-            status_code=401,
-            media_type="application/json",
-        )
-
     body = await request.body()
     sdk_client = await create_anthropic_client(
-        ApiKeyUpstreamConfig(api_key=api_key)
+        await parse_upstream_config(request)
     )
 
     # sdk_client.default_headers includes x-api-key and anthropic-version.
@@ -66,16 +49,14 @@ async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
         if value := request.headers.get(name):
             headers[name] = value
 
-    http_req = sdk_client._client.build_request(  # type: ignore[union-attr]
+    http_req = sdk_client._client.build_request(
         method=request.method,
         url=path,
         headers=headers,
         content=body or None,
         params=dict(request.query_params),
     )
-    upstream = await sdk_client._client.send(  # type: ignore[union-attr]
-        http_req, stream=True
-    )
+    upstream = await sdk_client._client.send(http_req, stream=True)
 
     if not upstream.is_success or not _is_streaming(body):
         content = await upstream.aread()

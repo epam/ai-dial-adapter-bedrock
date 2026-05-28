@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import ClassVar, Optional
 
 import boto3
-from aidial_sdk.deployment.from_request_mixin import FromRequestDeploymentMixin
+import fastapi
 from pydantic import BaseModel, ConfigDict, Field
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
@@ -62,11 +62,9 @@ class CloudUpstreamConfig(BaseModel):
 
     @classmethod
     async def from_request(
-        cls, request: FromRequestDeploymentMixin
+        cls, request: fastapi.Request
     ) -> "CloudUpstreamConfig":
-        conf = request.original_request.headers.get(
-            _UPSTREAM_CONFIG_HEADER_NAME
-        )
+        conf = request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)
         upstream_config = (
             UpstreamConfigData.model_validate_json(conf)
             if conf
@@ -95,20 +93,16 @@ class ApiKeyUpstreamConfig(BaseModel):
 
     @classmethod
     def from_request(
-        cls, request: FromRequestDeploymentMixin
+        cls, request: fastapi.Request
     ) -> Optional["ApiKeyUpstreamConfig"]:
-        key = request.original_request.headers.get(
-            cls._UPSTREAM_API_KEY_HEADER_NAME
-        )
+        key = request.headers.get(cls._UPSTREAM_API_KEY_HEADER_NAME)
         return None if key is None else cls(api_key=key)
 
 
 UpstreamConfig = ApiKeyUpstreamConfig | CloudUpstreamConfig
 
 
-async def parse_upstream_config(
-    request: FromRequestDeploymentMixin,
-) -> UpstreamConfig:
+async def parse_upstream_config(request: fastapi.Request) -> UpstreamConfig:
     if (conf := ApiKeyUpstreamConfig.from_request(request)) is not None:
         log.debug("accessing deployment via platform api-key")
         return conf
@@ -148,12 +142,8 @@ class OverrideNameUpstreamConfig(BaseModel):
     compatible_model_id: str | None = None
 
 
-def get_compatible_model_id(request: FromRequestDeploymentMixin) -> str | None:
-    if (
-        extra := request.original_request.headers.get(
-            _UPSTREAM_CONFIG_HEADER_NAME
-        )
-    ) is None:
+def get_compatible_model_id(request: fastapi.Request) -> str | None:
+    if (extra := request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)) is None:
         return None
 
     try:

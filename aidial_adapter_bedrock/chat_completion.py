@@ -61,7 +61,9 @@ class BedrockChatCompletion(ChatCompletion):
         return await get_bedrock_adapter(
             deployment=self._get_deployment(request),
             api_key=request.api_key,
-            upstream_config=await parse_upstream_config(request),
+            upstream_config=await parse_upstream_config(
+                request.original_request
+            ),
             request=request if isinstance(request, Request) else None,
         )
 
