@@ -83,6 +83,10 @@ A component’s behavior should ideally be understandable from its name and type
 
 Avoid duplicated logic, but do not sacrifice readability for aggressive deduplication.
 
+This is especially important in tests. Large amounts of repeated setup quickly make tests bloated and obscure the behavior being validated.
+
+Extract shared setup into helper functions and fixtures, while keeping the test logic itself explicit, focused, and easy to read.
+
 ### Law of Demeter
 
 Modules and functions should interact only with their direct dependencies.
