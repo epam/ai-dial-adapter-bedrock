@@ -1,46 +1,103 @@
 # Code Style
 
-## General guidelines
+## General Principles
 
-By default try to follow Google [Python Style Guide](https://google.github.io/styleguide/pyguide.html), with some adjustments for our specific use case and preferences. The main principles are:
+Follow the Google Python Style Guide where practical, with project-specific adjustments described below.
 
-## Python Typing
+Prioritize, in order:
+
+1. Correctness
+2. Readability
+3. Simplicity
+4. Maintainability
+
+Prefer explicit, boring, easy-to-follow code over clever abstractions.
+
+---
+
+# Typing
 
 Strict typing is required throughout the codebase.
 
-- `Any` or `Unknown` is a blocker unless an explicit comment explains why it cannot be avoided.
-- Untyped or partially-typed collections are blockers: use `list[Foo]` not `list`, `dict[str, Bar]` not `dict`, `tuple[int, str]` not `tuple`.
-- All public functions and methods must have return type annotations.
-- `cast()` calls that paper over a real typing gap instead of fixing it are a code smell.
-- Follow the types provided by SDKs and libraries where possible. Where not possible - use `TypedDict`, `Protocol`, `dataclass` or `BaseModel` to create your own types instead of `dict` or `Any`.
+* `Any` and `Unknown` are disallowed unless accompanied by a clear justification.
+* Collections must always be fully typed:
 
-## Naming Conventions
+  * `list[Foo]`, not `list`
+  * `dict[str, Bar]`, not `dict`
+  * `tuple[int, str]`, not `tuple`
+* All public functions and methods must declare return types.
+* Avoid `cast()` unless it documents a genuine typing limitation rather than masking a design issue.
+* Prefer structured types over untyped dictionaries:
 
-- Strive for succinct and descriptive names. Avoid unnecessary verbosity.
-- Namings should be context-independent where possible. Meaning that a distinct function should be possible to understand from its name and code alone, without needing to consult its call sites.
+  * `TypedDict`
+  * `Protocol`
+  * `dataclass`
+  * `BaseModel`
 
-## Testing
+Follow SDK/library types where possible.
 
-- Try a much as possible to mock only HTTP requests.
-- To facilitate the above principle, use Dependency Injection to that class depend on interfaces/protocols that could be mocked (instead of monkey patching or using fixtures to replace entire modules or classes).
+---
 
-## Misc
+# Naming
 
-- Keep the code DRY
-- Keep the code simple and easy to read - that the MAIN metric to optimize the code against
-- Follow principle of least knowledge ("Law of Demeter") - modules should only interact with their direct dependencies, not with the internals of other modules. That translates to method too:
+Use concise, descriptive, and context-independent names.
+
+Names should be understandable without requiring readers to inspect call sites.
+
+Avoid:
+
+* unnecessary abbreviations
+* redundant prefixes/suffixes
+* overly verbose names
+
+---
+
+# Testing
+
+Prefer mocking HTTP boundaries rather than internal implementation details.
+
+Use dependency injection so components depend on interfaces/protocols instead of concrete implementations. Prefer this over:
+
+* monkey patching
+* replacing entire modules/classes
+* global fixtures
+
+Tests should validate externally observable behavior, not implementation details.
+
+---
+
+# Design Principles
+
+## Readability
+
+Readability is the primary optimization target.
+
+Prefer simple control flow and explicit behavior over abstraction-heavy designs.
+
+## Composability
+
+Prefer small, reusable components with clear semantics over monolithic classes or functions.
+A component’s behavior should ideally be understandable from its name and type signature alone.
+
+## DRY
+
+Avoid duplicated logic, but do not sacrifice readability for aggressive deduplication.
+
+## Law of Demeter
+
+Modules and functions should interact only with their direct dependencies.
 
 BAD:
 
 ```python
 def foo(bar: Bar):
-  foo = x.foo
-  # do something with foo, bar is unused after this
+    foo = bar.x.foo
+    # use foo, bar isn't used anymore
 ```
 
 GOOD:
 
 ```python
 def foo(x: Foo):
-  # do something with foo
+    # use x directly
 ```
