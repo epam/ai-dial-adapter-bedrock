@@ -26,6 +26,8 @@ make format              # ruff check --fix + ruff format
 
 After making source code changes, always run `make lint && make test` to verify nothing is broken.
 
+See [docs/engineering/code-style.md](docs/engineering/code-style.md) for coding standards (typing, module placement, visibility, protocol conformance).
+
 Tools: **Poetry** for deps, **nox** for task runner, **ruff** (line-length 80, py311), **pyright** (basic mode), **pytest-asyncio** + **respx** for tests.
 
 ## Architecture
