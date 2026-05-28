@@ -33,51 +33,48 @@ def _pick_response_headers(headers: httpx.Headers) -> dict[str, str]:
 
 async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
     body = await request.body()
-    sdk_client = await create_anthropic_client(
-        await parse_upstream_config(request)
-    )
+    upstream_config = await parse_upstream_config(request)
+    client = await create_anthropic_client(upstream_config)
 
     # sdk_client.default_headers includes x-api-key and anthropic-version.
     # Filter out Omit sentinels (headers the SDK wants omitted).
     headers: dict[str, str] = {
-        k: v
-        for k, v in sdk_client.default_headers.items()
-        if isinstance(v, str)
+        k: v for k, v in client.default_headers.items() if isinstance(v, str)
     }
     headers["content-type"] = "application/json"
     for name in _FORWARDED_REQUEST_HEADERS:
         if value := request.headers.get(name):
             headers[name] = value
 
-    http_req = sdk_client._client.build_request(
+    http_req = client._client.build_request(
         method=request.method,
         url=path,
         headers=headers,
         content=body or None,
         params=dict(request.query_params),
     )
-    upstream = await sdk_client._client.send(http_req, stream=True)
+    response = await client._client.send(http_req, stream=True)
 
-    if not upstream.is_success or not _is_streaming(body):
-        content = await upstream.aread()
+    if not response.is_success or not _is_streaming(body):
+        content = await response.aread()
         return Response(
             content=content,
-            status_code=upstream.status_code,
-            headers=_pick_response_headers(upstream.headers),
-            media_type=upstream.headers.get("content-type", "application/json"),
+            status_code=response.status_code,
+            headers=_pick_response_headers(response.headers),
+            media_type=response.headers.get("content-type", "application/json"),
         )
 
     async def _chunks() -> AsyncIterator[bytes]:
         try:
-            async for chunk in upstream.aiter_raw():
+            async for chunk in response.aiter_raw():
                 yield chunk
         finally:
-            await upstream.aclose()
+            await response.aclose()
 
     return StreamingResponse(
         content=_chunks(),
-        status_code=upstream.status_code,
-        headers=_pick_response_headers(upstream.headers),
+        status_code=response.status_code,
+        headers=_pick_response_headers(response.headers),
         media_type="text/event-stream",
     )
 
