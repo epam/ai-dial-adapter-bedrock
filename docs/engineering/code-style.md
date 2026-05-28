@@ -38,6 +38,28 @@ Follow SDK/library types where possible.
 
 ---
 
+## Formatting
+
+Avoid trailing commas in multiline argument lists when they are not required. This allows Ruff to collapse expressions into a single line if it's possible.
+
+BAD:
+
+```python
+async def parse_upstream_config(
+    request: fastapi.Request,
+) -> UpstreamConfig:
+    ...
+```
+
+GOOD:
+
+```python
+async def parse_upstream_config(
+    request: fastapi.Request
+) -> UpstreamConfig:
+    ...
+```
+
 ## Naming
 
 Use concise, descriptive, and context-independent names.
