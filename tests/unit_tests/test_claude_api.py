@@ -112,7 +112,8 @@ class TestMessagesStreaming:
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
         assert b"message_start" in response.content
-        assert b"Hello!" in response.content
+        for txt in ["Hello!", " How can I", " assist you today?"]:
+            assert txt.encode() in response.content
 
     @respx.mock
     async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
@@ -121,7 +122,7 @@ class TestMessagesStreaming:
         ) as stream:
             text = await stream.get_final_text()
 
-        assert "Hello!" in text
+        assert text == "Hello! How can I assist you today?"
 
 
 class TestMessageBatches:
