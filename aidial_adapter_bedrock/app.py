@@ -38,7 +38,7 @@ app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
 app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
 app.mount(
-    path="/claude",
+    path="/anthropic",
     app=anthropic_api_proxy,
     name="Claude API passthrough",
 )
