@@ -12,3 +12,9 @@ Tests should validate externally observable behavior, not implementation details
 Avoid using `unittest.mock` to mock HTTP responses. Use `httpx` instead.
 
 Avoid using `monkeypatch` pytest fixture as much as possible in favor of `httpx` and mocking via dependency injection. `monkeypatch` is a powerful tool but can lead to brittle tests if overused.
+
+## DRY
+
+Avoid duplicated logic in tests that repeats itself in each test especially in the arrange and assert parts. Bloated tests are hard to read and understand the contract that is actually being tested.
+
+To remove the bloat, introduce helper functions and fixtures to abstract away common setup, but keep the test logic itself straightforward and focused on the specific behavior being validated.
