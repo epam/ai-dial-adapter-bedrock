@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import anthropic
 import httpx
 import pytest
 import respx
@@ -22,15 +23,12 @@ _MESSAGES_REQUEST = {
 
 @pytest.fixture
 def mock():
-    with respx.mock(base_url=_ANTHROPIC_API) as mock:
+    with respx.mock(base_url="https://api.anthropic.com") as mock:
         yield mock
 
 
-_ANTHROPIC_API = "https://api.anthropic.com"
-
-
 @pytest.fixture
-async def client():
+async def http_client():
     async with httpx.AsyncClient(
         transport=ASGITransport(app),  # type: ignore
         base_url="http://test-app.com",
@@ -39,9 +37,17 @@ async def client():
         yield client
 
 
+@pytest.fixture
+async def anthropic_client(http_client: httpx.AsyncClient):
+    async with anthropic.AsyncAnthropic(
+        http_client=http_client, max_retries=0
+    ) as client:
+        yield client
+
+
 @respx.mock
 async def test_messages_non_streaming(
-    client: httpx.AsyncClient, mock: respx.MockRouter
+    http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("messages_non_streaming_response.json")
 
@@ -50,7 +56,7 @@ async def test_messages_non_streaming(
         content_type="application/json",
     )
 
-    response = await client.post("/v1/messages", json=_MESSAGES_REQUEST)
+    response = await http_client.post("/v1/messages", json=_MESSAGES_REQUEST)
 
     assert response.status_code == 200
     body = response.json()
@@ -61,7 +67,7 @@ async def test_messages_non_streaming(
 
 @respx.mock
 async def test_messages_streaming(
-    client: httpx.AsyncClient, mock: respx.MockRouter
+    http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("messages_streaming_response.txt")
     mock.post("/v1/messages").respond(
@@ -70,7 +76,7 @@ async def test_messages_streaming(
     )
 
     payload = {**_MESSAGES_REQUEST, "stream": True}
-    response = await client.post("/v1/messages", json=payload)
+    response = await http_client.post("/v1/messages", json=payload)
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
@@ -80,7 +86,7 @@ async def test_messages_streaming(
 
 @respx.mock
 async def test_message_batches(
-    client: httpx.AsyncClient, mock: respx.MockRouter
+    http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("batches_response.json")
 
@@ -97,7 +103,7 @@ async def test_message_batches(
             }
         ]
     }
-    response = await client.post("/v1/messages/batches", json=payload)
+    response = await http_client.post("/v1/messages/batches", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -106,7 +112,9 @@ async def test_message_batches(
 
 
 @respx.mock
-async def test_count_tokens(client: httpx.AsyncClient, mock: respx.MockRouter):
+async def test_count_tokens(
+    http_client: httpx.AsyncClient, mock: respx.MockRouter
+):
     content = _read_fixture("count_tokens_response.json")
 
     mock.post(url="/v1/messages/count_tokens").respond(
@@ -114,7 +122,7 @@ async def test_count_tokens(client: httpx.AsyncClient, mock: respx.MockRouter):
         content_type="application/json",
     )
 
-    response = await client.post(
+    response = await http_client.post(
         "/v1/messages/count_tokens", json=_MESSAGES_REQUEST
     )
 
@@ -124,7 +132,7 @@ async def test_count_tokens(client: httpx.AsyncClient, mock: respx.MockRouter):
 
 
 @respx.mock
-async def test_models(client: httpx.AsyncClient, mock: respx.MockRouter):
+async def test_models(http_client: httpx.AsyncClient, mock: respx.MockRouter):
     content = _read_fixture("models_response.json")
 
     mock.get(url="/v1/models").respond(
@@ -132,7 +140,7 @@ async def test_models(client: httpx.AsyncClient, mock: respx.MockRouter):
         content_type="application/json",
     )
 
-    response = await client.get("/v1/models")
+    response = await http_client.get("/v1/models")
 
     assert response.status_code == 200
     body = response.json()
