@@ -11,7 +11,7 @@ from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 app = FastAPI()
 
 
-async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
+async def _proxy(request: Request, path: str) -> Response:
     body = await request.body()
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
@@ -50,21 +50,21 @@ async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
         )
 
 
-@app.post("/v1/messages", response_model=None)
-async def messages(request: Request) -> Response | StreamingResponse:
-    return await _proxy(request, "/v1/messages")
+def _create_proxy_handler(path: str):
+    async def handler(request: Request) -> Response:
+        return await _proxy(request, path)
+
+    return handler
 
 
-@app.post("/v1/messages/batches", response_model=None)
-async def message_batches(request: Request) -> Response | StreamingResponse:
-    return await _proxy(request, "/v1/messages/batches")
+_PROXIED_ENDPOINTS = [
+    ("POST", "/v1/messages"),
+    ("POST", "/v1/messages/batches"),
+    ("POST", "/v1/messages/count_tokens"),
+    ("GET", "/v1/models"),
+]
 
-
-@app.post("/v1/messages/count_tokens", response_model=None)
-async def count_tokens(request: Request) -> Response | StreamingResponse:
-    return await _proxy(request, "/v1/messages/count_tokens")
-
-
-@app.get("/v1/models", response_model=None)
-async def models(request: Request) -> Response | StreamingResponse:
-    return await _proxy(request, "/v1/models")
+for method, path in _PROXIED_ENDPOINTS:
+    app.router.add_api_route(
+        path=path, methods=[method], endpoint=_create_proxy_handler(path)
+    )
