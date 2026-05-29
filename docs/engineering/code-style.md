@@ -72,6 +72,8 @@ Avoid:
 * redundant prefixes/suffixes
 * overly verbose names
 
+Before adding a new constants/class/function on the top-level of the module, consider whether it will be used only with that module or should be private. If the latter, prefix it with an underscore.
+
 ---
 
 ## Testing
@@ -82,9 +84,12 @@ Use dependency injection so components depend on interfaces/protocols instead of
 
 * monkey patching
 * replacing entire modules/classes
-* global fixtures
 
 Tests should validate externally observable behavior, not implementation details.
+
+Avoid using `unittest.mock` to mock HTTP responses. Use `httpx` instead.
+
+Avoid using `monkeypatch` pytest fixture as much as possible in favor of `httpx` and mocking via dependency injection. `monkeypatch` is a powerful tool but can lead to brittle tests if overused.
 
 ---
 
