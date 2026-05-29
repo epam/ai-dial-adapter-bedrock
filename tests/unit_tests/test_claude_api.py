@@ -19,6 +19,13 @@ _MESSAGES_REQUEST = {
     "messages": [{"role": "user", "content": "Say hello."}],
 }
 
+
+@pytest.fixture
+def mock():
+    with respx.mock(base_url=_ANTHROPIC_API) as mock:
+        yield mock
+
+
 _ANTHROPIC_API = "https://api.anthropic.com"
 
 
@@ -33,10 +40,12 @@ async def client():
 
 
 @respx.mock
-async def test_messages_non_streaming(client: httpx.AsyncClient):
+async def test_messages_non_streaming(
+    client: httpx.AsyncClient, mock: respx.MockRouter
+):
     content = _read_fixture("messages_non_streaming_response.json")
 
-    respx.post(url=f"{_ANTHROPIC_API}/v1/messages").respond(
+    mock.post(url="/v1/messages").respond(
         content=content,
         content_type="application/json",
     )
@@ -51,9 +60,11 @@ async def test_messages_non_streaming(client: httpx.AsyncClient):
 
 
 @respx.mock
-async def test_messages_streaming(client: httpx.AsyncClient):
+async def test_messages_streaming(
+    client: httpx.AsyncClient, mock: respx.MockRouter
+):
     content = _read_fixture("messages_streaming_response.txt")
-    respx.post(f"{_ANTHROPIC_API}/v1/messages").respond(
+    mock.post("/v1/messages").respond(
         content=content,
         content_type="text/event-stream",
     )
@@ -68,10 +79,12 @@ async def test_messages_streaming(client: httpx.AsyncClient):
 
 
 @respx.mock
-async def test_message_batches(client: httpx.AsyncClient):
+async def test_message_batches(
+    client: httpx.AsyncClient, mock: respx.MockRouter
+):
     content = _read_fixture("batches_response.json")
 
-    respx.post(url=f"{_ANTHROPIC_API}/v1/messages/batches").respond(
+    mock.post(url="/v1/messages/batches").respond(
         content=content,
         content_type="application/json",
     )
@@ -93,10 +106,10 @@ async def test_message_batches(client: httpx.AsyncClient):
 
 
 @respx.mock
-async def test_count_tokens(client: httpx.AsyncClient):
+async def test_count_tokens(client: httpx.AsyncClient, mock: respx.MockRouter):
     content = _read_fixture("count_tokens_response.json")
 
-    respx.post(url=f"{_ANTHROPIC_API}/v1/messages/count_tokens").respond(
+    mock.post(url="/v1/messages/count_tokens").respond(
         content=content,
         content_type="application/json",
     )
@@ -111,10 +124,10 @@ async def test_count_tokens(client: httpx.AsyncClient):
 
 
 @respx.mock
-async def test_models(client: httpx.AsyncClient):
+async def test_models(client: httpx.AsyncClient, mock: respx.MockRouter):
     content = _read_fixture("models_response.json")
 
-    respx.get(url=f"{_ANTHROPIC_API}/v1/models").respond(
+    mock.get(url="/v1/models").respond(
         content=content,
         content_type="application/json",
     )
