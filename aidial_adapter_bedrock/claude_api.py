@@ -1,5 +1,7 @@
 from collections.abc import AsyncIterator
 
+import httpx
+from anthropic._models import FinalRequestOptions
 from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
 
@@ -14,14 +16,16 @@ async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
-    http_req = client._client.build_request(
-        method=request.method,
-        url=path,
-        headers=request.headers,
-        content=body or None,
-        params=request.query_params,
+    options = FinalRequestOptions.construct(
+        method=request.method, url=path, content=body
     )
-    response = await client._client.send(http_req, stream=True)
+
+    response = await client.request(
+        cast_to=httpx.Response,
+        options=options,
+        stream=True,
+        stream_cls=None,
+    )
 
     if "text/event-stream" in response.headers.get("content-type"):
 
