@@ -1,9 +1,12 @@
+from collections.abc import Iterable
 from pathlib import Path
+from typing import TypedDict
 
 import anthropic
 import httpx
 import pytest
 import respx
+from anthropic.types import MessageParam
 from httpx import ASGITransport
 
 from aidial_adapter_bedrock.claude_api import app
@@ -14,10 +17,23 @@ def _read_fixture(name: str) -> bytes:
     return (fixtures / name).read_bytes()
 
 
-_MESSAGES_REQUEST = {
+class _BaseMessagesRequest(TypedDict):
+    model: str
+    messages: Iterable[MessageParam]
+
+
+class _MessagesRequest(_BaseMessagesRequest):
+    max_tokens: int
+
+
+_BASE_MESSAGES_REQUEST: _BaseMessagesRequest = {
     "model": "us.anthropic.claude-3-sonnet-20240229-v1:0",
-    "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Say hello."}],
+}
+
+_MESSAGES_REQUEST: _MessagesRequest = {
+    **_BASE_MESSAGES_REQUEST,
+    "max_tokens": 1024,
 }
 
 
@@ -40,7 +56,9 @@ async def http_client():
 @pytest.fixture
 async def anthropic_client(http_client: httpx.AsyncClient):
     async with anthropic.AsyncAnthropic(
-        http_client=http_client, max_retries=0
+        api_key="test-claude-api-key",
+        http_client=http_client,
+        max_retries=0,
     ) as client:
         yield client
 
@@ -123,7 +141,7 @@ async def test_http_count_tokens(
     )
 
     response = await http_client.post(
-        "/v1/messages/count_tokens", json=_MESSAGES_REQUEST
+        "/v1/messages/count_tokens", json=_BASE_MESSAGES_REQUEST
     )
 
     assert response.status_code == 200
@@ -149,3 +167,94 @@ async def test_http_models(
     assert isinstance(body["data"], list)
     assert len(body["data"]) == 2
     assert body["data"][0]["id"] == "claude-3-5-sonnet-20241022"
+
+
+@respx.mock
+async def test_anthropic_messages_non_streaming(
+    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
+):
+    content = _read_fixture("messages_non_streaming_response.json")
+    mock.post(url="/v1/messages").respond(
+        content=content,
+        content_type="application/json",
+    )
+
+    response = await anthropic_client.messages.create(**_MESSAGES_REQUEST)
+
+    assert response.type == "message"
+    assert response.role == "assistant"
+    text_block = response.content[0]
+    assert isinstance(text_block, anthropic.types.TextBlock)
+    assert text_block.text == "Hello! How can I assist you today?"
+
+
+@respx.mock
+async def test_anthropic_messages_streaming(
+    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
+):
+    content = _read_fixture("messages_streaming_response.txt")
+    mock.post("/v1/messages").respond(
+        content=content,
+        content_type="text/event-stream",
+    )
+
+    async with anthropic_client.messages.stream(**_MESSAGES_REQUEST) as stream:
+        text = await stream.get_final_text()
+
+    assert "Hello!" in text
+
+
+@respx.mock
+async def test_anthropic_message_batches(
+    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
+):
+    content = _read_fixture("batches_response.json")
+    mock.post(url="/v1/messages/batches").respond(
+        content=content,
+        content_type="application/json",
+    )
+
+    batch = await anthropic_client.messages.batches.create(
+        requests=[
+            {
+                "custom_id": "req-1",
+                "params": _MESSAGES_REQUEST,  # type: ignore
+            }
+        ]
+    )
+
+    assert batch.type == "message_batch"
+    assert batch.processing_status == "in_progress"
+
+
+@respx.mock
+async def test_anthropic_count_tokens(
+    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
+):
+    content = _read_fixture("count_tokens_response.json")
+    mock.post(url="/v1/messages/count_tokens").respond(
+        content=content,
+        content_type="application/json",
+    )
+
+    response = await anthropic_client.messages.count_tokens(
+        **_BASE_MESSAGES_REQUEST
+    )
+
+    assert response.input_tokens == 14
+
+
+@respx.mock
+async def test_anthropic_models(
+    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
+):
+    content = _read_fixture("models_response.json")
+    mock.get(url="/v1/models").respond(
+        content=content,
+        content_type="application/json",
+    )
+
+    models = await anthropic_client.models.list()
+
+    assert len(models.data) == 2
+    assert models.data[0].id == "claude-3-5-sonnet-20241022"
