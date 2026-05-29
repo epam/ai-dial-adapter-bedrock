@@ -63,198 +63,155 @@ async def anthropic_client(http_client: httpx.AsyncClient):
         yield client
 
 
-@respx.mock
-async def test_http_messages_non_streaming(
-    http_client: httpx.AsyncClient, mock: respx.MockRouter
-):
-    content = _read_fixture("messages_non_streaming_response.json")
+class TestMessagesNonStreaming:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("messages_non_streaming_response.json")
+        mock.post(url="/v1/messages").respond(
+            content=content, content_type="application/json"
+        )
 
-    mock.post(url="/v1/messages").respond(
-        content=content,
-        content_type="application/json",
-    )
+    @respx.mock
+    async def test_http(self, http_client: httpx.AsyncClient):
+        response = await http_client.post(
+            "/v1/messages", json=_MESSAGES_REQUEST
+        )
 
-    response = await http_client.post("/v1/messages", json=_MESSAGES_REQUEST)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["type"] == "message"
+        assert body["role"] == "assistant"
+        assert (
+            body["content"][0]["text"] == "Hello! How can I assist you today?"
+        )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["type"] == "message"
-    assert body["role"] == "assistant"
-    assert body["content"][0]["text"] == "Hello! How can I assist you today?"
+    @respx.mock
+    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
+        response = await anthropic_client.messages.create(**_MESSAGES_REQUEST)
 
-
-@respx.mock
-async def test_http_messages_streaming(
-    http_client: httpx.AsyncClient, mock: respx.MockRouter
-):
-    content = _read_fixture("messages_streaming_response.txt")
-    mock.post("/v1/messages").respond(
-        content=content,
-        content_type="text/event-stream",
-    )
-
-    payload = {**_MESSAGES_REQUEST, "stream": True}
-    response = await http_client.post("/v1/messages", json=payload)
-
-    assert response.status_code == 200
-    assert "text/event-stream" in response.headers["content-type"]
-    assert b"message_start" in response.content
-    assert b"Hello!" in response.content
+        assert response.type == "message"
+        assert response.role == "assistant"
+        text_block = response.content[0]
+        assert isinstance(text_block, anthropic.types.TextBlock)
+        assert text_block.text == "Hello! How can I assist you today?"
 
 
-@respx.mock
-async def test_http_message_batches(
-    http_client: httpx.AsyncClient, mock: respx.MockRouter
-):
-    content = _read_fixture("batches_response.json")
+class TestMessagesStreaming:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("messages_streaming_response.txt")
+        mock.post("/v1/messages").respond(
+            content=content, content_type="text/event-stream"
+        )
 
-    mock.post(url="/v1/messages/batches").respond(
-        content=content,
-        content_type="application/json",
-    )
+    @respx.mock
+    async def test_http(self, http_client: httpx.AsyncClient):
+        payload = {**_MESSAGES_REQUEST, "stream": True}
+        response = await http_client.post("/v1/messages", json=payload)
 
-    payload = {
-        "requests": [
-            {
-                "custom_id": "req-1",
-                "params": {**_MESSAGES_REQUEST},
-            }
-        ]
-    }
-    response = await http_client.post("/v1/messages/batches", json=payload)
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+        assert b"message_start" in response.content
+        assert b"Hello!" in response.content
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["type"] == "message_batch"
-    assert body["processing_status"] == "in_progress"
+    @respx.mock
+    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
+        async with anthropic_client.messages.stream(
+            **_MESSAGES_REQUEST
+        ) as stream:
+            text = await stream.get_final_text()
 
-
-@respx.mock
-async def test_http_count_tokens(
-    http_client: httpx.AsyncClient, mock: respx.MockRouter
-):
-    content = _read_fixture("count_tokens_response.json")
-
-    mock.post(url="/v1/messages/count_tokens").respond(
-        content=content,
-        content_type="application/json",
-    )
-
-    response = await http_client.post(
-        "/v1/messages/count_tokens", json=_BASE_MESSAGES_REQUEST
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["input_tokens"] == 14
+        assert "Hello!" in text
 
 
-@respx.mock
-async def test_http_models(
-    http_client: httpx.AsyncClient, mock: respx.MockRouter
-):
-    content = _read_fixture("models_response.json")
+class TestMessageBatches:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("batches_response.json")
+        mock.post(url="/v1/messages/batches").respond(
+            content=content, content_type="application/json"
+        )
 
-    mock.get(url="/v1/models").respond(
-        content=content,
-        content_type="application/json",
-    )
+    @respx.mock
+    async def test_http(self, http_client: httpx.AsyncClient):
+        payload = {
+            "requests": [
+                {
+                    "custom_id": "req-1",
+                    "params": {**_MESSAGES_REQUEST},
+                }
+            ]
+        }
+        response = await http_client.post("/v1/messages/batches", json=payload)
 
-    response = await http_client.get("/v1/models")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["type"] == "message_batch"
+        assert body["processing_status"] == "in_progress"
 
-    assert response.status_code == 200
-    body = response.json()
-    assert isinstance(body["data"], list)
-    assert len(body["data"]) == 2
-    assert body["data"][0]["id"] == "claude-3-5-sonnet-20241022"
+    @respx.mock
+    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
+        batch = await anthropic_client.messages.batches.create(
+            requests=[
+                {
+                    "custom_id": "req-1",
+                    "params": _MESSAGES_REQUEST,  # type: ignore
+                }
+            ]
+        )
 
-
-@respx.mock
-async def test_anthropic_messages_non_streaming(
-    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
-):
-    content = _read_fixture("messages_non_streaming_response.json")
-    mock.post(url="/v1/messages").respond(
-        content=content,
-        content_type="application/json",
-    )
-
-    response = await anthropic_client.messages.create(**_MESSAGES_REQUEST)
-
-    assert response.type == "message"
-    assert response.role == "assistant"
-    text_block = response.content[0]
-    assert isinstance(text_block, anthropic.types.TextBlock)
-    assert text_block.text == "Hello! How can I assist you today?"
-
-
-@respx.mock
-async def test_anthropic_messages_streaming(
-    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
-):
-    content = _read_fixture("messages_streaming_response.txt")
-    mock.post("/v1/messages").respond(
-        content=content,
-        content_type="text/event-stream",
-    )
-
-    async with anthropic_client.messages.stream(**_MESSAGES_REQUEST) as stream:
-        text = await stream.get_final_text()
-
-    assert "Hello!" in text
+        assert batch.type == "message_batch"
+        assert batch.processing_status == "in_progress"
 
 
-@respx.mock
-async def test_anthropic_message_batches(
-    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
-):
-    content = _read_fixture("batches_response.json")
-    mock.post(url="/v1/messages/batches").respond(
-        content=content,
-        content_type="application/json",
-    )
+class TestCountTokens:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("count_tokens_response.json")
+        mock.post(url="/v1/messages/count_tokens").respond(
+            content=content, content_type="application/json"
+        )
 
-    batch = await anthropic_client.messages.batches.create(
-        requests=[
-            {
-                "custom_id": "req-1",
-                "params": _MESSAGES_REQUEST,  # type: ignore
-            }
-        ]
-    )
+    @respx.mock
+    async def test_http(self, http_client: httpx.AsyncClient):
+        response = await http_client.post(
+            "/v1/messages/count_tokens", json=_BASE_MESSAGES_REQUEST
+        )
 
-    assert batch.type == "message_batch"
-    assert batch.processing_status == "in_progress"
+        assert response.status_code == 200
+        body = response.json()
+        assert body["input_tokens"] == 14
 
+    @respx.mock
+    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
+        response = await anthropic_client.messages.count_tokens(
+            **_BASE_MESSAGES_REQUEST
+        )
 
-@respx.mock
-async def test_anthropic_count_tokens(
-    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
-):
-    content = _read_fixture("count_tokens_response.json")
-    mock.post(url="/v1/messages/count_tokens").respond(
-        content=content,
-        content_type="application/json",
-    )
-
-    response = await anthropic_client.messages.count_tokens(
-        **_BASE_MESSAGES_REQUEST
-    )
-
-    assert response.input_tokens == 14
+        assert response.input_tokens == 14
 
 
-@respx.mock
-async def test_anthropic_models(
-    anthropic_client: anthropic.AsyncAnthropic, mock: respx.MockRouter
-):
-    content = _read_fixture("models_response.json")
-    mock.get(url="/v1/models").respond(
-        content=content,
-        content_type="application/json",
-    )
+class TestModels:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("models_response.json")
+        mock.get(url="/v1/models").respond(
+            content=content, content_type="application/json"
+        )
 
-    models = await anthropic_client.models.list()
+    @respx.mock
+    async def test_http(self, http_client: httpx.AsyncClient):
+        response = await http_client.get("/v1/models")
 
-    assert len(models.data) == 2
-    assert models.data[0].id == "claude-3-5-sonnet-20241022"
+        assert response.status_code == 200
+        body = response.json()
+        assert isinstance(body["data"], list)
+        assert len(body["data"]) == 2
+        assert body["data"][0]["id"] == "claude-3-5-sonnet-20241022"
+
+    @respx.mock
+    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
+        models = await anthropic_client.models.list()
+
+        assert len(models.data) == 2
+        assert models.data[0].id == "claude-3-5-sonnet-20241022"
