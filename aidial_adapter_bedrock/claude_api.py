@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -8,15 +7,6 @@ from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 
 app = FastAPI()
-
-
-def _is_streaming(body: bytes) -> bool:
-    if not body:
-        return False
-    try:
-        return bool(json.loads(body).get("stream") or False)
-    except Exception:
-        return False
 
 
 async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
@@ -33,28 +23,27 @@ async def _proxy(request: Request, path: str) -> Response | StreamingResponse:
     )
     response = await client._client.send(http_req, stream=True)
 
-    if not response.is_success or not _is_streaming(body):
-        content = await response.aread()
-        return Response(
-            content=content,
+    if "text/event-stream" in response.headers.get("content-type"):
+
+        async def _stream() -> AsyncIterator[bytes]:
+            try:
+                async for chunk in response.aiter_raw():
+                    yield chunk
+            finally:
+                await response.aclose()
+
+        return StreamingResponse(
+            content=_stream(),
             status_code=response.status_code,
             headers=dict(response.headers),
-            media_type=response.headers.get("content-type", "application/json"),
         )
 
-    async def _chunks() -> AsyncIterator[bytes]:
-        try:
-            async for chunk in response.aiter_raw():
-                yield chunk
-        finally:
-            await response.aclose()
-
-    return StreamingResponse(
-        content=_chunks(),
-        status_code=response.status_code,
-        headers=dict(response.headers),
-        media_type="text/event-stream",
-    )
+    else:
+        return Response(
+            content=await response.aread(),
+            status_code=response.status_code,
+            headers=dict(response.headers),
+        )
 
 
 @app.post("/v1/messages", response_model=None)
