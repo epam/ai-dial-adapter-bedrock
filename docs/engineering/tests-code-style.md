@@ -9,9 +9,9 @@ Use dependency injection so components depend on interfaces/protocols instead of
 
 Tests should validate externally observable behavior, not implementation details.
 
-Avoid using `unittest.mock` to mock HTTP responses. Use `httpx` instead.
+Avoid using `unittest.mock` to mock HTTP responses. Use `respx` instead.
 
-Avoid using `monkeypatch` pytest fixture as much as possible in favor of `httpx` and mocking via dependency injection. `monkeypatch` is a powerful tool but can lead to brittle tests if overused.
+Avoid using `monkeypatch` pytest fixture as much as possible in favor of `respx` and mocking via dependency injection. `monkeypatch` is a powerful tool but can lead to brittle tests if overused.
 
 ## DRY
 
