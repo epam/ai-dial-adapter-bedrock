@@ -46,7 +46,7 @@ async def anthropic_client(http_client: httpx.AsyncClient):
 
 
 @respx.mock
-async def test_messages_non_streaming(
+async def test_http_messages_non_streaming(
     http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("messages_non_streaming_response.json")
@@ -66,7 +66,7 @@ async def test_messages_non_streaming(
 
 
 @respx.mock
-async def test_messages_streaming(
+async def test_http_messages_streaming(
     http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("messages_streaming_response.txt")
@@ -85,7 +85,7 @@ async def test_messages_streaming(
 
 
 @respx.mock
-async def test_message_batches(
+async def test_http_message_batches(
     http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("batches_response.json")
@@ -112,7 +112,7 @@ async def test_message_batches(
 
 
 @respx.mock
-async def test_count_tokens(
+async def test_http_count_tokens(
     http_client: httpx.AsyncClient, mock: respx.MockRouter
 ):
     content = _read_fixture("count_tokens_response.json")
@@ -132,7 +132,9 @@ async def test_count_tokens(
 
 
 @respx.mock
-async def test_models(http_client: httpx.AsyncClient, mock: respx.MockRouter):
+async def test_http_models(
+    http_client: httpx.AsyncClient, mock: respx.MockRouter
+):
     content = _read_fixture("models_response.json")
 
     mock.get(url="/v1/models").respond(
