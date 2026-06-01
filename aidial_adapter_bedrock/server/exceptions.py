@@ -99,7 +99,7 @@ def _copy_headers(
 def _copy_anthropic_headers(
     e: anthropic.APIStatusError,
 ) -> dict[str, str] | None:
-    return _copy_headers(e, ["Retry-After"])
+    return _copy_headers(e, ["Retry-After", "Retry-After-Ms"])
 
 
 def _create_error(

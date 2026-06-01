@@ -3,7 +3,11 @@ import json
 from collections.abc import AsyncIterator
 
 import httpx
+from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
+from anthropic._streaming import ServerSentEvent
+from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
+from botocore.eventstream import EventStreamBuffer
 from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
 
@@ -21,10 +25,41 @@ def _is_streaming_request(body: dict | None, path: str) -> bool:
     # content-type to be equal to text/event-stream, since Bedrock
     # returns the stream in its own event stream format:
     # content-type:application/vnd.amazon.eventstream
-    if path != "/v1/messages" and isinstance(body, dict):
+    if path == "/v1/messages" and isinstance(body, dict):
         return bool(body.get("stream"))
 
     return False
+
+
+async def _bedrock_stream_to_sse(
+    iterator: AsyncIterator[bytes],
+) -> AsyncIterator[ServerSentEvent]:
+    decoder = AWSEventStreamDecoder()
+    event_stream_buffer = EventStreamBuffer()
+    async for chunk in iterator:
+        event_stream_buffer.add_data(chunk)
+        for event in event_stream_buffer:
+            message = decoder._parse_message_from_event(event)
+            if message:
+                event = "completion"
+                with contextlib.suppress(Exception):
+                    event = json.loads(message).get("type")
+                yield ServerSentEvent(data=message, event=event)
+
+
+async def _sse_to_bytes_iterator(
+    event: AsyncIterator[ServerSentEvent],
+) -> AsyncIterator[bytes]:
+    async for sse in event:
+        if sse.id is not None:
+            yield f"id: {sse.id}\n".encode()
+        if sse.event is not None:
+            yield f"event: {sse.event}\n".encode()
+        for line in sse.data.split("\n"):
+            yield f"data: {line}\n".encode()
+        if sse.retry is not None:
+            yield f"retry: {sse.retry}\n".encode()
+        yield b"\n"
 
 
 @anthropic_exception_decorator
@@ -34,7 +69,7 @@ async def _proxy(request: Request, path: str) -> Response:
         with contextlib.suppress(json.JSONDecodeError):
             json_body = json.loads(content)
 
-    stream = _is_streaming_request(json_body, path)
+    is_streaming = _is_streaming_request(json_body, path)
 
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
@@ -52,7 +87,7 @@ async def _proxy(request: Request, path: str) -> Response:
         stream_cls=None,
     )
 
-    if stream:
+    if is_streaming:
 
         async def _stream() -> AsyncIterator[bytes]:
             try:
@@ -61,8 +96,12 @@ async def _proxy(request: Request, path: str) -> Response:
             finally:
                 await response.aclose()
 
+        stream = _stream()
+        if isinstance(client, AsyncAnthropicBedrock):
+            stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
+
         return StreamingResponse(
-            content=_stream(),
+            content=stream,
             status_code=response.status_code,
             headers=dict(response.headers),
         )
