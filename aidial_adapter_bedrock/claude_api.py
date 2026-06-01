@@ -1,3 +1,5 @@
+import contextlib
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -14,15 +16,25 @@ from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 app = FastAPI()
 
 
-@anthropic_exception_decorator
-async def _proxy(request: Request, path: str) -> Response:
-    json_body = await request.json()
-
+def _is_streaming_request(body: dict | None, path: str) -> bool:
     # Note that it isn't enough to check the response header
     # content-type to be equal to text/event-stream, since Bedrock
     # returns the stream in its own event stream format:
     # content-type:application/vnd.amazon.eventstream
-    stream = bool(json_body.get("stream")) and path == "/v1/messages"
+    if path != "/v1/messages" and isinstance(body, dict):
+        return bool(body.get("stream"))
+
+    return False
+
+
+@anthropic_exception_decorator
+async def _proxy(request: Request, path: str) -> Response:
+    json_body = None
+    if content := await request.body():
+        with contextlib.suppress(json.JSONDecodeError):
+            json_body = json.loads(content)
+
+    stream = _is_streaming_request(json_body, path)
 
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
