@@ -17,6 +17,11 @@ app = FastAPI()
 @anthropic_exception_decorator
 async def _proxy(request: Request, path: str) -> Response:
     json_body = await request.json()
+
+    # Note that it isn't enough to check the response header
+    # content-type to be equal to text/event-stream, since Bedrock
+    # returns the stream in its own event stream format:
+    # content-type:application/vnd.amazon.eventstream
     stream = bool(json_body.get("stream")) and path == "/v1/messages"
 
     upstream_config = await parse_upstream_config(request)
