@@ -40,6 +40,7 @@
   - [Authentication](#authentication)
     - [AWS Bedrock](#aws-bedrock)
     - [Anthropic API](#anthropic-api)
+  - [Anthropic API Passthrough](#anthropic-api-passthrough)
   - [Development](#development)
     - [Development Environment](#development-environment)
     - [Setup](#setup)
@@ -659,6 +660,19 @@ The adapter supports authentication with Anthropic API for Claude deployments.
     2. `anthropic.claude-sonnet-4-5-20250929-v1:0` _(`${AWS_BEDROCK_MODEL_NAME}`)_ in **AWS Bedrock**.
 
     The Bedrock adapter uses model names from **AWS Bedrock**. Therefore, in order to use **Claude API** model name you need to specify the corresponding name from **AWS Bedrock** in the [compatible_model_id](#compatibility-configuration-in-dial-core-config) field. Otherwise, the adapter returns 404.
+
+---
+
+## Anthropic API Passthrough
+
+The adapter exposes the native [Claude API](https://platform.claude.com/docs/en/api/overview#available-apis) at the `/anthropic` path, proxying requests transparently to the a corresponding model vendor. This allows applications built against the Anthropic SDK or the native Anthropic HTTP API to route through the adapter without protocol translation.
+
+|Method|Endpoint|
+|---|---|
+|`POST`|[/anthropic/v1/messages](https://platform.claude.com/docs/en/api/messages/create)|
+|`POST`|[/anthropic/v1/messages/batches](https://platform.claude.com/docs/en/api/messages/batches/create)|
+|`POST`|[/anthropic/v1/messages/count_tokens](https://platform.claude.com/docs/en/api/messages/count_tokens)|
+|`GET`|[/anthropic/v1/models](https://platform.claude.com/docs/en/api/models/list)|
 
 ---
 
