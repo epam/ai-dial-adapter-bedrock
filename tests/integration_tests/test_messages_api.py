@@ -112,6 +112,9 @@ class TestUnknownDeployment:
     def region(self) -> str:
         return "us-east-1"
 
-    async def test_404(self, messages: Messages):
-        with pytest.raises(anthropic.NotFoundError):
+    async def test_unknown_deployment(self, messages: Messages):
+        with pytest.raises(
+            anthropic.BadRequestError,
+            match="The provided model identifier is invalid",
+        ):
             await messages([{"role": "user", "content": "test"}], max_tokens=1)
