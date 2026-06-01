@@ -21,10 +21,9 @@ async def _proxy(request: Request, path: str) -> Response:
     client = await create_anthropic_client(upstream_config)
 
     options = FinalRequestOptions.construct(
-        method=request.method,
+        method=request.method.lower(),
         url=path,
         json_data=json_body,
-        headers={"content-type": "application/json"},
     )
 
     response = await client.request(
