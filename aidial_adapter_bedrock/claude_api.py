@@ -16,6 +16,7 @@ from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
 
@@ -51,6 +52,7 @@ async def _sse_to_bytes_iterator(
     event: AsyncIterator[ServerSentEvent],
 ) -> AsyncIterator[bytes]:
     async for sse in event:
+        log.debug(f"Yielding SSE: {sse}")
         if sse.id is not None:
             yield f"id: {sse.id}\n".encode()
         if sse.event is not None:
@@ -83,7 +85,7 @@ async def _proxy(request: Request, path: str) -> Response:
     response = await client.request(
         cast_to=httpx.Response,
         options=options,
-        stream=True,
+        stream=is_streaming,
         stream_cls=None,
     )
 
@@ -98,6 +100,9 @@ async def _proxy(request: Request, path: str) -> Response:
 
         stream = _stream()
         if isinstance(client, AsyncAnthropicBedrock):
+            response.headers["Content-Type"] = "text/event-stream"
+            response.headers.pop("Content-Encoding", None)
+            response.headers.pop("Content-Length", None)
             stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
 
         return StreamingResponse(

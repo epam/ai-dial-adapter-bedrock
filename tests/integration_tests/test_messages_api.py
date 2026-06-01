@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import anthropic
+import httpx
 import pytest
 
 from tests.integration_tests.test_chat_completion import (
@@ -51,8 +52,8 @@ def stream(request) -> bool:
 
 
 @pytest.fixture
-def anthropic_client(test_http_client, region: str) -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(
+async def anthropic_client(test_http_client: httpx.AsyncClient, region: str):
+    async with anthropic.AsyncAnthropic(
         api_key="dummy-key",
         base_url="http://test-app.com/anthropic",
         http_client=test_http_client,
@@ -60,7 +61,8 @@ def anthropic_client(test_http_client, region: str) -> anthropic.AsyncAnthropic:
         default_headers={
             "x-upstream-extra-data": json.dumps({"region": region})
         },
-    )
+    ) as client:
+        yield client
 
 
 Messages = Callable[..., Awaitable[str]]
