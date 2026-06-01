@@ -44,6 +44,8 @@ Each supported model gets one row. Columns:
 
 Always maintain the legend that explains ✅ / 🟡 / ❌ below any capability matrix.
 
+Write Markdown tables without padding spaces around cell content (`|col|col|`, not `| col | col |`). Padded tables require re-aligning every cell when a new row widens a column, producing noisy diffs unrelated to the actual change.
+
 When adding cross-region inference prefixes (`us.`, `eu.`, `apac.`) — document them under a dedicated section, not as separate rows.
 
 ## Configuration Examples
@@ -99,6 +101,18 @@ Cross-references within the README use anchor links (`[see Compatibility mode](#
 ## Limitations
 
 Document limitations explicitly. If a feature has a known gap or edge case that would surprise a user, it belongs in the README — not just in a code comment. Numbered lists work well for related limitations.
+
+## Formatting
+
+Follow the default [markdownlint](https://github.com/DavidAnson/markdownlint) rules. Common ones to watch:
+
+- Surround lists with blank lines (`MD032`)
+- Use a single `#` top-level heading per file (`MD025`)
+- No duplicate headings within the same file (`MD024`)
+- Fenced code blocks must specify a language (`MD040`)
+- Headings and list items use consistent style throughout the file
+
+The one intentional exception is table padding: use tight pipes (`|col|col|`) rather than padded ones (`| col | col |`) — see [Model Table](#model-table) above.
 
 ## What to Avoid
 
