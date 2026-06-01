@@ -30,6 +30,7 @@ Find the additional specialized guides:
 
 - [General Code Style](.claude/engineering/general-code-style.md) for coding standards (typing, module placement, visibility, protocol conformance).
 - [Tests Code Style](.claude/engineering/tests-code-style.md) for coding standards for tests specifically. Note that the general code style principles apply as well.
+- [Documentation Style](.claude/engineering/documentation-style.md) for how and when to update the README and other user-facing docs.
 - [Direct Output Style](.claude/output-styles/direct.md) for guidance on how to communicate when describing code changes, issues, or blockers.
 
 Tools: **Poetry** for deps, **nox** for task runner, **ruff** (line-length 80, py311), **pyright** (basic mode), **pytest-asyncio** + **respx** for tests.
