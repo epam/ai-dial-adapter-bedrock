@@ -6,18 +6,25 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
 
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
+from aidial_adapter_bedrock.server.exceptions import (
+    anthropic_exception_decorator,
+)
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 
 app = FastAPI()
 
 
+@anthropic_exception_decorator
 async def _proxy(request: Request, path: str) -> Response:
-    body = await request.body()
+    json_body = await request.json()
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
     options = FinalRequestOptions.construct(
-        method=request.method, url=path, content=body
+        method=request.method,
+        url=path,
+        json_data=json_body,
+        headers={"content-type": "application/json"},
     )
 
     response = await client.request(
