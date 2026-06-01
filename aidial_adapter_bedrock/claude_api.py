@@ -17,6 +17,8 @@ app = FastAPI()
 @anthropic_exception_decorator
 async def _proxy(request: Request, path: str) -> Response:
     json_body = await request.json()
+    stream = bool(json_body.get("stream")) and path == "/v1/messages"
+
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
@@ -33,7 +35,7 @@ async def _proxy(request: Request, path: str) -> Response:
         stream_cls=None,
     )
 
-    if "text/event-stream" in response.headers.get("content-type"):
+    if stream:
 
         async def _stream() -> AsyncIterator[bytes]:
             try:
