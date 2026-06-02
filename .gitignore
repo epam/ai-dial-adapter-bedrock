@@ -12,3 +12,5 @@ dist
 *.html
 ~*
 allure-results
+CLAUDE.md
+.claude/
