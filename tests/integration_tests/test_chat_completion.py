@@ -95,6 +95,7 @@ def is_retired_model(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_OPUS,
     }
 
 
