@@ -36,6 +36,6 @@ resolutions:
     - message: ".*PyPI::typing-extensions:4\\.15\\.0.*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "Same as CPython: https://github.com/python/typing_extensions/blob/4.15.0/LICENSE"
-    - message: ".*PyPI::(opentelemetry|pillow|aidial-sdk|aidial-adapter-anthropic|idna|starlette|fastapi).*"
+    - message: ".*PyPI::(opentelemetry|pillow|aidial-sdk|aidial-adapter-anthropic|idna|starlette|fastapi|typing-inspection).*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "ORT cannot pickup license"
