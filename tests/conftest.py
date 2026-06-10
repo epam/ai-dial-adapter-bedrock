@@ -2,6 +2,7 @@ import json
 
 import httpx
 import pytest
+from asgi_lifespan import LifespanManager
 from httpx import ASGITransport
 from openai import AsyncAzureOpenAI
 
@@ -22,12 +23,15 @@ def configure_unit_tests(monkeypatch, request):
 async def test_http_client():
     from aidial_adapter_bedrock.app import app
 
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app),  # type: ignore
-        base_url="http://test-app.com",
-        params={"api-version": "dummy-version"},
-        headers={"api-key": "dummy-key"},
-    ) as client:
+    async with (
+        LifespanManager(app),
+        httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+            params={"api-version": "dummy-version"},
+            headers={"api-key": "dummy-key"},
+        ) as client,
+    ):
         yield client
 
 
