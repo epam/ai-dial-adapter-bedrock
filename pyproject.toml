@@ -28,7 +28,7 @@ botocore = "1.37.24"
 aidial-adapter-anthropic = "0.10.0"
 aidial-sdk = { version = "0.37.0", extras = ["telemetry"] }
 anthropic = { version = "0.95.0", extras = ["bedrock"] }
-fastapi = "0.120.2"
+fastapi = "0.135.1"
 uvicorn = "0.23.2"
 pydantic = "2.10.4"
 numpy = "2.0.0"
