@@ -21,7 +21,6 @@ from tests.utils.openai import (
 _EAST = "us-east-1"
 
 chat_deployments: Mapping[Deployment, str] = {
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST,
