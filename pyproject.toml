@@ -28,7 +28,7 @@ botocore = "1.37.24"
 aidial-adapter-anthropic = "0.10.0"
 aidial-sdk = { version = "0.37.0", extras = ["telemetry"] }
 anthropic = { version = "0.95.0", extras = ["bedrock"] }
-fastapi = "0.120.2"
+fastapi = "0.135.1"
 uvicorn = "0.23.2"
 pydantic = "2.10.4"
 numpy = "2.0.0"
@@ -47,6 +47,7 @@ pytest-timeout = "^2.3.1"
 pytest-env = "1.1.1"
 respx = "^0.22.0"
 allure-pytest = "^2.13.5"
+asgi-lifespan = "2.1.0"
 
 [tool.poetry.group.lint.dependencies]
 pyright = "1.1.389"
@@ -64,8 +65,6 @@ env_override_existing_values = 1
 testpaths = ["tests"]
 filterwarnings = [
     "error",
-    # muting warnings like this: ResourceWarning: unclosed <socket.socket fd=13...
-    "ignore::ResourceWarning:",
     # muting warnings coming from opentelemetry package
     "ignore::DeprecationWarning:opentelemetry.instrumentation.dependencies",
     # UserWarning: Pydantic serializer warnings
