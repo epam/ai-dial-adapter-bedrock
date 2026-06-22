@@ -108,14 +108,14 @@ async def _proxy(request: Request, path: str) -> Response:
         return StreamingResponse(
             content=stream,
             status_code=response.status_code,
-            headers=dict(response.headers),
+            headers=response.headers,
         )
 
     else:
         return Response(
             content=await response.aread(),
             status_code=response.status_code,
-            headers=dict(response.headers),
+            headers=response.headers,
         )
 
 

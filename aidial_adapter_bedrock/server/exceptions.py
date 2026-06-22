@@ -89,11 +89,11 @@ def _parse_anthropic_streaming_error(text: str) -> DialException | None:
 def _copy_headers(
     e: anthropic.APIStatusError, keys: list[str]
 ) -> dict[str, str] | None:
-    copied_headers: dict[str, str] = {}
-    for key in keys:
-        if key in e.response.headers:
-            copied_headers[key] = e.response.headers[key]
-    return copied_headers or None
+    headers = e.response.headers
+    copied = {
+        key: value for key in keys if (value := headers.get(key)) is not None
+    }
+    return copied or None
 
 
 def _copy_anthropic_headers(
