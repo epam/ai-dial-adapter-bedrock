@@ -92,6 +92,7 @@ def is_retired_model(deployment: D) -> bool:
     # Retired models: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html#versions-for-eol
     return deployment in {
         D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,

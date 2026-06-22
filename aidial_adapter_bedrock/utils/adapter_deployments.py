@@ -37,7 +37,9 @@ def resolve_upstream_deployment_id_from_request(
         cls,
         upstream_deployment_id=deployment_id,
         compat_mapping=COMPATIBILITY_MAPPING,
-        compatible_id_from_upstream=get_compatible_model_id(request),
+        compatible_id_from_upstream=get_compatible_model_id(
+            request.original_request
+        ),
     )
 
 

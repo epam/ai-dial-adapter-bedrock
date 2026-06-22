@@ -23,6 +23,8 @@ from enum import Enum
 from functools import wraps
 from typing import assert_never
 
+import anthropic
+import fastapi
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_sdk.exceptions import (
     DeploymentNotFoundError,
@@ -31,8 +33,7 @@ from aidial_sdk.exceptions import (
     ResourceNotFoundError,
 )
 from aidial_sdk.exceptions import HTTPException as DialException
-from anthropic import APIStatusError
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError as BotocoreClientError
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
@@ -45,12 +46,22 @@ def _get_exception_type(status_code: int) -> str | None:
     return None
 
 
-def _get_anthropic_error_message(e: APIStatusError) -> str:
+def _get_anthropic_error_message(e: anthropic.APIStatusError) -> str:
     if isinstance(body := e.body, dict) and isinstance(
         (msg := body.get("message")), str
     ):
         return msg
     return e.message
+
+
+def _anthropic_error_message_to_response(
+    e: anthropic.APIStatusError,
+) -> fastapi.Response:
+    return fastapi.Response(
+        content=e.response.content,
+        status_code=e.status_code,
+        headers=_copy_anthropic_headers(e),
+    )
 
 
 def _parse_anthropic_streaming_error(text: str) -> DialException | None:
@@ -75,12 +86,20 @@ def _parse_anthropic_streaming_error(text: str) -> DialException | None:
     return None
 
 
-def _copy_headers(e: APIStatusError, keys: list[str]) -> dict[str, str] | None:
-    copied_headers: dict[str, str] = {}
-    for key in keys:
-        if key in e.response.headers:
-            copied_headers[key] = e.response.headers[key]
-    return copied_headers or None
+def _copy_headers(
+    e: anthropic.APIStatusError, keys: list[str]
+) -> dict[str, str] | None:
+    headers = e.response.headers
+    copied = {
+        key: value for key in keys if (value := headers.get(key)) is not None
+    }
+    return copied or None
+
+
+def _copy_anthropic_headers(
+    e: anthropic.APIStatusError,
+) -> dict[str, str] | None:
+    return _copy_headers(e, ["Retry-After", "Retry-After-Ms"])
 
 
 def _create_error(
@@ -178,7 +197,7 @@ def _get_content_filter_error(response: dict) -> DialException | None:
 
 def to_dial_exception(e: Exception) -> DialException:
     if (
-        isinstance(e, ClientError)
+        isinstance(e, BotocoreClientError)
         and hasattr(e, "response")
         and isinstance(e.response, dict)
     ):
@@ -196,15 +215,15 @@ def to_dial_exception(e: Exception) -> DialException:
 
         return _create_error(status_code, str(e))
 
-    if isinstance(e, APIStatusError):
+    if isinstance(e, anthropic.APIStatusError):
         if error := _get_end_of_life_error(e.response.json(), e.status_code):
             return error
 
         message = _get_anthropic_error_message(e)
+
         # We want to save Retry-After header if it's present:
         # https://platform.claude.com/docs/en/api/rate-limits#tier-1
-
-        headers = _copy_headers(e, ["Retry-After"])
+        headers = _copy_anthropic_headers(e)
         return _create_error(e.status_code, message, headers)
 
     if isinstance(e, ValidationError):
@@ -236,6 +255,17 @@ def dial_exception_decorator(func):
                 f"The exception converted to the dial exception: {dial_exception!r}."
             )
             raise dial_exception from e
+
+    return wrapper
+
+
+def anthropic_exception_decorator(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs) -> fastapi.Response:
+        try:
+            return await func(*args, **kwargs)
+        except anthropic.APIStatusError as e:
+            return _anthropic_error_message_to_response(e)
 
     return wrapper
 

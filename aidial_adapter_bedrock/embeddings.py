@@ -18,7 +18,9 @@ class BedrockEmbeddings(Embeddings):
         model = await get_embeddings_model(
             deployment=deployment,
             api_key=request.api_key,
-            upstream_config=await parse_upstream_config(request),
+            upstream_config=await parse_upstream_config(
+                request.original_request
+            ),
         )
 
         return await model.embeddings(request)
