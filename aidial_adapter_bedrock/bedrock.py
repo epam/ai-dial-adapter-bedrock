@@ -12,7 +12,11 @@ import boto3
 import botocore
 import httpx
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
-from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
+from anthropic import (
+    AsyncAnthropic,
+    AsyncAnthropicBedrock,
+    AsyncAnthropicBedrockMantle,
+)
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
@@ -67,7 +71,10 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
 @ttl_cache
 async def create_anthropic_client(
     upstream_config: UpstreamConfig,
-) -> tuple[datetime | None, AsyncAnthropicBedrock | AsyncAnthropic]:
+) -> tuple[
+    datetime | None,
+    AsyncAnthropicBedrock | AsyncAnthropicBedrockMantle | AsyncAnthropic,
+]:
     http_client = httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
@@ -88,17 +95,21 @@ async def create_anthropic_client(
             max_retries=ANTHROPIC_MAX_RETRY_ATTEMPTS,
         )
         return (None, anthropic_client)
-    else:
-        expiration, creds = await upstream_config.get_credentials()
-        anthropic_client = AsyncAnthropicBedrock(
-            aws_region=upstream_config.region,
-            aws_access_key=creds.aws_access_key_id,
-            aws_secret_key=creds.aws_secret_access_key,
-            aws_session_token=creds.aws_session_token,
-            http_client=http_client,
-            max_retries=ANTHROPIC_MAX_RETRY_ATTEMPTS,
-        )
-        return expiration, anthropic_client
+    expiration, creds = await upstream_config.get_credentials()
+
+    client_params = {
+        "aws_region": upstream_config.region,
+        "aws_access_key": creds.aws_access_key_id,
+        "aws_secret_key": creds.aws_secret_access_key,
+        "aws_session_token": creds.aws_session_token,
+        "http_client": http_client,
+        "max_retries": ANTHROPIC_MAX_RETRY_ATTEMPTS,
+    }
+
+    if upstream_config.client == "mantle":
+        return expiration, AsyncAnthropicBedrockMantle(**client_params)
+
+    return expiration, AsyncAnthropicBedrock(**client_params)
 
 
 @ttl_cache

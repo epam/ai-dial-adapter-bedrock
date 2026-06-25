@@ -1,3 +1,5 @@
+import json
+
 import openai
 import pytest
 import respx
@@ -113,3 +115,25 @@ async def test_anthropic_error_rate_limit(
     assert exc.status_code == 429
     assert exc.response.headers is not None
     assert exc.response.headers.get("Retry-After") == "9"
+
+
+async def test_openai_invalid_client_selector_returns_422(get_openai_client):
+    client: openai.AsyncAzureOpenAI = get_openai_client(
+        _DEPLOYMENT.value,
+        extra_headers={
+            "x-upstream-extra-data": json.dumps(
+                {"region": _REGION, "client": "invalid"}
+            )
+        },
+    )
+    client.max_retries = 0
+
+    with pytest.raises(openai.UnprocessableEntityError) as exc_info:
+        await chat_completion(client, messages=[user("test")], stream=False)
+
+    exc = exc_info.value
+    assert exc.status_code == 422
+    assert exc.body is not None
+    assert isinstance(exc.body, dict)
+    assert "x-upstream-extra-data" in str(exc.body.get("message", ""))
+    assert "client" in str(exc.body.get("message", ""))

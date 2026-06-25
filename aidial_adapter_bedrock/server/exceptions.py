@@ -266,6 +266,13 @@ def anthropic_exception_decorator(func):
             return await func(*args, **kwargs)
         except anthropic.APIStatusError as e:
             return _anthropic_error_message_to_response(e)
+        except Exception as e:
+            dial_exception = to_dial_exception(e)
+            log.exception(
+                f"Caught exception: {type(e).__module__}.{type(e).__name__}. "
+                f"The exception converted to the dial exception: {dial_exception!r}."
+            )
+            return dial_exception.to_fastapi_response()
 
     return wrapper
 

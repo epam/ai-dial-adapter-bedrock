@@ -21,6 +21,8 @@ test_cases: list[tuple[D, bool, bool, bool]] = [
     (D.ANTHROPIC_CLAUDE_V4_OPUS, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_1_OPUS, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_6_OPUS, True, True, True),
+    (D.ANTHROPIC_CLAUDE_V4_7_OPUS, True, True, True),
+    (D.ANTHROPIC_CLAUDE_V4_8_OPUS, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_5_HAIKU, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_5_SONNET, True, True, True),
     (D.ANTHROPIC_CLAUDE_V4_6_SONNET, True, True, True),

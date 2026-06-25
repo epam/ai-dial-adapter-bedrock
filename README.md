@@ -74,6 +74,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
+|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Opus|anthropic.claude-opus-4-6-v1|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Sonnet|anthropic.claude-sonnet-4-6|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -450,6 +452,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AWS_SECRET_ACCESS_KEY|NA|AWS credentials with an access to the Bedrock service|
 |AWS_SESSION_TOKEN|NA|AWS session token with an access the Bedrock service|
 |AWS_DEFAULT_REGION||AWS region e.g. `us-east-1`|
+|AWS_DEFAULT_CLIENT|legacy|Default AWS Claude client mode for cloud credentials path. Supported values: `legacy`, `mantle`.|
 |AWS_ASSUME_ROLE_ARN||AWS assume role ARN e.g. `arn:aws:iam::123456789012:role/RoleName`|
 |LOG_LEVEL|INFO|Log level. Use DEBUG for dev purposes and INFO in prod|
 |AIDIAL_LOG_LEVEL|WARNING|AI DIAL SDK log level|
@@ -582,6 +585,7 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
     {
       "extraData": {
         "region": "eu-west-1",
+        "client": "legacy",
         "aws_access_key_id": "key_id_1",
         "aws_secret_access_key": "access_key_1"
       }
@@ -589,6 +593,7 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
     {
       "extraData": {
         "region": "eu-west-1",
+        "client": "mantle",
         "aws_access_key_id": "key_id_2",
         "aws_secret_access_key": "access_key_2",
         "aws_session_token": "optional session token"
@@ -597,6 +602,7 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
     {
       "extraData": {
         "region": "eu-west-1",
+        "client": "legacy",
         "aws_assume_role_arn": "arn:aws:iam::123456789012:role/BedrockAccessAdapterRoleName"
       }
     },
@@ -609,13 +615,21 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
 
 The fields in the extra data override the corresponding environment variables:
 
-|`extraData` field|Env variable|
-|---|---|
-|`region`|`AWS_DEFAULT_REGION`|
-|`aws_access_key_id`|`AWS_ACCESS_KEY_ID`|
-|`aws_secret_access_key`|`AWS_SECRET_ACCESS_KEY`|
-|`aws_session_token`|`AWS_SESSION_TOKEN`|
-|`aws_assume_role_arn`|`AWS_ASSUME_ROLE_ARN`|
+|`extraData` field| Env variable                               |
+|---|--------------------------------------------|
+|`region`| `AWS_DEFAULT_REGION`                       |
+|`client`| `AWS_DEFAULT_CLIENT` |
+|`aws_access_key_id`| `AWS_ACCESS_KEY_ID`                        |
+|`aws_secret_access_key`| `AWS_SECRET_ACCESS_KEY`                    |
+|`aws_session_token`| `AWS_SESSION_TOKEN`                        |
+|`aws_assume_role_arn`| `AWS_ASSUME_ROLE_ARN`                      |
+
+The `client` field selects which AWS Bedrock client implementation is used for Claude requests:
+
+- `legacy` (default): AnthropicBedrock SDK.
+- `mantle`: AnthropicBedrockMantle SDK.
+
+For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
 
 ## Authentication
 
@@ -666,6 +680,12 @@ The adapter supports authentication with Anthropic API for Claude deployments.
 ## Anthropic API Passthrough
 
 The adapter exposes the native [Claude API](https://platform.claude.com/docs/en/api/overview#available-apis) at the `/anthropic` path, proxying requests transparently to the a corresponding model vendor. This allows applications built against the Anthropic SDK or the native Anthropic HTTP API to route through the adapter without protocol translation.
+
+By default (`x-upstream-extra-data.client` omitted or set to `legacy`), all passthrough endpoints below are supported.
+When `x-upstream-extra-data.client` is set to `mantle`, only `/anthropic/v1/messages` is supported.
+Other passthrough endpoints return `400` with:
+`Endpoint '<path>' is not supported when x-upstream-extra-data.client='mantle'`.
+See [Claude in Amazon Bedrock](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock).
 
 |Method|Endpoint|
 |---|---|

@@ -4,13 +4,38 @@ from typing import ClassVar, Optional
 
 import boto3
 import fastapi
-from pydantic import BaseModel, ConfigDict, Field
+from aidial_adapter_anthropic.adapter import ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
+from pydantic import (
+    ValidationError as PydanticValidationError,
+)
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
-from aidial_adapter_bedrock.utils.env import get_aws_default_region
+from aidial_adapter_bedrock.utils.env import (
+    AWSClient,
+    get_aws_default_client,
+    get_aws_default_region,
+)
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
+
+
+def _to_validation_error(e: PydanticValidationError) -> ValidationError:
+    errors = []
+    for error in e.errors():
+        loc = ".".join(map(str, error.get("loc", ())))
+        msg = error.get("msg", "Invalid value")
+        errors.append(f"{loc}: {msg}" if loc else str(msg))
+
+    details = "; ".join(errors) if errors else str(e)
+    return ValidationError(
+        f"Request header '{_UPSTREAM_CONFIG_HEADER_NAME}' contains invalid configuration: {details}"
+    )
 
 
 class ClientCredentialArgs(BaseModel):
@@ -59,21 +84,26 @@ class AWSAssumeRoleCredentials(BaseModel):
 class CloudUpstreamConfig(BaseModel):
     region: str
     credentials: AWSClientCredentials | AWSAssumeRoleCredentials | None = None
+    client: AWSClient = "legacy"
 
     @classmethod
     async def from_request(
         cls, request: fastapi.Request
     ) -> "CloudUpstreamConfig":
         conf = request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)
-        upstream_config = (
-            UpstreamConfigData.model_validate_json(conf)
-            if conf
-            else UpstreamConfigData()
-        )
+        try:
+            upstream_config = (
+                UpstreamConfigData.model_validate_json(conf)
+                if conf
+                else UpstreamConfigData()
+            )
+        except PydanticValidationError as e:
+            raise _to_validation_error(e) from e
 
         return cls(
             region=upstream_config.region,
             credentials=upstream_config._get_client_credentials(),
+            client=upstream_config.client,
         )
 
     async def get_credentials(
@@ -113,6 +143,7 @@ async def parse_upstream_config(request: fastapi.Request) -> UpstreamConfig:
 
 class UpstreamConfigData(BaseModel):
     region: str = Field(default_factory=get_aws_default_region)
+    client: AWSClient = Field(default_factory=get_aws_default_client)
     aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_session_token: str | None = os.getenv("AWS_SESSION_TOKEN")

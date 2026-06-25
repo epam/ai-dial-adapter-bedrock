@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Literal, assert_never
+from typing import Any, Literal, assert_never, cast
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from aidial_adapter_anthropic.adapter.claude import ApproximateTokenizer
@@ -23,10 +23,12 @@ def _supports_thinking(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
     }
 
 
@@ -38,10 +40,12 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
     }
 
 
@@ -66,9 +70,11 @@ class _Tokenizer(ApproximateTokenizer):
                     | D.ANTHROPIC_CLAUDE_V4_OPUS
                     | D.ANTHROPIC_CLAUDE_V4_1_OPUS
                     | D.ANTHROPIC_CLAUDE_V4_6_OPUS
+                    | D.ANTHROPIC_CLAUDE_V4_7_OPUS
                     | D.ANTHROPIC_CLAUDE_V4_5_HAIKU
                     | D.ANTHROPIC_CLAUDE_V4_5_SONNET
                     | D.ANTHROPIC_CLAUDE_V4_6_SONNET
+                    | D.ANTHROPIC_CLAUDE_V4_8_OPUS
                 ):
                     return (346, 313)
                 case D.ANTHROPIC_CLAUDE_V3_OPUS:
@@ -97,7 +103,8 @@ async def create_adapter(
     return await create_anthropic_adapter(
         deployment=deployment.upstream_deployment_id,
         storage=create_file_storage(api_key),
-        client=client,
+        # `aidial-adapter-anthropic` typing doesn't include Bedrock Mantle yet.
+        client=cast(Any, client),
         custom_tokenizer=_Tokenizer(deployment.reference_deployment_id),
         default_max_tokens=CLAUDE_DEFAULT_MAX_TOKENS,
         supports_thinking=_supports_thinking(ref),
