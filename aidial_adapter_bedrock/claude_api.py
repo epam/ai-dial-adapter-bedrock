@@ -1,11 +1,12 @@
 import contextlib
 import json
 from collections.abc import AsyncIterator
+from logging import DEBUG
 
 import httpx
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
-from anthropic._streaming import ServerSentEvent
+from anthropic._streaming import ServerSentEvent, SSEDecoder
 from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
 from botocore.eventstream import EventStreamBuffer
 from fastapi import FastAPI, Request
@@ -16,6 +17,7 @@ from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
+from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
@@ -52,7 +54,6 @@ async def _sse_to_bytes_iterator(
     event: AsyncIterator[ServerSentEvent],
 ) -> AsyncIterator[bytes]:
     async for sse in event:
-        log.debug(f"Yielding SSE: {sse}")
         if sse.id is not None:
             yield f"id: {sse.id}\n".encode()
         if sse.event is not None:
@@ -62,6 +63,35 @@ async def _sse_to_bytes_iterator(
         if sse.retry is not None:
             yield f"retry: {sse.retry}\n".encode()
         yield b"\n"
+
+
+def _format_for_log(content: bytes) -> object:
+    text = content.decode("utf-8", errors="replace")
+    with contextlib.suppress(json.JSONDecodeError):
+        return json.loads(text)
+    return text
+
+
+async def _aiter_and_close(
+    source: AsyncIterator[bytes], response: httpx.Response
+) -> AsyncIterator[bytes]:
+    try:
+        async for chunk in source:
+            yield chunk
+    finally:
+        await response.aclose()
+
+
+async def _log_sse_events(
+    events: AsyncIterator[ServerSentEvent],
+) -> AsyncIterator[ServerSentEvent]:
+    async for sse in events:
+        if log.isEnabledFor(DEBUG):
+            data: object = sse.data
+            with contextlib.suppress(json.JSONDecodeError):
+                data = json.loads(sse.data)
+            log.debug(f"response event: {json_dumps_short(data)}")
+        yield sse
 
 
 @anthropic_exception_decorator
@@ -82,6 +112,19 @@ async def _proxy(request: Request, path: str) -> Response:
         json_data=json_body,
     )
 
+    if log.isEnabledFor(DEBUG):
+        log.debug(
+            "request: "
+            + json_dumps_short(
+                {
+                    "method": request.method,
+                    "path": path,
+                    "streaming": is_streaming,
+                    "body": json_body,
+                }
+            )
+        )
+
     response = await client.request(
         cast_to=httpx.Response,
         options=options,
@@ -90,30 +133,46 @@ async def _proxy(request: Request, path: str) -> Response:
     )
 
     if is_streaming:
+        out_headers = httpx.Headers(response.headers)
+        out_headers.pop("Content-Encoding", None)
+        out_headers.pop("Content-Length", None)
+        out_headers["Content-Type"] = "text/event-stream"
 
-        async def _stream() -> AsyncIterator[bytes]:
-            try:
-                async for chunk in response.aiter_raw():
-                    yield chunk
-            finally:
-                await response.aclose()
-
-        stream = _stream()
         if isinstance(client, AsyncAnthropicBedrock):
-            response.headers["Content-Type"] = "text/event-stream"
-            response.headers.pop("Content-Encoding", None)
-            response.headers.pop("Content-Length", None)
-            stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
+            events = _bedrock_stream_to_sse(
+                _aiter_and_close(response.aiter_raw(), response)
+            )
+        else:
+            events = SSEDecoder().aiter_bytes(
+                _aiter_and_close(response.aiter_bytes(), response)
+            )
+
+        stream = _sse_to_bytes_iterator(_log_sse_events(events))
 
         return StreamingResponse(
             content=stream,
             status_code=response.status_code,
-            headers=response.headers,
+            headers=out_headers,
         )
 
     else:
+        response.headers.pop("Content-Encoding", None)
+        response.headers.pop("Content-Length", None)
+
+        content = await response.aread()
+        if log.isEnabledFor(DEBUG):
+            log.debug(
+                "response: "
+                + json_dumps_short(
+                    {
+                        "status": response.status_code,
+                        "body": _format_for_log(content),
+                    }
+                )
+            )
+
         return Response(
-            content=await response.aread(),
+            content=content,
             status_code=response.status_code,
             headers=response.headers,
         )
