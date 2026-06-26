@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from functools import cache
 from logging import DEBUG
-from typing import Any, Unpack
+from typing import Any, TypedDict, Unpack, assert_never
 
 import anthropic
 import boto3
@@ -46,6 +46,15 @@ BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
     "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
 )
 ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
+
+
+class _BedrockClientParams(TypedDict):
+    aws_region: str
+    aws_access_key: str | None
+    aws_secret_key: str | None
+    aws_session_token: str | None
+    http_client: httpx.AsyncClient
+    max_retries: int
 
 
 def _get_botocore_max_retry_attempts():
@@ -95,9 +104,9 @@ async def create_anthropic_client(
             max_retries=ANTHROPIC_MAX_RETRY_ATTEMPTS,
         )
         return (None, anthropic_client)
-    expiration, creds = await upstream_config.get_credentials()
 
-    client_params = {
+    expiration, creds = await upstream_config.get_credentials()
+    client_params: _BedrockClientParams = {
         "aws_region": upstream_config.region,
         "aws_access_key": creds.aws_access_key_id,
         "aws_secret_key": creds.aws_secret_access_key,
@@ -106,10 +115,13 @@ async def create_anthropic_client(
         "max_retries": ANTHROPIC_MAX_RETRY_ATTEMPTS,
     }
 
-    if upstream_config.client == "mantle":
-        return expiration, AsyncAnthropicBedrockMantle(**client_params)
-
-    return expiration, AsyncAnthropicBedrock(**client_params)
+    match upstream_config.client:
+        case "mantle":
+            return expiration, AsyncAnthropicBedrockMantle(**client_params)
+        case "legacy":
+            return expiration, AsyncAnthropicBedrock(**client_params)
+        case _:
+            assert_never(upstream_config.client)
 
 
 @ttl_cache
