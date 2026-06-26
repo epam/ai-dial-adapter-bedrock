@@ -252,33 +252,6 @@ class _FakeClient:
 
 
 class TestMantleSelector:
-    async def test_invalid_client_header_returns_422(self, monkeypatch):
-        async def _unexpected_create_client(_upstream):
-            raise AssertionError("create_anthropic_client should not be called")
-
-        monkeypatch.setattr(
-            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
-            _unexpected_create_client,
-        )
-
-        async with httpx.AsyncClient(
-            transport=ASGITransport(app),  # type: ignore
-            base_url="http://test-app.com",
-            headers={
-                "x-upstream-extra-data": json.dumps({"client": "invalid"})
-            },
-        ) as client:
-            response = await client.get("/v1/models")
-
-        assert response.status_code == 422
-        body = response.json()["error"]
-        assert "x-upstream-extra-data" in body["message"]
-        assert "client" in body["message"]
-        assert "legacy" in body["message"]
-        assert "mantle" in body["message"]
-        assert body["type"] == "invalid_request_error"
-        assert body["code"] == "invalid_argument"
-
     async def test_mantle_streaming_passthrough(self, monkeypatch):
         content = _read_fixture("messages_streaming_response.txt")
         fake_response = _FakeStreamingResponse(

@@ -4,7 +4,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
-from aidial_adapter_anthropic.adapter import ValidationError
+from pydantic import ValidationError
 
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
@@ -155,7 +155,7 @@ class TestAWSClientConfigFactory:
         with pytest.raises(ValidationError) as e:
             await parse_upstream_config(request)  # type: ignore
 
-        assert "x-upstream-extra-data" in str(e.value)
+        assert "validation error for UpstreamConfigData" in str(e.value)
         assert "client" in str(e.value)
         assert "legacy" in str(e.value)
         assert "mantle" in str(e.value)

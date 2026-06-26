@@ -4,14 +4,10 @@ from typing import ClassVar, Optional
 
 import boto3
 import fastapi
-from aidial_adapter_anthropic.adapter import ValidationError
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-)
-from pydantic import (
-    ValidationError as PydanticValidationError,
 )
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
@@ -23,19 +19,6 @@ from aidial_adapter_bedrock.utils.env import (
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
-
-
-def _to_validation_error(e: PydanticValidationError) -> ValidationError:
-    errors = []
-    for error in e.errors():
-        loc = ".".join(map(str, error.get("loc", ())))
-        msg = error.get("msg", "Invalid value")
-        errors.append(f"{loc}: {msg}" if loc else str(msg))
-
-    details = "; ".join(errors) if errors else str(e)
-    return ValidationError(
-        f"Request header '{_UPSTREAM_CONFIG_HEADER_NAME}' contains invalid configuration: {details}"
-    )
 
 
 class ClientCredentialArgs(BaseModel):
@@ -84,21 +67,18 @@ class AWSAssumeRoleCredentials(BaseModel):
 class CloudUpstreamConfig(BaseModel):
     region: str
     credentials: AWSClientCredentials | AWSAssumeRoleCredentials | None = None
-    client: AWSClient = "legacy"
+    client: AWSClient
 
     @classmethod
     async def from_request(
         cls, request: fastapi.Request
     ) -> "CloudUpstreamConfig":
         conf = request.headers.get(_UPSTREAM_CONFIG_HEADER_NAME)
-        try:
-            upstream_config = (
-                UpstreamConfigData.model_validate_json(conf)
-                if conf
-                else UpstreamConfigData()
-            )
-        except PydanticValidationError as e:
-            raise _to_validation_error(e) from e
+        upstream_config = (
+            UpstreamConfigData.model_validate_json(conf)
+            if conf
+            else UpstreamConfigData()
+        )
 
         return cls(
             region=upstream_config.region,
