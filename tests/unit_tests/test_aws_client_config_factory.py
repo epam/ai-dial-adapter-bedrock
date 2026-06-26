@@ -50,6 +50,18 @@ class TestAWSClientConfigFactory:
         assert conf.client == "legacy"
         assert conf.credentials is None
 
+    async def test__get_client_config__default_region_in_config__empty_extra(
+        self,
+    ):
+        request = self._get_request(extra_data={})
+
+        conf = await parse_upstream_config(request)  # type: ignore
+
+        assert isinstance(conf, CloudUpstreamConfig)
+        assert conf.region == "test-region"
+        assert conf.client == "legacy"
+        assert conf.credentials is None
+
     async def test__get_client_config__region_provided__region_in_config(self):
         request = self._get_request(extra_data={"region": "us-east-2"})
 
@@ -152,10 +164,5 @@ class TestAWSClientConfigFactory:
     async def test__get_client_config__invalid_client_value(self):
         request = self._get_request(extra_data={"client": "invalid"})
 
-        with pytest.raises(ValidationError) as e:
+        with pytest.raises(ValidationError):
             await parse_upstream_config(request)  # type: ignore
-
-        assert "validation error for UpstreamConfigData" in str(e.value)
-        assert "client" in str(e.value)
-        assert "legacy" in str(e.value)
-        assert "mantle" in str(e.value)

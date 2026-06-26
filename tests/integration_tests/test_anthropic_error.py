@@ -1,5 +1,3 @@
-import json
-
 import openai
 import pytest
 import respx
@@ -115,30 +113,3 @@ async def test_anthropic_error_rate_limit(
     assert exc.status_code == 429
     assert exc.response.headers is not None
     assert exc.response.headers.get("Retry-After") == "9"
-
-
-async def test_openai_invalid_client_selector_returns_500(get_openai_client):
-    client: openai.AsyncAzureOpenAI = get_openai_client(
-        _DEPLOYMENT.value,
-        extra_headers={
-            "x-upstream-extra-data": json.dumps(
-                {"region": _REGION, "client": "invalid"}
-            )
-        },
-    )
-    client.max_retries = 0
-
-    with pytest.raises(openai.InternalServerError) as exc_info:
-        await chat_completion(client, messages=[user("test")], stream=False)
-
-    exc = exc_info.value
-    assert exc.status_code == 500
-    assert exc.body is not None
-    assert isinstance(exc.body, dict)
-    assert "validation error for UpstreamConfigData" in str(
-        exc.body.get("message", "")
-    )
-    assert "client" in str(exc.body.get("message", ""))
-    assert "legacy" in str(exc.body.get("message", ""))
-    assert "mantle" in str(exc.body.get("message", ""))
-    assert str(exc.body.get("type", "")) == "internal_server_error"

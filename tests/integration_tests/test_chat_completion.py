@@ -136,6 +136,14 @@ def is_claude(deployment: D) -> bool:
     ]
 
 
+def supports_mantle_client(deployment: D) -> bool:
+    # Claude in Amazon Bedrock Mantle currently supports only a subset of models.
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+    ]
+
+
 def is_vision_model(deployment: D) -> bool:
     return deployment in [
         D.META_LLAMA3_2_11B_INSTRUCT_V1,
@@ -370,8 +378,25 @@ def create_message_with_image(request) -> Callable:
 
 
 @pytest.fixture
-def openai_client(deployment: Deployment, region: str, get_openai_client):
-    return get_openai_client(deployment.value, region=region)
+def selected_client_type(request) -> str | None:
+    return getattr(request, "param", None)
+
+
+@pytest.fixture
+def openai_client(
+    deployment: Deployment,
+    region: str,
+    get_openai_client,
+    selected_client_type: str | None,
+):
+    extra_headers = (
+        {"x-upstream-extra-data": json.dumps({"client": selected_client_type})}
+        if selected_client_type is not None
+        else None
+    )
+    return get_openai_client(
+        deployment.value, region=region, extra_headers=extra_headers
+    )
 
 
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
@@ -442,7 +467,22 @@ async def test_model_field(deployment: Deployment, chat: Chat):
 
 
 @_deployment_spec(deployments)
-async def test_2_plus_3(chat: Chat):
+@pytest.mark.parametrize(
+    "selected_client_type",
+    ["legacy", "mantle"],
+    ids=["legacy_client", "mantle_client"],
+    indirect=True,
+)
+async def test_2_plus_3(
+    deployment: Deployment, selected_client_type: str, chat: Chat
+):
+    if selected_client_type == "mantle" and not supports_mantle_client(
+        deployment.origin
+    ):
+        pytest.skip(
+            "Mantle client is only supported for a subset of Claude models."
+        )
+
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 

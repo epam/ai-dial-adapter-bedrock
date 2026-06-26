@@ -624,10 +624,10 @@ The fields in the extra data override the corresponding environment variables:
 |`aws_session_token`| `AWS_SESSION_TOKEN`                        |
 |`aws_assume_role_arn`| `AWS_ASSUME_ROLE_ARN`                      |
 
-The `client` field selects which AWS Bedrock client implementation is used for Claude requests:
+The `client` field selects which AWS Bedrock integration is used for Claude requests:
 
-- `legacy` (default): AnthropicBedrock SDK.
-- `mantle`: AnthropicBedrockMantle SDK.
+- `legacy` (default) for the [legacy](https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock-legacy) Amazon Bedrock integration for Claude models
+- `mantle` for the [modern](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) Amazon Bedrock integration for Claude models
 
 For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
 
@@ -681,11 +681,7 @@ The adapter supports authentication with Anthropic API for Claude deployments.
 
 The adapter exposes the native [Claude API](https://platform.claude.com/docs/en/api/overview#available-apis) at the `/anthropic` path, proxying requests transparently to the a corresponding model vendor. This allows applications built against the Anthropic SDK or the native Anthropic HTTP API to route through the adapter without protocol translation.
 
-By default (`x-upstream-extra-data.client` omitted or set to `legacy`), all passthrough endpoints below are supported.
-When `x-upstream-extra-data.client` is set to `mantle`, only `/anthropic/v1/messages` is supported.
-Other passthrough endpoints return `400` with:
-`Endpoint '<path>' is not supported when x-upstream-extra-data.client='mantle'`.
-See [Claude in Amazon Bedrock](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock).
+Some endpoints may not be supported by Bedrock Mantle at the moment of writing. See the official [Claude in Amazon Bedrock documentation](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) for current endpoint support details.
 
 |Method|Endpoint|
 |---|---|
