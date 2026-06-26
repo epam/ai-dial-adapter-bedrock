@@ -2,19 +2,19 @@
 
 [[package]]
 name = "aidial-adapter-anthropic"
-version = "0.10.0"
+version = "0.13.0"
 description = "Package implementing adapter from DIAL Chat Completions API to Anthropic API"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["main"]
 files = [
-    {file = "aidial_adapter_anthropic-0.10.0-py3-none-any.whl", hash = "sha256:53c174d4df4594b898f711b907a31db068fb3d1a8538fb8bc71bbfb40ed40f60"},
-    {file = "aidial_adapter_anthropic-0.10.0.tar.gz", hash = "sha256:9ac4ad53feb3645977031fb3ba54c3b842b0cc356008c7ab99f7906808a425ed"},
+    {file = "aidial_adapter_anthropic-0.13.0-py3-none-any.whl", hash = "sha256:96234c30bf56eda9cbe62d8d67c04639cb340120306e9003d3da10957cf21439"},
+    {file = "aidial_adapter_anthropic-0.13.0.tar.gz", hash = "sha256:5fb6936a100b08649b26ef4c5db6d7fca12d6d7b5ef694eb472f0e60caf9b282"},
 ]
 
 [package.dependencies]
 aidial-sdk = ">=0.37.0,<1"
-aiohttp = ">=3.13.3,<4"
+aiohttp = ">=3.14.1,<4"
 anthropic = ">=0.95.0,<1"
 pillow = ">=10.4.0,<13"
 pydantic = ">=2.8.2,<3"
@@ -483,7 +483,7 @@ files = [
     {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
     {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
 ]
-markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\"", test = "sys_platform == \"win32\" or platform_system == \"Windows\""}
+markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\"", test = "platform_system == \"Windows\" or sys_platform == \"win32\""}
 
 [[package]]
 name = "colorlog"
@@ -2814,4 +2814,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "f1c11bfe1c3fad1a99f909cc8ee21309daf1a57bdfde714cec71f9c57ea459a9"
+content-hash = "8fe9cc7c9aaec271f971ddd9a30471ee87c8a203daf8221b313ec8347795daf5"

@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Any, Literal, assert_never, cast
+from typing import Literal, assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from aidial_adapter_anthropic.adapter.claude import ApproximateTokenizer
@@ -103,8 +103,7 @@ async def create_adapter(
     return await create_anthropic_adapter(
         deployment=deployment.upstream_deployment_id,
         storage=create_file_storage(api_key),
-        # `aidial-adapter-anthropic` typing doesn't include Bedrock Mantle yet.
-        client=cast(Any, client),
+        client=client,
         custom_tokenizer=_Tokenizer(deployment.reference_deployment_id),
         default_max_tokens=CLAUDE_DEFAULT_MAX_TOKENS,
         supports_thinking=_supports_thinking(ref),
