@@ -252,44 +252,6 @@ class _FakeClient:
 
 
 class TestMantleSelector:
-    @pytest.mark.parametrize(
-        ("method", "path"),
-        [
-            ("get", "/v1/models"),
-            ("post", "/v1/messages/batches"),
-            ("post", "/v1/messages/count_tokens"),
-        ],
-    )
-    async def test_mantle_rejects_unsupported_endpoints(
-        self, monkeypatch, method: str, path: str
-    ):
-        async def _unexpected_create_client(_upstream):
-            raise AssertionError("create_anthropic_client should not be called")
-
-        monkeypatch.setattr(
-            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
-            _unexpected_create_client,
-        )
-
-        async with httpx.AsyncClient(
-            transport=ASGITransport(app),  # type: ignore
-            base_url="http://test-app.com",
-            headers={"x-upstream-extra-data": json.dumps({"client": "mantle"})},
-        ) as client:
-            if method == "get":
-                response = await client.get(path)
-            else:
-                response = await client.post(path, json={})
-
-        assert response.status_code == 422
-        body = response.json()["error"]
-        assert (
-            body["message"]
-            == f"Endpoint '{path}' is not supported when x-upstream-extra-data.client='mantle'"
-        )
-        assert body["type"] == "invalid_request_error"
-        assert body["code"] == "invalid_argument"
-
     async def test_invalid_client_header_returns_422(self, monkeypatch):
         async def _unexpected_create_client(_upstream):
             raise AssertionError("create_anthropic_client should not be called")

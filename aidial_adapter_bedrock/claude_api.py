@@ -3,7 +3,6 @@ import json
 from collections.abc import AsyncIterator
 
 import httpx
-from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
@@ -18,16 +17,10 @@ from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
     dial_exception_decorator,
 )
-from aidial_adapter_bedrock.upstream_config import (
-    CloudUpstreamConfig,
-    parse_upstream_config,
-)
+from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
-# Claude in Amazon Bedrock exposes only Messages API endpoint.
-# https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock
-_MANTLE_SUPPORTED_ENDPOINTS = {"/v1/messages"}
 
 
 @app.exception_handler(DialException)
@@ -89,15 +82,6 @@ async def _proxy(request: Request, path: str) -> Response:
     is_streaming = _is_streaming_request(json_body, path)
 
     upstream_config = await parse_upstream_config(request)
-    if (
-        isinstance(upstream_config, CloudUpstreamConfig)
-        and upstream_config.client == "mantle"
-        and path not in _MANTLE_SUPPORTED_ENDPOINTS
-    ):
-        raise ValidationError(
-            f"Endpoint '{path}' is not supported when x-upstream-extra-data.client='mantle'"
-        )
-
     client = await create_anthropic_client(upstream_config)
 
     options = FinalRequestOptions.construct(
