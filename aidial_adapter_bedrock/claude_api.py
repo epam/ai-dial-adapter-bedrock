@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 from aidial_adapter_anthropic.adapter import ValidationError
+from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
@@ -15,6 +16,7 @@ from fastapi.responses import Response, StreamingResponse
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
+    dial_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
@@ -26,6 +28,11 @@ app = FastAPI()
 # Claude in Amazon Bedrock exposes only Messages API endpoint.
 # https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock
 _MANTLE_SUPPORTED_ENDPOINTS = {"/v1/messages"}
+
+
+@app.exception_handler(DialException)
+async def _dial_exception_handler(_request: Request, e: DialException):
+    return e.to_fastapi_response()
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -71,6 +78,7 @@ async def _sse_to_bytes_iterator(
         yield b"\n"
 
 
+@dial_exception_decorator
 @anthropic_exception_decorator
 async def _proxy(request: Request, path: str) -> Response:
     json_body = None
