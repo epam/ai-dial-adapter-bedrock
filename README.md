@@ -615,14 +615,14 @@ If you use DIAL Core load balancing mechanism, you can provide `extraData` upstr
 
 The fields in the extra data override the corresponding environment variables:
 
-|`extraData` field| Env variable                               |
-|---|--------------------------------------------|
-|`region`| `AWS_DEFAULT_REGION`                       |
-|`claude_client`| `AWS_CLAUDE_DEFAULT_CLIENT` |
-|`aws_access_key_id`| `AWS_ACCESS_KEY_ID`                        |
-|`aws_secret_access_key`| `AWS_SECRET_ACCESS_KEY`                    |
-|`aws_session_token`| `AWS_SESSION_TOKEN`                        |
-|`aws_assume_role_arn`| `AWS_ASSUME_ROLE_ARN`                      |
+|`extraData` field|Env variable|
+|---|---|
+|`region`|`AWS_DEFAULT_REGION`|
+|`claude_client`|`AWS_CLAUDE_DEFAULT_CLIENT`|
+|`aws_access_key_id`|`AWS_ACCESS_KEY_ID`|
+|`aws_secret_access_key`|`AWS_SECRET_ACCESS_KEY`|
+|`aws_session_token`|`AWS_SESSION_TOKEN`|
+|`aws_assume_role_arn`|`AWS_ASSUME_ROLE_ARN`|
 
 The `claude_client` field selects which AWS Bedrock integration is used for Claude requests:
 
