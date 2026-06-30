@@ -16,7 +16,6 @@ from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
-from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
 
@@ -52,7 +51,6 @@ async def _sse_to_bytes_iterator(
     event: AsyncIterator[ServerSentEvent],
 ) -> AsyncIterator[bytes]:
     async for sse in event:
-        log.debug(f"Yielding SSE: {sse}")
         if sse.id is not None:
             yield f"id: {sse.id}\n".encode()
         if sse.event is not None:
@@ -62,6 +60,16 @@ async def _sse_to_bytes_iterator(
         if sse.retry is not None:
             yield f"retry: {sse.retry}\n".encode()
         yield b"\n"
+
+
+def _strip_content_headers(response_headers: httpx.Headers) -> None:
+    # The adapter decodes the response body before forwarding it, so the
+    # Content-Encoding header no longer applies. Leaving it would cause the
+    # downstream client to attempt a second decompression and fail.
+    response_headers.pop("Content-Encoding", None)
+    # Content-Length reflected the compressed size; after decoding it no longer
+    # matches the body, so drop it and let the framework recompute it.
+    response_headers.pop("Content-Length", None)
 
 
 @anthropic_exception_decorator
@@ -101,8 +109,7 @@ async def _proxy(request: Request, path: str) -> Response:
         stream = _stream()
         if isinstance(client, AsyncAnthropicBedrock):
             response.headers["Content-Type"] = "text/event-stream"
-            response.headers.pop("Content-Encoding", None)
-            response.headers.pop("Content-Length", None)
+            _strip_content_headers(response.headers)
             stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
 
         return StreamingResponse(
@@ -112,8 +119,10 @@ async def _proxy(request: Request, path: str) -> Response:
         )
 
     else:
+        content = await response.aread()
+        _strip_content_headers(response.headers)
         return Response(
-            content=await response.aread(),
+            content=content,
             status_code=response.status_code,
             headers=response.headers,
         )

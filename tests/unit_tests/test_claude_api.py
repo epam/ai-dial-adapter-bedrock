@@ -1,3 +1,4 @@
+import gzip
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TypedDict
@@ -94,6 +95,28 @@ class TestMessagesNonStreaming:
         text_block = response.content[0]
         assert isinstance(text_block, anthropic.types.TextBlock)
         assert text_block.text == "Hello! How can I assist you today?"
+
+    @respx.mock
+    async def test_http_gzip_encoding_stripped(
+        self, mock: respx.MockRouter, http_client: httpx.AsyncClient
+    ):
+        content = _read_fixture("messages_non_streaming_response.json")
+        mock.post(url="/v1/messages").respond(
+            content=gzip.compress(content),
+            content_type="application/json",
+            headers={"Content-Encoding": "gzip"},
+        )
+
+        response = await http_client.post(
+            "/v1/messages",
+            json=_MESSAGES_REQUEST,
+            headers={"Accept-Encoding": "gzip"},
+        )
+
+        assert response.status_code == 200
+        assert "content-encoding" not in response.headers
+        body = response.json()
+        assert body["type"] == "message"
 
 
 class TestMessagesStreaming:
