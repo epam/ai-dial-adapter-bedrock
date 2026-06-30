@@ -1,6 +1,13 @@
 import contextlib
 import json
-from collections.abc import AsyncIterator
+import logging
+from collections.abc import (
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+)
+from functools import wraps
 
 import httpx
 from anthropic import AsyncAnthropicBedrock
@@ -16,8 +23,12 @@ from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
+
+_Content = str | bytes | memoryview
+_Handler = Callable[[Request, str], Awaitable[Response]]
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -73,7 +84,45 @@ def _strip_content_headers(response_headers: httpx.Headers) -> None:
     response_headers.pop("Content-Length", None)
 
 
+def _as_text(data: _Content) -> str:
+    if isinstance(data, str):
+        return data
+    return bytes(data).decode("utf-8", errors="replace")
+
+
+async def _log_stream_chunks(
+    iterator: AsyncIterable[_Content],
+) -> AsyncIterator[_Content]:
+    async for chunk in iterator:
+        with contextlib.suppress(Exception):
+            log.debug(f"response chunk: {_as_text(chunk)}")
+        yield chunk
+
+
+def _logging_decorator(func: _Handler) -> _Handler:
+    @wraps(func)
+    async def wrapper(request: Request, path: str) -> Response:
+        if not log.isEnabledFor(logging.DEBUG):
+            return await func(request, path)
+
+        with contextlib.suppress(Exception):
+            log.debug(f"request: {_as_text(await request.body())}")
+
+        response = await func(request, path)
+
+        if isinstance(response, StreamingResponse):
+            response.body_iterator = _log_stream_chunks(response.body_iterator)
+        else:
+            with contextlib.suppress(Exception):
+                log.debug(f"response: {_as_text(response.body)}")
+
+        return response
+
+    return wrapper
+
+
 @anthropic_exception_decorator
+@_logging_decorator
 async def _proxy(request: Request, path: str) -> Response:
     json_body = None
     if content := await request.body():
