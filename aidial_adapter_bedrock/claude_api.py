@@ -89,13 +89,6 @@ async def _log_stream_chunks(
 
 
 def _logging_decorator(func: _Handler) -> _Handler:
-    """Reports the request and the response of the passthrough endpoint as
-    debug logs.
-
-    The logging is fully gated behind the DEBUG log level, so it has no effect
-    (no response wrapping) unless DEBUG logging is enabled.
-    """
-
     @wraps(func)
     async def wrapper(request: Request, path: str) -> Response:
         if not log.isEnabledFor(logging.DEBUG):
