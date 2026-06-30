@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TypedDict
@@ -190,6 +191,76 @@ class TestCountTokens:
         )
 
         assert response.input_tokens == 14
+
+
+class TestDebugLogging:
+    # The logs must have no effect unless the log level is DEBUG.
+    @pytest.mark.parametrize(
+        "level, expected", [(logging.DEBUG, True), (logging.INFO, False)]
+    )
+    @respx.mock
+    async def test_request_and_response_logging(
+        self,
+        mock: respx.MockRouter,
+        http_client: httpx.AsyncClient,
+        caplog: pytest.LogCaptureFixture,
+        level: int,
+        expected: bool,
+    ):
+        content = _read_fixture("messages_non_streaming_response.json")
+        mock.post(url="/v1/messages").respond(
+            content=content, content_type="application/json"
+        )
+
+        with caplog.at_level(level, logger="bedrock"):
+            response = await http_client.post(
+                "/v1/messages", json=_MESSAGES_REQUEST
+            )
+
+        assert response.status_code == 200
+
+        messages = [record.getMessage() for record in caplog.records]
+        request_logs = [m for m in messages if m.startswith("request: ")]
+        response_logs = [m for m in messages if m.startswith("response: ")]
+
+        if expected:
+            assert len(request_logs) == 1
+            assert "Say hello." in request_logs[0]
+
+            assert len(response_logs) == 1
+            assert "Hello! How can I assist you today?" in response_logs[0]
+        else:
+            assert not request_logs
+            assert not response_logs
+
+    @respx.mock
+    async def test_streaming_response_chunk_logging(
+        self,
+        mock: respx.MockRouter,
+        http_client: httpx.AsyncClient,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        content = _read_fixture("messages_streaming_response.txt")
+        mock.post("/v1/messages").respond(
+            content=content, content_type="text/event-stream"
+        )
+
+        with caplog.at_level(logging.DEBUG, logger="bedrock"):
+            payload = {**_MESSAGES_REQUEST, "stream": True}
+            response = await http_client.post("/v1/messages", json=payload)
+
+        assert response.status_code == 200
+
+        messages = [record.getMessage() for record in caplog.records]
+        chunk_logs = [m for m in messages if m.startswith("response chunk: ")]
+
+        # The streamed chunks are logged as-is; the number of chunks isn't
+        # deterministic, so we only assert the streamed content is logged.
+        assert chunk_logs
+        streamed = "\n".join(chunk_logs)
+        assert "message_start" in streamed
+        assert "Hello!" in streamed
+        assert "message_stop" in streamed
 
 
 class TestModels:
