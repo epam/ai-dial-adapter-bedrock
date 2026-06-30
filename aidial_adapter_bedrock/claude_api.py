@@ -69,6 +69,7 @@ def _strip_content_headers(response_headers: httpx.Headers) -> None:
     response_headers.pop("Content-Encoding", None)
     # Content-Length reflected the compressed size; after decoding it no longer
     # matches the body, so drop it and let the framework recompute it.
+    # And even when the content was uncompressed to begin with (which is the case for streaming), the content length can change do to the SSE reformatting.
     response_headers.pop("Content-Length", None)
 
 
