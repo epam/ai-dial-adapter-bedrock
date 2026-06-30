@@ -1,6 +1,13 @@
 import contextlib
 import json
-from collections.abc import AsyncIterator
+import logging
+from collections.abc import (
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+)
+from functools import wraps
 
 import httpx
 from aidial_sdk.exceptions import HTTPException as DialException
@@ -21,6 +28,9 @@ from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 app = FastAPI()
+
+_Content = str | bytes | memoryview
+_Handler = Callable[[Request, str], Awaitable[Response]]
 
 
 @app.exception_handler(DialException)
@@ -59,7 +69,6 @@ async def _sse_to_bytes_iterator(
     event: AsyncIterator[ServerSentEvent],
 ) -> AsyncIterator[bytes]:
     async for sse in event:
-        log.debug(f"Yielding SSE: {sse}")
         if sse.id is not None:
             yield f"id: {sse.id}\n".encode()
         if sse.event is not None:
@@ -71,8 +80,57 @@ async def _sse_to_bytes_iterator(
         yield b"\n"
 
 
+def _strip_content_headers(response_headers: httpx.Headers) -> None:
+    # The adapter decodes the response body before forwarding it, so the
+    # Content-Encoding header no longer applies. Leaving it would cause the
+    # downstream client to attempt a second decompression and fail.
+    response_headers.pop("Content-Encoding", None)
+    # Content-Length reflected the compressed size; after decoding it no longer
+    # matches the body, so drop it and let the framework recompute it.
+    # And even when the content was uncompressed to begin with (which is the case for streaming), the content length can change do to the SSE reformatting.
+    response_headers.pop("Content-Length", None)
+
+
+def _as_text(data: _Content) -> str:
+    if isinstance(data, str):
+        return data
+    return bytes(data).decode("utf-8", errors="replace")
+
+
+async def _log_stream_chunks(
+    iterator: AsyncIterable[_Content],
+) -> AsyncIterator[_Content]:
+    async for chunk in iterator:
+        with contextlib.suppress(Exception):
+            log.debug(f"response chunk: {_as_text(chunk)}")
+        yield chunk
+
+
+def _logging_decorator(func: _Handler) -> _Handler:
+    @wraps(func)
+    async def wrapper(request: Request, path: str) -> Response:
+        if not log.isEnabledFor(logging.DEBUG):
+            return await func(request, path)
+
+        with contextlib.suppress(Exception):
+            log.debug(f"request: {_as_text(await request.body())}")
+
+        response = await func(request, path)
+
+        if isinstance(response, StreamingResponse):
+            response.body_iterator = _log_stream_chunks(response.body_iterator)
+        else:
+            with contextlib.suppress(Exception):
+                log.debug(f"response: {_as_text(response.body)}")
+
+        return response
+
+    return wrapper
+
+
 @dial_exception_decorator
 @anthropic_exception_decorator
+@_logging_decorator
 async def _proxy(request: Request, path: str) -> Response:
     json_body = None
     if content := await request.body():
@@ -109,8 +167,7 @@ async def _proxy(request: Request, path: str) -> Response:
         stream = _stream()
         if isinstance(client, AsyncAnthropicBedrock):
             response.headers["Content-Type"] = "text/event-stream"
-            response.headers.pop("Content-Encoding", None)
-            response.headers.pop("Content-Length", None)
+            _strip_content_headers(response.headers)
             stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
 
         return StreamingResponse(
@@ -120,8 +177,10 @@ async def _proxy(request: Request, path: str) -> Response:
         )
 
     else:
+        content = await response.aread()
+        _strip_content_headers(response.headers)
         return Response(
-            content=await response.aread(),
+            content=content,
             status_code=response.status_code,
             headers=response.headers,
         )
