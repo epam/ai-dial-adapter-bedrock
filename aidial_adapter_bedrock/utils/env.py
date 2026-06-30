@@ -5,7 +5,7 @@ from typing import Literal
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-AWSClient = Literal["legacy", "mantle"]
+AWSClaudeClient = Literal["legacy", "mantle"]
 
 
 def get_env(name: str, err_msg: str | None = None) -> str:
@@ -51,10 +51,10 @@ def get_aws_default_region() -> str:
     raise ValueError("AWS_DEFAULT_REGION env variable is not set")
 
 
-def get_aws_default_client() -> AWSClient:
-    client = os.getenv("AWS_DEFAULT_CLIENT", "legacy")
+def get_default_claude_client() -> AWSClaudeClient:
+    client = os.getenv("AWS_CLAUDE_DEFAULT_CLIENT", "legacy")
     if client == "legacy" or client == "mantle":
         return client
     raise ValueError(
-        "AWS_DEFAULT_CLIENT env variable must be either 'legacy' or 'mantle'"
+        "AWS_CLAUDE_DEFAULT_CLIENT env variable must be either 'legacy' or 'mantle'"
     )

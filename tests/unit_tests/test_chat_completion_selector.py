@@ -41,7 +41,7 @@ class TestChatCompletionSelector:
                     "x-upstream-extra-data": json.dumps(
                         {
                             "region": "us-east-1",
-                            "client": "mantle",
+                            "claude_client": "mantle",
                         }
                     )
                 },
@@ -55,5 +55,5 @@ class TestChatCompletionSelector:
 
         assert model is expected_model
         assert isinstance(captured["upstream_config"], CloudUpstreamConfig)
-        assert captured["upstream_config"].client == "mantle"
+        assert captured["upstream_config"].claude_client == "mantle"
         assert captured["upstream_config"].region == "us-east-1"

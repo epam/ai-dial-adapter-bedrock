@@ -134,8 +134,8 @@ class TestUnknownDeployment:
     "client, model, default_client",
     [
         ("legacy", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
-        ("mantle", D.ANTHROPIC_CLAUDE_V4_7_OPUS.value, None),
-        (None, D.ANTHROPIC_CLAUDE_V4_7_OPUS.value, "mantle"),
+        ("mantle", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
+        (None, D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, "legacy"),
     ],
     ids=["legacy", "mantle", "default_from_env"],
 )
@@ -147,13 +147,13 @@ async def test_aws_client_switch(
     default_client: str | None,
 ):
     if default_client is None:
-        monkeypatch.delenv("AWS_DEFAULT_CLIENT", raising=False)
+        monkeypatch.delenv("AWS_CLAUDE_DEFAULT_CLIENT", raising=False)
     else:
-        monkeypatch.setenv("AWS_DEFAULT_CLIENT", default_client)
+        monkeypatch.setenv("AWS_CLAUDE_DEFAULT_CLIENT", default_client)
 
     extra_data: dict[str, str] = {"region": _AWS_CLIENT_SWITCH_REGION}
     if client is not None:
-        extra_data["client"] = client
+        extra_data["claude_client"] = client
 
     async with anthropic.AsyncAnthropic(
         api_key="dummy-key",

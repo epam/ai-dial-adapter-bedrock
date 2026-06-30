@@ -45,7 +45,7 @@ class TestCreateAnthropicClient:
         )
 
         client = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="legacy")
+            CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
         )
 
         assert isinstance(client, _DummyClient)
@@ -66,7 +66,7 @@ class TestCreateAnthropicClient:
         )
 
         client = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="mantle")
+            CloudUpstreamConfig(region="us-east-1", claude_client="mantle")
         )
 
         assert isinstance(client, _DummyClient)
@@ -98,16 +98,16 @@ class TestCreateAnthropicClient:
         )
 
         legacy_1 = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="legacy")
+            CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
         )
         legacy_2 = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="legacy")
+            CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
         )
         mantle_1 = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="mantle")
+            CloudUpstreamConfig(region="us-east-1", claude_client="mantle")
         )
         mantle_2 = await create_anthropic_client(
-            CloudUpstreamConfig(region="us-east-1", client="mantle")
+            CloudUpstreamConfig(region="us-east-1", claude_client="mantle")
         )
 
         assert legacy_1 is legacy_2

@@ -12,9 +12,9 @@ from pydantic import (
 
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import (
-    AWSClient,
-    get_aws_default_client,
+    AWSClaudeClient,
     get_aws_default_region,
+    get_default_claude_client,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -67,7 +67,7 @@ class AWSAssumeRoleCredentials(BaseModel):
 class CloudUpstreamConfig(BaseModel):
     region: str
     credentials: AWSClientCredentials | AWSAssumeRoleCredentials | None = None
-    client: AWSClient
+    claude_client: AWSClaudeClient
 
     @classmethod
     async def from_request(
@@ -83,7 +83,7 @@ class CloudUpstreamConfig(BaseModel):
         return cls(
             region=upstream_config.region,
             credentials=upstream_config._get_client_credentials(),
-            client=upstream_config.client,
+            claude_client=upstream_config.claude_client,
         )
 
     async def get_credentials(
@@ -123,7 +123,9 @@ async def parse_upstream_config(request: fastapi.Request) -> UpstreamConfig:
 
 class UpstreamConfigData(BaseModel):
     region: str = Field(default_factory=get_aws_default_region)
-    client: AWSClient = Field(default_factory=get_aws_default_client)
+    claude_client: AWSClaudeClient = Field(
+        default_factory=get_default_claude_client
+    )
     aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_session_token: str | None = os.getenv("AWS_SESSION_TOKEN")

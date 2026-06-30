@@ -47,7 +47,7 @@ class TestAWSClientConfigFactory:
 
         assert isinstance(conf, CloudUpstreamConfig)
         assert conf.region == "test-region"
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
         assert conf.credentials is None
 
     async def test__get_client_config__default_region_in_config__empty_extra(
@@ -59,7 +59,7 @@ class TestAWSClientConfigFactory:
 
         assert isinstance(conf, CloudUpstreamConfig)
         assert conf.region == "test-region"
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
         assert conf.credentials is None
 
     async def test__get_client_config__region_provided__region_in_config(self):
@@ -69,29 +69,29 @@ class TestAWSClientConfigFactory:
 
         assert isinstance(conf, CloudUpstreamConfig)
         assert conf.region == "us-east-2"
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
         assert conf.credentials is None
 
     async def test__get_client_config__mantle_client(self):
-        request = self._get_request(extra_data={"client": "mantle"})
+        request = self._get_request(extra_data={"claude_client": "mantle"})
 
         conf = await parse_upstream_config(request)  # type: ignore
 
         assert isinstance(conf, CloudUpstreamConfig)
         assert conf.region == "test-region"
-        assert conf.client == "mantle"
+        assert conf.claude_client == "mantle"
         assert conf.credentials is None
 
     async def test__get_client_config__header_client_overrides_env(
         self, monkeypatch
     ):
-        monkeypatch.setenv("AWS_DEFAULT_CLIENT", "mantle")
-        request = self._get_request(extra_data={"client": "legacy"})
+        monkeypatch.setenv("AWS_CLAUDE_DEFAULT_CLIENT", "mantle")
+        request = self._get_request(extra_data={"claude_client": "legacy"})
 
         conf = await parse_upstream_config(request)  # type: ignore
 
         assert isinstance(conf, CloudUpstreamConfig)
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
 
     async def test__get_client_config__key_in_config(self):
         request = self._get_request(
@@ -105,7 +105,7 @@ class TestAWSClientConfigFactory:
         assert isinstance(conf, CloudUpstreamConfig)
 
         assert conf.region == "test-region"
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
 
         _expiration, creds = await conf.get_credentials()
         assert creds is not None
@@ -133,7 +133,7 @@ class TestAWSClientConfigFactory:
         assert isinstance(conf, CloudUpstreamConfig)
 
         assert conf.region == "test-region"
-        assert conf.client == "legacy"
+        assert conf.claude_client == "legacy"
 
         _expiration, creds = await conf.get_credentials()
         assert creds is not None
@@ -153,7 +153,7 @@ class TestAWSClientConfigFactory:
         self,
     ):
         request = self._get_request(
-            extra_data={"client": "invalid"},
+            extra_data={"claude_client": "invalid"},
             api_key="api-key",
         )
 
@@ -162,7 +162,7 @@ class TestAWSClientConfigFactory:
         assert conf.api_key == "api-key"
 
     async def test__get_client_config__invalid_client_value(self):
-        request = self._get_request(extra_data={"client": "invalid"})
+        request = self._get_request(extra_data={"claude_client": "invalid"})
 
         with pytest.raises(ValidationError):
             await parse_upstream_config(request)  # type: ignore

@@ -129,7 +129,7 @@ class TestCase:
 
     async def get_converse_adapter(self):
         client = await Bedrock.acreate(
-            CloudUpstreamConfig(region="us-east-1", client="legacy")
+            CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
         )
         return ConverseAdapter(
             deployment="test",

@@ -271,7 +271,9 @@ class TestMantleSelector:
         async with httpx.AsyncClient(
             transport=ASGITransport(app),  # type: ignore
             base_url="http://test-app.com",
-            headers={"x-upstream-extra-data": json.dumps({"client": "mantle"})},
+            headers={
+                "x-upstream-extra-data": json.dumps({"claude_client": "mantle"})
+            },
         ) as client:
             response = await client.post(
                 "/v1/messages",
@@ -340,7 +342,9 @@ class TestLegacyStreamingConversion:
         async with httpx.AsyncClient(
             transport=ASGITransport(app),  # type: ignore
             base_url="http://test-app.com",
-            headers={"x-upstream-extra-data": json.dumps({"client": "legacy"})},
+            headers={
+                "x-upstream-extra-data": json.dumps({"claude_client": "legacy"})
+            },
         ) as client:
             response = await client.post(
                 "/v1/messages",

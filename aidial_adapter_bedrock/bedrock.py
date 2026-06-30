@@ -115,13 +115,13 @@ async def create_anthropic_client(
         "max_retries": ANTHROPIC_MAX_RETRY_ATTEMPTS,
     }
 
-    match upstream_config.client:
+    match upstream_config.claude_client:
         case "mantle":
             return expiration, AsyncAnthropicBedrockMantle(**client_params)
         case "legacy":
             return expiration, AsyncAnthropicBedrock(**client_params)
         case _:
-            assert_never(upstream_config.client)
+            assert_never(upstream_config.claude_client)
 
 
 @ttl_cache
