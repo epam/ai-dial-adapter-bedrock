@@ -73,6 +73,17 @@ async def _sse_to_bytes_iterator(
         yield b"\n"
 
 
+def _strip_content_headers(response_headers: httpx.Headers) -> None:
+    # The adapter decodes the response body before forwarding it, so the
+    # Content-Encoding header no longer applies. Leaving it would cause the
+    # downstream client to attempt a second decompression and fail.
+    response_headers.pop("Content-Encoding", None)
+    # Content-Length reflected the compressed size; after decoding it no longer
+    # matches the body, so drop it and let the framework recompute it.
+    # And even when the content was uncompressed to begin with (which is the case for streaming), the content length can change do to the SSE reformatting.
+    response_headers.pop("Content-Length", None)
+
+
 def _as_text(data: _Content) -> str:
     if isinstance(data, str):
         return data
@@ -148,8 +159,7 @@ async def _proxy(request: Request, path: str) -> Response:
         stream = _stream()
         if isinstance(client, AsyncAnthropicBedrock):
             response.headers["Content-Type"] = "text/event-stream"
-            response.headers.pop("Content-Encoding", None)
-            response.headers.pop("Content-Length", None)
+            _strip_content_headers(response.headers)
             stream = _sse_to_bytes_iterator(_bedrock_stream_to_sse(stream))
 
         return StreamingResponse(
@@ -159,8 +169,10 @@ async def _proxy(request: Request, path: str) -> Response:
         )
 
     else:
+        content = await response.aread()
+        _strip_content_headers(response.headers)
         return Response(
-            content=await response.aread(),
+            content=content,
             status_code=response.status_code,
             headers=response.headers,
         )
