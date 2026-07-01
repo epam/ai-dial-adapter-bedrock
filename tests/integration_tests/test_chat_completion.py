@@ -63,6 +63,8 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_7_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_8_OPUS.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -129,6 +131,8 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
     ]
 
 
@@ -238,6 +242,8 @@ def supports_document_understanding(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
@@ -260,6 +266,8 @@ def supports_json_object_response_format(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_OPUS,
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
@@ -362,8 +370,29 @@ def create_message_with_image(request) -> Callable:
 
 
 @pytest.fixture
-def openai_client(deployment: Deployment, region: str, get_openai_client):
-    return get_openai_client(deployment.value, region=region)
+def bedrock_client_type(request) -> str | None:
+    return getattr(request, "param", None)
+
+
+@pytest.fixture
+def openai_client(
+    deployment: Deployment,
+    region: str,
+    get_openai_client,
+    bedrock_client_type: str | None,
+):
+    extra_headers = (
+        {
+            "x-upstream-extra-data": json.dumps(
+                {"claude_client": bedrock_client_type}
+            )
+        }
+        if bedrock_client_type is not None
+        else None
+    )
+    return get_openai_client(
+        deployment.value, region=region, extra_headers=extra_headers
+    )
 
 
 Chat = Callable[..., Awaitable[ChatCompletionResult]]
@@ -434,7 +463,15 @@ async def test_model_field(deployment: Deployment, chat: Chat):
 
 
 @_deployment_spec(deployments)
-async def test_2_plus_3(chat: Chat):
+@pytest.mark.parametrize(
+    "bedrock_client_type",
+    ["legacy", "mantle"],
+    ids=["legacy_client", "mantle_client"],
+    indirect=True,
+)
+async def test_2_plus_3(
+    deployment: Deployment, bedrock_client_type: str, chat: Chat
+):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 
@@ -673,6 +710,8 @@ async def test_tool_choice_none(
             D.ANTHROPIC_CLAUDE_V4_OPUS,
             D.ANTHROPIC_CLAUDE_V4_1_OPUS,
             D.ANTHROPIC_CLAUDE_V4_6_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+            D.ANTHROPIC_CLAUDE_V4_8_OPUS,
             D.ANTHROPIC_CLAUDE_V4_SONNET,
             D.ANTHROPIC_CLAUDE_V3_7_SONNET,
             D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
