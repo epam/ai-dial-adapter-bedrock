@@ -12,8 +12,10 @@ import respx
 from anthropic._streaming import ServerSentEvent
 from anthropic.types import MessageParam
 from httpx import ASGITransport
+from starlette.datastructures import Headers as StarletteHeaders
 
-from aidial_adapter_bedrock.claude_api import app
+import aidial_adapter_bedrock.claude_api as claude_api
+from aidial_adapter_bedrock.claude_api import _build_request_headers, app
 
 
 def _read_fixture(name: str) -> bytes:
@@ -362,6 +364,107 @@ class TestRequestHeaderPassthrough:
         assert upstream_headers["accept-encoding"] == "identity"
         # Unrelated headers must not be forwarded.
         assert "x-not-forwarded" not in upstream_headers
+
+
+class TestBuildRequestHeaders:
+    # Bedrock is selected by the absence of the ``x-upstream-key`` header.
+    _BETA = "anthropic-beta"
+
+    def test_bedrock_drops_unsupported_beta_flags(self):
+        headers = StarletteHeaders(
+            headers={
+                self._BETA: (
+                    "oauth-2025-04-20,token-efficient-tools-2025-02-19"
+                )
+            }
+        )
+        result = _build_request_headers(headers)
+        assert result[self._BETA] == "token-efficient-tools-2025-02-19"
+
+    def test_bedrock_removes_header_when_all_flags_unsupported(self):
+        headers = StarletteHeaders(
+            headers={
+                self._BETA: (
+                    "oauth-2025-04-20, thinking-token-count-2026-05-13"
+                )
+            }
+        )
+        result = _build_request_headers(headers)
+        assert self._BETA not in result
+
+    def test_bedrock_replaces_mapped_beta_flag(self, monkeypatch):
+        monkeypatch.setitem(
+            claude_api._ANTHROPIC_BETA_BEDROCK_MAP,
+            "renamed-source-2025-01-01",
+            "renamed-target-2025-01-01",
+        )
+        headers = StarletteHeaders(
+            headers={self._BETA: "renamed-source-2025-01-01,keep-me"}
+        )
+        result = _build_request_headers(headers)
+        assert result[self._BETA] == "renamed-target-2025-01-01,keep-me"
+
+    def test_bedrock_without_beta_header_is_unchanged(self):
+        headers = StarletteHeaders(headers={"accept-encoding": "gzip"})
+        result = _build_request_headers(headers)
+        assert self._BETA not in result
+        assert result["accept-encoding"] == "gzip"
+
+    def test_api_key_request_keeps_beta_flags_untouched(self):
+        # With ``x-upstream-key`` present the request targets the Anthropic
+        # API, whose beta flags are forwarded verbatim.
+        value = "oauth-2025-04-20, thinking-token-count-2026-05-13"
+        headers = StarletteHeaders(
+            headers={"x-upstream-key": "sk-test", self._BETA: value}
+        )
+        result = _build_request_headers(headers)
+        assert result[self._BETA] == value
+
+
+class TestBedrockAnthropicBetaAdaptation:
+    async def test_bedrock_request_adapts_beta_header(self, monkeypatch):
+        captured: dict[str, dict[str, str]] = {}
+
+        class _CapturingClient:
+            async def request(self, *, options, **_kwargs):
+                captured["headers"] = options.headers
+                content = _read_fixture("messages_non_streaming_response.json")
+                return _FakeStreamingResponse(
+                    chunks=[content],
+                    headers={"Content-Type": "application/json"},
+                )
+
+        async def _create_client(_upstream):
+            return _CapturingClient()
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
+            _create_client,
+        )
+
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+            headers={"x-upstream-extra-data": json.dumps({})},
+        ) as client:
+            response = await client.post(
+                "/v1/messages",
+                json=_MESSAGES_REQUEST,
+                headers={
+                    "anthropic-beta": (
+                        "oauth-2025-04-20,"
+                        "token-efficient-tools-2025-02-19,"
+                        "thinking-token-count-2026-05-13"
+                    )
+                },
+            )
+
+        assert response.status_code == 200
+        # Bedrock-unsupported flags are stripped; the unknown flag survives.
+        assert (
+            captured["headers"]["anthropic-beta"]
+            == "token-efficient-tools-2025-02-19"
+        )
 
 
 class TestModels:

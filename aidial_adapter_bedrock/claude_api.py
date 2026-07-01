@@ -125,12 +125,66 @@ def _logging_decorator(func: _Handler) -> _Handler:
     return wrapper
 
 
+# Header that carries the platform api-key. Its presence routes the request to
+# the Anthropic API; its absence means the request targets a Bedrock model.
+# Mirrors ``ApiKeyUpstreamConfig._UPSTREAM_API_KEY_HEADER_NAME``.
+_UPSTREAM_API_KEY_HEADER_NAME = "x-upstream-key"
+_ANTHROPIC_BETA_HEADER_NAME = "anthropic-beta"
+
+# Beta feature flags accepted by the Anthropic API but not by Bedrock. For a
+# Bedrock request each listed flag is dropped (mapped to ``None``) or rewritten
+# to its Bedrock equivalent (mapped to a string); flags absent from the map are
+# forwarded unchanged.
+_ANTHROPIC_BETA_BEDROCK_MAP: dict[str, str | None] = {
+    "oauth-2025-04-20": None,
+    "redact-thinking-2026-02-12": None,
+    "thinking-token-count-2026-05-13": None,
+    "prompt-caching-scope-2026-01-05": None,
+    "claude-code-20250219": None,
+    "advisor-tool-2026-03-01": None,
+}
+
+
+def _adapt_anthropic_beta_for_bedrock(header_value: str) -> str | None:
+    """Rewrite the comma-separated ``anthropic-beta`` header for Bedrock.
+
+    Flags Bedrock doesn't accept are dropped or rewritten per
+    ``_ANTHROPIC_BETA_BEDROCK_MAP``; unknown flags pass through. Returns the
+    new header value, or ``None`` when no flags remain.
+    """
+    betas: list[str] = []
+    for beta in header_value.split(","):
+        beta = beta.strip()
+        if not beta:
+            continue
+        if beta in _ANTHROPIC_BETA_BEDROCK_MAP:
+            replacement = _ANTHROPIC_BETA_BEDROCK_MAP[beta]
+            if replacement is None:
+                continue
+            beta = replacement
+        betas.append(beta)
+    return ",".join(betas) or None
+
+
 def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
     def _keep_header(header: str) -> bool:
         header = header.lower()
         return header.startswith("anthropic-") or header == "accept-encoding"
 
-    return {k: v for (k, v) in headers.items() if _keep_header(k)}
+    result = {k: v for (k, v) in headers.items() if _keep_header(k)}
+
+    # A Bedrock request (no platform api-key) supports a different set of
+    # beta flags than the Anthropic API, so adapt the header accordingly.
+    is_bedrock = _UPSTREAM_API_KEY_HEADER_NAME not in headers
+    beta = result.get(_ANTHROPIC_BETA_HEADER_NAME)
+    if is_bedrock and beta is not None:
+        adapted = _adapt_anthropic_beta_for_bedrock(beta)
+        if adapted is None:
+            del result[_ANTHROPIC_BETA_HEADER_NAME]
+        else:
+            result[_ANTHROPIC_BETA_HEADER_NAME] = adapted
+
+    return result
 
 
 @dial_exception_decorator
