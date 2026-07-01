@@ -288,6 +288,42 @@ class TestDebugLogging:
         assert "message_stop" in streamed
 
 
+class TestRequestHeaderPassthrough:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("messages_non_streaming_response.json")
+        mock.post(url="/v1/messages").respond(
+            content=content, content_type="application/json"
+        )
+
+    @respx.mock
+    async def test_anthropic_and_encoding_headers_forwarded(
+        self, mock: respx.MockRouter, http_client: httpx.AsyncClient
+    ):
+        response = await http_client.post(
+            "/v1/messages",
+            json=_MESSAGES_REQUEST,
+            headers={
+                "anthropic-beta": "token-efficient-tools-2025-02-19",
+                "Accept-Encoding": "identity",
+                "x-not-forwarded": "should-be-dropped",
+            },
+        )
+
+        assert response.status_code == 200
+
+        upstream_headers = mock.calls.last.request.headers
+        # Anthropic-specific headers must reach the upstream.
+        assert (
+            upstream_headers["anthropic-beta"]
+            == "token-efficient-tools-2025-02-19"
+        )
+        # The encoding-control header must reach the upstream too.
+        assert upstream_headers["accept-encoding"] == "identity"
+        # Unrelated headers must not be forwarded.
+        assert "x-not-forwarded" not in upstream_headers
+
+
 class TestModels:
     @pytest.fixture(autouse=True)
     def _setup(self, mock: respx.MockRouter):
