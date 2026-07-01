@@ -17,6 +17,7 @@ from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
 from botocore.eventstream import EventStreamBuffer
 from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
+from starlette.datastructures import Headers as StarletteHeaders
 
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.server.exceptions import (
@@ -80,7 +81,8 @@ def _strip_content_headers(response_headers: httpx.Headers) -> None:
     response_headers.pop("Content-Encoding", None)
     # Content-Length reflected the compressed size; after decoding it no longer
     # matches the body, so drop it and let the framework recompute it.
-    # And even when the content was uncompressed to begin with (which is the case for streaming), the content length can change do to the SSE reformatting.
+    # And even when the content was uncompressed to begin with,
+    # the content length can change do to the SSE reformatting.
     response_headers.pop("Content-Length", None)
 
 
@@ -121,6 +123,22 @@ def _logging_decorator(func: _Handler) -> _Handler:
     return wrapper
 
 
+def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
+    def _is_anthropic_header(header: str) -> bool:
+        header = header.lower()
+        return header.startswith("anthropic-")
+
+    def _is_content_header(header: str) -> bool:
+        header = header.lower()
+        return header == "accept-encoding"
+
+    return {
+        k: v
+        for (k, v) in headers.items()
+        if _is_anthropic_header(k) or _is_content_header(k)
+    }
+
+
 @anthropic_exception_decorator
 @_logging_decorator
 async def _proxy(request: Request, path: str) -> Response:
@@ -138,6 +156,7 @@ async def _proxy(request: Request, path: str) -> Response:
         method=request.method.lower(),
         url=path,
         json_data=json_body,
+        headers=_build_request_headers(request.headers),
     )
 
     response = await client.request(
