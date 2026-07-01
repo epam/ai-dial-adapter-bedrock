@@ -6,6 +6,7 @@ import anthropic
 import httpx
 import pytest
 
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from tests.integration_tests.test_chat_completion import (
     _DEPLOYMENT_TO_REGION,
     Deployment,
@@ -18,6 +19,17 @@ from tests.utils.openai import sanitize_test_name
 from tests.utils.selector import pred
 
 _claude_deployments = select(pred(is_claude), deployments)
+_AWS_CLIENT_SWITCH_REGION = _DEPLOYMENT_TO_REGION[
+    D.ANTHROPIC_CLAUDE_V4_7_OPUS.US
+]
+
+
+def _anthropic_text(response: anthropic.types.Message) -> str:
+    return "".join(
+        block.text
+        for block in response.content
+        if isinstance(block, anthropic.types.TextBlock)
+    )
 
 
 def _deployment_spec(deps: list[Deployment]):
@@ -90,11 +102,7 @@ def messages(
                 max_tokens=max_tokens,
                 **kwargs,
             )
-            return "".join(
-                block.text
-                for block in response.content
-                if isinstance(block, anthropic.types.TextBlock)
-            )
+            return _anthropic_text(response)
 
     return _inner
 
@@ -120,3 +128,44 @@ class TestUnknownDeployment:
             match="The provided model identifier is invalid",
         ):
             await messages([{"role": "user", "content": "test"}], max_tokens=1)
+
+
+@pytest.mark.parametrize(
+    "client, model, default_client",
+    [
+        ("legacy", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
+        ("mantle", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
+        (None, D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, "legacy"),
+    ],
+    ids=["legacy", "mantle", "default_from_env"],
+)
+async def test_aws_client_switch(
+    test_http_client: httpx.AsyncClient,
+    monkeypatch,
+    client: str | None,
+    model: str,
+    default_client: str | None,
+):
+    if default_client is None:
+        monkeypatch.delenv("AWS_CLAUDE_DEFAULT_CLIENT", raising=False)
+    else:
+        monkeypatch.setenv("AWS_CLAUDE_DEFAULT_CLIENT", default_client)
+
+    extra_data: dict[str, str] = {"region": _AWS_CLIENT_SWITCH_REGION}
+    if client is not None:
+        extra_data["claude_client"] = client
+
+    async with anthropic.AsyncAnthropic(
+        api_key="dummy-key",
+        base_url="http://test-app.com/anthropic",
+        http_client=test_http_client,
+        max_retries=0,
+        default_headers={"x-upstream-extra-data": json.dumps(extra_data)},
+    ) as anthropic_client:
+        response = await anthropic_client.messages.create(
+            model=model,
+            max_tokens=64,
+            messages=[{"role": "user", "content": "Compute 2+2"}],
+        )
+
+    assert "4" in _anthropic_text(response)

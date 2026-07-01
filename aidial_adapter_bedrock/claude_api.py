@@ -10,6 +10,7 @@ from collections.abc import (
 from functools import wraps
 
 import httpx
+from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
@@ -22,6 +23,7 @@ from starlette.datastructures import Headers as StarletteHeaders
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
+    dial_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -30,6 +32,11 @@ app = FastAPI()
 
 _Content = str | bytes | memoryview
 _Handler = Callable[[Request, str], Awaitable[Response]]
+
+
+@app.exception_handler(DialException)
+async def _dial_exception_handler(_request: Request, e: DialException):
+    return e.to_fastapi_response()
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -131,6 +138,7 @@ def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
     return {k: v for (k, v) in headers.items() if _keep_header(k)}
 
 
+@dial_exception_decorator
 @anthropic_exception_decorator
 @_logging_decorator
 async def _proxy(request: Request, path: str) -> Response:
