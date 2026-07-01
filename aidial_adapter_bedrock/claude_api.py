@@ -124,19 +124,11 @@ def _logging_decorator(func: _Handler) -> _Handler:
 
 
 def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
-    def _is_anthropic_header(header: str) -> bool:
+    def _keep_header(header: str) -> bool:
         header = header.lower()
-        return header.startswith("anthropic-")
+        return header.startswith("anthropic-") or header == "accept-encoding"
 
-    def _is_content_header(header: str) -> bool:
-        header = header.lower()
-        return header == "accept-encoding"
-
-    return {
-        k: v
-        for (k, v) in headers.items()
-        if _is_anthropic_header(k) or _is_content_header(k)
-    }
+    return {k: v for (k, v) in headers.items() if _keep_header(k)}
 
 
 @anthropic_exception_decorator
