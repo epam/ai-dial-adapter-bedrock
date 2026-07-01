@@ -285,6 +285,46 @@ class TestDebugLogging:
         assert "Hello!" in streamed
         assert "message_stop" in streamed
 
+    @pytest.mark.parametrize(
+        "level, expected_encoding",
+        [(logging.DEBUG, "identity"), (logging.INFO, None)],
+    )
+    @respx.mock
+    async def test_debug_disables_upstream_compression(
+        self,
+        mock: respx.MockRouter,
+        http_client: httpx.AsyncClient,
+        caplog: pytest.LogCaptureFixture,
+        level: int,
+        expected_encoding: str | None,
+    ):
+        # With debug logging on, the upstream is asked not to compress the
+        # response (Accept-Encoding: identity) so it can be logged as-is.
+        # Otherwise the client's default (compressed) negotiation is left alone.
+        captured: dict[str, str | None] = {}
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            captured["accept-encoding"] = request.headers.get("accept-encoding")
+            content = _read_fixture("messages_non_streaming_response.json")
+            return httpx.Response(
+                200,
+                content=content,
+                headers={"content-type": "application/json"},
+            )
+
+        mock.post(url="/v1/messages").mock(side_effect=_handler)
+
+        with caplog.at_level(level, logger="bedrock"):
+            response = await http_client.post(
+                "/v1/messages", json=_MESSAGES_REQUEST
+            )
+
+        assert response.status_code == 200
+        if expected_encoding is None:
+            assert captured["accept-encoding"] != "identity"
+        else:
+            assert captured["accept-encoding"] == expected_encoding
+
 
 class TestModels:
     @pytest.fixture(autouse=True)

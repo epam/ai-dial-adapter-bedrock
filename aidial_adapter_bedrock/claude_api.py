@@ -1,12 +1,7 @@
 import contextlib
 import json
 import logging
-from collections.abc import (
-    AsyncIterable,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-)
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
 import httpx
@@ -138,6 +133,15 @@ async def _proxy(request: Request, path: str) -> Response:
         method=request.method.lower(),
         url=path,
         json_data=json_body,
+        # When debug logging is on, ask the upstream not to compress the
+        # response so its body (and streamed chunks) can be logged as-is.
+        # Forgoing compression on the upstream hop is a fair price for
+        # painless logging.
+        headers=(
+            {"Accept-Encoding": "identity"}
+            if log.isEnabledFor(logging.DEBUG)
+            else {}
+        ),
     )
 
     response = await client.request(
