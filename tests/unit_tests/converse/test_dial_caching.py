@@ -62,7 +62,9 @@ def mock_current_time_1000s(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 async def adapter() -> ChatCompletionAdapter:
     async def get_client() -> Bedrock:
-        return await Bedrock.acreate(CloudUpstreamConfig(region="test-region"))
+        return await Bedrock.acreate(
+            CloudUpstreamConfig(region="test-region", claude_client="legacy")
+        )
 
     return await ConverseAdapterFactory(
         deployment="test-deployment-id",

@@ -1,4 +1,5 @@
 import gzip
+import json
 import logging
 from collections.abc import Iterable
 from pathlib import Path
@@ -8,6 +9,7 @@ import anthropic
 import httpx
 import pytest
 import respx
+from anthropic._streaming import ServerSentEvent
 from anthropic.types import MessageParam
 from httpx import ASGITransport
 
@@ -326,6 +328,42 @@ class TestDebugLogging:
             assert captured["accept-encoding"] == expected_encoding
 
 
+class TestRequestHeaderPassthrough:
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock: respx.MockRouter):
+        content = _read_fixture("messages_non_streaming_response.json")
+        mock.post(url="/v1/messages").respond(
+            content=content, content_type="application/json"
+        )
+
+    @respx.mock
+    async def test_anthropic_and_encoding_headers_forwarded(
+        self, mock: respx.MockRouter, http_client: httpx.AsyncClient
+    ):
+        response = await http_client.post(
+            "/v1/messages",
+            json=_MESSAGES_REQUEST,
+            headers={
+                "anthropic-beta": "token-efficient-tools-2025-02-19",
+                "Accept-Encoding": "identity",
+                "x-not-forwarded": "should-be-dropped",
+            },
+        )
+
+        assert response.status_code == 200
+
+        upstream_headers = mock.calls.last.request.headers
+        # Anthropic-specific headers must reach the upstream.
+        assert (
+            upstream_headers["anthropic-beta"]
+            == "token-efficient-tools-2025-02-19"
+        )
+        # The encoding-control header must reach the upstream too.
+        assert upstream_headers["accept-encoding"] == "identity"
+        # Unrelated headers must not be forwarded.
+        assert "x-not-forwarded" not in upstream_headers
+
+
 class TestModels:
     @pytest.fixture(autouse=True)
     def _setup(self, mock: respx.MockRouter):
@@ -350,3 +388,141 @@ class TestModels:
 
         assert len(models.data) == 2
         assert models.data[0].id == "claude-3-5-sonnet-20241022"
+
+
+class _FakeStreamingResponse:
+    def __init__(
+        self,
+        *,
+        chunks: list[bytes],
+        headers: dict[str, str] | None = None,
+        status_code: int = 200,
+    ):
+        self._chunks = chunks
+        self.headers = headers or {}
+        self.status_code = status_code
+
+    async def aiter_raw(self):
+        for chunk in self._chunks:
+            yield chunk
+
+    async def aclose(self):
+        return None
+
+    async def aread(self) -> bytes:
+        return b"".join(self._chunks)
+
+
+class _FakeClient:
+    def __init__(self, response: _FakeStreamingResponse):
+        self._response = response
+
+    async def request(self, **_kwargs):
+        return self._response
+
+
+class TestMantleSelector:
+    async def test_mantle_streaming_passthrough(self, monkeypatch):
+        content = _read_fixture("messages_streaming_response.txt")
+        fake_response = _FakeStreamingResponse(
+            chunks=[content],
+            headers={"Content-Type": "text/event-stream"},
+        )
+        fake_client = _FakeClient(fake_response)
+
+        async def _create_client(_upstream):
+            return fake_client
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
+            _create_client,
+        )
+
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+            headers={
+                "x-upstream-extra-data": json.dumps({"claude_client": "mantle"})
+            },
+        ) as client:
+            response = await client.post(
+                "/v1/messages",
+                json={**_MESSAGES_REQUEST, "stream": True},
+            )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+        assert b"event: message_start" in response.content
+
+
+class TestLegacyStreamingConversion:
+    async def test_legacy_streaming_uses_conversion(self, monkeypatch):
+        class DummyLegacyClient:
+            def __init__(self, response: _FakeStreamingResponse):
+                self._response = response
+
+            async def request(self, **_kwargs):
+                return self._response
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api.AsyncAnthropicBedrock",
+            DummyLegacyClient,
+        )
+
+        fake_response = _FakeStreamingResponse(
+            chunks=[b"bedrock-raw-eventstream"],
+            headers={
+                "Content-Type": "application/vnd.amazon.eventstream",
+                "Content-Encoding": "gzip",
+                "Content-Length": "123",
+            },
+        )
+        fake_client = DummyLegacyClient(fake_response)
+
+        async def _create_client(_upstream):
+            return fake_client
+
+        called = {"decode": False, "encode": False}
+
+        async def _bedrock_stream_to_sse(_iterator):
+            called["decode"] = True
+            yield ServerSentEvent(
+                data='{"type":"message_start"}', event="message_start"
+            )
+
+        async def _sse_to_bytes_iterator(_events):
+            called["encode"] = True
+            async for _ in _events:
+                break
+            yield b"converted-event-stream"
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
+            _create_client,
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api._bedrock_stream_to_sse",
+            _bedrock_stream_to_sse,
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.claude_api._sse_to_bytes_iterator",
+            _sse_to_bytes_iterator,
+        )
+
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+            headers={
+                "x-upstream-extra-data": json.dumps({"claude_client": "legacy"})
+            },
+        ) as client:
+            response = await client.post(
+                "/v1/messages",
+                json={**_MESSAGES_REQUEST, "stream": True},
+            )
+
+        assert response.status_code == 200
+        assert response.content == b"converted-event-stream"
+        assert "text/event-stream" in response.headers["content-type"]
+        assert called["decode"] is True
+        assert called["encode"] is True

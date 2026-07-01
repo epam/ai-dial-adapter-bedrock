@@ -128,7 +128,9 @@ class TestCase:
     expected_error: ExpectedException | None = None
 
     async def get_converse_adapter(self):
-        client = await Bedrock.acreate(CloudUpstreamConfig(region="us-east-1"))
+        client = await Bedrock.acreate(
+            CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
+        )
         return ConverseAdapter(
             deployment="test",
             bedrock=client,

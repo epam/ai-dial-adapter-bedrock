@@ -5,6 +5,7 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
 import httpx
+from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
@@ -12,10 +13,12 @@ from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
 from botocore.eventstream import EventStreamBuffer
 from fastapi import FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
+from starlette.datastructures import Headers as StarletteHeaders
 
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.server.exceptions import (
     anthropic_exception_decorator,
+    dial_exception_decorator,
 )
 from aidial_adapter_bedrock.upstream_config import parse_upstream_config
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -24,6 +27,11 @@ app = FastAPI()
 
 _Content = str | bytes | memoryview
 _Handler = Callable[[Request, str], Awaitable[Response]]
+
+
+@app.exception_handler(DialException)
+async def _dial_exception_handler(_request: Request, e: DialException):
+    return e.to_fastapi_response()
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -75,7 +83,8 @@ def _strip_content_headers(response_headers: httpx.Headers) -> None:
     response_headers.pop("Content-Encoding", None)
     # Content-Length reflected the compressed size; after decoding it no longer
     # matches the body, so drop it and let the framework recompute it.
-    # And even when the content was uncompressed to begin with (which is the case for streaming), the content length can change do to the SSE reformatting.
+    # And even when the content was uncompressed to begin with,
+    # the content length can change do to the SSE reformatting.
     response_headers.pop("Content-Length", None)
 
 
@@ -116,6 +125,15 @@ def _logging_decorator(func: _Handler) -> _Handler:
     return wrapper
 
 
+def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
+    def _keep_header(header: str) -> bool:
+        header = header.lower()
+        return header.startswith("anthropic-") or header == "accept-encoding"
+
+    return {k: v for (k, v) in headers.items() if _keep_header(k)}
+
+
+@dial_exception_decorator
 @anthropic_exception_decorator
 @_logging_decorator
 async def _proxy(request: Request, path: str) -> Response:
@@ -129,19 +147,18 @@ async def _proxy(request: Request, path: str) -> Response:
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
+    headers = _build_request_headers(request.headers)
+    if log.isEnabledFor(logging.DEBUG):
+        # Ask the upstream not to compress the response so its body (and
+        # streamed chunks) can be logged as-is. Forgoing compression on the
+        # upstream hop is a fair price for painless logging.
+        headers["accept-encoding"] = "identity"
+
     options = FinalRequestOptions.construct(
         method=request.method.lower(),
         url=path,
         json_data=json_body,
-        # When debug logging is on, ask the upstream not to compress the
-        # response so its body (and streamed chunks) can be logged as-is.
-        # Forgoing compression on the upstream hop is a fair price for
-        # painless logging.
-        headers=(
-            {"Accept-Encoding": "identity"}
-            if log.isEnabledFor(logging.DEBUG)
-            else {}
-        ),
+        headers=headers,
     )
 
     response = await client.request(
