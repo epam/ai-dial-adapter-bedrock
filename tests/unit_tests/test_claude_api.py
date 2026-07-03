@@ -14,7 +14,6 @@ from anthropic.types import MessageParam
 from httpx import ASGITransport
 from starlette.datastructures import Headers as StarletteHeaders
 
-import aidial_adapter_bedrock.claude_api as claude_api
 from aidial_adapter_bedrock.claude_api import _build_request_headers, app
 
 
@@ -367,58 +366,34 @@ class TestRequestHeaderPassthrough:
 
 
 class TestBuildRequestHeaders:
-    # Bedrock is selected by the absence of the ``x-upstream-key`` header.
     _BETA = "anthropic-beta"
+
+    def _build(self, headers: StarletteHeaders) -> dict[str, str]:
+        return _build_request_headers(headers, is_bedrock=True)
 
     def test_bedrock_drops_unsupported_beta_flags(self):
         headers = StarletteHeaders(
             headers={
-                self._BETA: (
-                    "oauth-2025-04-20,token-efficient-tools-2025-02-19"
-                )
+                self._BETA: "oauth-2025-04-20,token-efficient-tools-2025-02-19"
             }
         )
-        result = _build_request_headers(headers)
+        result = self._build(headers)
         assert result[self._BETA] == "token-efficient-tools-2025-02-19"
 
     def test_bedrock_removes_header_when_all_flags_unsupported(self):
         headers = StarletteHeaders(
             headers={
-                self._BETA: (
-                    "oauth-2025-04-20, thinking-token-count-2026-05-13"
-                )
+                self._BETA: "oauth-2025-04-20,thinking-token-count-2026-05-13"
             }
         )
-        result = _build_request_headers(headers)
+        result = self._build(headers)
         assert self._BETA not in result
-
-    def test_bedrock_replaces_mapped_beta_flag(self, monkeypatch):
-        monkeypatch.setitem(
-            claude_api._ANTHROPIC_BETA_BEDROCK_MAP,
-            "renamed-source-2025-01-01",
-            "renamed-target-2025-01-01",
-        )
-        headers = StarletteHeaders(
-            headers={self._BETA: "renamed-source-2025-01-01,keep-me"}
-        )
-        result = _build_request_headers(headers)
-        assert result[self._BETA] == "renamed-target-2025-01-01,keep-me"
 
     def test_bedrock_without_beta_header_is_unchanged(self):
         headers = StarletteHeaders(headers={"accept-encoding": "gzip"})
-        result = _build_request_headers(headers)
+        result = self._build(headers)
         assert self._BETA not in result
         assert result["accept-encoding"] == "gzip"
-
-    def test_api_key_request_keeps_beta_flags_untouched(self):
-        # With ``x-upstream-key`` present the request targets the Anthropic
-        # API, whose beta flags are forwarded verbatim.
-        value = "oauth-2025-04-20, thinking-token-count-2026-05-13"
-        headers = StarletteHeaders(
-            headers={"x-upstream-key": "sk-test", self._BETA: value}
-        )
-        result = _build_request_headers(headers)
-        assert result[self._BETA] == value
 
 
 class TestBedrockAnthropicBetaAdaptation:

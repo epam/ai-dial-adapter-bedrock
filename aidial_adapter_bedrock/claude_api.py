@@ -5,7 +5,6 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
 import httpx
-from aidial_sdk.exceptions import HTTPException as DialException
 from anthropic import AsyncAnthropicBedrock
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
@@ -27,11 +26,6 @@ app = FastAPI()
 
 _Content = str | bytes | memoryview
 _Handler = Callable[[Request, str], Awaitable[Response]]
-
-
-@app.exception_handler(DialException)
-async def _dial_exception_handler(_request: Request, e: DialException):
-    return e.to_fastapi_response()
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -125,64 +119,51 @@ def _logging_decorator(func: _Handler) -> _Handler:
     return wrapper
 
 
-# Header that carries the platform api-key. Its presence routes the request to
-# the Anthropic API; its absence means the request targets a Bedrock model.
-# Mirrors ``ApiKeyUpstreamConfig._UPSTREAM_API_KEY_HEADER_NAME``.
-_UPSTREAM_API_KEY_HEADER_NAME = "x-upstream-key"
-_ANTHROPIC_BETA_HEADER_NAME = "anthropic-beta"
-
-# Beta feature flags accepted by the Anthropic API but not by Bedrock. For a
-# Bedrock request each listed flag is dropped (mapped to ``None``) or rewritten
-# to its Bedrock equivalent (mapped to a string); flags absent from the map are
-# forwarded unchanged.
-_ANTHROPIC_BETA_BEDROCK_MAP: dict[str, str | None] = {
-    "oauth-2025-04-20": None,
-    "redact-thinking-2026-02-12": None,
-    "thinking-token-count-2026-05-13": None,
-    "prompt-caching-scope-2026-01-05": None,
-    "claude-code-20250219": None,
-    "advisor-tool-2026-03-01": None,
+_UNSUPPORTED_BEDROCK_ANTHROPIC_BETA_FLAGS = {
+    "oauth-2025-04-20",
+    "redact-thinking-2026-02-12",
+    "thinking-token-count-2026-05-13",
+    "prompt-caching-scope-2026-01-05",
+    "claude-code-20250219",
+    "advisor-tool-2026-03-01",
 }
 
 
-def _adapt_anthropic_beta_for_bedrock(header_value: str) -> str | None:
-    """Rewrite the comma-separated ``anthropic-beta`` header for Bedrock.
-
-    Flags Bedrock doesn't accept are dropped or rewritten per
-    ``_ANTHROPIC_BETA_BEDROCK_MAP``; unknown flags pass through. Returns the
-    new header value, or ``None`` when no flags remain.
-    """
-    betas: list[str] = []
-    for beta in header_value.split(","):
-        beta = beta.strip()
-        if not beta:
-            continue
-        if beta in _ANTHROPIC_BETA_BEDROCK_MAP:
-            replacement = _ANTHROPIC_BETA_BEDROCK_MAP[beta]
-            if replacement is None:
-                continue
-            beta = replacement
-        betas.append(beta)
-    return ",".join(betas) or None
+def _adapt_anthropic_beta_for_bedrock(value: str | None) -> str | None:
+    if value is None:
+        return None
+    features = [
+        feature
+        for feature in value.split(",")
+        if feature not in _UNSUPPORTED_BEDROCK_ANTHROPIC_BETA_FLAGS
+    ]
+    return ",".join(features) or None
 
 
-def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
+def _on_dict_value(
+    dct: dict[str, str], kye: str, func: Callable[[str | None], str | None]
+) -> dict[str, str]:
+    value = func(dct.get(kye))
+    if value is None:
+        dct.pop(kye, None)
+    else:
+        dct[kye] = value
+    return dct
+
+
+def _build_request_headers(
+    headers: StarletteHeaders, *, is_bedrock: bool
+) -> dict[str, str]:
     def _keep_header(header: str) -> bool:
         header = header.lower()
         return header.startswith("anthropic-") or header == "accept-encoding"
 
-    result = {k: v for (k, v) in headers.items() if _keep_header(k)}
+    result = {k.lower(): v for (k, v) in headers.items() if _keep_header(k)}
 
-    # A Bedrock request (no platform api-key) supports a different set of
-    # beta flags than the Anthropic API, so adapt the header accordingly.
-    is_bedrock = _UPSTREAM_API_KEY_HEADER_NAME not in headers
-    beta = result.get(_ANTHROPIC_BETA_HEADER_NAME)
-    if is_bedrock and beta is not None:
-        adapted = _adapt_anthropic_beta_for_bedrock(beta)
-        if adapted is None:
-            del result[_ANTHROPIC_BETA_HEADER_NAME]
-        else:
-            result[_ANTHROPIC_BETA_HEADER_NAME] = adapted
+    if is_bedrock:
+        result = _on_dict_value(
+            result, "anthropic-beta", _adapt_anthropic_beta_for_bedrock
+        )
 
     return result
 
@@ -201,7 +182,9 @@ async def _proxy(request: Request, path: str) -> Response:
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
-    headers = _build_request_headers(request.headers)
+    headers = _build_request_headers(
+        request.headers, is_bedrock=isinstance(client, AsyncAnthropicBedrock)
+    )
     if log.isEnabledFor(logging.DEBUG):
         # Ask the upstream not to compress the response so its body (and
         # streamed chunks) can be logged as-is. Forgoing compression on the
