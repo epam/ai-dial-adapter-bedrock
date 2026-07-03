@@ -5,7 +5,7 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
 import httpx
-from anthropic import AsyncAnthropicBedrock
+from anthropic import AsyncAnthropicBedrock, AsyncAnthropicBedrockMantle
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
 from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
@@ -182,9 +182,10 @@ async def _proxy(request: Request, path: str) -> Response:
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
-    headers = _build_request_headers(
-        request.headers, is_bedrock=isinstance(client, AsyncAnthropicBedrock)
+    is_bedrock = isinstance(
+        client, (AsyncAnthropicBedrock | AsyncAnthropicBedrockMantle)
     )
+    headers = _build_request_headers(request.headers, is_bedrock=is_bedrock)
     if log.isEnabledFor(logging.DEBUG):
         # Ask the upstream not to compress the response so its body (and
         # streamed chunks) can be logged as-is. Forgoing compression on the

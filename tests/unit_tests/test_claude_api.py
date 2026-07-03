@@ -49,20 +49,54 @@ def mock():
 
 
 @pytest.fixture
-async def http_client():
+async def http_client_platform():
     async with httpx.AsyncClient(
         transport=ASGITransport(app),  # type: ignore
         base_url="http://test-app.com",
-        headers={"x-upstream-key": "test-claude-api-key"},
+        headers={
+            "x-upstream-key": "test-claude-api-key",
+            "aws_access_key_id": "test-access-key",
+            "aws_secret_access_key": "test-secret-key",
+        },
     ) as client:
         yield client
 
 
 @pytest.fixture
-async def anthropic_client(http_client: httpx.AsyncClient):
+async def http_client_bedrock_legacy():
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app),  # type: ignore
+        base_url="http://test-app.com",
+        headers={
+            "x-upstream-extra-data": json.dumps(
+                {
+                    "claude_client": "legacy",
+                    "aws_access_key_id": "test-access-key",
+                    "aws_secret_access_key": "test-secret-key",
+                }
+            )
+        },
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def http_client_bedrock_mantle():
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app),  # type: ignore
+        base_url="http://test-app.com",
+        headers={
+            "x-upstream-extra-data": json.dumps({"claude_client": "mantle"})
+        },
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def anthropic_client_platform(http_client_platform: httpx.AsyncClient):
     async with anthropic.AsyncAnthropic(
         api_key="test-claude-api-key",
-        http_client=http_client,
+        http_client=http_client_platform,
         max_retries=0,
     ) as client:
         yield client
@@ -77,8 +111,8 @@ class TestMessagesNonStreaming:
         )
 
     @respx.mock
-    async def test_http(self, http_client: httpx.AsyncClient):
-        response = await http_client.post(
+    async def test_http(self, http_client_platform: httpx.AsyncClient):
+        response = await http_client_platform.post(
             "/v1/messages", json=_MESSAGES_REQUEST
         )
 
@@ -91,8 +125,12 @@ class TestMessagesNonStreaming:
         )
 
     @respx.mock
-    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
-        response = await anthropic_client.messages.create(**_MESSAGES_REQUEST)
+    async def test_anthropic(
+        self, anthropic_client_platform: anthropic.AsyncAnthropic
+    ):
+        response = await anthropic_client_platform.messages.create(
+            **_MESSAGES_REQUEST
+        )
 
         assert response.type == "message"
         assert response.role == "assistant"
@@ -102,7 +140,7 @@ class TestMessagesNonStreaming:
 
     @respx.mock
     async def test_http_gzip_encoding_stripped(
-        self, mock: respx.MockRouter, http_client: httpx.AsyncClient
+        self, mock: respx.MockRouter, http_client_platform: httpx.AsyncClient
     ):
         content = _read_fixture("messages_non_streaming_response.json")
         mock.post(url="/v1/messages").respond(
@@ -111,7 +149,7 @@ class TestMessagesNonStreaming:
             headers={"Content-Encoding": "gzip"},
         )
 
-        response = await http_client.post(
+        response = await http_client_platform.post(
             "/v1/messages",
             json=_MESSAGES_REQUEST,
             headers={"Accept-Encoding": "gzip"},
@@ -132,9 +170,9 @@ class TestMessagesStreaming:
         )
 
     @respx.mock
-    async def test_http(self, http_client: httpx.AsyncClient):
+    async def test_http(self, http_client_platform: httpx.AsyncClient):
         payload = {**_MESSAGES_REQUEST, "stream": True}
-        response = await http_client.post("/v1/messages", json=payload)
+        response = await http_client_platform.post("/v1/messages", json=payload)
 
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
@@ -143,8 +181,10 @@ class TestMessagesStreaming:
             assert txt.encode() in response.content
 
     @respx.mock
-    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
-        async with anthropic_client.messages.stream(
+    async def test_anthropic(
+        self, anthropic_client_platform: anthropic.AsyncAnthropic
+    ):
+        async with anthropic_client_platform.messages.stream(
             **_MESSAGES_REQUEST
         ) as stream:
             text = await stream.get_final_text()
@@ -161,7 +201,7 @@ class TestMessageBatches:
         )
 
     @respx.mock
-    async def test_http(self, http_client: httpx.AsyncClient):
+    async def test_http(self, http_client_platform: httpx.AsyncClient):
         payload = {
             "requests": [
                 {
@@ -170,7 +210,9 @@ class TestMessageBatches:
                 }
             ]
         }
-        response = await http_client.post("/v1/messages/batches", json=payload)
+        response = await http_client_platform.post(
+            "/v1/messages/batches", json=payload
+        )
 
         assert response.status_code == 200
         body = response.json()
@@ -178,8 +220,10 @@ class TestMessageBatches:
         assert body["processing_status"] == "in_progress"
 
     @respx.mock
-    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
-        batch = await anthropic_client.messages.batches.create(
+    async def test_anthropic(
+        self, anthropic_client_platform: anthropic.AsyncAnthropic
+    ):
+        batch = await anthropic_client_platform.messages.batches.create(
             requests=[
                 {
                     "custom_id": "req-1",
@@ -201,8 +245,8 @@ class TestCountTokens:
         )
 
     @respx.mock
-    async def test_http(self, http_client: httpx.AsyncClient):
-        response = await http_client.post(
+    async def test_http(self, http_client_platform: httpx.AsyncClient):
+        response = await http_client_platform.post(
             "/v1/messages/count_tokens", json=_BASE_MESSAGES_REQUEST
         )
 
@@ -211,8 +255,10 @@ class TestCountTokens:
         assert body["input_tokens"] == 14
 
     @respx.mock
-    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
-        response = await anthropic_client.messages.count_tokens(
+    async def test_anthropic(
+        self, anthropic_client_platform: anthropic.AsyncAnthropic
+    ):
+        response = await anthropic_client_platform.messages.count_tokens(
             **_BASE_MESSAGES_REQUEST
         )
 
@@ -228,7 +274,7 @@ class TestDebugLogging:
     async def test_request_and_response_logging(
         self,
         mock: respx.MockRouter,
-        http_client: httpx.AsyncClient,
+        http_client_platform: httpx.AsyncClient,
         caplog: pytest.LogCaptureFixture,
         level: int,
         expected: bool,
@@ -239,7 +285,7 @@ class TestDebugLogging:
         )
 
         with caplog.at_level(level, logger="bedrock"):
-            response = await http_client.post(
+            response = await http_client_platform.post(
                 "/v1/messages", json=_MESSAGES_REQUEST
             )
 
@@ -263,7 +309,7 @@ class TestDebugLogging:
     async def test_streaming_response_chunk_logging(
         self,
         mock: respx.MockRouter,
-        http_client: httpx.AsyncClient,
+        http_client_platform: httpx.AsyncClient,
         caplog: pytest.LogCaptureFixture,
     ):
         content = _read_fixture("messages_streaming_response.txt")
@@ -273,7 +319,9 @@ class TestDebugLogging:
 
         with caplog.at_level(logging.DEBUG, logger="bedrock"):
             payload = {**_MESSAGES_REQUEST, "stream": True}
-            response = await http_client.post("/v1/messages", json=payload)
+            response = await http_client_platform.post(
+                "/v1/messages", json=payload
+            )
 
         assert response.status_code == 200
 
@@ -296,7 +344,7 @@ class TestDebugLogging:
     async def test_debug_disables_upstream_compression(
         self,
         mock: respx.MockRouter,
-        http_client: httpx.AsyncClient,
+        http_client_platform: httpx.AsyncClient,
         caplog: pytest.LogCaptureFixture,
         level: int,
         expected_encoding: str | None,
@@ -318,7 +366,7 @@ class TestDebugLogging:
         mock.post(url="/v1/messages").mock(side_effect=_handler)
 
         with caplog.at_level(level, logger="bedrock"):
-            response = await http_client.post(
+            response = await http_client_platform.post(
                 "/v1/messages", json=_MESSAGES_REQUEST
             )
 
@@ -339,9 +387,9 @@ class TestRequestHeaderPassthrough:
 
     @respx.mock
     async def test_anthropic_and_encoding_headers_forwarded(
-        self, mock: respx.MockRouter, http_client: httpx.AsyncClient
+        self, mock: respx.MockRouter, http_client_platform: httpx.AsyncClient
     ):
-        response = await http_client.post(
+        response = await http_client_platform.post(
             "/v1/messages",
             json=_MESSAGES_REQUEST,
             headers={
@@ -397,32 +445,23 @@ class TestBuildRequestHeaders:
 
 
 class TestBedrockAnthropicBetaAdaptation:
-    async def test_bedrock_request_adapts_beta_header(self, monkeypatch):
-        captured: dict[str, dict[str, str]] = {}
+    async def test_bedrock_request_adapts_beta_header(
+        self, http_client_bedrock_legacy: httpx.AsyncClient
+    ):
+        # Uses a real AsyncAnthropicBedrock client (rather than patching
+        # create_anthropic_client with a stand-in) so that the adapter's
+        # `isinstance(client, AsyncAnthropicBedrock)` check actually holds
+        # and the beta-header filtering logic is exercised.
+        content = _read_fixture("messages_non_streaming_response.json")
 
-        class _CapturingClient:
-            async def request(self, *, options, **_kwargs):
-                captured["headers"] = options.headers
-                content = _read_fixture("messages_non_streaming_response.json")
-                return _FakeStreamingResponse(
-                    chunks=[content],
-                    headers={"Content-Type": "application/json"},
-                )
+        with respx.mock(
+            base_url="https://bedrock-runtime.test-region.amazonaws.com"
+        ) as mock:
+            route = mock.post(path__regex=r"^/model/.*/invoke$").respond(
+                content=content, content_type="application/json"
+            )
 
-        async def _create_client(_upstream):
-            return _CapturingClient()
-
-        monkeypatch.setattr(
-            "aidial_adapter_bedrock.claude_api.create_anthropic_client",
-            _create_client,
-        )
-
-        async with httpx.AsyncClient(
-            transport=ASGITransport(app),  # type: ignore
-            base_url="http://test-app.com",
-            headers={"x-upstream-extra-data": json.dumps({})},
-        ) as client:
-            response = await client.post(
+            response = await http_client_bedrock_legacy.post(
                 "/v1/messages",
                 json=_MESSAGES_REQUEST,
                 headers={
@@ -435,9 +474,10 @@ class TestBedrockAnthropicBetaAdaptation:
             )
 
         assert response.status_code == 200
+        upstream_headers = route.calls.last.request.headers
         # Bedrock-unsupported flags are stripped; the unknown flag survives.
         assert (
-            captured["headers"]["anthropic-beta"]
+            upstream_headers["anthropic-beta"]
             == "token-efficient-tools-2025-02-19"
         )
 
@@ -451,8 +491,8 @@ class TestModels:
         )
 
     @respx.mock
-    async def test_http(self, http_client: httpx.AsyncClient):
-        response = await http_client.get("/v1/models")
+    async def test_http(self, http_client_platform: httpx.AsyncClient):
+        response = await http_client_platform.get("/v1/models")
 
         assert response.status_code == 200
         body = response.json()
@@ -461,8 +501,10 @@ class TestModels:
         assert body["data"][0]["id"] == "claude-3-5-sonnet-20241022"
 
     @respx.mock
-    async def test_anthropic(self, anthropic_client: anthropic.AsyncAnthropic):
-        models = await anthropic_client.models.list()
+    async def test_anthropic(
+        self, anthropic_client_platform: anthropic.AsyncAnthropic
+    ):
+        models = await anthropic_client_platform.models.list()
 
         assert len(models.data) == 2
         assert models.data[0].id == "claude-3-5-sonnet-20241022"
