@@ -94,10 +94,24 @@ async def http_client_bedrock_mantle():
         transport=ASGITransport(app),  # type: ignore
         base_url="http://test-app.com",
         headers={
-            "x-upstream-extra-data": json.dumps({"claude_client": "mantle"})
+            "x-upstream-extra-data": json.dumps(
+                {
+                    "claude_client": "mantle",
+                    "aws_access_key_id": "test-access-key",
+                    "aws_secret_access_key": "test-secret-key",
+                }
+            )
         },
     ) as client:
         yield client
+
+
+@pytest.fixture
+def mock_bedrock_mantle():
+    with respx.mock(
+        base_url="https://bedrock-mantle.test-region.api.aws/anthropic"
+    ) as mock:
+        yield mock
 
 
 @pytest.fixture
@@ -463,17 +477,28 @@ class TestBedrockAnthropicBetaAdaptation:
         mock_bedrock: respx.MockRouter,
         http_client_bedrock_legacy: httpx.AsyncClient,
     ):
-        # Uses a real AsyncAnthropicBedrock client (rather than patching
-        # create_anthropic_client with a stand-in) so that the adapter's
-        # `isinstance(client, AsyncAnthropicBedrock)` check actually holds
-        # and the beta-header filtering logic is exercised.
-        content = _read_fixture("messages_non_streaming_response.json")
-
         route = mock_bedrock.post(path__regex=r"^/model/.*/invoke$").respond(
-            content=content, content_type="application/json"
+            content=_read_fixture("messages_non_streaming_response.json"),
+            content_type="application/json",
         )
+        await self._call_and_check_headers(http_client_bedrock_legacy, route)
 
-        response = await http_client_bedrock_legacy.post(
+    @respx.mock
+    async def test_bedrock_mantle_request_adapts_beta_header(
+        self,
+        mock_bedrock_mantle: respx.MockRouter,
+        http_client_bedrock_mantle: httpx.AsyncClient,
+    ):
+        route = mock_bedrock_mantle.post(path="/v1/messages").respond(
+            content=_read_fixture("messages_non_streaming_response.json"),
+            content_type="application/json",
+        )
+        await self._call_and_check_headers(http_client_bedrock_mantle, route)
+
+    async def _call_and_check_headers(
+        self, client: httpx.AsyncClient, route: respx.Route
+    ):
+        response = await client.post(
             "/v1/messages",
             json=_MESSAGES_REQUEST,
             headers={
