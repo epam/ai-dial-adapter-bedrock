@@ -61,19 +61,25 @@ async def _bedrock_stream_to_sse(
                 yield ServerSentEvent(data=message, event=event)
 
 
+def _show_sse_event(event: ServerSentEvent) -> str:
+    lines: list[str] = []
+    if event.id is not None:
+        lines.append(f"id: {event.id}\n")
+    if event.event is not None:
+        lines.append(f"event: {event.event}\n")
+    for line in event.data.split("\n"):
+        lines.append(f"data: {line}\n")
+    if event.retry is not None:
+        lines.append(f"retry: {event.retry}\n")
+    lines.append("\n")
+    return "".join(lines)
+
+
 async def _sse_to_bytes_iterator(
-    event: AsyncIterator[ServerSentEvent],
+    events: AsyncIterator[ServerSentEvent],
 ) -> AsyncIterator[bytes]:
-    async for sse in event:
-        if sse.id is not None:
-            yield f"id: {sse.id}\n".encode()
-        if sse.event is not None:
-            yield f"event: {sse.event}\n".encode()
-        for line in sse.data.split("\n"):
-            yield f"data: {line}\n".encode()
-        if sse.retry is not None:
-            yield f"retry: {sse.retry}\n".encode()
-        yield b"\n"
+    async for event in events:
+        yield _show_sse_event(event).encode()
 
 
 def _strip_content_headers(response_headers: httpx.Headers) -> None:
@@ -99,18 +105,22 @@ async def _log_stream_chunks(
 ) -> AsyncIterator[_Content]:
     async for chunk in iterator:
         with contextlib.suppress(Exception):
-            log.debug(f"response chunk: {_as_text(chunk)}")
+            message = _as_text(chunk).rstrip()
+            log.debug(f"response chunk: {message}")
         yield chunk
 
 
 def _logging_decorator(func: _Handler) -> _Handler:
+    def one_line(text: str) -> str:
+        return "".join(text.splitlines())
+
     @wraps(func)
     async def wrapper(request: Request, path: str) -> Response:
         if not log.isEnabledFor(logging.DEBUG):
             return await func(request, path)
 
         with contextlib.suppress(Exception):
-            log.debug(f"request: {_as_text(await request.body())}")
+            log.debug(f"request: {one_line(_as_text(await request.body()))}")
 
         response = await func(request, path)
 
@@ -118,7 +128,7 @@ def _logging_decorator(func: _Handler) -> _Handler:
             response.body_iterator = _log_stream_chunks(response.body_iterator)
         else:
             with contextlib.suppress(Exception):
-                log.debug(f"response: {_as_text(response.body)}")
+                log.debug(f"response: {one_line(_as_text(response.body))}")
 
         return response
 
