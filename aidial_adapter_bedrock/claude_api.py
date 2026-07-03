@@ -5,8 +5,7 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
 import httpx
-from aidial_sdk.exceptions import HTTPException as DialException
-from anthropic import AsyncAnthropicBedrock
+from anthropic import AsyncAnthropicBedrock, AsyncAnthropicBedrockMantle
 from anthropic._models import FinalRequestOptions
 from anthropic._streaming import ServerSentEvent
 from anthropic.lib.bedrock._stream_decoder import AWSEventStreamDecoder
@@ -27,11 +26,6 @@ app = FastAPI()
 
 _Content = str | bytes | memoryview
 _Handler = Callable[[Request, str], Awaitable[Response]]
-
-
-@app.exception_handler(DialException)
-async def _dial_exception_handler(_request: Request, e: DialException):
-    return e.to_fastapi_response()
 
 
 def _is_streaming_request(body: dict | None, path: str) -> bool:
@@ -135,12 +129,53 @@ def _logging_decorator(func: _Handler) -> _Handler:
     return wrapper
 
 
-def _build_request_headers(headers: StarletteHeaders) -> dict[str, str]:
+_UNSUPPORTED_BEDROCK_ANTHROPIC_BETA_FLAGS = {
+    "oauth-2025-04-20",
+    "redact-thinking-2026-02-12",
+    "thinking-token-count-2026-05-13",
+    "prompt-caching-scope-2026-01-05",
+    "claude-code-20250219",
+    "advisor-tool-2026-03-01",
+}
+
+
+def _adapt_anthropic_beta_for_bedrock(value: str | None) -> str | None:
+    if value is None:
+        return None
+    features = [
+        feature
+        for feature in value.split(",")
+        if feature not in _UNSUPPORTED_BEDROCK_ANTHROPIC_BETA_FLAGS
+    ]
+    return ",".join(features) or None
+
+
+def _on_dict_value(
+    dct: dict[str, str], kye: str, func: Callable[[str | None], str | None]
+) -> dict[str, str]:
+    value = func(dct.get(kye))
+    if value is None:
+        dct.pop(kye, None)
+    else:
+        dct[kye] = value
+    return dct
+
+
+def _build_request_headers(
+    headers: StarletteHeaders, *, is_bedrock: bool
+) -> dict[str, str]:
     def _keep_header(header: str) -> bool:
         header = header.lower()
         return header.startswith("anthropic-") or header == "accept-encoding"
 
-    return {k: v for (k, v) in headers.items() if _keep_header(k)}
+    result = {k.lower(): v for (k, v) in headers.items() if _keep_header(k)}
+
+    if is_bedrock:
+        result = _on_dict_value(
+            result, "anthropic-beta", _adapt_anthropic_beta_for_bedrock
+        )
+
+    return result
 
 
 @dial_exception_decorator
@@ -157,7 +192,10 @@ async def _proxy(request: Request, path: str) -> Response:
     upstream_config = await parse_upstream_config(request)
     client = await create_anthropic_client(upstream_config)
 
-    headers = _build_request_headers(request.headers)
+    is_bedrock = isinstance(
+        client, (AsyncAnthropicBedrock | AsyncAnthropicBedrockMantle)
+    )
+    headers = _build_request_headers(request.headers, is_bedrock=is_bedrock)
     if log.isEnabledFor(logging.DEBUG):
         # Ask the upstream not to compress the response so its body (and
         # streamed chunks) can be logged as-is. Forgoing compression on the
