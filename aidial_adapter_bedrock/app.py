@@ -1,10 +1,9 @@
 from contextlib import asynccontextmanager
 
-import fastapi
 from aidial_adapter_anthropic.passthrough import mount_anthropic_api
 from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
@@ -56,7 +55,7 @@ app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
 app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
 
-async def _get_anthropic_client(request: fastapi.Request):
+async def _get_anthropic_client(request: Request):
     upstream_config = await parse_upstream_config(request)
     return await create_anthropic_client(upstream_config)
 
