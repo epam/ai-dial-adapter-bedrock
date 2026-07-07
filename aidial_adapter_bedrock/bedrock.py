@@ -77,13 +77,15 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
     return httpx.Timeout(**timeout)
 
 
+AnthropicClient = (
+    AsyncAnthropicBedrock | AsyncAnthropicBedrockMantle | AsyncAnthropic
+)
+
+
 @ttl_cache
 async def create_anthropic_client(
     upstream_config: UpstreamConfig,
-) -> tuple[
-    datetime | None,
-    AsyncAnthropicBedrock | AsyncAnthropicBedrockMantle | AsyncAnthropic,
-]:
+) -> tuple[datetime | None, AnthropicClient]:
     http_client = httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
