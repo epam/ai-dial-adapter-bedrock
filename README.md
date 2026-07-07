@@ -700,23 +700,23 @@ Copy [`.env.claude.example`](./.env.claude.example) to `.env.claude` and adjust 
 ```ini
 # Point Claude Code at the adapter's Anthropic passthrough.
 # Claude Code appends /v1/messages, so this must be the /anthropic base path.
-ANTHROPIC_BASE_URL=http://localhost:5008/anthropic
+ANTHROPIC_BASE_URL="http://localhost:5008/anthropic"
 
 # Sent to the adapter as the X-Api-Key header. When calling the adapter
 # directly (as here), any placeholder works, because the adapter authenticates
 # to AWS Bedrock with its own AWS_* credentials. When routing through DIAL Core,
 # set this to your DIAL API key instead.
-ANTHROPIC_API_KEY=dummy-api-key
+ANTHROPIC_API_KEY="dummy-api-key"
 
 # Add a ready-to-pick entry to the Claude Code `/model` selector. The value is
 # an AWS Bedrock model name (cross-region inference names are supported).
-ANTHROPIC_CUSTOM_MODEL_OPTION=us.anthropic.claude-opus-4-8
-ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=Opus via Bedrock adapter
-ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION=Custom deployment routed through DIAL Bedrock adapter
+ANTHROPIC_CUSTOM_MODEL_OPTION="us.anthropic.claude-opus-4-8"
+ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="Opus via Bedrock adapter"
+ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="Custom deployment routed through DIAL Bedrock adapter"
 
 # The "small/fast" model Claude Code uses for lightweight background tasks.
 # Also given as an AWS Bedrock model name.
-ANTHROPIC_DEFAULT_HAIKU_MODEL=anthropic.claude-haiku-4-5-20251001-v1:0
+ANTHROPIC_DEFAULT_HAIKU_MODEL="anthropic.claude-haiku-4-5-20251001-v1:0"
 ```
 
 Notes:
