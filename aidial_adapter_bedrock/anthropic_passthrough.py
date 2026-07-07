@@ -46,6 +46,6 @@ def mount_anthropic_passthrough(app: FastAPI, path: str):
     mount_anthropic_api(
         app,
         _get_anthropic_client,
-        path="/anthropic",
+        path=path,
         on_anthropic_beta_header=_strip_unsupported_features,
     )
