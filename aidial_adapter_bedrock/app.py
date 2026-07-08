@@ -4,12 +4,14 @@ from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 from fastapi import FastAPI
 
+from aidial_adapter_bedrock.anthropic_passthrough import (
+    mount_anthropic_passthrough,
+)
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
     create_boto_client,
 )
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
-from aidial_adapter_bedrock.claude_api import app as anthropic_api_proxy
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.embeddings import BedrockEmbeddings
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
@@ -53,8 +55,5 @@ async def models():
 app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
 app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
-app.mount(
-    path="/anthropic",
-    app=anthropic_api_proxy,
-    name="Claude API passthrough",
-)
+
+mount_anthropic_passthrough(app, path="/anthropic")
