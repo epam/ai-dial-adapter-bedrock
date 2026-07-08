@@ -23,10 +23,7 @@ Repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 package-mode = false
 
 [tool.poetry.dependencies]
-# FIXME
-aidial-adapter-anthropic = { "branch" = "feat/customize-passthrough-api", extras = [
-    "bedrock",
-], git = "https://github.com/epam/ai-dial-adapter-anthropic.git" }
+aidial-adapter-anthropic = { "version" = "0.14.0", extras = ["bedrock"] }
 boto3 = "1.37.24"
 botocore = "1.37.24"
 aidial-sdk = { version = "0.37.0", extras = ["telemetry"] }
