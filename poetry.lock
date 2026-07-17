@@ -26,28 +26,30 @@ bedrock = ["botocore (>=1.10.0)"]
 
 [[package]]
 name = "aidial-sdk"
-version = "0.37.0"
+version = "0.38.0"
 description = "Framework to create applications and model adapters for AI DIAL"
 optional = false
-python-versions = ">=3.10,<4.0"
+python-versions = "<4.0,>=3.10"
 groups = ["main"]
-files = []
-develop = false
+files = [
+    {file = "aidial_sdk-0.38.0-py3-none-any.whl", hash = "sha256:d67dec8e6133de3e0a75a1646c39d52a0f78860bba57b2e30fb1f158f6f13bd6"},
+    {file = "aidial_sdk-0.38.0.tar.gz", hash = "sha256:ce3022f6e488a2f0de21db2a4ef87bc1e62558e8dd7e96816283b9b20214e1b7"},
+]
 
 [package.dependencies]
 fastapi = ">=0.51,<1.0"
-opentelemetry-api = {version = ">=1.22.0,<2.0", optional = true}
-opentelemetry-exporter-otlp-proto-grpc = {version = ">=1.22.0,<2.0", optional = true}
-opentelemetry-exporter-prometheus = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-aiohttp-client = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-fastapi = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-httpx = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-logging = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-requests = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-system-metrics = {version = ">=0.43b0", optional = true}
-opentelemetry-instrumentation-urllib = {version = ">=0.43b0", optional = true}
-opentelemetry-sdk = {version = ">=1.22.0,<2.0", optional = true}
-prometheus-client = {version = ">=0.17.1,<1.0", optional = true}
+opentelemetry-api = {version = ">=1.22.0,<2.0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-exporter-otlp-proto-grpc = {version = ">=1.22.0,<2.0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-exporter-prometheus = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-aiohttp-client = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-fastapi = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-httpx = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-logging = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-requests = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-system-metrics = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-instrumentation-urllib = {version = ">=0.43b0", optional = true, markers = "extra == \"telemetry\""}
+opentelemetry-sdk = {version = ">=1.22.0,<2.0", optional = true, markers = "extra == \"telemetry\""}
+prometheus-client = {version = ">=0.17.1,<1.0", optional = true, markers = "extra == \"telemetry\""}
 pydantic = ">=1.10.17,<3"
 uvicorn = ">=0.19,<1.0"
 wrapt = ">=1.10,<2"
@@ -55,12 +57,6 @@ wrapt = ">=1.10,<2"
 [package.extras]
 httpx = ["httpx (>=0.25.0,<1.0)"]
 telemetry = ["opentelemetry-api (>=1.22.0,<2.0)", "opentelemetry-exporter-otlp-proto-grpc (>=1.22.0,<2.0)", "opentelemetry-exporter-prometheus (>=0.43b0)", "opentelemetry-instrumentation-aiohttp-client (>=0.43b0)", "opentelemetry-instrumentation-fastapi (>=0.43b0)", "opentelemetry-instrumentation-httpx (>=0.43b0)", "opentelemetry-instrumentation-logging (>=0.43b0)", "opentelemetry-instrumentation-requests (>=0.43b0)", "opentelemetry-instrumentation-system-metrics (>=0.43b0)", "opentelemetry-instrumentation-urllib (>=0.43b0)", "opentelemetry-sdk (>=1.22.0,<2.0)", "prometheus-client (>=0.17.1,<1.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/epam/ai-dial-sdk.git"
-reference = "feat/support-structured-logs"
-resolved_reference = "20ec117ef0e0453cfa2951acc92d0730baeedda9"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -2823,4 +2819,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "c3e6cb5a5c65ebc1bf6906b77cf65dc2e68648cff1f60dadbd4787787139f28a"
+content-hash = "c825c3ab5dc0c30b959bcb0a07e108422f3d302be5201bb87b3cf56a2a275903"
