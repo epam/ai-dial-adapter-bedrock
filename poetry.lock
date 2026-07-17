@@ -60,7 +60,7 @@ telemetry = ["opentelemetry-api (>=1.22.0,<2.0)", "opentelemetry-exporter-otlp-p
 type = "git"
 url = "https://github.com/epam/ai-dial-sdk.git"
 reference = "feat/support-structured-logs"
-resolved_reference = "b5c46a0e4af28c5e37b9b8039787b2e15333a863"
+resolved_reference = "20ec117ef0e0453cfa2951acc92d0730baeedda9"
 
 [[package]]
 name = "aiohappyeyeballs"
