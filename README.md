@@ -464,7 +464,9 @@ Copy `.env.example` to `.env` and customize it for your environment:
 
 ### Logging
 
-Logging is provided by the DIAL SDK. By default logs are emitted as human-readable text.
+Logging is provided by the DIAL SDK. The `LOG_LEVEL` variable sets the severity threshold for the adapter's logs (`INFO` by default; use `DEBUG` for development).
+
+By default logs are emitted as human-readable text.
 Set `DIAL_SDK_LOG_FORMAT=json` for structured JSON logging.
 The format is controlled by `DIAL_SDK_TEXT_LOG_FORMAT` / `DIAL_SDK_JSON_LOG_FORMAT` (both optional),
 which use Python's `%`-style [logging attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes)
