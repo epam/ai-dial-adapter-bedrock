@@ -36,8 +36,7 @@ app = DIALApp(
 )
 
 # NOTE: configuring logger after the DIAL telemetry is initialized,
-# because it may have configured the root logger on its own via
-# logging=True configuration.
+# because it may have configured the root logger on its own.
 configure_loggers()
 
 deployments = get_static_deployments()
