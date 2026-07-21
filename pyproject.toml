@@ -32,7 +32,7 @@ fastapi = "0.135.1"
 uvicorn = "0.23.2"
 pydantic = "2.10.4"
 numpy = "2.0.0"
-pillow = "12.2.0"
+pillow = "12.3.0"
 
 [tool.poetry.group.test.dependencies]
 openai = "1.107.3"
