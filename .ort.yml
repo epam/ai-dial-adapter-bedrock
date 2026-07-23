@@ -39,3 +39,6 @@ resolutions:
     - message: ".*PyPI::(opentelemetry|pillow|aidial-sdk|aidial-adapter-anthropic|idna|starlette|fastapi|typing-inspection).*"
       reason: "CANT_FIX_EXCEPTION"
       comment: "ORT cannot pickup license"
+    - message: ".*PyPI::jiter:.*"
+      reason: "CANT_FIX_EXCEPTION"
+      comment: "MIT License: https://github.com/pydantic/jiter/blob/main/LICENSE. ORT cannot pickup license: jiter declares it via the PEP 639 'License-Expression' metadata field only."

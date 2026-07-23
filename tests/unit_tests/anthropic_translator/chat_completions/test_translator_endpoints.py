@@ -1,0 +1,258 @@
+import json
+
+import httpx
+import pytest
+import respx
+from asgi_lifespan import LifespanManager
+from httpx import ASGITransport
+
+_MESSAGES_URL = "/to-chat-completions/anthropic/v1/messages"
+_COUNT_TOKENS_URL = "/to-chat-completions/anthropic/v1/messages/count_tokens"
+_CORE = "http://dial-core"
+# Chat Completions is addressed per-deployment; the SDK appends
+# `/chat/completions` and an `api-version` query param.
+_CORE_PATH = "/openai/deployments/gpt-5.5/chat/completions"
+
+_RESPONSE_OBJECT = {
+    "id": "chatcmpl_1",
+    "object": "chat.completion",
+    "model": "gpt-5.5",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hi there"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 7, "completion_tokens": 3},
+}
+
+_MESSAGES_BODY = {
+    "model": "gpt-5.5",
+    "max_tokens": 100,
+    "messages": [{"role": "user", "content": "hi"}],
+}
+
+
+@pytest.fixture
+async def client(monkeypatch):
+    monkeypatch.setenv("DIAL_URL", _CORE)
+    from aidial_adapter_bedrock.app import app
+
+    async with (
+        LifespanManager(app),
+        httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+            headers={"api-key": "dummy-key"},
+        ) as c,
+    ):
+        yield c
+
+
+@pytest.fixture
+def mock_core():
+    with respx.mock(base_url=_CORE) as mock:
+        yield mock
+
+
+async def test_non_streaming_happy_path(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    response = await client.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "message"
+    assert body["role"] == "assistant"
+    assert body["content"][0]["text"] == "hi there"
+    assert body["stop_reason"] == "end_turn"
+    assert body["usage"]["input_tokens"] == 7
+
+
+async def test_request_shape_and_headers_not_leaked(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    route = mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    await client.post(
+        _MESSAGES_URL,
+        json=_MESSAGES_BODY,
+        headers={
+            "anthropic-version": "2023-06-01",
+            "anthropic-beta": "oauth-2025-04-20",
+        },
+    )
+    sent = route.calls.last.request
+    sent_body = json.loads(sent.content)
+    assert sent_body["model"] == "gpt-5.5"
+    assert sent_body["max_completion_tokens"] == 100
+    # `store` is never emitted (some adapters 400 on unknown top-level keys).
+    assert "store" not in sent_body
+    # Anthropic-specific headers must not leak to Core.
+    assert "anthropic-version" not in sent.headers
+    assert "anthropic-beta" not in sent.headers
+    assert sent.headers["api-key"] == "dummy-key"
+    assert "authorization" not in sent.headers
+
+
+async def test_streaming_happy_path(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    upstream_sse = (
+        b'data: {"id": "chatcmpl_1", "model": "gpt-5.5", "choices": '
+        b'[{"index": 0, "delta": {"role": "assistant", "content": "Hello"}, '
+        b'"finish_reason": null}]}\n\n'
+        b'data: {"id": "chatcmpl_1", "choices": [{"index": 0, "delta": {}, '
+        b'"finish_reason": "stop"}]}\n\n'
+        b'data: {"id": "chatcmpl_1", "choices": [], "usage": '
+        b'{"prompt_tokens": 5, "completion_tokens": 2}}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    route = mock_core.post(_CORE_PATH).respond(
+        content=upstream_sse, content_type="text/event-stream"
+    )
+
+    response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, "stream": True}
+    )
+
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    sent_body = json.loads(route.calls.last.request.content)
+    assert sent_body["stream"] is True
+    # include_usage must be requested so the terminal usage is populated.
+    assert sent_body["stream_options"] == {"include_usage": True}
+    text = response.text
+    assert "event: message_start" in text
+    assert "event: ping" in text
+    # `format_sse` uses `model_dump_json()` (compact separators, no space
+    # after `:`) rather than stdlib `json.dumps`.
+    assert '"text":"Hello"' in text
+    assert "event: message_stop" in text
+
+
+async def test_missing_dial_url_returns_500(monkeypatch):
+    monkeypatch.delenv("DIAL_URL", raising=False)
+    from aidial_adapter_bedrock.app import app
+
+    async with (
+        LifespanManager(app),
+        httpx.AsyncClient(
+            transport=ASGITransport(app),  # type: ignore
+            base_url="http://test-app.com",
+        ) as c,
+    ):
+        response = await c.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["type"] == "error"
+    assert body["error"]["type"] == "api_error"
+    assert "DIAL_URL" in body["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    "status, expected_type",
+    [
+        (401, "authentication_error"),
+        (403, "permission_error"),
+        (404, "not_found_error"),
+        (429, "rate_limit_error"),
+        (500, "api_error"),
+        (503, "overloaded_error"),
+    ],
+)
+async def test_upstream_error_status_mapping(
+    client: httpx.AsyncClient,
+    mock_core: respx.MockRouter,
+    status: int,
+    expected_type: str,
+):
+    route = mock_core.post(_CORE_PATH).respond(
+        status_code=status,
+        json={"error": {"message": "upstream says no"}},
+    )
+    response = await client.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+
+    assert response.status_code == status
+    body = response.json()
+    assert body["error"]["type"] == expected_type
+    assert body["error"]["message"] == "upstream says no"
+    # The SDK must not retry 429/5xx: the client sees the upstream status now.
+    assert route.call_count == 1
+
+
+async def test_pre_stream_error_returns_json_not_sse(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    mock_core.post(_CORE_PATH).respond(
+        status_code=401, json={"error": {"message": "bad key"}}
+    )
+    response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, "stream": True}
+    )
+    assert response.status_code == 401
+    assert "application/json" in response.headers["content-type"]
+    assert response.json()["error"]["type"] == "authentication_error"
+
+
+async def test_malformed_json_returns_400(client: httpx.AsyncClient):
+    response = await client.post(
+        _MESSAGES_URL,
+        content=b"{not json",
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_too_many_stop_sequences_returns_400(client: httpx.AsyncClient):
+    # `MessagesRequest.stop_sequences` has no length cap, but the outbound
+    # `ChatCompletionRequest.stop` (`aidial_sdk`'s own `Stop` field) caps at 4
+    # entries to match OpenAI's real limit. A well-formed Anthropic request
+    # that exceeds it must surface as a 400 (client-fixable), not a 500 —
+    # `translator_error_handler` reshapes the resulting `pydantic
+    # .ValidationError` accordingly.
+    response = await client.post(
+        _MESSAGES_URL,
+        json={**_MESSAGES_BODY, "stop_sequences": ["a", "b", "c", "d", "e"]},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_missing_max_tokens_returns_400(client: httpx.AsyncClient):
+    response = await client.post(
+        _MESSAGES_URL,
+        json={
+            "model": "gpt-5.5",
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_count_tokens_path_returns_anthropic_404(
+    client: httpx.AsyncClient,
+):
+    # Chat Completions has no token-counting endpoint, so this path is not
+    # registered and falls through to the Anthropic-shaped catch-all 404.
+    response = await client.post(_COUNT_TOKENS_URL, json=_MESSAGES_BODY)
+    assert response.status_code == 404
+    body = response.json()
+    assert body["type"] == "error"
+    assert body["error"]["type"] == "not_found_error"
+
+
+async def test_unknown_path_returns_anthropic_404(client: httpx.AsyncClient):
+    response = await client.post(
+        "/to-chat-completions/anthropic/v1/messages/batches", json={}
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["type"] == "not_found_error"
