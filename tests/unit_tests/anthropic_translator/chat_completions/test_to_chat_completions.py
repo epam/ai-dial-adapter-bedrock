@@ -209,6 +209,98 @@ def test_document_url_has_no_equivalent_and_is_dropped():
     assert result.messages == []
 
 
+def test_document_text_source_becomes_text_part():
+    result = convert(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "text",
+                                "media_type": "text/plain",
+                                "data": "inline document text",
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    content = result.messages[0].content
+    assert isinstance(content, list)
+    assert content[0] == MessageContentTextPart(
+        type="text", text="inline document text"
+    )
+
+
+def test_unsupported_image_source_type_is_dropped():
+    result = convert(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "file", "file_id": "f1"},
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    # The only content block was an unsupported image source, so no parts
+    # survive and the whole user turn produces no message.
+    assert result.messages == []
+
+
+def test_mcp_servers_and_container_are_dropped_without_error():
+    # Neither field has a Chat Completions equivalent; the translator must
+    # accept and silently ignore them rather than erroring on unknown fields.
+    result = convert(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "mcp_servers": [{"type": "url", "url": "https://example.com/mcp"}],
+            "container": {"id": "container_1"},
+        }
+    )
+    assert len(result.messages) == 1
+    assert result.messages[0].content == "hi"
+
+
+def test_unsupported_system_role_content_block_is_dropped():
+    result = convert(
+        {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "keep me"},
+                        {"type": "bogus_block"},
+                    ],
+                },
+                {"role": "user", "content": "hi"},
+            ]
+        }
+    )
+    system_messages = [m for m in result.messages if m.role == Role.SYSTEM]
+    assert len(system_messages) == 1
+    assert system_messages[0].content == "keep me"
+
+
+def test_custom_tool_without_name_is_dropped():
+    result = convert(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"input_schema": {"type": "object", "properties": {}}}],
+        }
+    )
+    assert result.tools is None
+
+
 def test_assistant_tool_use_and_text_combine_into_one_message():
     result = convert(
         {

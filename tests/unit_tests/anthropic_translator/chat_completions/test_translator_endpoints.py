@@ -1,4 +1,5 @@
 import json
+import logging
 
 import httpx
 import pytest
@@ -134,6 +135,88 @@ async def test_streaming_happy_path(
     # after `:`) rather than stdlib `json.dumps`.
     assert '"text":"Hello"' in text
     assert "event: message_stop" in text
+
+
+async def test_x_dial_deployment_id_header_overrides_body_model(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    # x-dial-deployment-id names the deployment Core actually routed to,
+    # which can differ from the client-supplied `model` field.
+    route = mock_core.post(
+        "/openai/deployments/actual-deployment/chat/completions"
+    ).respond(json=_RESPONSE_OBJECT, content_type="application/json")
+
+    response = await client.post(
+        _MESSAGES_URL,
+        json=_MESSAGES_BODY,
+        headers={"x-dial-deployment-id": "actual-deployment"},
+    )
+
+    assert response.status_code == 200
+    assert route.called
+    sent_body = json.loads(route.calls.last.request.content)
+    assert sent_body["model"] == "actual-deployment"
+
+
+async def test_missing_model_returns_400(client: httpx.AsyncClient):
+    response = await client.post(
+        _MESSAGES_URL,
+        json={
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["type"] == "invalid_request_error"
+    assert "model" in body["error"]["message"]
+
+
+async def test_connection_error_to_core_returns_502(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    mock_core.post(_CORE_PATH).mock(side_effect=httpx.ConnectError("refused"))
+    response = await client.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+    assert response.status_code == 502
+    body = response.json()
+    assert body["error"]["type"] == "api_error"
+
+
+async def test_debug_logging_emits_request_and_response_lines(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter, caplog
+):
+    mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    with caplog.at_level(logging.DEBUG, logger="bedrock"):
+        response = await client.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+
+    assert response.status_code == 200
+    messages = [r.getMessage() for r in caplog.records if r.name == "bedrock"]
+    assert any(m.startswith("request: ") for m in messages)
+    assert any(m.startswith("response: ") for m in messages)
+
+
+async def test_debug_logging_emits_stream_chunk_lines(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter, caplog
+):
+    upstream_sse = (
+        b'data: {"id": "chatcmpl_1", "model": "gpt-5.5", "choices": '
+        b'[{"index": 0, "delta": {"role": "assistant", "content": "Hi"}, '
+        b'"finish_reason": "stop"}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    mock_core.post(_CORE_PATH).respond(
+        content=upstream_sse, content_type="text/event-stream"
+    )
+    with caplog.at_level(logging.DEBUG, logger="bedrock"):
+        response = await client.post(
+            _MESSAGES_URL, json={**_MESSAGES_BODY, "stream": True}
+        )
+
+    assert response.status_code == 200
+    messages = [r.getMessage() for r in caplog.records if r.name == "bedrock"]
+    assert any(m.startswith("response chunk: ") for m in messages)
 
 
 async def test_missing_dial_url_returns_500(monkeypatch):

@@ -102,6 +102,47 @@ def test_function_call_sets_tool_use_stop_reason():
     assert msg.stop_reason == "tool_use"
 
 
+def test_no_choices_returns_empty_content():
+    response = ChatCompletion(
+        id="chatcmpl_none",
+        object="chat.completion",
+        created=0,
+        model="gpt-5.5",
+        choices=[],
+        usage=CompletionUsage(
+            prompt_tokens=1, completion_tokens=0, total_tokens=1
+        ),
+    )
+    msg = from_chat_completions(response, "requested-model")
+    assert msg.content == []
+    assert msg.stop_reason == "end_turn"
+
+
+def test_tool_call_arguments_valid_json_non_dict_becomes_empty_input():
+    # `arguments` parses as valid JSON but isn't a JSON object; the anthropic
+    # `input` field must still come out as `{}`, not the parsed list.
+    msg = from_chat_completions(
+        _response(
+            message=ChatCompletionMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    ChatCompletionMessageFunctionToolCall(
+                        id="t",
+                        type="function",
+                        function=Function(name="f", arguments="[1, 2, 3]"),
+                    )
+                ],
+            ),
+            finish_reason="tool_calls",
+        ),
+        "m",
+    )
+    tool_use = msg.content[0]
+    assert isinstance(tool_use, ToolUseBlock)
+    assert tool_use.input == {}
+
+
 def test_malformed_arguments_become_empty_input():
     msg = from_chat_completions(
         _response(
