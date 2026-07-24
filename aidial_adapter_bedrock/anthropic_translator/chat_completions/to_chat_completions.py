@@ -3,10 +3,11 @@ Anthropic Messages request → OpenAI Chat Completions request body.
 
 Model/adapter-specific knobs outside the standard schema (e.g. citation
 toggles) travel under `custom_fields.configuration`, emitted only when that
-container is non-empty. Reasoning effort is the exception: it always maps to
-the standard `reasoning_effort` field (never nested under `custom_fields`),
-resolved by `common.resolve_effort` from `output_config.effort`. Deployments
-that don't support `reasoning_effort` will reject it — a capability gap this
+container is non-empty. Reasoning effort and structured output are the
+exceptions: they always map to the standard `reasoning_effort` and
+`response_format` fields (never nested under `custom_fields`), resolved from
+`output_config.effort` and `output_config.format` respectively. Deployments
+that don't support these fields will reject them — a capability gap this
 translator can't paper over generically.
 
 Anthropic prompt-cache breakpoints (`cache_control` on a content block or
@@ -35,6 +36,9 @@ from aidial_sdk.chat_completion.request import (
     MessageContentTextPart,
     MessageCustomFields,
     ReasoningEffort,
+    ResponseFormat,
+    ResponseFormatJsonSchema,
+    ResponseFormatJsonSchemaObject,
     Role,
     StaticTool,
     ToolCall,
@@ -148,6 +152,7 @@ def to_chat_completions_request(
             tool_choice=tool_choice,
             parallel_tool_calls=parallel_tool_calls,
             reasoning_effort=_convert_reasoning_effort(req, tlog),
+            response_format=_convert_response_format(req, tlog),
             stop=req.stop_sequences or None,
             max_completion_tokens=req.max_tokens,
             temperature=req.temperature,
@@ -182,6 +187,41 @@ def _convert_reasoning_effort(
         tlog.debug("Clamping reasoning effort 'xhigh' to 'high'")
         effort = "high"
     return ReasoningEffort(effort)
+
+
+# OpenAI's `response_format.json_schema.name` is required; Anthropic's
+# `output_config.format` has no per-schema name to carry over, so a fixed
+# placeholder is used for every request.
+_JSON_SCHEMA_NAME = "response"
+
+
+def _convert_response_format(
+    req: MessagesRequest, tlog: TranslationLog
+) -> ResponseFormat | None:
+    output_format = req.output_config.format if req.output_config else None
+    if output_format is None:
+        return None
+    if output_format.get("type") != "json_schema":
+        tlog.warning(
+            "Dropping unsupported output_config.format type: %s",
+            output_format.get("type"),
+        )
+        return None
+    schema = output_format.get("schema")
+    if not isinstance(schema, dict):
+        tlog.warning("Dropping output_config.format: missing 'schema'")
+        return None
+    return ResponseFormatJsonSchema(
+        type="json_schema",
+        json_schema=ResponseFormatJsonSchemaObject(
+            name=_JSON_SCHEMA_NAME,
+            schema=schema,
+            # `strict: False` is deliberate, mirroring `_convert_tools`:
+            # Anthropic's `additionalProperties: false` requirement is close
+            # to but not identical with OpenAI's strict-mode constraints.
+            strict=False,
+        ),
+    )
 
 
 def _has_cache_control(content: str | list[ContentBlock] | None) -> bool:

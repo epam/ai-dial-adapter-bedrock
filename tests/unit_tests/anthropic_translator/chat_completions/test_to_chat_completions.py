@@ -569,6 +569,53 @@ def test_no_reasoning_signal_omits_reasoning_effort():
     assert result.reasoning_effort is None
 
 
+def test_output_config_format_json_schema_converts():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+        "additionalProperties": False,
+    }
+    result = convert(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "output_config": {
+                "format": {"type": "json_schema", "schema": schema}
+            },
+        }
+    )
+    assert result.response_format is not None
+    assert result.response_format.type == "json_schema"
+    assert result.response_format.json_schema.name == "response"
+    assert result.response_format.json_schema.schema_ == schema
+    assert result.response_format.json_schema.strict is False
+
+
+def test_output_config_format_missing_drops_response_format():
+    result = convert({"messages": [{"role": "user", "content": "hi"}]})
+    assert result.response_format is None
+
+
+def test_output_config_format_unsupported_type_dropped():
+    result = convert(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "output_config": {"format": {"type": "text"}},
+        }
+    )
+    assert result.response_format is None
+
+
+def test_output_config_format_missing_schema_dropped():
+    result = convert(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "output_config": {"format": {"type": "json_schema"}},
+        }
+    )
+    assert result.response_format is None
+
+
 def test_stop_sequences_mapped_to_stop():
     # Unlike Responses (which drops it), Chat Completions supports it
     # directly.

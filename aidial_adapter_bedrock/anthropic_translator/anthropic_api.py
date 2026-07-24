@@ -43,6 +43,10 @@ class OutputConfig(ExtraAllowModel):
     # string (like `ThinkingConfig.type`) so an unexpected value survives to be
     # mapped or dropped by the converter rather than rejected at validation.
     effort: str | None = None
+    # Structured-output constraint, e.g. `{"type": "json_schema", "schema":
+    # {...}}`. Kept as a raw dict (like `Tool.input_schema`) so the converter
+    # can validate/drop it defensively rather than rejecting at validation.
+    format: dict[str, Any] | None = None
 
 
 class Metadata(ExtraAllowModel):
