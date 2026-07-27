@@ -127,8 +127,8 @@ class TestCase:
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
 
-    async def get_converse_adapter(self):
-        client = await Bedrock.acreate(
+    async def get_converse_adapter(self, bedrock: Any | None = None):
+        client = bedrock or await Bedrock.acreate(
             CloudUpstreamConfig(region="us-east-1", claude_client="legacy")
         )
         return ConverseAdapter(
@@ -140,6 +140,17 @@ class TestCase:
             supported_document_types=self.supported_document_types,
             ensure_non_empty_tool_descriptions=False,
         )
+
+
+class FakeTokenCountingBedrock:
+    token_count = 42
+
+    def __init__(self):
+        self.calls: list[tuple[str, dict]] = []
+
+    async def acount_tokens_converse(self, model: str, body: dict) -> int:
+        self.calls.append((model, body))
+        return self.token_count
 
 
 def _create_document_test_cases() -> Generator[TestCase, None, None]:
@@ -776,7 +787,8 @@ async def test_converse_adapter(test_case: TestCase):
     "test_case", TEST_CASES, ids=lambda test_case: test_case.name
 )
 async def test_converse_prompt_tokenizer(test_case: TestCase):
-    adapter = await test_case.get_converse_adapter()
+    bedrock = FakeTokenCountingBedrock()
+    adapter = await test_case.get_converse_adapter(bedrock)
     construct_coro = adapter.count_prompt_tokens(
         messages=test_case.messages, params=test_case.params
     )
@@ -788,7 +800,17 @@ async def test_converse_prompt_tokenizer(test_case: TestCase):
             e.value, "error_message", None
         )
         assert message == err.message
+        assert bedrock.calls == []
 
     else:
         prompt_tokens = await construct_coro
-        assert prompt_tokens > 0
+        assert prompt_tokens == bedrock.token_count
+        assert test_case.expected_output is not None
+        expected_body: dict[str, Any] = {
+            "messages": test_case.expected_output.messages.raw_list
+        }
+        if test_case.expected_output.system is not None:
+            expected_body["system"] = test_case.expected_output.system
+        if test_case.expected_output.toolConfig is not None:
+            expected_body["toolConfig"] = test_case.expected_output.toolConfig
+        assert bedrock.calls == [("test", expected_body)]

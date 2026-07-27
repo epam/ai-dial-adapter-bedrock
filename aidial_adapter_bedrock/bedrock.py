@@ -20,7 +20,10 @@ from anthropic import (
 from botocore.response import StreamingBody
 from pydantic import BaseModel, Field
 
-from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
+from aidial_adapter_bedrock.llm.converse.types import (
+    ConverseRequest,
+    ConverseTokensRequest,
+)
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     CloudUpstreamConfig,
@@ -179,6 +182,16 @@ class Bedrock:
             lambda: self.client.converse(modelId=model, **params)
         )
         return response
+
+    async def acount_tokens_converse(
+        self, model: str, body: ConverseTokensRequest
+    ) -> int:
+        response = await make_async(
+            lambda: self.client.count_tokens(
+                modelId=model, input={"converse": body}
+            )
+        )
+        return response["inputTokens"]
 
     async def aconverse_streaming(
         self, model: str, **params: Unpack[ConverseRequest]
