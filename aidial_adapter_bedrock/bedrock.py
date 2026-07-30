@@ -3,7 +3,7 @@ import os
 from abc import ABC
 from collections.abc import Mapping
 from datetime import datetime
-from functools import cache
+from functools import cache as functools_cache
 from logging import DEBUG
 from typing import Any, TypedDict, Unpack, assert_never
 
@@ -12,6 +12,7 @@ import boto3
 import botocore
 import httpx
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
+from aidial_client import AsyncDialClientPool
 from anthropic import (
     AsyncAnthropic,
     AsyncAnthropicBedrock,
@@ -26,7 +27,7 @@ from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
     UpstreamConfig,
 )
-from aidial_adapter_bedrock.utils.cache import ttl_cache
+from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -65,7 +66,7 @@ def _get_botocore_max_retry_attempts():
     return 0
 
 
-@cache
+@functools_cache
 def get_default_anthropic_timeout() -> httpx.Timeout:
     # Providing a timeout marginally different from the default Anthropic timeout
     # in order to disable the check that throws an error when
@@ -155,6 +156,15 @@ async def create_boto_client(
         )
     )
     return (expiration, client)
+
+
+async def _close_dial_client_pool(pool: AsyncDialClientPool) -> None:
+    await pool.aclose()
+
+
+@cache(close=_close_dial_client_pool)
+def get_dial_client_pool() -> AsyncDialClientPool:
+    return AsyncDialClientPool()
 
 
 class Bedrock:

@@ -139,6 +139,7 @@ class TestCase:
             supported_image_types=self.supported_image_types,
             supported_document_types=self.supported_document_types,
             ensure_non_empty_tool_descriptions=False,
+            dial_client=None,
         )
 
 

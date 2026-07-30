@@ -8,6 +8,7 @@ from aidial_adapter_anthropic.adapter import (
 )
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_client import AsyncDial, UserInfo
 from aidial_sdk.chat_completion import Message as DialMessage
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -30,6 +31,9 @@ from aidial_adapter_bedrock.llm.converse.input import (
 from aidial_adapter_bedrock.llm.converse.output import (
     process_non_streaming,
     process_streaming,
+)
+from aidial_adapter_bedrock.llm.converse.request_metadata import (
+    from_user_info,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
@@ -62,6 +66,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     supported_document_types: list[ConverseDocumentType]
     ensure_non_empty_tool_descriptions: bool
     support_tools: bool
+    dial_client: AsyncDial | None
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
@@ -164,6 +169,11 @@ class ConverseAdapter(ChatCompletionAdapter):
                 **({"trace": pc.trace} if pc.trace is not None else {}),
             )
 
+        requestMetadata: dict | None = None
+        if self.dial_client is not None:
+            user_info: UserInfo = await self.dial_client.user.info()
+            requestMetadata = from_user_info(user_info)
+
         return ConverseRequestWrapper(
             system=system_messages or None,
             messages=converse_messages,
@@ -181,6 +191,7 @@ class ConverseAdapter(ChatCompletionAdapter):
             toolConfig=self.get_tool_config(params),
             performanceConfig=performanceConfig,
             guardrailConfig=guardrailConfig,
+            requestMetadata=requestMetadata,
         )
 
     def is_stream(self, params: ModelParameters) -> bool:
