@@ -27,6 +27,11 @@ class FakeRequest:
 
 
 class TestAWSClientConfigFactory:
+    @pytest.fixture(autouse=True)
+    def _clear_default_claude_client_env(self, monkeypatch):
+        # Keep default-client assertions independent from local .env values.
+        monkeypatch.delenv("AWS_CLAUDE_DEFAULT_CLIENT", raising=False)
+
     @staticmethod
     def _get_request(
         *, extra_data: dict | None = None, api_key: str | None = None
@@ -72,15 +77,29 @@ class TestAWSClientConfigFactory:
         assert conf.claude_client == "legacy"
         assert conf.credentials is None
 
-    async def test__get_client_config__mantle_client(self):
-        request = self._get_request(extra_data={"claude_client": "mantle"})
+    @pytest.mark.parametrize("claude_client", ["legacy", "mantle", "boto"])
+    async def test__get_client_config__claude_client(self, claude_client):
+        request = self._get_request(extra_data={"claude_client": claude_client})
 
         conf = await parse_upstream_config(request)  # type: ignore
 
         assert isinstance(conf, CloudUpstreamConfig)
         assert conf.region == "test-region"
-        assert conf.claude_client == "mantle"
+        assert conf.claude_client == claude_client
         assert conf.credentials is None
+
+    @pytest.mark.parametrize("default_client", ["legacy", "mantle", "boto"])
+    async def test__get_client_config__default_client_from_env(
+        self, monkeypatch, default_client
+    ):
+        monkeypatch.setenv("AWS_CLAUDE_DEFAULT_CLIENT", default_client)
+        request = self._get_request(extra_data={"region": "us-east-2"})
+
+        conf = await parse_upstream_config(request)  # type: ignore
+
+        assert isinstance(conf, CloudUpstreamConfig)
+        assert conf.region == "us-east-2"
+        assert conf.claude_client == default_client
 
     async def test__get_client_config__header_client_overrides_env(
         self, monkeypatch

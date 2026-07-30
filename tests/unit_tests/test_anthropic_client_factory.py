@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import pytest
+
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
@@ -72,6 +74,19 @@ class TestCreateAnthropicClient:
         assert isinstance(client, _DummyClient)
         assert client.kind == "mantle"
         assert client.kwargs["aws_region"] == "us-east-1"
+
+    async def test_cloud_path_rejects_boto_client(self):
+        create_anthropic_client.clear()
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_anthropic_client(
+                CloudUpstreamConfig(region="us-east-1", claude_client="boto")
+            )
+
+        assert (
+            str(exc_info.value)
+            == "Claude client `boto` isn't supported for Anthropic API requests"
+        )
 
     async def test_cache_key_differs_between_legacy_and_mantle(
         self, monkeypatch

@@ -1,8 +1,11 @@
 from typing import Literal
 
-from aidial_sdk.chat_completion import Request as ChatCompletionRequest
 from pydantic import Field
 
+from aidial_adapter_bedrock.upstream_config import (
+    CloudUpstreamConfig,
+    UpstreamConfig,
+)
 from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 
 
@@ -34,9 +37,8 @@ class ConverseAPIConfiguration(ExtraForbidModel):
     )
 
 
-def has_converse_api_configuration(request: ChatCompletionRequest) -> bool:
-    configuration = cf.configuration if (cf := request.custom_fields) else None
-    return configuration is not None and (
-        "performanceConfig" in configuration
-        or "guardrailConfig" in configuration
+def has_converse_api_configuration(upstream_config: UpstreamConfig) -> bool:
+    return (
+        isinstance(upstream_config, CloudUpstreamConfig)
+        and upstream_config.claude_client == "boto"
     )

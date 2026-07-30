@@ -465,8 +465,8 @@ async def test_model_field(deployment: Deployment, chat: Chat):
 @_deployment_spec(deployments)
 @pytest.mark.parametrize(
     "bedrock_client_type",
-    ["legacy", "mantle"],
-    ids=["legacy_client", "mantle_client"],
+    ["legacy", "mantle", "boto"],
+    ids=["legacy_client", "mantle_client", "boto_client"],
     indirect=True,
 )
 async def test_2_plus_3(
