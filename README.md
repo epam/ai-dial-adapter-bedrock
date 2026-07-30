@@ -21,8 +21,7 @@
         - [Converse API models](#converse-api-models)
           - [Performance configuration](#performance-configuration)
           - [Guardrail configuration](#guardrail-configuration)
-          - [Claude 3/4 models](#claude-34-models)
-        - [Claude 3.7 Sonnet](#claude-37-sonnet)
+          - [Optimized latency mode for Claude models](#optimized-latency-mode-for-claude-models)
         - [Claude models](#claude-models)
         - [Stability AI models](#stability-ai-models)
       - [Prompt caching](#prompt-caching)
@@ -61,6 +60,8 @@
 LLM Adapters unify the APIs of respective LLMs to align with the Unified Protocol of DIAL Core. Each Adapter operates within a dedicated container. Multi-modality allows supporting non-textual communications such as image-to-text, text-to-image, file transfers and more.
 
 The project implements [AI DIAL API](https://dialx.ai/dial_api) for language models and embedding models from [AWS Bedrock](https://aws.amazon.com/bedrock/).
+
+Claude models are served by the [aidial-adapter-anthropic](https://github.com/epam/ai-dial-adapter-anthropic/blob/0.16.0/README.md). Its README documents the Claude-specific request/response API and is referenced throughout this document instead of being duplicated here.
 
 ---
 
@@ -187,35 +188,19 @@ Limitations:
 1. [Evaluation](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-call) of a specific part of the chat completion request isn't supported.
 2. The [trace](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-converse-api.html#guardrails-use-converse-api-response) provided by the Bedrock Guardrail isn't attached to the response. When guardrail intervenes, the adapter returns an error with `code=content_filter`.
 
-###### Claude 3/4 models
+###### Optimized latency mode for Claude models
 
-The default adapter for **Claude 3/4** models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
+The default adapter for Claude models is based on the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) that [doesn't support](https://github.com/anthropics/anthropic-sdk-python/issues/971) optimized latency mode.
 when Converse API specific configuration is enabled, the adapter automatically switches the models to Converse API.
 When it happens, you are forfeiting all the features exclusive to the Anthropic SDK. Namely:
 
 1. Support of `tool_choice=none`
-2. Support of the Claude configurations [1](#claude-37-sonnet) [2](#claude-models)
+2. Support of the Claude configuration
 
-##### Claude 3.7 Sonnet
-
-The model accepts optional configuration that enables [thinking feature](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking):
-
-|Configuration|Comment|
-|---|---|
-|`{"thinking": {"type": "enabled", "budget_tokens": 1024}}`|Thinking enabled with the given limit on reasoning tokens|
-|`{"thinking": {"type": "disabled"}}`|Thinking disabled|
 
 ##### Claude models
 
-The Claude models accept an optional list of beta feature flags.
-The whole list of flags could be found in the [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python/blob/main/src/anthropic/types/anthropic_beta_param.py).
-
-|Beta flag|Comment|Scope|
-|---|---|---|
-|`{"betas": ["token-efficient-tools-2025-02-19"]}`|[Token-efficient tool use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/token-efficient-tool-use)|Claude 3.7 Sonnet|
-|`{"betas": ["output-128k-2025-02-19"]}`|[Extended output length](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#extended-output-capabilities-beta)|Claude 3.7 Sonnet|
-
-Not every model supports all flags. Refer to the official documentation before utilizing any flags.
+The configuration of the Claude models _(extended thinking, reasoning level, beta feature flags, citations)_ is documented in the [Anthropic adapter README](https://github.com/epam/ai-dial-adapter-anthropic/blob/0.16.0/README.md#configuration).
 
 ##### Stability AI models
 
@@ -468,27 +453,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 
 Logging is provided by the DIAL SDK. The `LOG_LEVEL` variable sets the severity threshold for the adapter's logs (`INFO` by default; use `DEBUG` for development).
 
-By default logs are emitted as human-readable text.
-Set `DIAL_SDK_LOG_FORMAT=json` for structured JSON logging.
-The format is controlled by `DIAL_SDK_TEXT_LOG_FORMAT` / `DIAL_SDK_JSON_LOG_FORMAT` (both optional),
-which use Python's `%`-style [logging attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes)
-and default to the values shown below.
-
-Text logging (default):
-
-```txt
-DIAL_SDK_LOG_FORMAT=text
-DIAL_SDK_TEXT_LOG_FORMAT='%(levelprefix)s | %(asctime)s | %(name)s | %(process)d | %(message)s'
-```
-
-Structured JSON logging:
-
-```txt
-DIAL_SDK_LOG_FORMAT=json
-DIAL_SDK_JSON_LOG_FORMAT='{"level": "%(levelname)s", "time": "%(asctime)s", "logger": "%(name)s", "process": "%(process)d", "message": "%(message)s"}'
-```
-
-See the [full logging documentation](https://github.com/epam/ai-dial-sdk/blob/0.38.0/docs/logging.md) for details.
+Everything else — the log format _(human-readable text or structured JSON)_, the `DIAL_SDK_*` variables controlling it, the trace/span id correlation and the OTel log export — is documented in the [DIAL SDK logging documentation](https://github.com/epam/ai-dial-sdk/blob/0.39.0/docs/logging.md).
 
 To enable logs from the underlying Anthropic SDK, set:
 
@@ -715,16 +680,11 @@ The adapter supports authentication with Anthropic API for Claude deployments.
 
 ## Anthropic API Passthrough
 
-The adapter exposes the native [Claude API](https://platform.claude.com/docs/en/api/overview#available-apis) at the `/anthropic` path, proxying requests transparently to the a corresponding model vendor. This allows applications built against the Anthropic SDK or the native Anthropic HTTP API to route through the adapter without protocol translation.
+The adapter exposes the native [Claude API](https://platform.claude.com/docs/en/api/overview#available-apis) at the `/anthropic` path, proxying requests transparently to the corresponding model vendor. This allows applications built against the Anthropic SDK or the native Anthropic HTTP API to route through the adapter without protocol translation.
 
-Some endpoints may not be supported by Bedrock Mantle at the moment of writing. See the official [Claude in Amazon Bedrock documentation](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) for current endpoint support details.
+The passthrough itself — the list of the proxied endpoints, the error schema and the client compatibility — is documented in the [Anthropic adapter README](https://github.com/epam/ai-dial-adapter-anthropic/blob/0.16.0/README.md#anthropic-api).
 
-|Method|Endpoint|
-|---|---|
-|`POST`|[/anthropic/v1/messages](https://platform.claude.com/docs/en/api/messages/create)|
-|`POST`|[/anthropic/v1/messages/batches](https://platform.claude.com/docs/en/api/messages/batches/create)|
-|`POST`|[/anthropic/v1/messages/count_tokens](https://platform.claude.com/docs/en/api/messages/count_tokens)|
-|`GET`|[/anthropic/v1/models](https://platform.claude.com/docs/en/api/models/list)|
+Endpoints that Bedrock doesn't implement surface as a `404` error. See the official [Claude in Amazon Bedrock documentation](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) for current endpoint support details.
 
 ### Using Claude Code with the adapter
 

@@ -533,6 +533,7 @@ TEST_CASES = [
                         custom_fields=DIAL_TOOL_CACHE_POINT,
                     )
                 ],
+                static_tools=[],
                 tool_choice="required",
                 tools_mode=ToolsMode.TOOLS,
                 tool_ids={},
@@ -607,6 +608,7 @@ TEST_CASES = [
         ],
         params=ModelParameters(
             tool_config=ToolsConfig(
+                static_tools=[],
                 tools=[
                     Tool(
                         type="function",
