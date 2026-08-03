@@ -77,7 +77,7 @@ class TestAWSClientConfigFactory:
         assert conf.claude_client == "legacy"
         assert conf.credentials is None
 
-    @pytest.mark.parametrize("claude_client", ["legacy", "mantle", "boto"])
+    @pytest.mark.parametrize("claude_client", ["legacy", "mantle", "converse"])
     async def test__get_client_config__claude_client(self, claude_client):
         request = self._get_request(extra_data={"claude_client": claude_client})
 
@@ -88,7 +88,7 @@ class TestAWSClientConfigFactory:
         assert conf.claude_client == claude_client
         assert conf.credentials is None
 
-    @pytest.mark.parametrize("default_client", ["legacy", "mantle", "boto"])
+    @pytest.mark.parametrize("default_client", ["legacy", "mantle", "converse"])
     async def test__get_client_config__default_client_from_env(
         self, monkeypatch, default_client
     ):

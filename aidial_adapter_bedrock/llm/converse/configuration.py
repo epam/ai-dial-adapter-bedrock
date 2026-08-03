@@ -1,5 +1,6 @@
 from typing import Literal
 
+from aidial_sdk.chat_completion import Request
 from pydantic import Field
 
 from aidial_adapter_bedrock.upstream_config import (
@@ -37,8 +38,21 @@ class ConverseAPIConfiguration(ExtraForbidModel):
     )
 
 
-def has_converse_api_configuration(upstream_config: UpstreamConfig) -> bool:
-    return (
+def has_converse_api_configuration(
+    request: Request | None, upstream_config: UpstreamConfig
+) -> bool:
+    cond1 = None
+    if request:
+        configuration = (
+            cf.configuration if (cf := request.custom_fields) else None
+        )
+        cond1 = configuration is not None and (
+            "performanceConfig" in configuration
+            or "guardrailConfig" in configuration
+        )
+
+    cond2 = (
         isinstance(upstream_config, CloudUpstreamConfig)
-        and upstream_config.claude_client == "boto"
+        and upstream_config.claude_client == "converse"
     )
+    return any([cond1, cond2])

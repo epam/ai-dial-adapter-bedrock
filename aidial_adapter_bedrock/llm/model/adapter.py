@@ -76,7 +76,7 @@ async def get_bedrock_adapter(
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_7_OPUS
             | ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_8_OPUS
         ):
-            if has_converse_api_configuration(upstream_config):
+            if has_converse_api_configuration(request, upstream_config):
                 return await converse_adapter.create(
                     tools_support=ToolsSupport.ALWAYS,
                     supported_image_types=ConverseImageType.all(),

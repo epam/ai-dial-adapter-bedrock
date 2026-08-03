@@ -8,7 +8,7 @@ from aidial_adapter_anthropic.adapter import (
 )
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import ModelParameters
-from aidial_client import AsyncDial, UserInfo
+from aidial_client import AsyncDial
 from aidial_sdk.chat_completion import Message as DialMessage
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -171,7 +171,7 @@ class ConverseAdapter(ChatCompletionAdapter):
 
         requestMetadata: dict | None = None
         if self.dial_client is not None:
-            user_info: UserInfo = await self.dial_client.user.info()
+            user_info = await self.dial_client.user.info()
             requestMetadata = from_user_info(user_info)
 
         return ConverseRequestWrapper(

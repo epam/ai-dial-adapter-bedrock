@@ -626,7 +626,7 @@ The `claude_client` field selects which AWS Bedrock integration is used for Clau
 
 - `legacy` (default) for the [legacy](https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock-legacy) Amazon Bedrock integration for Claude models
 - `mantle` for the [modern](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) Amazon Bedrock integration for Claude models
-- `boto` for the [Converse API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html) integration for Claude models
+- `converse` for the [Converse API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html) integration for Claude models
 
 For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
 

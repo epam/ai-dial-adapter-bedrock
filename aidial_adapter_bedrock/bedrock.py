@@ -123,9 +123,9 @@ async def create_anthropic_client(
             return expiration, AsyncAnthropicBedrockMantle(**client_params)
         case "legacy":
             return expiration, AsyncAnthropicBedrock(**client_params)
-        case "boto":
+        case "converse":
             raise ValueError(
-                "Claude client `boto` isn't supported for Anthropic API requests"
+                "Claude client `converse` isn't supported for Anthropic API requests"
             )
         case _:
             assert_never(upstream_config.claude_client)

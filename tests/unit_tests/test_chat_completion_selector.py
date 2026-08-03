@@ -93,7 +93,7 @@ class TestChatCompletionSelector:
             deployment=deployment,
             api_key="dummy",
             upstream_config=CloudUpstreamConfig(
-                region="us-east-1", claude_client="boto"
+                region="us-east-1", claude_client="converse"
             ),
             request=None,
         )

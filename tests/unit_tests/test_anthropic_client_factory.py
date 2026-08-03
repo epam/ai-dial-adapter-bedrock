@@ -80,12 +80,14 @@ class TestCreateAnthropicClient:
 
         with pytest.raises(ValueError) as exc_info:
             await create_anthropic_client(
-                CloudUpstreamConfig(region="us-east-1", claude_client="boto")
+                CloudUpstreamConfig(
+                    region="us-east-1", claude_client="converse"
+                )
             )
 
         assert (
             str(exc_info.value)
-            == "Claude client `boto` isn't supported for Anthropic API requests"
+            == "Claude client `converse` isn't supported for Anthropic API requests"
         )
 
     async def test_cache_key_differs_between_legacy_and_mantle(

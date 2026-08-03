@@ -5,7 +5,7 @@ from typing import Literal, cast, get_args
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-AWSClaudeClient = Literal["legacy", "mantle", "boto"]
+AWSClaudeClient = Literal["legacy", "mantle", "converse"]
 
 
 def get_env(name: str, err_msg: str | None = None) -> str:
