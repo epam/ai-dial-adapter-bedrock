@@ -35,6 +35,9 @@ from aidial_adapter_bedrock.llm.converse.output import (
 from aidial_adapter_bedrock.llm.converse.request_metadata import (
     from_user_info,
 )
+from aidial_adapter_bedrock.llm.converse.request_metadata import (
+    is_enabled as is_request_metadata_enabled,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
     ConverseDocumentType,
@@ -169,10 +172,10 @@ class ConverseAdapter(ChatCompletionAdapter):
                 **({"trace": pc.trace} if pc.trace is not None else {}),
             )
 
-        requestMetadata: dict | None = None
-        if self.dial_client is not None:
+        requestMetadata: dict[str, str] | None = None
+        if self.dial_client is not None and is_request_metadata_enabled():
             user_info = await self.dial_client.user.info()
-            requestMetadata = from_user_info(user_info)
+            requestMetadata = from_user_info(user_info) or None
 
         return ConverseRequestWrapper(
             system=system_messages or None,
