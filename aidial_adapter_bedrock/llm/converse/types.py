@@ -151,7 +151,7 @@ class ConverseRequest(TypedDict, total=False):
     toolConfig: ConverseTools
     performanceConfig: PerformanceConfig
     guardrailConfig: GuardrailConfig
-    requestMetadata: dict | None
+    requestMetadata: dict[str, str] | None
 
 
 @dataclass
@@ -162,7 +162,7 @@ class ConverseRequestWrapper:
     toolConfig: ConverseTools | None = None
     performanceConfig: PerformanceConfig | None = None
     guardrailConfig: GuardrailConfig | None = None
-    requestMetadata: dict | None = None
+    requestMetadata: dict[str, str] | None = None
 
     def to_request(self) -> ConverseRequest:
         return ConverseRequest(
