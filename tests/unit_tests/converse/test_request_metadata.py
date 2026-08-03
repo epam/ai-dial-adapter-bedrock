@@ -146,8 +146,10 @@ def test_resolve_paths_logs_unresolved_path_error(caplog, jwt_auth: dict):
 
     assert request_metadata.resolve_paths(jwt_auth, "userClaims.nope") == {}
 
-    assert "userClaims.nope" in caplog.text
-    assert "KeyError" in caplog.text
+    assert caplog.messages == [
+        "Skipping unresolved Converse requestMetadata path "
+        "'userClaims.nope': KeyError: 'nope'"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -201,8 +203,10 @@ def test_to_bedrock_metadata_logs_paths_without_values(caplog):
         "badkey": "secret"
     }
 
-    assert "bad[key]" in caplog.text
-    assert "secret" not in caplog.text
+    assert caplog.messages == [
+        "Sanitized Converse requestMetadata key(s): bad[key]",
+        "Sanitized Converse requestMetadata value(s) for path(s): bad[key]",
+    ]
 
 
 def test_from_user_info_resolves_paths_and_sanitizes(
