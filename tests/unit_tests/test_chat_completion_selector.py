@@ -65,7 +65,7 @@ class TestChatCompletionSelector:
         assert captured["upstream_config"].claude_client == "mantle"
         assert captured["upstream_config"].region == "us-east-1"
 
-    async def test_get_bedrock_adapter_uses_converse_for_boto_claude_client(
+    async def test_get_bedrock_adapter_uses_converse_for_converse_claude_client(
         self, monkeypatch
     ):
         captured = {}
