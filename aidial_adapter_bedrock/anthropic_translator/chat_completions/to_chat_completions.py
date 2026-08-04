@@ -1,22 +1,17 @@
 """
 Anthropic Messages request → OpenAI Chat Completions request body.
 
-Model/adapter-specific knobs outside the standard schema (e.g. citation
-toggles) travel under `custom_fields.configuration`, emitted only when that
-container is non-empty. Reasoning effort and structured output are the
-exceptions: they always map to the standard `reasoning_effort` and
-`response_format` fields (never nested under `custom_fields`), resolved from
-`output_config.effort` and `output_config.format` respectively. Deployments
-that don't support these fields will reject them — a capability gap this
-translator can't paper over generically.
+Unsupported input is dropped with a log line rather than rejected: Anthropic
+clients send fields a given upstream cannot honour on every request, and
+rejecting them makes the client unusable. Only a missing `max_tokens` and an
+unrecognised message `role` fail a request.
 
-Anthropic prompt-cache breakpoints (`cache_control` on a content block or
-tool) have no OpenAI-schema counterpart, but DIAL Core has its own,
-per-message/per-tool `custom_fields.cache_breakpoint` marker
-(https://docs.dialx.ai/tutorials/developers/prompt-caching). Presence of
-`cache_control` anywhere in a turn's content unconditionally sets that marker
-on every Chat-Completions message the turn produces — no model-catalog
-capability check.
+Which shape the outbound body takes is decided per deployment from its
+capability profile — the reasoning knob, the output-cap field name, whether
+`temperature` survives, and whether prompt-cache markers mean anything. Model
+and adapter-specific knobs outside the standard schema travel under
+`custom_fields.configuration`, never at the top level, because strict adapters
+reject unrecognised top-level fields.
 """
 
 import json
@@ -35,7 +30,6 @@ from aidial_sdk.chat_completion.request import (
     MessageContentPart,
     MessageContentTextPart,
     MessageCustomFields,
-    ReasoningEffort,
     ResponseFormat,
     ResponseFormatJsonSchema,
     ResponseFormatJsonSchemaObject,
@@ -62,12 +56,21 @@ from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
     MessagesRequest,
     Tool,
 )
-from aidial_adapter_bedrock.anthropic_translator.common import (
-    resolve_effort,
+from aidial_adapter_bedrock.anthropic_translator.capabilities import (
+    DeploymentProfile,
+)
+from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
+    resolve_reasoning,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     INVALID_REQUEST_ERROR,
     AnthropicHTTPError,
+)
+from aidial_adapter_bedrock.anthropic_translator.stop_sequences import (
+    strips_stop_parameter,
+)
+from aidial_adapter_bedrock.anthropic_translator.tool_names import (
+    ToolNameAliases,
 )
 from aidial_adapter_bedrock.anthropic_translator.translation_log import (
     TranslationLog,
@@ -75,124 +78,178 @@ from aidial_adapter_bedrock.anthropic_translator.translation_log import (
 
 ContentBlock = dict[str, Any]
 
-
-def to_chat_completions_request(
-    req: MessagesRequest, model: str
-) -> ChatCompletionRequest:
-    tlog = TranslationLog("Anthropic→Chat Completions request")
-    try:
-        messages: list[SdkMessage] = []
-
-        # Some Chat Completions adapters 400 on more than one system message,
-        # so every system-origin text — the top-level `system` field plus any
-        # mid-conversation `system`-role turns real clients like Claude Code
-        # send — is merged into one leading system message.
-        system_texts: list[str] = []
-        system_cached = False
-        if (top_level_system := _convert_system(req.system)) is not None:
-            system_texts.append(top_level_system)
-            system_cached = system_cached or _has_cache_control(req.system)
-        for message in req.messages:
-            if message.role == "system" and (
-                text := _convert_system_role_text(message.content, tlog)
-            ):
-                system_texts.append(text)
-                system_cached = system_cached or _has_cache_control(
-                    message.content
-                )
-        if system_texts:
-            system_message = SdkMessage(
-                role=Role.SYSTEM, content="\n\n".join(system_texts)
-            )
-            if system_cached:
-                _mark_message_cache_breakpoint(system_message)
-            messages.append(system_message)
-
-        for message in req.messages:
-            if message.role == "user":
-                converted = _convert_user_message(message.content, tlog)
-                if _has_cache_control(message.content):
-                    for converted_message in converted:
-                        _mark_message_cache_breakpoint(converted_message)
-                messages.extend(converted)
-            elif message.role == "assistant":
-                converted = _convert_assistant_message(message.content, tlog)
-                if _has_cache_control(message.content):
-                    for converted_message in converted:
-                        _mark_message_cache_breakpoint(converted_message)
-                messages.extend(converted)
-            elif message.role == "system":
-                continue  # merged into the leading system message above
-            else:
-                raise AnthropicHTTPError(
-                    400,
-                    INVALID_REQUEST_ERROR,
-                    f"Unknown message role: {message.role!r}",
-                )
-
-        tool_choice, parallel_tool_calls = _convert_tool_choice(req.tool_choice)
-
-        if req.top_k is not None:
-            tlog.debug("Dropping unsupported 'top_k' parameter")
-        if req.mcp_servers:
-            tlog.warning(
-                "Dropping 'mcp_servers': no Chat Completions equivalent"
-            )
-        if req.container:
-            tlog.warning("Dropping 'container': no Chat Completions equivalent")
-
-        # `metadata.user_id` is intentionally NOT forwarded as
-        # `safety_identifier`: the vertexai-adapter drops it downstream, so
-        # support would be inconsistent across deployments.
-        return ChatCompletionRequest(
-            model=model,
-            messages=messages,
-            custom_fields=_convert_custom_fields(req),
-            tools=_convert_tools(req.tools, tlog) or None,
-            tool_choice=tool_choice,
-            parallel_tool_calls=parallel_tool_calls,
-            reasoning_effort=_convert_reasoning_effort(req, tlog),
-            response_format=_convert_response_format(req, tlog),
-            stop=req.stop_sequences or None,
-            max_completion_tokens=req.max_tokens,
-            temperature=req.temperature,
-            top_p=req.top_p,
-        )
-    finally:
-        tlog.flush()
-
-
-def _convert_custom_fields(
-    req: MessagesRequest,
-) -> ChatCompletionRequestCustomFields | None:
-    configuration: dict[str, Any] = {}
-    if _any_citations_enabled(req.messages):
-        configuration["enable_citations"] = True
-    return (
-        ChatCompletionRequestCustomFields(configuration=configuration)
-        if configuration
-        else None
-    )
-
-
-def _convert_reasoning_effort(
-    req: MessagesRequest, tlog: TranslationLog
-) -> ReasoningEffort | None:
-    effort = resolve_effort(req.output_config)
-    if effort is None:
-        return None
-    if effort == "xhigh":
-        # DIAL's Chat Completions `ReasoningEffort` has no `xhigh` (unlike the
-        # Responses API); clamp to the highest level it supports.
-        tlog.debug("Clamping reasoning effort 'xhigh' to 'high'")
-        effort = "high"
-    return ReasoningEffort(effort)
-
+# `metadata.user_id` is an abuse-detection identifier; a silently shortened one
+# is worse than none, so an over-long value is dropped rather than truncated.
+_MAX_USER_LENGTH = 64
 
 # OpenAI's `response_format.json_schema.name` is required; Anthropic's
 # `output_config.format` has no per-schema name to carry over, so a fixed
 # placeholder is used for every request.
 _JSON_SCHEMA_NAME = "response"
+
+# Anthropic's `service_tier` is a closed enum, so an unrecognised value is
+# dropped rather than forwarded.
+_SERVICE_TIERS = {"auto": "auto", "standard_only": "default"}
+
+
+class CoreChatCompletionRequest(ChatCompletionRequest):
+    """The aidial-sdk request model plus the standard Chat Completions fields
+    it doesn't declare."""
+
+    service_tier: str | None = None
+
+
+def to_chat_completions_request(
+    req: MessagesRequest, deployment: str, profile: DeploymentProfile
+) -> tuple[CoreChatCompletionRequest, ToolNameAliases]:
+    """The outbound body, and the tool-name aliases its response must reverse."""
+    tlog = TranslationLog("Anthropic→Chat Completions request")
+    aliases = ToolNameAliases()
+    try:
+        if req.max_tokens is None:
+            raise AnthropicHTTPError(
+                400, INVALID_REQUEST_ERROR, "'max_tokens' is required"
+            )
+
+        messages: list[SdkMessage] = []
+        cache = profile.cache_supported
+
+        system_texts, system_cached = _collect_system(req)
+        if system_texts:
+            system_message = SdkMessage(
+                role=Role.SYSTEM, content="\n\n".join(system_texts)
+            )
+            if cache and system_cached:
+                _mark_message_cache_breakpoint(system_message)
+            messages.append(system_message)
+
+        for message in req.messages:
+            match message.role:
+                case "user":
+                    converted = _convert_user_message(message.content, tlog)
+                case "assistant":
+                    converted = _convert_assistant_message(
+                        message.content, aliases, tlog
+                    )
+                case "system":
+                    continue  # merged into the leading system message above
+                case unknown:
+                    raise AnthropicHTTPError(
+                        400,
+                        INVALID_REQUEST_ERROR,
+                        f"Unknown message role: {unknown!r}",
+                    )
+            if cache and _has_cache_control(message.content):
+                for converted_message in converted:
+                    _mark_message_cache_breakpoint(converted_message)
+            messages.extend(converted)
+
+        tool_choice, parallel_tool_calls = _convert_tool_choice(
+            req.tool_choice, aliases
+        )
+
+        reasoning_effort, configuration = resolve_reasoning(req, profile, tlog)
+        if _any_citations_enabled(req.messages):
+            configuration["enable_citations"] = True
+
+        _warn_dropped(req, tlog)
+        max_tokens = _cap_output(req.max_tokens, profile, tlog)
+        uses_new_spelling = profile.max_completion_tokens_supported
+
+        return (
+            CoreChatCompletionRequest(
+                model=deployment,
+                messages=messages,
+                custom_fields=(
+                    ChatCompletionRequestCustomFields(
+                        configuration=configuration
+                    )
+                    if configuration
+                    else None
+                ),
+                tools=_convert_tools(req.tools, cache, aliases, tlog) or None,
+                tool_choice=tool_choice,
+                parallel_tool_calls=parallel_tool_calls,
+                reasoning_effort=reasoning_effort,
+                response_format=_convert_response_format(req, tlog),
+                stop=_convert_stop(req, deployment, tlog),
+                max_tokens=None if uses_new_spelling else max_tokens,
+                max_completion_tokens=max_tokens if uses_new_spelling else None,
+                temperature=(
+                    req.temperature if profile.temperature_supported else None
+                ),
+                top_p=req.top_p,
+                user=_convert_user(req, tlog),
+                service_tier=_convert_service_tier(req, tlog),
+            ),
+            aliases,
+        )
+    finally:
+        tlog.flush()
+
+
+def _warn_dropped(req: MessagesRequest, tlog: TranslationLog) -> None:
+    if req.top_k is not None:
+        tlog.debug("Dropping unsupported 'top_k' parameter")
+    if req.mcp_servers:
+        tlog.warning("Dropping 'mcp_servers': no Chat Completions equivalent")
+    if req.container:
+        tlog.warning("Dropping 'container': no Chat Completions equivalent")
+    if req.inference_geo:
+        tlog.warning("Dropping 'inference_geo': no Chat Completions equivalent")
+    if req.cache_control:
+        # "Mark the last cacheable block" has no faithful translation once
+        # blocks are flattened into messages, so it is dropped, not guessed at.
+        tlog.warning("Dropping top-level 'cache_control'")
+
+
+def _cap_output(
+    max_tokens: int, profile: DeploymentProfile, tlog: TranslationLog
+) -> int:
+    """Clamp the client's cap down to the deployment's ceiling, never upward."""
+    ceiling = profile.max_output_tokens
+    if ceiling is None or max_tokens <= ceiling:
+        return max_tokens
+    tlog.debug(
+        "Clamping max_tokens %d to the deployment's %d", max_tokens, ceiling
+    )
+    return ceiling
+
+
+def _convert_stop(
+    req: MessagesRequest, deployment: str, tlog: TranslationLog
+) -> list[str] | None:
+    if not req.stop_sequences:
+        return None
+    if strips_stop_parameter(deployment):
+        # The deployment rejects the parameter outright, so the sequences are
+        # reproduced on the response path instead.
+        tlog.debug("Omitting 'stop': %s rejects the parameter", deployment)
+        return None
+    return req.stop_sequences
+
+
+def _convert_user(req: MessagesRequest, tlog: TranslationLog) -> str | None:
+    user_id = req.metadata.user_id if req.metadata else None
+    if not user_id:
+        return None
+    if len(user_id) > _MAX_USER_LENGTH:
+        tlog.debug(
+            "Dropping 'metadata.user_id': longer than %d characters",
+            _MAX_USER_LENGTH,
+        )
+        return None
+    return user_id
+
+
+def _convert_service_tier(
+    req: MessagesRequest, tlog: TranslationLog
+) -> str | None:
+    if req.service_tier is None:
+        return None
+    if (tier := _SERVICE_TIERS.get(req.service_tier)) is None:
+        tlog.warning("Dropping unknown service_tier: %s", req.service_tier)
+    return tier
 
 
 def _convert_response_format(
@@ -216,10 +273,9 @@ def _convert_response_format(
         json_schema=ResponseFormatJsonSchemaObject(
             name=_JSON_SCHEMA_NAME,
             schema=schema,
-            # `strict: False` is deliberate, mirroring `_convert_tools`:
-            # Anthropic's `additionalProperties: false` requirement is close
-            # to but not identical with OpenAI's strict-mode constraints.
-            strict=False,
+            # Anthropic's structured output always guarantees schema adherence
+            # and has no non-strict mode, so `true` is the faithful reading.
+            strict=True,
         ),
     )
 
@@ -242,9 +298,7 @@ def _mark_tool_cache_breakpoint(tool: SdkTool) -> None:
 
 def _any_citations_enabled(messages: list[Message]) -> bool:
     for message in messages:
-        if not isinstance(message.content, list):
-            continue
-        for block in message.content:
+        for block in _blocks(message.content):
             if block.get("type") == "document" and (
                 block.get("citations") or {}
             ).get("enabled"):
@@ -252,34 +306,53 @@ def _any_citations_enabled(messages: list[Message]) -> bool:
     return False
 
 
-def _convert_system(system: str | list[ContentBlock] | None) -> str | None:
-    if system is None:
-        return None
-    if isinstance(system, str):
-        return system or None
-    texts: list[str] = []
-    for block in system:
-        if block.get("type") == "text" and (text := block.get("text")):
-            texts.append(text)
-    return "\n\n".join(texts) if texts else None
+def _blocks(content: Any) -> list[ContentBlock]:
+    return content if isinstance(content, list) else []
 
 
-def _convert_system_role_text(
-    content: str | list[ContentBlock], tlog: TranslationLog
-) -> str | None:
+def _system_text(content: Any) -> tuple[list[str], bool]:
+    """The text a system-shaped value carries, and whether any block of it is a
+    cache breakpoint."""
     if isinstance(content, str):
-        return content or None
+        return ([content] if content else []), False
 
     texts: list[str] = []
-    for block in content:
+    cached = False
+    for block in _blocks(content):
+        cached = cached or bool(block.get("cache_control"))
         if block.get("type") == "text" and (text := block.get("text")):
             texts.append(text)
-        else:
-            tlog.warning(
-                "Dropping unsupported system content block: %s",
-                block.get("type"),
-            )
-    return "\n\n".join(texts) if texts else None
+    return texts, cached
+
+
+def _collect_system(req: MessagesRequest) -> tuple[list[str], bool]:
+    """Every system-origin text, in the order it must be joined, and whether
+    any of it carried a cache breakpoint.
+
+    Some Chat Completions adapters reject more than one system message, so the
+    top-level `system` field, mid-conversation `system`-role turns real clients
+    like Claude Code send, and `mid_conv_system` blocks on a message of any role
+    all merge into one leading system message.
+    """
+    texts, cached = _system_text(req.system)
+    role_texts: list[str] = []
+    nested_texts: list[str] = []
+
+    for message in req.messages:
+        if message.role == "system":
+            message_texts, message_cached = _system_text(message.content)
+            role_texts.extend(message_texts)
+            cached = cached or message_cached
+
+        for block in _blocks(message.content):
+            if block.get("type") != "mid_conv_system":
+                continue
+            cached = cached or bool(block.get("cache_control"))
+            block_texts, block_cached = _system_text(block.get("content"))
+            nested_texts.extend(block_texts)
+            cached = cached or block_cached
+
+    return texts + role_texts + nested_texts, cached
 
 
 def _convert_user_message(
@@ -320,6 +393,8 @@ def _convert_user_message(
         elif btype == "document":
             if part := _document_part(block, tlog):
                 parts.append(part)
+        elif btype == "mid_conv_system":
+            continue  # merged into the leading system message
         else:
             tlog.warning("Dropping unsupported user content block: %s", btype)
 
@@ -352,7 +427,9 @@ def _tool_result_output(
 
 
 def _convert_assistant_message(
-    content: str | list[ContentBlock], tlog: TranslationLog
+    content: str | list[ContentBlock],
+    aliases: ToolNameAliases,
+    tlog: TranslationLog,
 ) -> list[SdkMessage]:
     if isinstance(content, str):
         return (
@@ -375,13 +452,17 @@ def _convert_assistant_message(
                     id=block.get("id") or "",
                     type="function",
                     function=FunctionCall(
-                        name=block.get("name") or "",
+                        name=aliases.to_upstream(block.get("name") or ""),
                         arguments=json.dumps(block.get("input") or {}),
                     ),
                 )
             )
         elif btype in ("thinking", "redacted_thinking"):
+            # Signatures are provider-specific and unverifiable downstream;
+            # there is no replay path through this dialect.
             continue
+        elif btype == "mid_conv_system":
+            continue  # merged into the leading system message
         else:
             tlog.warning(
                 "Dropping unsupported assistant content block: %s", btype
@@ -444,7 +525,10 @@ def _document_part(
 
 
 def _convert_tools(
-    tools: list[Tool] | None, tlog: TranslationLog
+    tools: list[Tool] | None,
+    cache: bool,
+    aliases: ToolNameAliases,
+    tlog: TranslationLog,
 ) -> list[SdkTool | StaticTool]:
     # Annotated as `SdkTool | StaticTool` (never `StaticTool` in practice) to
     # match `ChatCompletionRequest.tools`'s declared type: `list` is
@@ -456,7 +540,9 @@ def _convert_tools(
         ttype: str | None = tool.type
         if ttype and ttype != "custom":
             # Server tools (web_search, bash, text_editor, …) have no Chat
-            # Completions equivalent at all — dropped, not rejected.
+            # Completions equivalent at all — dropped, not rejected. They carry
+            # no `input_schema`, so forcing them through the function shape
+            # would produce a malformed definition.
             tlog.warning("Dropping unsupported tool type: %s", ttype)
         elif not tool.name:
             tlog.warning("Dropping custom tool without a name")
@@ -464,27 +550,35 @@ def _convert_tools(
             sdk_tool = SdkTool(
                 type="function",
                 function=SdkFunction(
-                    name=tool.name,
+                    name=aliases.to_upstream(tool.name),
                     description=tool.description,
-                    parameters=(
-                        tool.input_schema
-                        if tool.input_schema is not None
-                        else {"type": "object", "properties": {}}
-                    ),
-                    # `strict: False` is deliberate: Anthropic tool
-                    # schemas routinely fail OpenAI's strict-mode
-                    # requirements, which would reject them.
+                    parameters=_parameters(tool),
+                    # `strict: False` is deliberate: Anthropic tool schemas
+                    # routinely fail OpenAI's strict-mode requirements, which
+                    # would reject working tool definitions.
                     strict=False,
                 ),
             )
-            if getattr(tool, "cache_control", None):
+            if cache and tool.cache_control:
                 _mark_tool_cache_breakpoint(sdk_tool)
             result.append(sdk_tool)
     return result
 
 
+def _parameters(tool: Tool) -> dict[str, Any]:
+    if tool.input_schema is None:
+        return {"type": "object", "properties": {}}
+    # `$schema` is legal JSON Schema but not part of the subset this field
+    # allows, and strict adapters reject the whole request over it.
+    return {
+        key: value
+        for key, value in tool.input_schema.items()
+        if key != "$schema"
+    }
+
+
 def _convert_tool_choice(
-    tool_choice: dict[str, Any] | None,
+    tool_choice: dict[str, Any] | None, aliases: ToolNameAliases
 ) -> tuple[
     Literal["auto", "none", "required"] | SdkToolChoice | None, bool | None
 ]:
@@ -508,7 +602,9 @@ def _convert_tool_choice(
             # ...}` shape; `or ""` is a defensive fallback only.
             choice = SdkToolChoice(
                 type="function",
-                function=FunctionChoice(name=tool_choice.get("name") or ""),
+                function=FunctionChoice(
+                    name=aliases.to_upstream(tool_choice.get("name") or "")
+                ),
             )
         case _:
             choice = None

@@ -1,7 +1,7 @@
 """
 Request-handling helpers for the Anthropic Messages translators: parsing the
-inbound body, resolving the deployment/model, the reasoning-effort mapping,
-the Anthropic-shaped 404, and a debug-logging decorator.
+inbound body, resolving the deployment/model, the Anthropic-shaped 404, and a
+debug-logging decorator.
 """
 
 import contextlib
@@ -10,16 +10,14 @@ import logging
 import os
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
-from typing import Any, cast
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import Response, StreamingResponse
-from openai.types.shared_params.reasoning_effort import ReasoningEffort
 from pydantic import ValidationError
 
 from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
     MessagesRequest,
-    OutputConfig,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     API_ERROR,
@@ -82,16 +80,10 @@ def require_base_url() -> str:
 
 async def prepare(request: Request) -> tuple[str, MessagesRequest, str]:
     """The prologue every translator endpoint shares: resolve Core's base URL,
-    parse the inbound Anthropic body, resolve the target model, and enforce
-    that `max_tokens` is present (Anthropic requires it)."""
+    parse the inbound Anthropic body, and resolve the target model."""
     base_url: str = require_base_url()
     req: MessagesRequest = await parse_request(request)
-    model: str = resolve_model(request, req)
-    if req.max_tokens is None:
-        raise AnthropicHTTPError(
-            400, INVALID_REQUEST_ERROR, "'max_tokens' is required"
-        )
-    return base_url, req, model
+    return base_url, req, resolve_model(request, req)
 
 
 def stream_response(chunks: AsyncIterator[bytes]) -> StreamingResponse:
@@ -102,20 +94,6 @@ def stream_response(chunks: AsyncIterator[bytes]) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"cache-control": "no-cache"},
     )
-
-
-def resolve_effort(output_config: OutputConfig | None) -> ReasoningEffort:
-    """Map Anthropic `output_config.effort` to an OpenAI `ReasoningEffort`.
-
-    The two vocabularies differ only at the top tier — Anthropic's `max` is
-    OpenAI's `xhigh`; `low`/`medium`/`high` are shared. `thinking` is
-    deliberately not consulted: it bounds a thinking-token budget, which OpenAI
-    reasoning has no equivalent for, so only `output_config` carries an effort.
-    """
-    effort = output_config.effort if output_config else None
-    if effort is None:
-        return None
-    return "xhigh" if effort == "max" else cast(ReasoningEffort, effort)
 
 
 async def not_found(request: Request) -> Response:

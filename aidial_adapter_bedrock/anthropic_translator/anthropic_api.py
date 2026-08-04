@@ -11,6 +11,8 @@ converters.
 
 from typing import Any
 
+from pydantic import field_validator
+
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 
 # A content block is a heterogeneous, provider-defined object. Keeping it as a
@@ -31,11 +33,19 @@ class Tool(ExtraAllowModel):
     description: str | None = None
     input_schema: dict[str, Any] | None = None
     type: str | None = None
+    cache_control: dict[str, Any] | None = None
 
 
 class ThinkingConfig(ExtraAllowModel):
     type: str | None = None
     budget_tokens: int | None = None
+
+    @field_validator("budget_tokens", mode="before")
+    @classmethod
+    def _drop_bool(cls, value: Any) -> Any:
+        # Python's `bool` is an `int` subclass and pydantic coerces `True` to 1,
+        # which the effort ladder would then read as a real budget.
+        return None if isinstance(value, bool) else value
 
 
 class OutputConfig(ExtraAllowModel):
@@ -74,8 +84,11 @@ class MessagesRequest(ExtraAllowModel):
     top_k: int | None = None
     stop_sequences: list[str] | None = None
     metadata: Metadata | None = None
+    service_tier: str | None = None
     stream: bool | None = None
     # Declared only so the converters can detect and warn-drop them with a
     # typed attribute access rather than an untyped `getattr`; never forwarded.
     mcp_servers: list[Any] | None = None
     container: Any | None = None
+    inference_geo: Any | None = None
+    cache_control: dict[str, Any] | None = None

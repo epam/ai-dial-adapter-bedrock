@@ -7,9 +7,13 @@ import respx
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport
 
+from aidial_adapter_bedrock.anthropic_translator.capabilities import clear_cache
+from tests.unit_tests.anthropic_translator.helpers import catalog
+
 _MESSAGES_URL = "/to-chat-completions/anthropic/v1/messages"
 _COUNT_TOKENS_URL = "/to-chat-completions/anthropic/v1/messages/count_tokens"
 _CORE = "http://dial-core"
+_MODELS_PATH = "/openai/models"
 # Chat Completions is addressed per-deployment; the SDK appends
 # `/chat/completions` and an `api-version` query param.
 _CORE_PATH = "/openai/deployments/gpt-5.5/chat/completions"
@@ -35,6 +39,13 @@ _MESSAGES_BODY = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _isolated_catalog_cache():
+    clear_cache()
+    yield
+    clear_cache()
+
+
 @pytest.fixture
 async def client(monkeypatch):
     monkeypatch.setenv("DIAL_URL", _CORE)
@@ -53,7 +64,11 @@ async def client(monkeypatch):
 
 @pytest.fixture
 def mock_core():
-    with respx.mock(base_url=_CORE) as mock:
+    """Core with a model catalog that lists `gpt-5.5` with no special
+    capabilities; individual tests re-register the catalog route to change it.
+    """
+    with respx.mock(base_url=_CORE, assert_all_called=False) as mock:
+        mock.get(_MODELS_PATH).respond(json=catalog())
         yield mock
 
 
@@ -91,7 +106,9 @@ async def test_request_shape_and_headers_not_leaked(
     sent = route.calls.last.request
     sent_body = json.loads(sent.content)
     assert sent_body["model"] == "gpt-5.5"
-    assert sent_body["max_completion_tokens"] == 100
+    # The catalog doesn't advertise the newer spelling.
+    assert sent_body["max_tokens"] == 100
+    assert "max_completion_tokens" not in sent_body
     # `store` is never emitted (some adapters 400 on unknown top-level keys).
     assert "store" not in sent_body
     # Anthropic-specific headers must not leak to Core.
@@ -99,6 +116,175 @@ async def test_request_shape_and_headers_not_leaked(
     assert "anthropic-beta" not in sent.headers
     assert sent.headers["api-key"] == "dummy-key"
     assert "authorization" not in sent.headers
+
+
+async def test_the_catalog_shapes_the_outbound_body(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    mock_core.get(_MODELS_PATH).respond(
+        json=catalog(
+            features={
+                "max_completion_tokens_supported": True,
+                "temperature": False,
+                "reasoning_efforts": ["low", "medium", "high"],
+            },
+            limits={"max_completion_tokens": 64},
+        )
+    )
+    route = mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    await client.post(
+        _MESSAGES_URL,
+        json={
+            **_MESSAGES_BODY,
+            "temperature": 0.5,
+            "output_config": {"effort": "high"},
+        },
+    )
+    sent_body = json.loads(route.calls.last.request.content)
+    assert sent_body["max_completion_tokens"] == 64  # clamped down
+    assert "max_tokens" not in sent_body
+    assert "temperature" not in sent_body
+    assert sent_body["reasoning_effort"] == "high"
+
+
+async def test_a_thinking_deployment_gets_the_nested_budget(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    """★ A deployment declaring `configuration.thinking` must never receive
+    `reasoning_effort`."""
+    mock_core.get(_MODELS_PATH).respond(
+        json=catalog(
+            features={"reasoning_efforts": ["low", "medium", "high"]},
+            defaults={
+                "custom_fields": {
+                    "configuration": {"thinking": {"include_thoughts": True}}
+                }
+            },
+        )
+    )
+    route = mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    await client.post(
+        _MESSAGES_URL,
+        json={
+            **_MESSAGES_BODY,
+            "output_config": {"effort": "medium"},
+            "thinking": {"type": "enabled", "budget_tokens": 4096},
+        },
+    )
+    sent_body = json.loads(route.calls.last.request.content)
+    assert "reasoning_effort" not in sent_body
+    assert sent_body["custom_fields"]["configuration"]["thinking"] == {
+        "include_thoughts": True,
+        "thinking_budget": 4096,
+    }
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        {"side_effect": httpx.ConnectError("refused")},
+        {"side_effect": httpx.ReadTimeout("hangs")},
+        {"return_value": httpx.Response(500)},
+    ],
+)
+async def test_an_unreachable_catalog_still_answers_the_request(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter, failure
+):
+    """★ A catalog fetch that fails, 500s or hangs must not fail the user's
+    message; it degrades to asserting nothing."""
+    mock_core.get(_MODELS_PATH).mock(**failure)
+    route = mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT, content_type="application/json"
+    )
+    response = await client.post(
+        _MESSAGES_URL,
+        json={**_MESSAGES_BODY, "output_config": {"effort": "high"}},
+    )
+    assert response.status_code == 200
+    sent_body = json.loads(route.calls.last.request.content)
+    assert "reasoning_effort" not in sent_body
+    assert "custom_fields" not in sent_body
+
+
+async def test_a_long_mcp_tool_name_round_trips(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    long_name = "mcp__" + "s" * 60 + "__do_the_thing"
+    route = mock_core.post(_CORE_PATH).mock(
+        side_effect=lambda request: httpx.Response(
+            200,
+            json={
+                **_RESPONSE_OBJECT,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        # Echo back whatever alias was sent.
+                                        "name": json.loads(request.content)[
+                                            "tools"
+                                        ][0]["function"]["name"],
+                                        "arguments": "{}",
+                                    },
+                                }
+                            ],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ],
+            },
+        )
+    )
+    response = await client.post(
+        _MESSAGES_URL,
+        json={**_MESSAGES_BODY, "tools": [{"name": long_name}]},
+    )
+
+    assert response.status_code == 200
+    sent_alias = json.loads(route.calls.last.request.content)["tools"][0][
+        "function"
+    ]["name"]
+    assert sent_alias != long_name
+    assert len(sent_alias) <= 64
+    # The client only ever sees the name it sent.
+    assert response.json()["content"][0]["name"] == long_name
+
+
+async def test_stop_is_stripped_and_emulated_for_a_gpt_5_deployment(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
+    route = mock_core.post(_CORE_PATH).respond(
+        json={
+            **_RESPONSE_OBJECT,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "keep STOP go"},
+                    "finish_reason": "stop",
+                }
+            ],
+        },
+        content_type="application/json",
+    )
+    response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, "stop_sequences": ["STOP"]}
+    )
+
+    assert "stop" not in json.loads(route.calls.last.request.content)
+    body = response.json()
+    assert body["content"][0]["text"] == "keep "
+    assert body["stop_reason"] == "stop_sequence"
+    assert body["stop_sequence"] == "STOP"
 
 
 async def test_streaming_happy_path(
@@ -117,7 +303,6 @@ async def test_streaming_happy_path(
     route = mock_core.post(_CORE_PATH).respond(
         content=upstream_sse, content_type="text/event-stream"
     )
-
     response = await client.post(
         _MESSAGES_URL, json={**_MESSAGES_BODY, "stream": True}
     )
@@ -158,7 +343,9 @@ async def test_x_dial_deployment_id_header_overrides_body_model(
     assert sent_body["model"] == "actual-deployment"
 
 
-async def test_missing_model_returns_400(client: httpx.AsyncClient):
+async def test_missing_model_returns_400(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
     response = await client.post(
         _MESSAGES_URL,
         json={
@@ -242,12 +429,16 @@ async def test_missing_dial_url_returns_500(monkeypatch):
 @pytest.mark.parametrize(
     "status, expected_type",
     [
+        (400, "invalid_request_error"),
         (401, "authentication_error"),
         (403, "permission_error"),
         (404, "not_found_error"),
+        (413, "request_too_large"),
+        (422, "invalid_request_error"),
         (429, "rate_limit_error"),
         (500, "api_error"),
         (503, "overloaded_error"),
+        (529, "overloaded_error"),
     ],
 )
 async def test_upstream_error_status_mapping(
@@ -273,6 +464,8 @@ async def test_upstream_error_status_mapping(
 async def test_pre_stream_error_returns_json_not_sse(
     client: httpx.AsyncClient, mock_core: respx.MockRouter
 ):
+    # A 200 whose first frame is an error event is handled far worse by
+    # clients than a proper HTTP status.
     mock_core.post(_CORE_PATH).respond(
         status_code=401, json={"error": {"message": "bad key"}}
     )
@@ -294,22 +487,48 @@ async def test_malformed_json_returns_400(client: httpx.AsyncClient):
     assert response.json()["error"]["type"] == "invalid_request_error"
 
 
-async def test_too_many_stop_sequences_returns_400(client: httpx.AsyncClient):
+async def test_non_object_body_returns_400(client: httpx.AsyncClient):
+    response = await client.post(_MESSAGES_URL, json=[1, 2, 3])
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_schema_violation_returns_400(client: httpx.AsyncClient):
+    response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, "messages": "not-a-list"}
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["type"] == "invalid_request_error"
+    assert "messages" in body["error"]["message"]
+
+
+async def test_too_many_stop_sequences_returns_400(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
     # `MessagesRequest.stop_sequences` has no length cap, but the outbound
     # `ChatCompletionRequest.stop` (`aidial_sdk`'s own `Stop` field) caps at 4
     # entries to match OpenAI's real limit. A well-formed Anthropic request
     # that exceeds it must surface as a 400 (client-fixable), not a 500 —
     # `translator_error_handler` reshapes the resulting `pydantic
-    # .ValidationError` accordingly.
+    # .ValidationError` accordingly. `gpt-4o` is used because the `gpt-5.`
+    # family omits `stop` entirely and so never hits the cap.
+    mock_core.get(_MODELS_PATH).respond(json=catalog("gpt-4o"))
     response = await client.post(
         _MESSAGES_URL,
-        json={**_MESSAGES_BODY, "stop_sequences": ["a", "b", "c", "d", "e"]},
+        json={
+            **_MESSAGES_BODY,
+            "model": "gpt-4o",
+            "stop_sequences": ["a", "b", "c", "d", "e"],
+        },
     )
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "invalid_request_error"
 
 
-async def test_missing_max_tokens_returns_400(client: httpx.AsyncClient):
+async def test_missing_max_tokens_returns_400(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+):
     response = await client.post(
         _MESSAGES_URL,
         json={

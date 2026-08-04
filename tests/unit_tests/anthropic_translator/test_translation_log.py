@@ -14,6 +14,7 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
 from aidial_adapter_bedrock.anthropic_translator.translation_log import (
     TranslationLog,
 )
+from tests.unit_tests.anthropic_translator.helpers import make_profile
 
 
 def _bedrock_records(caplog, level: int) -> list[str]:
@@ -92,7 +93,7 @@ def test_public_translation_flushes_even_when_it_raises(caplog):
         caplog.at_level(logging.DEBUG, logger="bedrock"),
         pytest.raises(AnthropicHTTPError),
     ):
-        to_chat_completions_request(req, "m")
+        to_chat_completions_request(req, "m", make_profile())
 
     assert _bedrock_records(caplog, logging.WARNING) == [
         "Anthropic→Chat Completions request (1): "

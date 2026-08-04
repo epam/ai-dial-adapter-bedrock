@@ -87,65 +87,69 @@ def format_sse(event: AnthropicSSEEvent) -> bytes:
 
 
 class AnthropicStreamState:
-    """Base state for translating an upstream stream into Anthropic SSE."""
+    """Base state for translating an upstream stream into Anthropic SSE.
+
+    Anthropic allows only one open content block at a time — no
+    `content_block_start` while another is open, no delta against a closed or
+    unopened block, and every opened block closed — so the open block is held
+    as a single slot and opening one closes whatever preceded it. Nothing at
+    all may follow `message_stop`, which `terminated` records.
+    """
 
     def __init__(self, requested_model: str, default_message_id: str):
         self.requested_model = requested_model
         self.model = requested_model
         self.message_id = default_message_id
         self.next_index = 0
-        # coordinate key -> Anthropic content-block index (only while open)
-        self.block_index: dict[Any, int] = {}
-        self.saw_function_call = False
-        self.saw_refusal = False
+        self.terminated = False
+        # The translator's own coordinate for the open block, and its
+        # Anthropic content-block index.
+        self._open: tuple[Any, int] | None = None
 
-    def _open_block(
+    def is_open(self, key: Any) -> bool:
+        return self._open is not None and self._open[0] == key
+
+    def open_block(
         self, key: Any, content_block: AnthropicContentBlock
-    ) -> bytes:
+    ) -> list[bytes]:
+        events: list[bytes] = self.close_block()
         index: int = self.next_index
         self.next_index += 1
-        self.block_index[key] = index
-        return format_sse(
-            RawContentBlockStartEvent(
-                type="content_block_start",
-                index=index,
-                content_block=content_block,
+        self._open = (key, index)
+        events.append(
+            format_sse(
+                RawContentBlockStartEvent(
+                    type="content_block_start",
+                    index=index,
+                    content_block=content_block,
+                )
             )
         )
+        return events
 
-    def _delta(self, key: Any, delta: RawContentBlockDelta) -> list[bytes]:
-        index: int | None = self.block_index.get(key)
-        if index is None:
+    def delta(self, delta: RawContentBlockDelta) -> list[bytes]:
+        if self._open is None:
             return []
         return [
             format_sse(
                 RawContentBlockDeltaEvent(
-                    type="content_block_delta", index=index, delta=delta
+                    type="content_block_delta",
+                    index=self._open[1],
+                    delta=delta,
                 )
             )
         ]
 
-    def _close_block(self, key: Any) -> list[bytes]:
-        index: int | None = self.block_index.pop(key, None)
-        if index is None:
+    def close_block(self) -> list[bytes]:
+        if self._open is None:
             return []
+        _, index = self._open
+        self._open = None
         return [
             format_sse(
                 RawContentBlockStopEvent(type="content_block_stop", index=index)
             )
         ]
-
-    def _close_all_open(self) -> list[bytes]:
-        events: list[bytes] = [
-            format_sse(
-                RawContentBlockStopEvent(type="content_block_stop", index=index)
-            )
-            for _, index in sorted(
-                self.block_index.items(), key=lambda kv: kv[1]
-            )
-        ]
-        self.block_index.clear()
-        return events
 
     def message_start_events(self) -> list[bytes]:
         message = Message(
@@ -170,13 +174,18 @@ class AnthropicStreamState:
             format_sse(PingEvent()),
         ]
 
-    def _on_final(self, stop_reason: StopReason, usage: Usage) -> list[bytes]:
-        events: list[bytes] = self._close_all_open()
+    def final_events(
+        self, stop_reason: StopReason, stop_sequence: str | None, usage: Usage
+    ) -> list[bytes]:
+        self.terminated = True
+        events: list[bytes] = self.close_block()
         events.append(
             format_sse(
                 RawMessageDeltaEvent(
                     type="message_delta",
-                    delta=Delta(stop_reason=stop_reason, stop_sequence=None),
+                    delta=Delta(
+                        stop_reason=stop_reason, stop_sequence=stop_sequence
+                    ),
                     usage=MessageDeltaUsage(
                         input_tokens=usage.input_tokens,
                         output_tokens=usage.output_tokens,
@@ -192,6 +201,11 @@ class AnthropicStreamState:
     def emit_error(
         self, type: Literal["api_error"], message: str
     ) -> list[bytes]:
+        """A fault raised after the message already terminated — an upstream
+        that keeps failing past its own `finish_reason` — has nowhere to go:
+        nothing may follow `message_stop`."""
+        if self.terminated:
+            return []
         return [
             format_sse(
                 ErrorEvent(error=APIErrorObject(type=type, message=message))

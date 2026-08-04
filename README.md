@@ -448,6 +448,11 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
+|TRANSLATOR_API_VERSION|2025-01-01-preview|The `api-version` query parameter the [translator](#anthropic-messages-to-chat-completions-translator) sends to DIAL Core, required by some deployments|
+|TRANSLATOR_MODEL_CATALOG_TTL|600|Seconds a fetched [deployment capability](#deployment-capabilities) listing stays usable. `0` disables caching|
+|TRANSLATOR_MODEL_CATALOG_SIZE|64|How many per-credential capability listings to keep cached|
+|TRANSLATOR_MODEL_CATALOG_TIMEOUT|5|Seconds to wait for the capability listing before giving up on it and translating without it|
+|TRANSLATOR_STOP_UNSUPPORTED_DEPLOYMENTS|gpt-5.|Comma-separated deployment-id prefixes whose upstream rejects the `stop` parameter, matched case-insensitively. The translator omits `stop` for these and applies the stop sequences itself. Empty disables the behaviour|
 
 ### Logging
 
@@ -767,24 +772,43 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
 }
 ```
 
+### Deployment capabilities
+
+The adapters DIAL Core fronts accept genuinely different request shapes, and the difference is not inferable from the request body — a Gemini deployment configured with a thinking budget rejects any request that also carries `reasoning_effort`. Before translating, the translator therefore reads the target deployment's capabilities from `GET {DIAL_URL}/openai/models` using the caller's own credential, and shapes the outbound body accordingly:
+
+|Capability|Effect on the outbound request|
+|---|---|
+|`defaults.custom_fields.configuration.reasoning`|Reasoning travels as `custom_fields.configuration.reasoning.effort`, merged into the defaults the deployment already declares.|
+|`defaults.custom_fields.configuration.thinking`|Reasoning travels as `custom_fields.configuration.thinking.thinking_budget`, carrying `thinking.budget_tokens` verbatim. A request that names no budget leaves the deployment's own configuration untouched.|
+|`features.reasoning_efforts`|With neither of the above configured, reasoning travels as the top-level `reasoning_effort`, clamped to one of the advertised levels.|
+|`features.max_completion_tokens_supported`|Selects `max_completion_tokens` over `max_tokens` for the output cap.|
+|`limits.max_completion_tokens` / `defaults.max_tokens`|The client's `max_tokens` is clamped down to this ceiling, never up.|
+|`features.temperature`|`temperature` is forwarded unless this is explicitly `false`.|
+|`features.cache`|Prompt-cache markers are emitted only when this is `true`.|
+
+The listing is cached per credential (Core filters it by the caller's roles) and never blocks a request: if it can't be fetched in time, the translator emits none of the capability-gated fields above rather than guessing, since sending nothing degrades a request while sending the wrong knob fails it.
+
 ### Translation limitations
 
-Anthropic features without a Chat Completions counterpart are dropped rather than rejected, so that clients keep working:
+Anthropic features without a Chat Completions counterpart are dropped rather than rejected, so that clients keep working. Only a missing `max_tokens` and an unrecognized message `role` fail a request:
 
 |Anthropic feature|Behaviour|
 |---|---|
-|`stop_sequences`|Supported — mapped onto the Chat Completions `stop` field.|
+|`stop_sequences`|Mapped onto the Chat Completions `stop` field. For deployments listed in `TRANSLATOR_STOP_UNSUPPORTED_DEPLOYMENTS`, whose upstream rejects that parameter outright, it is omitted and the sequences are applied to the response instead — in both streaming and non-streaming mode.|
 |`top_k`|Dropped — no Chat Completions equivalent.|
-|`thinking.budget_tokens`|Not consulted. Only `output_config.effort` drives reasoning, mapped onto the top-level `reasoning_effort` field (`max` clamps to `high`, since DIAL's Chat Completions `ReasoningEffort` has no `xhigh`).|
-|`thinking` / `redacted_thinking` blocks in assistant messages|Dropped when replaying history — Chat Completions has no reasoning-content field to carry them back, and their signatures are provider-specific and cannot be verified downstream.|
-|`web_search`, `bash`, `text_editor`, `computer`, `code_execution` server tools|Dropped — Chat Completions has no server-tool equivalent.|
+|Reasoning (`thinking.budget_tokens`, `output_config.effort`)|Translated into exactly one knob chosen from the [deployment's capabilities](#deployment-capabilities), or none at all. An explicit `output_config.effort` outranks the budget; `max`/`xhigh` clamp to `high` since DIAL's Chat Completions `ReasoningEffort` has no wider level, and `none` opts out.|
+|`thinking` / `redacted_thinking` blocks in assistant messages|Dropped when replaying history — Chat Completions has no reasoning-content field to carry them back, and their signatures are provider-specific and cannot be verified downstream. Reasoning the model produces *is* surfaced, from DIAL's `custom_content`.|
+|`web_search`, `bash`, `text_editor`, `computer`, `code_execution` server tools|Dropped — Chat Completions has no server-tool equivalent. Web-search *results* are still surfaced when the upstream produces `url_citation` annotations.|
+|Tool names longer than 64 characters, or otherwise outside `^[a-zA-Z_][a-zA-Z0-9_-]{2,63}$`|Sent under a deterministic alias and restored on the response path, so the client only ever sees the name it sent. Several upstreams reject the whole request over one non-conforming name, which a single long `mcp__<server>__<tool>` name would otherwise trigger.|
 |Images inside a `tool_result` block|Moved into the following user message as `image_url` parts, because a Chat Completions `tool` message can't carry images.|
-|Prompt caching (`cache_control`)|Presence of `cache_control` anywhere in a turn's content unconditionally sets DIAL Core's `custom_fields.cache_breakpoint` marker (https://docs.dialx.ai/tutorials/developers/prompt-caching) on every Chat Completions message the turn produces. `cache_creation_input_tokens` is always reported as `0`; `cache_read_input_tokens` reflects `usage.prompt_tokens_details.cached_tokens`.|
-|`metadata.user_id`|Dropped — not forwarded as OpenAI's `safety_identifier`, because the vertexai-adapter drops that field downstream.|
-|`mcp_servers`, `container`|Dropped — no Chat Completions equivalent.|
-|Tool calls in the upstream response missing `id` or `name`|Fails the request with a `500` rather than dropping the malformed tool call.|
-|Anthropic `stop_reason` for a Chat Completions `finish_reason` this translator doesn't otherwise recognize (or when it's missing)|Falls back to `end_turn`.|
-|Multiple system prompts|The top-level `system` and any mid-conversation `system`-role turns are merged into a single leading system message.|
+|Prompt caching (`cache_control`)|Presence of `cache_control` anywhere in a turn's content sets DIAL Core's `custom_fields.cache_breakpoint` marker (https://docs.dialx.ai/tutorials/developers/prompt-caching) on every Chat Completions message the turn produces, for deployments that advertise `features.cache`. The top-level `cache_control` shorthand is dropped: it has no faithful translation once blocks are flattened into messages. `cache_creation_input_tokens` is always reported as `0` — no upstream source exists — and `cache_read_input_tokens` reflects `usage.prompt_tokens_details.cached_tokens`, which is also subtracted from `input_tokens` so cached tokens aren't counted twice.|
+|`metadata.user_id`|Forwarded as `user`, unless longer than 64 characters, in which case it is dropped rather than truncated. Claude Code sends a JSON blob well over that limit.|
+|`service_tier`|`auto` and `standard_only` map onto `auto` and `default`; any other value is dropped.|
+|`mcp_servers`, `container`, `inference_geo`|Dropped — no Chat Completions equivalent.|
+|Anthropic `stop_reason` for a Chat Completions `finish_reason` this translator doesn't otherwise recognize (or when it's missing)|Falls back to `end_turn`. It is never `null`.|
+|Multiple system prompts|The top-level `system`, any mid-conversation `system`-role turns, and any `mid_conv_system` content block on a message of any role are merged into a single leading system message.|
+
+Two fidelity gaps have no workaround and are silent, so they are worth stating explicitly: there is no prompt-token accounting, so an over-long prompt surfaces as the upstream's own error rather than triggering client-side auto-compaction; and interleaved text/tool ordering within one assistant turn is not representable in the Chat Completions message shape.
 
 ---
 
