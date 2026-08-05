@@ -20,7 +20,7 @@ from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
 from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
-    upstream_converse_tokenizer_factory,
+    default_converse_tokenizer_factory,
 )
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
@@ -65,9 +65,9 @@ class ConverseAdapter(ChatCompletionAdapter):
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
-        [ConverseDeployment, ConverseRequestWrapper, Bedrock],
+        [ConverseDeployment, ConverseRequestWrapper],
         Callable[[ConverseMessages], Awaitable[int]],
-    ] = upstream_converse_tokenizer_factory
+    ] = default_converse_tokenizer_factory
 
     partitioner: Callable[[ConverseMessages], list[int]] = (
         turn_based_partitioner
@@ -84,9 +84,7 @@ class ConverseAdapter(ChatCompletionAdapter):
 
         discarded_messages, messages = await truncate_prompt(
             messages=params.messages.lst,
-            tokenizer=self.input_tokenizer_factory(
-                self.deployment, params, self.bedrock
-            ),
+            tokenizer=self.input_tokenizer_factory(self.deployment, params),
             keep_message=keep_last,
             partitioner=self.partitioner,
             model_limit=None,
@@ -109,7 +107,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     ) -> int:
         converse_params = await self.construct_converse_params(messages, params)
         return await self.input_tokenizer_factory(
-            self.deployment, converse_params, self.bedrock
+            self.deployment, converse_params
         )(converse_params.messages.lst)
 
     async def count_completion_tokens(self, string: str) -> int:

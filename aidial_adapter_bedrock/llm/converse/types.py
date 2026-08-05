@@ -153,12 +153,6 @@ class ConverseRequest(TypedDict, total=False):
     guardrailConfig: GuardrailConfig
 
 
-class ConverseTokensRequest(TypedDict, total=False):
-    messages: Required[list[ConverseMessage]]
-    system: list[ConverseTextPart | ConverseCachePointPart]
-    toolConfig: ConverseTools
-
-
 @dataclass
 class ConverseRequestWrapper:
     messages: ListProjection[ConverseMessage]

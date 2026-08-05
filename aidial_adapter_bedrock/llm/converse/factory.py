@@ -9,7 +9,7 @@ from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.llm.chat_model import default_preprocess_messages
 from aidial_adapter_bedrock.llm.converse.adapter import ConverseAdapter
 from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
-    upstream_converse_tokenizer_factory,
+    default_converse_tokenizer_factory,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
@@ -55,7 +55,7 @@ class ConverseAdapterFactory(BaseModel):
             deployment=self.deployment,
             bedrock=await self.get_client(),
             storage=create_file_storage(self.api_key),
-            input_tokenizer_factory=upstream_converse_tokenizer_factory,
+            input_tokenizer_factory=default_converse_tokenizer_factory,
             support_tools=tools_support != ToolsSupport.NONE,
             supported_image_types=supported_image_types or [],
             supported_document_types=supported_document_types or [],

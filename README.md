@@ -119,11 +119,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 ||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
 |---|---|---|---|
-|✅|Fully supported via an official tokenization algorithm or provider token counting API|Fully supported via native tools API or official prompts to enable tools|Configurable via the `/configuration` endpoint|
-|🟡|Partially supported. Exact prompt token counting is used when the provider API supports the request shape; otherwise the adapter falls back to an approximate tokenizer that conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
+|✅|Fully supported via an official tokenization algorithm|Fully supported via native tools API or official prompts to enable tools|Configurable via the `/configuration` endpoint|
+|🟡|Partially supported, because tokenization algorithm wasn't made public by the model vendor.<br>An approximate tokenization algorithm is used instead.<br>It conservatively counts **every byte in UTF-8 encoding of a string as a single token**.|Partially supported, because the model doesn't support tools natively.<br>Prompt engineering is used instead to emulate tools, which may not be very reliable.|Not applicable|
 |❌|Not supported|Not supported|Not configurable|
-
-For Converse API models, prompt token counting used by `/tokenize` request inputs, `/truncate_prompt`, and `max_prompt_tokens` is attempted through Bedrock Runtime `CountTokens`. For Claude models accessed through the Mantle client, prompt token counting is attempted through the Anthropic `messages/count_tokens` endpoint. Plain string tokenization may still use the approximate byte-based tokenizer.
 
 #### Implementation basis
 
@@ -629,6 +627,7 @@ The `claude_client` field selects which AWS Bedrock integration is used for Clau
 - `mantle` for the [modern](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) Amazon Bedrock integration for Claude models
 
 For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` use precise prompt token counting.
 
 ## Authentication
 
@@ -639,7 +638,7 @@ Authentication with AWS Bedrock is configured either:
 1. globally via `AWS_*` environment vars, or
 2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
 
-Exact prompt token counting requires additional IAM permissions. Converse API deployments need `bedrock:CountTokens`; Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` need `bedrock-mantle:CountTokens`.
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` require the `bedrock-mantle:CountTokens` IAM permission for exact prompt token counting.
 
 ### Anthropic API
 
