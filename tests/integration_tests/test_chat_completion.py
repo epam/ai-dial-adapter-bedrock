@@ -63,8 +63,11 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_7_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_8_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -88,6 +91,29 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
 }
 
+# https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
+# All unmentioned in docs use default client - "legacy"
+_CLAUDE_SUPPORTED_CLIENTS: Mapping[Deployment, set[str]] = {
+    D.ANTHROPIC_CLAUDE_V3_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V3_5_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V3_5_HAIKU: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V3_7_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_OPUS: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_1_OPUS: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_6_OPUS: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_5_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_6_SONNET: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_5_HAIKU: {"legacy"},
+    D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE: {"mantle"},
+    D.ANTHROPIC_CLAUDE_V4_7_OPUS: {"legacy", "mantle"},
+    D.ANTHROPIC_CLAUDE_V4_8_OPUS: {"legacy", "mantle"},
+    D.ANTHROPIC_CLAUDE_V5_SONNET: {"legacy", "mantle"},
+    D.ANTHROPIC_CLAUDE_V5_OPUS: {"legacy", "mantle"},
+}
+_CLAUDE_CLIENT_TYPES = ("legacy", "mantle")
+
 
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
@@ -99,6 +125,8 @@ def is_retired_model(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
     }
 
 
@@ -129,10 +157,13 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
         D.ANTHROPIC_CLAUDE_V4_7_OPUS,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
     ]
 
 
@@ -295,41 +326,64 @@ class DeploymentSpec:
     region: str
     deployment: Deployment
     optimized_latency: bool
+    bedrock_client_type: str | None = None
 
     def get_id(self):
         ret = f"{display_deployment(self.deployment)}"
         if self.optimized_latency:
             ret += "-optimized"
+        if self.bedrock_client_type is not None:
+            ret += f"-{self.bedrock_client_type}_client"
         return ret
 
 
-def _deployment_spec(deployments: list[Deployment]):
-    def gen():
-        for deployment in deployments:
-            region = _DEPLOYMENT_TO_REGION.get(deployment)
-            if region is None:
-                raise ValueError(
-                    f"{deployment.value!r} is missing from the region mapping"
-                )
+def _supported_claude_client_types(deployment: Deployment) -> tuple[str, ...]:
+    supported = _CLAUDE_SUPPORTED_CLIENTS.get(deployment.origin, {"legacy"})
+    return tuple(
+        client_type
+        for client_type in _CLAUDE_CLIENT_TYPES
+        if client_type in supported
+    )
 
-            opt_latency_regions = (
-                deployments_supporting_optimized_latency.get(deployment.origin)
-                or []
+
+def _deployment_specs(deployments: list[Deployment]):
+    for deployment in deployments:
+        region = _DEPLOYMENT_TO_REGION.get(deployment)
+        if region is None:
+            raise ValueError(
+                f"{deployment.value!r} is missing from the region mapping"
             )
 
-            latencies = [False]
-            if region in opt_latency_regions:
-                latencies.append(True)
+        opt_latency_regions = (
+            deployments_supporting_optimized_latency.get(deployment.origin)
+            or []
+        )
 
-            for latency in latencies:
+        latencies = [False]
+        if region in opt_latency_regions:
+            latencies.append(True)
+
+        bedrock_client_types: tuple[str | None, ...] = (
+            _supported_claude_client_types(deployment)
+            if is_claude(deployment.origin)
+            else (None,)
+        )
+
+        for latency in latencies:
+            for bedrock_client_type in bedrock_client_types:
                 yield DeploymentSpec(
                     region=region,
                     deployment=deployment,
                     optimized_latency=latency,
+                    bedrock_client_type=bedrock_client_type,
                 )
 
+
+def _deployment_spec(deployments: list[Deployment]):
     return pytest.mark.parametrize(
-        "deployment_spec", list(gen()), ids=lambda x: x.get_id()
+        "deployment_spec",
+        list(_deployment_specs(deployments)),
+        ids=lambda x: x.get_id(),
     )
 
 
@@ -370,8 +424,18 @@ def create_message_with_image(request) -> Callable:
 
 
 @pytest.fixture
-def bedrock_client_type(request) -> str | None:
-    return getattr(request, "param", None)
+def bedrock_client_type(request, deployment_spec: DeploymentSpec) -> str | None:
+    return getattr(request, "param", deployment_spec.bedrock_client_type)
+
+
+def _request_deployment_id(
+    deployment: Deployment, bedrock_client_type: str | None
+) -> str:
+    return (
+        deployment.origin.value
+        if bedrock_client_type == "mantle" and is_claude(deployment.origin)
+        else deployment.value
+    )
 
 
 @pytest.fixture
@@ -381,17 +445,14 @@ def openai_client(
     get_openai_client,
     bedrock_client_type: str | None,
 ):
+    deployment_id = _request_deployment_id(deployment, bedrock_client_type)
     extra_headers = (
-        {
-            "x-upstream-extra-data": json.dumps(
-                {"claude_client": bedrock_client_type}
-            )
-        }
+        {"claude_client": bedrock_client_type}
         if bedrock_client_type is not None
         else None
     )
     return get_openai_client(
-        deployment.value, region=region, extra_headers=extra_headers
+        deployment_id, region=region, extra_headers=extra_headers
     )
 
 
@@ -457,21 +518,18 @@ async def test_dialog_recall(deployment: Deployment, chat: Chat):
 
 
 @_deployment_spec(deployments)
-async def test_model_field(deployment: Deployment, chat: Chat):
+async def test_model_field(
+    deployment: Deployment, bedrock_client_type: str | None, chat: Chat
+):
     response = await chat(messages=[user("test")], max_tokens=1)
-    assert deployment.value == response.response.model
+    assert (
+        _request_deployment_id(deployment, bedrock_client_type)
+        == response.response.model
+    )
 
 
 @_deployment_spec(deployments)
-@pytest.mark.parametrize(
-    "bedrock_client_type",
-    ["legacy", "mantle"],
-    ids=["legacy_client", "mantle_client"],
-    indirect=True,
-)
-async def test_2_plus_3(
-    deployment: Deployment, bedrock_client_type: str, chat: Chat
-):
+async def test_2_plus_3(chat: Chat):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 
