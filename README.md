@@ -77,6 +77,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |---|---|---|---|---|---|---|---|---|
 |Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Opus|anthropic.claude-opus-4-6-v1|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -202,6 +203,9 @@ When it happens, you are forfeiting all the features exclusive to the Anthropic 
 ##### Claude models
 
 The configuration of the Claude models _(extended thinking, reasoning level, beta feature flags, citations)_ is documented in the [Anthropic adapter README](https://github.com/epam/ai-dial-adapter-anthropic/blob/0.16.0/README.md#configuration).
+
+> [!NOTE]
+> For Anthropic Claude Fable 5 to work properly, [additional settings for Data Retention](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5.html#model-card-anthropic-claude-fable-5-data-retention) are required.
 
 ##### Stability AI models
 

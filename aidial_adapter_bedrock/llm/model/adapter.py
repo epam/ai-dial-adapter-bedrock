@@ -76,6 +76,7 @@ async def get_bedrock_adapter(
             | CCD.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE
             | CCD.ANTHROPIC_CLAUDE_V5_SONNET
             | CCD.ANTHROPIC_CLAUDE_V5_OPUS
+            | CCD.ANTHROPIC_CLAUDE_V5_FABLE
         ):
             if request and has_converse_api_configuration(request):
                 return await converse_adapter.create(

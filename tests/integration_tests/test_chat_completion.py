@@ -68,6 +68,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V4_8_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_FABLE.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -94,10 +95,8 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
 def support_legacy_claude_client(deployment: D) -> bool:
-    return (
-        is_claude(deployment)
-        and deployment != D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE
-    )
+    legacy_client_unsupported = {D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE}
+    return is_claude(deployment) and deployment not in legacy_client_unsupported
 
 
 def support_mantle_claude_client(deployment: D) -> bool:
@@ -107,6 +106,7 @@ def support_mantle_claude_client(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     }
 
 
@@ -159,6 +159,7 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     ]
 
 

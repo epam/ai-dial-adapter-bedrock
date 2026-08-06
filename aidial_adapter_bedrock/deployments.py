@@ -35,6 +35,7 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     ANTHROPIC_CLAUDE_V4_7_OPUS = "anthropic.claude-opus-4-7"
     ANTHROPIC_CLAUDE_V4_8_OPUS = "anthropic.claude-opus-4-8"
     ANTHROPIC_CLAUDE_V5_OPUS = "anthropic.claude-opus-5"
+    ANTHROPIC_CLAUDE_V5_FABLE = "anthropic.claude-fable-5"
 
     STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1 = "stability.sd3-5-large-v1:0"
     STABILITY_STABLE_IMAGE_CORE_V1_1 = "stability.stable-image-core-v1:1"
@@ -82,6 +83,7 @@ ClaudeDeployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_7_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_8_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
 ]
 
 

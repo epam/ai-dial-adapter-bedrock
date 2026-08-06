@@ -99,7 +99,7 @@ class _Tokenizer(ApproximateTokenizer):
                     return (675, 804)
                 case D.ANTHROPIC_CLAUDE_V4_8_OPUS:
                     return (290, 410)
-                case D.ANTHROPIC_CLAUDE_V5_OPUS:
+                case D.ANTHROPIC_CLAUDE_V5_OPUS | D.ANTHROPIC_CLAUDE_V5_FABLE:
                     return (286, 406)
                 case _:
                     assert_never(self.deployment)
