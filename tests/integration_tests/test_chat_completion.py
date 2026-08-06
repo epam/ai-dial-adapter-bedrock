@@ -95,8 +95,10 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
 def support_legacy_claude_client(deployment: D) -> bool:
-    legacy_client_unsupported = {D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE}
-    return is_claude(deployment) and deployment not in legacy_client_unsupported
+    legacy_client_not_supported = {D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE}
+    return (
+        is_claude(deployment) and deployment not in legacy_client_not_supported
+    )
 
 
 def support_mantle_claude_client(deployment: D) -> bool:
