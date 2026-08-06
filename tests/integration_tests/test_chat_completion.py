@@ -91,28 +91,23 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
 }
 
+
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
-# All unmentioned in docs use default client - "legacy"
-_CLAUDE_SUPPORTED_CLIENTS: Mapping[Deployment, set[str]] = {
-    D.ANTHROPIC_CLAUDE_V3_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V3_5_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V3_5_HAIKU: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V3_7_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_OPUS: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_1_OPUS: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_6_OPUS: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_5_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_6_SONNET: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_5_HAIKU: {"legacy"},
-    D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE: {"mantle"},
-    D.ANTHROPIC_CLAUDE_V4_7_OPUS: {"legacy", "mantle"},
-    D.ANTHROPIC_CLAUDE_V4_8_OPUS: {"legacy", "mantle"},
-    D.ANTHROPIC_CLAUDE_V5_SONNET: {"legacy", "mantle"},
-    D.ANTHROPIC_CLAUDE_V5_OPUS: {"legacy", "mantle"},
-}
-_CLAUDE_CLIENT_TYPES = ("legacy", "mantle")
+def support_legacy_claude_client(deployment: D) -> bool:
+    return (
+        is_claude(deployment)
+        and deployment != D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE
+    )
+
+
+def support_mantle_claude_client(deployment: D) -> bool:
+    return deployment in {
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+    }
 
 
 def is_retired_model(deployment: D) -> bool:
@@ -338,12 +333,12 @@ class DeploymentSpec:
 
 
 def _supported_claude_client_types(deployment: Deployment) -> tuple[str, ...]:
-    supported = _CLAUDE_SUPPORTED_CLIENTS.get(deployment.origin, {"legacy"})
-    return tuple(
-        client_type
-        for client_type in _CLAUDE_CLIENT_TYPES
-        if client_type in supported
-    )
+    ret = []
+    if support_legacy_claude_client(deployment.origin):
+        ret.append("legacy")
+    if support_mantle_claude_client(deployment.origin):
+        ret.append("mantle")
+    return tuple(ret)
 
 
 def _deployment_specs(deployments: list[Deployment]):
