@@ -13,5 +13,5 @@ jobs:
   cleanup:
     # Only run when PR is actually merged, not just closed
     if: github.event.pull_request.merged == false ### temporary use for not merging
-    uses: epam/ai-dial-ci/.github/workflows/clean-up-on-pr-merged.yml@destroy-on-pr-merged
+    uses: epam/ai-dial-ci/.github/workflows/cleanup-review-environment.yml@destroy-on-pr-merged
     secrets: inherit
