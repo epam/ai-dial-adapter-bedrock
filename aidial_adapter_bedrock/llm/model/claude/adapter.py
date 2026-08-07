@@ -66,25 +66,41 @@ class _Tokenizer(ApproximateTokenizer):
                 case (
                     D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2
                     | D.ANTHROPIC_CLAUDE_V3_7_SONNET
-                    | D.ANTHROPIC_CLAUDE_V4_SONNET
-                    | D.ANTHROPIC_CLAUDE_V4_OPUS
-                    | D.ANTHROPIC_CLAUDE_V4_1_OPUS
-                    | D.ANTHROPIC_CLAUDE_V4_6_OPUS
-                    | D.ANTHROPIC_CLAUDE_V4_7_OPUS
-                    | D.ANTHROPIC_CLAUDE_V4_5_HAIKU
-                    | D.ANTHROPIC_CLAUDE_V4_5_SONNET
-                    | D.ANTHROPIC_CLAUDE_V4_6_SONNET
-                    | D.ANTHROPIC_CLAUDE_V4_8_OPUS
                 ):
                     return (346, 313)
+                case (
+                    D.ANTHROPIC_CLAUDE_V4_OPUS
+                    | D.ANTHROPIC_CLAUDE_V4_1_OPUS
+                    | D.ANTHROPIC_CLAUDE_V4_SONNET
+                ):
+                    return (313, 315)
+                case (
+                    D.ANTHROPIC_CLAUDE_V4_5_HAIKU
+                    | D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE
+                    | D.ANTHROPIC_CLAUDE_V4_5_SONNET
+                ):
+                    return (496, 588)
+                case (
+                    D.ANTHROPIC_CLAUDE_V4_6_OPUS
+                    | D.ANTHROPIC_CLAUDE_V4_6_SONNET
+                ):
+                    return (497, 589)
+                case D.ANTHROPIC_CLAUDE_V5_SONNET:
+                    return (354, 474)
                 case D.ANTHROPIC_CLAUDE_V3_OPUS:
                     return (530, 281)
                 case D.ANTHROPIC_CLAUDE_V3_SONNET:
                     return (159, 235)
-                case (
-                    D.ANTHROPIC_CLAUDE_V3_HAIKU | D.ANTHROPIC_CLAUDE_V3_5_HAIKU
-                ):
+                case D.ANTHROPIC_CLAUDE_V3_HAIKU:
                     return (264, 340)
+                case D.ANTHROPIC_CLAUDE_V3_5_HAIKU:
+                    return (264, 355)
+                case D.ANTHROPIC_CLAUDE_V4_7_OPUS:
+                    return (675, 804)
+                case D.ANTHROPIC_CLAUDE_V4_8_OPUS:
+                    return (290, 410)
+                case D.ANTHROPIC_CLAUDE_V5_OPUS | D.ANTHROPIC_CLAUDE_V5_FABLE:
+                    return (286, 406)
                 case _:
                     assert_never(self.deployment)
 
