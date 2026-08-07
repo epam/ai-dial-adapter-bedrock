@@ -75,16 +75,16 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
-|Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Opus|anthropic.claude-opus-4-6-v1|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Sonnet|anthropic.claude-sonnet-4-6|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.5 Haiku (Mantle)|anthropic.claude-haiku-4-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Haiku (Mantle)|anthropic.claude-haiku-4-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: ❌|mantle: 🟢 \| legacy: ❌|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.1 Opus|anthropic.claude-opus-4-1-20250805-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -119,7 +119,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 
-✅, 🟡, and ❌ denote degrees of support of the given feature:
+✅, 🟢, 🟡, and ❌ denote degrees of support of the given feature.
+
+For Claude models that support client choice (`mantle` or `legacy`), feature support varies by client.
 
 ||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
 |---|---|---|---|
