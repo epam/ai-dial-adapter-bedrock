@@ -90,6 +90,7 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AMAZON_NOVA_LITE: _EAST_1,
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
+    D.MINIMAX_M25: _EAST_1,
 }
 
 
@@ -211,6 +212,10 @@ def is_nova(deployment: D) -> bool:
     return "amazon.nova" in deployment.value
 
 
+def is_minimax(deployment: D) -> bool:
+    return "minimax" in deployment.value
+
+
 def is_deepseek(deployment: D) -> bool:
     return "deepseek" in deployment.value
 
@@ -233,6 +238,7 @@ def supports_tools(deployment: D) -> bool:
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
         D.AMAZON_NOVA_MICRO,
+        D.MINIMAX_M25,
         # DeepSeek via Converse API doesn't support tools even though
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
@@ -313,10 +319,14 @@ def supports_json_schema_response_format(deployment: D) -> bool:
     ]
 
 
+def supports_stop_sequence(deployment: D) -> bool:
+    return not is_minimax(deployment)
+
+
 def is_reasoning_model(deployment: D) -> bool:
     # The models with reasoning feature enabled by default
     # and no way to disable it.
-    return is_deepseek(deployment)
+    return is_deepseek(deployment) or is_minimax(deployment)
 
 
 @dataclass
@@ -627,6 +637,7 @@ async def test_empty_user_message(
         or is_llama(origin)
         or is_nova(origin)
         or is_deepseek(origin)
+        or is_minimax(origin)
     ):
         message = converse_api_error_message
     else:
@@ -719,7 +730,7 @@ async def test_finish_reason_length(chat: Chat):
     assert response.finish_reasons == ["length"]
 
 
-@_deployment_spec(deployments)
+@_deployment_spec(select(pred(supports_stop_sequence), deployments))
 async def test_stop_sequence(chat: Chat):
     stop = ["cat", "dog", "fish"]
     response = await chat(

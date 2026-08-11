@@ -116,7 +116,12 @@ async def get_bedrock_adapter(
                 ensure_non_empty_tool_descriptions=True,
                 supported_document_types=ConverseDocumentType.all(),
             )
-        case CCD.AMAZON_NOVA_MICRO | CCD.AMAZON_NOVA_PRO | CCD.AMAZON_NOVA_LITE:
+        case (
+            CCD.AMAZON_NOVA_MICRO
+            | CCD.AMAZON_NOVA_PRO
+            | CCD.AMAZON_NOVA_LITE
+            | CCD.MINIMAX_M25
+        ):
             return await converse_adapter.create(
                 tools_support=ToolsSupport.ALWAYS,
                 supported_image_types=ConverseImageType.all(),
