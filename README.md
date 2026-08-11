@@ -96,6 +96,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|MiniMax|MiniMax M2.5|minimax.minimax-m2.5|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Scout 17B Instruct|meta.llama4-scout-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Maverick 17B Instruct|meta.llama4-maverick-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
