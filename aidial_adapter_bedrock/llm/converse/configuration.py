@@ -1,6 +1,7 @@
-from typing import Literal
+from typing import Literal, assert_never
 
 from aidial_sdk.chat_completion import Request as ChatCompletionRequest
+from aidial_sdk.deployment.tokenize import TokenizeRequest
 from pydantic import Field
 
 from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
@@ -34,9 +35,33 @@ class ConverseAPIConfiguration(ExtraForbidModel):
     )
 
 
-def has_converse_api_configuration(request: ChatCompletionRequest) -> bool:
-    configuration = cf.configuration if (cf := request.custom_fields) else None
-    return configuration is not None and (
-        "performanceConfig" in configuration
-        or "guardrailConfig" in configuration
-    )
+def has_converse_api_configuration(
+    request: ChatCompletionRequest | TokenizeRequest,
+) -> bool:
+    match request:
+        case ChatCompletionRequest():
+            configuration = (
+                cf.configuration if (cf := request.custom_fields) else None
+            )
+            return configuration is not None and (
+                "performanceConfig" in configuration
+                or "guardrailConfig" in configuration
+            )
+        case TokenizeRequest():
+            for inp in request.inputs:
+                if inp.type == "request":
+                    configuration = (
+                        cf.configuration
+                        if (cf := inp.value.custom_fields)
+                        else None
+                    )
+                    condition = configuration is not None and (
+                        "performanceConfig" in configuration
+                        or "guardrailConfig" in configuration
+                    )
+                    if not condition:
+                        return False
+
+            return True
+        case _:
+            assert_never(request)

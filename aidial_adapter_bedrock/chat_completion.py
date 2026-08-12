@@ -64,7 +64,9 @@ class BedrockChatCompletion(ChatCompletion):
             upstream_config=await parse_upstream_config(
                 request.original_request
             ),
-            request=request if isinstance(request, Request) else None,
+            request=request
+            if isinstance(request, Request | TokenizeRequest)
+            else None,
         )
 
     @override
