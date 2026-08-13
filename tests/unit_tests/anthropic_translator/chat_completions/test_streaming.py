@@ -10,8 +10,15 @@ from openai.types.chat.chat_completion_chunk import (
     ChoiceDeltaToolCall,
     ChoiceDeltaToolCallFunction,
 )
-from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
+from openai.types.completion_usage import (
+    CompletionTokensDetails,
+    CompletionUsage,
+    PromptTokensDetails,
+)
 
+from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
+    convert_usage,
+)
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.streaming import (
     translate_stream,
 )
@@ -598,6 +605,34 @@ async def test_cached_tokens_are_subtracted_in_streaming_too():
     assert usage["input_tokens"] == 70
     assert usage["cache_read_input_tokens"] == 30
     assert usage["cache_creation_input_tokens"] == 0
+
+
+async def test_the_two_modes_agree_on_the_whole_usage_arithmetic():
+    # The same derivation runs in both modes; a divergence would show up in
+    # only one of them.
+    usage = CompletionUsage(
+        prompt_tokens=100,
+        completion_tokens=50,
+        total_tokens=150,
+        prompt_tokens_details=PromptTokensDetails.model_validate(
+            {"cached_tokens": 30, "cacheWriteTokens": 25}
+        ),
+        completion_tokens_details=CompletionTokensDetails(reasoning_tokens=40),
+    )
+    events = await translate(
+        [
+            chunk(ChoiceDelta(content="hi"), finish_reason="stop"),
+            chunk(choices=[], usage=usage),
+        ]
+    )
+    streamed = next(d for name, d in events if name == "message_delta")["usage"]
+    # `MessageDeltaUsage` declares a subset of `Usage`; every counter the two
+    # share must carry the same number.
+    batch = convert_usage(usage).model_dump(mode="json")
+    assert streamed == {key: batch[key] for key in streamed}
+    assert streamed["input_tokens"] == 45
+    assert streamed["cache_creation_input_tokens"] == 25
+    assert streamed["output_tokens_details"]["thinking_tokens"] == 40
 
 
 async def test_refusal_stream():

@@ -91,4 +91,5 @@ class MessagesRequest(ExtraAllowModel):
     mcp_servers: list[Any] | None = None
     container: Any | None = None
     inference_geo: Any | None = None
+    context_management: Any | None = None
     cache_control: dict[str, Any] | None = None

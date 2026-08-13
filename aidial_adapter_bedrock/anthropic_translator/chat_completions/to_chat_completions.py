@@ -7,7 +7,7 @@ rejecting them makes the client unusable. Only a missing `max_tokens` and an
 unrecognised message `role` fail a request.
 
 Which shape the outbound body takes is decided per deployment from its
-capability profile — the reasoning knob, the output-cap field name, whether
+capability profile — the reasoning effort, the output-cap field name, whether
 `temperature` survives, and whether prompt-cache markers mean anything. Model
 and adapter-specific knobs outside the standard schema travel under
 `custom_fields.configuration`, never at the top level, because strict adapters
@@ -18,7 +18,6 @@ import json
 from typing import Any, Literal
 
 from aidial_sdk.chat_completion.request import (
-    CacheBreakpoint,
     ChatCompletionRequest,
     ChatCompletionRequestCustomFields,
     FunctionCall,
@@ -59,8 +58,12 @@ from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
 from aidial_adapter_bedrock.anthropic_translator.capabilities import (
     DeploymentProfile,
 )
+from aidial_adapter_bedrock.anthropic_translator.chat_completions.cache_breakpoints import (
+    CacheControl,
+    cache_breakpoint,
+)
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
-    resolve_reasoning,
+    resolve_reasoning_effort,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     INVALID_REQUEST_ERROR,
@@ -96,6 +99,10 @@ class CoreChatCompletionRequest(ChatCompletionRequest):
     """The aidial-sdk request model plus the standard Chat Completions fields
     it doesn't declare."""
 
+    # The SDK's `ReasoningEffort` enum stops at `high`; DIAL deployments also
+    # advertise `minimum`, `xhigh` and `max`, and the gate only ever emits a
+    # level the deployment itself named.
+    reasoning_effort: str | None = None
     service_tier: str | None = None
 
 
@@ -114,13 +121,12 @@ def to_chat_completions_request(
         messages: list[SdkMessage] = []
         cache = profile.cache_supported
 
-        system_texts, system_cached = _collect_system(req)
+        system_texts, system_controls = _collect_system(req, tlog)
         if system_texts:
             system_message = SdkMessage(
                 role=Role.SYSTEM, content="\n\n".join(system_texts)
             )
-            if cache and system_cached:
-                _mark_message_cache_breakpoint(system_message)
+            _mark_message(system_message, cache, system_controls, tlog)
             messages.append(system_message)
 
         for message in req.messages:
@@ -139,21 +145,23 @@ def to_chat_completions_request(
                         INVALID_REQUEST_ERROR,
                         f"Unknown message role: {unknown!r}",
                     )
-            if cache and _has_cache_control(message.content):
-                for converted_message in converted:
-                    _mark_message_cache_breakpoint(converted_message)
+            # One Anthropic turn can split into several messages — a
+            # `tool_result` turn becomes a `tool` message plus a residual
+            # `user` one — and every one of them carries the turn's marker.
+            controls = _cache_controls(message.content)
+            for converted_message in converted:
+                _mark_message(converted_message, cache, controls, tlog)
             messages.extend(converted)
 
         tool_choice, parallel_tool_calls = _convert_tool_choice(
             req.tool_choice, aliases
         )
 
-        reasoning_effort, configuration = resolve_reasoning(req, profile, tlog)
+        configuration: dict[str, Any] = {}
         if _any_citations_enabled(req.messages):
             configuration["enable_citations"] = True
 
         _warn_dropped(req, tlog)
-        max_tokens = _cap_output(req.max_tokens, profile, tlog)
         uses_new_spelling = profile.max_completion_tokens_supported
 
         return (
@@ -170,11 +178,16 @@ def to_chat_completions_request(
                 tools=_convert_tools(req.tools, cache, aliases, tlog) or None,
                 tool_choice=tool_choice,
                 parallel_tool_calls=parallel_tool_calls,
-                reasoning_effort=reasoning_effort,
+                reasoning_effort=resolve_reasoning_effort(req, profile, tlog),
                 response_format=_convert_response_format(req, tlog),
                 stop=_convert_stop(req, deployment, tlog),
-                max_tokens=None if uses_new_spelling else max_tokens,
-                max_completion_tokens=max_tokens if uses_new_spelling else None,
+                # Forwarded verbatim: the features header carries no limits, so
+                # there is no deployment ceiling to clamp against, and a cap
+                # above it surfaces as the upstream's own error.
+                max_tokens=None if uses_new_spelling else req.max_tokens,
+                max_completion_tokens=(
+                    req.max_tokens if uses_new_spelling else None
+                ),
                 temperature=(
                     req.temperature if profile.temperature_supported else None
                 ),
@@ -197,23 +210,14 @@ def _warn_dropped(req: MessagesRequest, tlog: TranslationLog) -> None:
         tlog.warning("Dropping 'container': no Chat Completions equivalent")
     if req.inference_geo:
         tlog.warning("Dropping 'inference_geo': no Chat Completions equivalent")
+    if req.context_management:
+        tlog.warning(
+            "Dropping 'context_management': no Chat Completions equivalent"
+        )
     if req.cache_control:
         # "Mark the last cacheable block" has no faithful translation once
         # blocks are flattened into messages, so it is dropped, not guessed at.
         tlog.warning("Dropping top-level 'cache_control'")
-
-
-def _cap_output(
-    max_tokens: int, profile: DeploymentProfile, tlog: TranslationLog
-) -> int:
-    """Clamp the client's cap down to the deployment's ceiling, never upward."""
-    ceiling = profile.max_output_tokens
-    if ceiling is None or max_tokens <= ceiling:
-        return max_tokens
-    tlog.debug(
-        "Clamping max_tokens %d to the deployment's %d", max_tokens, ceiling
-    )
-    return ceiling
 
 
 def _convert_stop(
@@ -280,20 +284,41 @@ def _convert_response_format(
     )
 
 
-def _has_cache_control(content: str | list[ContentBlock] | None) -> bool:
-    return isinstance(content, list) and any(
-        block.get("cache_control") for block in content
-    )
+def _cache_controls(content: Any) -> list[CacheControl]:
+    """The `cache_control` objects on a content array's **top-level** blocks.
+
+    One nested inside a `tool_result`'s own content is not seen: marking is
+    per-message here, and there is no object to hang a nested one on.
+    """
+    return [
+        control
+        for block in _blocks(content)
+        if isinstance(control := block.get("cache_control"), dict)
+    ]
 
 
-def _mark_message_cache_breakpoint(message: SdkMessage) -> None:
-    message.custom_fields = MessageCustomFields(
-        cache_breakpoint=CacheBreakpoint()
-    )
+def _mark_message(
+    message: SdkMessage,
+    cache: bool,
+    controls: list[CacheControl],
+    tlog: TranslationLog,
+) -> None:
+    if not cache:
+        return
+    if (marker := cache_breakpoint(controls, tlog)) is not None:
+        message.custom_fields = MessageCustomFields(cache_breakpoint=marker)
 
 
-def _mark_tool_cache_breakpoint(tool: SdkTool) -> None:
-    tool.custom_fields = ToolCustomFields(cache_breakpoint=CacheBreakpoint())
+def _mark_tool(
+    tool: SdkTool,
+    cache: bool,
+    controls: list[CacheControl],
+    tlog: TranslationLog,
+) -> None:
+    if not cache:
+        return
+    if (marker := cache_breakpoint(controls, tlog)) is not None:
+        tool.custom_fields = ToolCustomFields(cache_breakpoint=marker)
 
 
 def _any_citations_enabled(messages: list[Message]) -> bool:
@@ -310,49 +335,63 @@ def _blocks(content: Any) -> list[ContentBlock]:
     return content if isinstance(content, list) else []
 
 
-def _system_text(content: Any) -> tuple[list[str], bool]:
-    """The text a system-shaped value carries, and whether any block of it is a
-    cache breakpoint."""
+def _system_text(
+    content: Any, tlog: TranslationLog
+) -> tuple[list[str], list[CacheControl]]:
+    """The text a system-shaped value carries, and the `cache_control` objects
+    its blocks carry."""
     if isinstance(content, str):
-        return ([content] if content else []), False
+        return ([content] if content else []), []
 
     texts: list[str] = []
-    cached = False
     for block in _blocks(content):
-        cached = cached or bool(block.get("cache_control"))
-        if block.get("type") == "text" and (text := block.get("text")):
-            texts.append(text)
-    return texts, cached
+        match block.get("type"):
+            case "text":
+                if text := block.get("text"):
+                    texts.append(text)
+            case "mid_conv_system":
+                continue  # collected by the caller, in conversation order
+            case unsupported:
+                tlog.warning(
+                    "Dropping unsupported system content block: %s", unsupported
+                )
+    return texts, _cache_controls(content)
 
 
-def _collect_system(req: MessagesRequest) -> tuple[list[str], bool]:
-    """Every system-origin text, in the order it must be joined, and whether
-    any of it carried a cache breakpoint.
+def _collect_system(
+    req: MessagesRequest, tlog: TranslationLog
+) -> tuple[list[str], list[CacheControl]]:
+    """Every system-origin text, in the order it must be joined, and every
+    `cache_control` that came with it.
 
     Some Chat Completions adapters reject more than one system message, so the
     top-level `system` field, mid-conversation `system`-role turns real clients
     like Claude Code send, and `mid_conv_system` blocks on a message of any role
-    all merge into one leading system message.
+    all merge into one leading system message — in client order, not grouped by
+    kind. All of their breakpoints therefore land on that one message.
     """
-    texts, cached = _system_text(req.system)
-    role_texts: list[str] = []
-    nested_texts: list[str] = []
+    texts, controls = _system_text(req.system, tlog)
 
     for message in req.messages:
         if message.role == "system":
-            message_texts, message_cached = _system_text(message.content)
-            role_texts.extend(message_texts)
-            cached = cached or message_cached
+            message_texts, message_controls = _system_text(
+                message.content, tlog
+            )
+            texts.extend(message_texts)
+            controls.extend(message_controls)
 
         for block in _blocks(message.content):
             if block.get("type") != "mid_conv_system":
                 continue
-            cached = cached or bool(block.get("cache_control"))
-            block_texts, block_cached = _system_text(block.get("content"))
-            nested_texts.extend(block_texts)
-            cached = cached or block_cached
+            if isinstance(control := block.get("cache_control"), dict):
+                controls.append(control)
+            block_texts, block_controls = _system_text(
+                block.get("content"), tlog
+            )
+            texts.extend(block_texts)
+            controls.extend(block_controls)
 
-    return texts + role_texts + nested_texts, cached
+    return texts, controls
 
 
 def _convert_user_message(
@@ -559,8 +598,14 @@ def _convert_tools(
                     strict=False,
                 ),
             )
-            if cache and tool.cache_control:
-                _mark_tool_cache_breakpoint(sdk_tool)
+            # On a tool, `cache_control` is a sibling of the definition rather
+            # than something nested in a content block.
+            _mark_tool(
+                sdk_tool,
+                cache,
+                [tool.cache_control] if tool.cache_control else [],
+                tlog,
+            )
             result.append(sdk_tool)
     return result
 

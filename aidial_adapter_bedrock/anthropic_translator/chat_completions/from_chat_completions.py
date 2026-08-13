@@ -21,6 +21,7 @@ from anthropic.types import (
     WebSearchToolResultBlock,
 )
 from anthropic.types.content_block import ContentBlock as AnthropicContentBlock
+from anthropic.types.output_tokens_details import OutputTokensDetails
 from anthropic.types.web_search_result_block import WebSearchResultBlock
 from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion import Choice
@@ -31,7 +32,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCallUnion,
 )
-from openai.types.completion_usage import CompletionUsage
+from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.dial_extensions import (
     CustomContent,
@@ -264,21 +265,46 @@ def stop_reason(
     return "end_turn"
 
 
-def convert_usage(usage: CompletionUsage | None) -> Usage:
-    """Anthropic reports cache reads *outside* `input_tokens` while OpenAI
-    counts them *inside* `prompt_tokens`, so the subtraction is mandatory:
-    forwarding `prompt_tokens` verbatim double-counts every cached token and
-    inflates the cost the client displays.
+# DIAL adapters report cache writes under either spelling, neither of which is
+# part of OpenAI's schema.
+_CACHE_WRITE_KEYS = ("cache_write_tokens", "cacheWriteTokens")
 
-    `cache_creation_input_tokens` stays 0 because cache writes are folded into
-    `prompt_tokens` with nothing to distinguish them, and a guess is worse.
+
+def convert_usage(usage: CompletionUsage | None) -> Usage:
+    """Anthropic reports cache reads *and* cache writes *outside*
+    `input_tokens` while OpenAI counts both *inside* `prompt_tokens`, so the
+    subtraction is mandatory: forwarding `prompt_tokens` verbatim double-counts
+    every cached token and inflates the cost the client displays.
+
+    Every counter reads as 0 when absent or null — Core serialises the empty
+    ones explicitly — so missing usage is never an error.
     """
-    details = usage.prompt_tokens_details if usage else None
-    cache_read = (details.cached_tokens if details else 0) or 0
+    prompt_details = usage.prompt_tokens_details if usage else None
+    cache_read = (prompt_details.cached_tokens if prompt_details else 0) or 0
+    cache_write = _cache_write_tokens(prompt_details)
     prompt_tokens = usage.prompt_tokens if usage else 0
+
+    completion_details = usage.completion_tokens_details if usage else None
+    thinking = (
+        completion_details.reasoning_tokens if completion_details else 0
+    ) or 0
+
     return Usage(
-        input_tokens=max(prompt_tokens - cache_read, 0),
+        input_tokens=max(prompt_tokens - cache_read - cache_write, 0),
         output_tokens=usage.completion_tokens if usage else 0,
         cache_read_input_tokens=cache_read,
-        cache_creation_input_tokens=0,
+        cache_creation_input_tokens=cache_write,
+        # Reasoning tokens are already inside `completion_tokens`, so
+        # `output_tokens` carries them and this is an informational breakdown.
+        output_tokens_details=(
+            OutputTokensDetails(thinking_tokens=thinking) if thinking else None
+        ),
     )
+
+
+def _cache_write_tokens(details: PromptTokensDetails | None) -> int:
+    extra = (details.model_extra if details else None) or {}
+    for key in _CACHE_WRITE_KEYS:
+        if isinstance(value := extra.get(key), int):
+            return value
+    return 0

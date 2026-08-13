@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 import pytest
 from aidial_sdk.chat_completion.request import (
@@ -17,6 +18,9 @@ from aidial_sdk.chat_completion.request import (
 
 from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
     MessagesRequest,
+)
+from aidial_adapter_bedrock.anthropic_translator.capabilities import (
+    UNRESOLVED_PROFILE,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
     CoreChatCompletionRequest,
@@ -83,7 +87,7 @@ def test_missing_max_tokens_raises_400():
     assert exc.value.message == "'max_tokens' is required"
 
 
-# --- §5.4 output cap ---------------------------------------------------------
+# --- output cap --------------------------------------------------------------
 
 
 def test_max_tokens_uses_the_older_spelling_by_default():
@@ -100,14 +104,11 @@ def test_max_completion_tokens_is_used_when_advertised():
     assert result.max_tokens is None
 
 
-def test_max_tokens_is_clamped_down_to_the_deployment_ceiling():
-    result = convert(user("hi"), profile=make_profile(max_output_tokens=64))
-    assert result.max_tokens == 64
-
-
-def test_max_tokens_below_the_ceiling_is_untouched():
-    result = convert(user("hi"), profile=make_profile(max_output_tokens=4096))
-    assert result.max_tokens == 100
+def test_max_tokens_is_forwarded_verbatim():
+    # The features header carries no limits, so there is no deployment ceiling
+    # to clamp against; a cap above it surfaces as the upstream's own error.
+    result = convert({"max_tokens": 999999, **user("hi")})
+    assert result.max_tokens == 999999
 
 
 # --- §5.2 system consolidation -----------------------------------------------
@@ -165,6 +166,28 @@ def test_all_three_system_sources_merge_into_one_leading_message():
     assert len(system_messages) == 1
     assert system_messages[0].content == "be nice\n\nhook context\n\ninjected"
     assert system_messages[0] is result.messages[0]
+
+
+def test_system_sources_merge_in_client_order_not_grouped_by_kind():
+    # The top-level `system` always leads; everything after it follows the
+    # order the client sent it in, walking `messages[]` once.
+    result = convert(
+        {
+            "system": "TOP",
+            "messages": [
+                {"role": "system", "content": "A"},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "mid_conv_system", "content": "B"},
+                        {"type": "text", "text": "hi"},
+                    ],
+                },
+                {"role": "system", "content": "C"},
+            ],
+        }
+    )
+    assert result.messages[0].content == "TOP\n\nA\n\nB\n\nC"
 
 
 def test_mid_conv_system_on_an_assistant_message_is_merged_not_warned():
@@ -744,6 +767,83 @@ def test_tool_result_turn_cache_control_marks_all_split_messages():
     assert result.messages[1].custom_fields is not None
 
 
+def test_a_block_ttl_reaches_the_marker_as_an_absolute_instant():
+    result = convert(
+        user(
+            [
+                {
+                    "type": "text",
+                    "text": "hi",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ]
+        )
+    )
+    custom_fields = result.messages[0].custom_fields
+    assert custom_fields is not None
+    assert custom_fields.cache_breakpoint is not None
+    assert custom_fields.cache_breakpoint.expire_at is not None
+
+
+def test_the_longest_ttl_of_the_merged_system_sources_wins():
+    # The merged system message draws from several sources but carries one
+    # breakpoint, so the maximum is taken: it can only keep content cached
+    # longer than one source asked for.
+    result = convert(
+        {
+            "system": [
+                {
+                    "type": "text",
+                    "text": "a",
+                    "cache_control": {"ttl": "5m"},
+                }
+            ],
+            "messages": [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "b",
+                            "cache_control": {"ttl": "1h"},
+                        }
+                    ],
+                },
+                {"role": "user", "content": "hi"},
+            ],
+        }
+    )
+    custom_fields = result.messages[0].custom_fields
+    assert custom_fields is not None
+    assert custom_fields.cache_breakpoint is not None
+    expire_at = custom_fields.cache_breakpoint.expire_at
+    assert expire_at is not None
+    remaining = datetime.fromisoformat(expire_at) - datetime.now(UTC)
+    assert remaining.total_seconds() == pytest.approx(3600, abs=5)
+
+
+def test_cache_control_nested_inside_a_tool_result_is_not_seen():
+    # Marking is per-message, and there is no object to hang a nested one on.
+    result = convert(
+        user(
+            [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "t",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "found cats",
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                }
+            ]
+        )
+    )
+    assert result.messages[0].custom_fields is None
+
+
 def test_tool_definition_cache_control_marks_tool():
     result = convert(
         {
@@ -810,6 +910,44 @@ def test_top_level_cache_control_is_dropped():
     assert "cache_control" not in result.model_dump_json(exclude_none=True)
 
 
+# --- the capability profile as a whole ---------------------------------------
+
+
+def test_an_unresolved_profile_emits_no_capability_gated_field():
+    # Unknown is not unsupported. `temperature` is the one gate that points the
+    # other way: dropping it on a guess silently changes generation.
+    result = convert(
+        {
+            **user(
+                [
+                    {
+                        "type": "text",
+                        "text": "hi",
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ]
+            ),
+            "temperature": 0.5,
+            "output_config": {"effort": "high"},
+            "tools": [
+                {"name": "get_weather", "cache_control": {"type": "ephemeral"}}
+            ],
+        },
+        profile=UNRESOLVED_PROFILE,
+    )
+    assert result.temperature == 0.5
+    assert result.reasoning_effort is None
+    assert result.custom_fields is None
+    assert all(m.custom_fields is None for m in result.messages)
+    assert result.tools is not None
+    tool = result.tools[0]
+    assert isinstance(tool, SdkTool)
+    assert tool.custom_fields is None
+    # The output cap still travels, under the older spelling.
+    assert result.max_tokens == 100
+    assert result.max_completion_tokens is None
+
+
 # --- §5.1 remaining top-level fields -----------------------------------------
 
 
@@ -857,19 +995,32 @@ def test_top_k_and_thinking_history_are_dropped():
     assert result.messages[0].content == "answer"
 
 
-def test_mcp_servers_container_and_inference_geo_are_dropped():
+def test_fields_with_no_chat_completions_counterpart_are_dropped():
     result = convert(
         {
             **user("hi"),
             "mcp_servers": [{"type": "url", "url": "https://example.com/mcp"}],
             "container": {"id": "container_1"},
             "inference_geo": "eu",
+            "context_management": {
+                "edits": [{"type": "clear_tool_uses_20250919"}]
+            },
+            "top_k": 40,
+            "cache_control": {"type": "ephemeral"},
         }
     )
     dumped = json.dumps(result.model_dump(mode="json", exclude_none=True))
-    assert "mcp_servers" not in dumped
-    assert "container" not in dumped
-    assert "inference_geo" not in dumped
+    for dropped in (
+        "mcp_servers",
+        "container",
+        "inference_geo",
+        "context_management",
+        "top_k",
+        "cache_control",
+    ):
+        assert dropped not in dumped
+    # Dropped, not rejected: Claude Code sends fields this translator cannot
+    # honour on every request.
     assert result.messages[0].content == "hi"
 
 

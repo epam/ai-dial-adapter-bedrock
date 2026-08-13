@@ -21,7 +21,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from aidial_adapter_bedrock.anthropic_translator.capabilities import (
     DeploymentProfile,
-    get_deployment_profile,
+    parse_deployment_profile,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
     from_chat_completions,
@@ -40,7 +40,6 @@ from aidial_adapter_bedrock.anthropic_translator.common import (
     stream_response,
 )
 from aidial_adapter_bedrock.anthropic_translator.core_client import (
-    caller_credential,
     core_chat_completions_client,
     core_headers,
 )
@@ -55,9 +54,9 @@ async def _handle_messages(request: Request) -> Response:
     # `model` is also the DIAL deployment name here: Chat Completions addresses
     # models per-deployment, unlike the Responses API.
     base_url, req, deployment = await prepare(request)
-    profile: DeploymentProfile = await get_deployment_profile(
-        base_url, caller_credential(request.headers), deployment
-    )
+    # Capabilities arrive on the inbound request, so this handler makes exactly
+    # one outbound call.
+    profile: DeploymentProfile = parse_deployment_profile(request.headers)
 
     body: CoreChatCompletionRequest
     body, aliases = to_chat_completions_request(req, deployment, profile)

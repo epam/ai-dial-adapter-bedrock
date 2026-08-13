@@ -1,17 +1,15 @@
 import pytest
-from aidial_sdk.chat_completion.request import ReasoningEffort
 
 from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
     MessagesRequest,
 )
 from aidial_adapter_bedrock.anthropic_translator.capabilities import (
     UNRESOLVED_PROFILE,
-    NestedBudget,
-    NestedEffort,
-    TopLevelEffort,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
-    resolve_reasoning,
+    EFFORT_LADDER,
+    resolve_effort,
+    resolve_reasoning_effort,
 )
 from aidial_adapter_bedrock.anthropic_translator.translation_log import (
     TranslationLog,
@@ -22,189 +20,206 @@ from tests.unit_tests.anthropic_translator.helpers import (
 )
 
 
-def resolve(body: dict, profile=None):
-    request = MessagesRequest.model_validate(
+def request(body: dict) -> MessagesRequest:
+    return MessagesRequest.model_validate(
         {"messages": [{"role": "user", "content": "hi"}], **body}
     )
-    return resolve_reasoning(
-        request,
+
+
+def intent(body: dict) -> str | None:
+    """Step 1 only: what the client asked for, before any deployment gets a
+    say."""
+    return resolve_effort(request(body), TranslationLog("test"))
+
+
+def emitted(body: dict, profile=None) -> str | None:
+    return resolve_reasoning_effort(
+        request(body),
         profile if profile is not None else make_profile(),
         TranslationLog("test"),
     )
 
 
+# --- Step 1: the client's intent -------------------------------------------
+
+
+@pytest.mark.parametrize("effort", EFFORT_LADDER)
+def test_a_known_output_config_effort_survives_verbatim(effort):
+    # Degradation happens against what the deployment advertises, not against
+    # Anthropic's own enum, so nothing is collapsed here.
+    assert intent({"output_config": {"effort": effort}}) == effort
+
+
+def test_an_unknown_effort_falls_through_to_thinking():
+    assert (
+        intent(
+            {
+                "output_config": {"effort": "turbo"},
+                "thinking": {"type": "enabled", "budget_tokens": 30000},
+            }
+        )
+        == "high"
+    )
+
+
+def test_an_unknown_effort_with_no_thinking_says_nothing():
+    assert intent({"output_config": {"effort": "turbo"}}) is None
+
+
 @pytest.mark.parametrize(
-    "effort, expected",
+    "thinking, expected",
     [
-        ("low", ReasoningEffort.LOW),
-        ("medium", ReasoningEffort.MEDIUM),
-        ("high", ReasoningEffort.HIGH),
-        # Anthropic's enum is wider than OpenAI's, and an unknown value fails
-        # the whole request.
-        ("xhigh", ReasoningEffort.HIGH),
-        ("max", ReasoningEffort.HIGH),
-        # An explicit opt-out is not "low".
-        ("none", None),
+        # `adaptive` is what Claude Code sends on essentially every request.
+        # Anthropic documents `high` as the API default and states that
+        # omitting the effort produces identical behaviour.
+        ({"type": "adaptive"}, "high"),
+        ({"type": "enabled"}, "high"),
+        ({"type": "from_2027"}, "high"),
+        ({}, "high"),
+        # The deprecated budget is still read as a statement of intent.
+        ({"type": "enabled", "budget_tokens": 1}, "low"),
+        ({"type": "enabled", "budget_tokens": 8000}, "low"),
+        ({"type": "enabled", "budget_tokens": 8001}, "medium"),
+        ({"type": "enabled", "budget_tokens": 24000}, "medium"),
+        ({"type": "enabled", "budget_tokens": 24001}, "high"),
+        ({"type": "enabled", "budget_tokens": 999999}, "high"),
+        ({"type": "enabled", "budget_tokens": 0}, "none"),
+        ({"type": "enabled", "budget_tokens": -1}, "none"),
+        # An explicit opt-out.
+        ({"type": "disabled"}, "none"),
     ],
 )
-def test_output_config_effort_maps(effort, expected):
-    assert resolve({"output_config": {"effort": effort}}) == (expected, {})
+def test_thinking_states_an_intent(thinking, expected):
+    assert intent({"thinking": thinking}) == expected
 
 
-@pytest.mark.parametrize(
-    "budget, expected",
-    [
-        (0, None),
-        (-1, None),
-        (1, ReasoningEffort.LOW),
-        (8000, ReasoningEffort.LOW),
-        (8001, ReasoningEffort.MEDIUM),
-        (24000, ReasoningEffort.MEDIUM),
-        (24001, ReasoningEffort.HIGH),
-        (999999, ReasoningEffort.HIGH),
-    ],
-)
-def test_thinking_budget_falls_back_to_the_effort_ladder(budget, expected):
-    assert resolve(
-        {"thinking": {"type": "enabled", "budget_tokens": budget}}
-    ) == (expected, {})
-
-
-def test_output_config_effort_outranks_the_budget():
-    effort, _ = resolve(
-        {
-            "output_config": {"effort": "low"},
-            "thinking": {"type": "enabled", "budget_tokens": 999999},
-        }
-    )
-    assert effort == ReasoningEffort.LOW
-
-
-def test_an_unknown_effort_falls_through_to_the_budget():
-    effort, _ = resolve(
-        {
-            "output_config": {"effort": "turbo"},
-            "thinking": {"type": "enabled", "budget_tokens": 30000},
-        }
-    )
-    assert effort == ReasoningEffort.HIGH
+def test_no_thinking_block_at_all_says_nothing():
+    # `None` and `NO_THINKING` are different: only `None` lets a deployment's
+    # own default stand.
+    assert intent({}) is None
 
 
 def test_a_boolean_budget_is_not_read_as_a_number():
-    # Python's `bool` is an `int` subclass, so `True` must not become 1 — and
-    # a malformed value degrades rather than failing the request.
-    assert resolve({"thinking": {"budget_tokens": True}}) == (None, {})
+    # Python's `bool` is an `int` subclass, so `True` must not become 1 — a
+    # budget-less `thinking` block means "think at the default".
+    assert intent({"thinking": {"budget_tokens": True}}) == "high"
 
 
-def test_no_reasoning_signal_emits_nothing():
-    assert resolve({}) == (None, {})
+def test_an_opt_out_outranks_an_effort_sent_alongside_it():
+    # Both fields travel together on real traffic: a client that switches
+    # thinking off keeps sending the effort its config names. Reading the
+    # effort first turns reasoning back on for a request that asked for none.
+    assert (
+        intent(
+            {
+                "thinking": {"type": "disabled"},
+                "output_config": {"effort": "medium"},
+            }
+        )
+        == "none"
+    )
 
 
-def test_thinking_without_a_budget_emits_nothing():
-    assert resolve({"thinking": {"type": "disabled"}}) == (None, {})
+def test_an_effort_outranks_a_budget():
+    assert (
+        intent(
+            {
+                "output_config": {"effort": "low"},
+                "thinking": {"type": "enabled", "budget_tokens": 999999},
+            }
+        )
+        == "low"
+    )
+
+
+# --- Steps 2 and 3: the deployment's gate and the ladder --------------------
 
 
 @pytest.mark.parametrize(
-    "levels, expected",
+    "advertised, body, expected",
     [
-        # An effort outside the advertised list is clamped to the closest one.
-        (["low", "medium"], ReasoningEffort.MEDIUM),
-        (["low"], ReasoningEffort.LOW),
-        (["minimal"], ReasoningEffort.MINIMAL),
-        (ALL_EFFORTS, ReasoningEffort.HIGH),
+        # ★ A deployment with a pre-wired thinking budget advertises no
+        # efforts, and must never receive `reasoning_effort`: the Vertex
+        # adapter maps it onto Gemini's `thinking_level` and the upstream
+        # rejects the pair outright.
+        ([], {"thinking": {"type": "adaptive"}}, None),
+        ([], {"thinking": {"type": "enabled", "budget_tokens": 8000}}, None),
+        ([], {"thinking": {"type": "disabled"}}, None),
+        ([], {"output_config": {"effort": "high"}}, None),
+        # An advertised level is emitted as asked.
+        (
+            ["low", "high", "xhigh"],
+            {"output_config": {"effort": "xhigh"}},
+            "xhigh",
+        ),
+        (ALL_EFFORTS, {"output_config": {"effort": "max"}}, "high"),
+        (ALL_EFFORTS, {"thinking": {"type": "adaptive"}}, "high"),
+        (
+            ALL_EFFORTS,
+            {"thinking": {"type": "enabled", "budget_tokens": 24000}},
+            "medium",
+        ),
+        # A positive effort never degrades to `none`.
+        (["none", "minimum"], {"output_config": {"effort": "high"}}, "minimum"),
+        # `NO_THINKING` is honoured where the deployment can express it.
+        (["none", "low"], {"thinking": {"type": "disabled"}}, "none"),
+        # ...and dropped where it cannot: sending anything else would switch
+        # thinking back on.
+        (["low", "high"], {"thinking": {"type": "disabled"}}, None),
+        (
+            ["none", "low", "medium"],
+            {
+                "thinking": {"type": "disabled"},
+                "output_config": {"effort": "medium"},
+            },
+            "none",
+        ),
+        # The client said nothing at all.
+        (ALL_EFFORTS, {}, None),
     ],
 )
-def test_effort_is_clamped_to_the_advertised_levels(levels, expected):
-    effort, _ = resolve(
-        {"output_config": {"effort": "high"}},
-        make_profile(reasoning=TopLevelEffort(levels=levels)),
+def test_the_worked_examples(advertised, body, expected):
+    assert emitted(body, make_profile(reasoning_efforts=advertised)) == expected
+
+
+@pytest.mark.parametrize(
+    "advertised, expected",
+    [
+        # Down first: less thinking is a quality loss, more is a cost and
+        # latency surprise.
+        (["low", "medium"], "medium"),
+        (["minimal"], "minimal"),
+        (["minimum", "low"], "low"),
+        # Up only when there is nothing below.
+        (["xhigh"], "xhigh"),
+        (["xhigh", "max"], "xhigh"),
+        (ALL_EFFORTS, "high"),
+    ],
+)
+def test_an_unadvertised_effort_walks_down_then_up(advertised, expected):
+    assert (
+        emitted(
+            {"output_config": {"effort": "high"}},
+            make_profile(reasoning_efforts=advertised),
+        )
+        == expected
     )
-    assert effort == expected
-
-
-def test_an_empty_advertised_list_emits_nothing():
-    # An empty list is a real answer meaning "supports no reasoning".
-    assert resolve(
-        {"output_config": {"effort": "high"}},
-        make_profile(reasoning=TopLevelEffort(levels=[])),
-    ) == (None, {})
-
-
-def test_levels_this_dialect_cannot_express_are_ignored():
-    assert resolve(
-        {"output_config": {"effort": "high"}},
-        make_profile(reasoning=TopLevelEffort(levels=["xhigh"])),
-    ) == (None, {})
 
 
 def test_an_unresolved_profile_emits_nothing():
     # Unknown is not unsupported: sending nothing degrades a request, sending
     # the wrong knob fails it.
-    assert resolve(
-        {"output_config": {"effort": "high"}}, UNRESOLVED_PROFILE
-    ) == (None, {})
-
-
-def test_a_reasoning_deployment_gets_the_effort_nested_and_merged():
-    effort, configuration = resolve(
-        {"output_config": {"effort": "medium"}},
-        make_profile(reasoning=NestedEffort(defaults={"summary": "auto"})),
+    assert (
+        emitted({"output_config": {"effort": "high"}}, UNRESOLVED_PROFILE)
+        is None
     )
-    assert effort is None
-    assert configuration == {
-        "reasoning": {"summary": "auto", "effort": "medium"}
-    }
 
 
-def test_a_reasoning_deployment_without_an_effort_emits_nothing():
-    assert resolve(
-        {}, make_profile(reasoning=NestedEffort(defaults={"summary": "auto"}))
-    ) == (None, {})
-
-
-def test_a_thinking_deployment_receives_the_raw_budget():
-    effort, configuration = resolve(
-        {"thinking": {"type": "enabled", "budget_tokens": 4096}},
-        make_profile(
-            reasoning=NestedBudget(defaults={"include_thoughts": True})
-        ),
-    )
-    assert effort is None
-    assert configuration == {
-        "thinking": {"include_thoughts": True, "thinking_budget": 4096}
-    }
-
-
-def test_a_thinking_deployment_never_receives_a_reasoning_effort():
-    """★ The request that caused the outage: a deployment configured with a
-    thinking budget rejects anything carrying `reasoning_effort`, because the
-    Vertex adapter maps it onto Gemini's `thinking_level`."""
-    effort, configuration = resolve(
-        {
-            "thinking": {"type": "adaptive"},
-            "output_config": {"effort": "medium"},
-        },
-        make_profile(
-            reasoning=NestedBudget(defaults={"thinking_budget": 2048})
-        ),
-    )
-    # The request names no budget, so the deployment's own configured one
-    # stands and nothing at all is emitted.
-    assert effort is None
-    assert configuration == {}
-
-
-def test_exactly_one_knob_is_ever_emitted():
-    for reasoning in (
-        NestedEffort(defaults={}),
-        NestedBudget(defaults={}),
-        TopLevelEffort(levels=ALL_EFFORTS),
-    ):
-        effort, configuration = resolve(
-            {
-                "output_config": {"effort": "high"},
-                "thinking": {"type": "enabled", "budget_tokens": 30000},
-            },
-            make_profile(reasoning=reasoning),
+def test_only_none_is_advertised_so_a_positive_effort_is_dropped():
+    assert (
+        emitted(
+            {"output_config": {"effort": "high"}},
+            make_profile(reasoning_efforts=["none"]),
         )
-        assert (effort is None) or (configuration == {}), reasoning
+        is None
+    )

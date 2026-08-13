@@ -23,7 +23,7 @@ from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 
 # DIAL adapters name the reasoning stage freely ("Thinking", "Reasoning
 # process", …), so it is recognised by substring rather than an exact match.
-_REASONING_STAGE = re.compile(r"think|reason", re.IGNORECASE)
+_REASONING_STAGE = re.compile(r"think|thought|reason", re.IGNORECASE)
 
 
 class ClaudeMessageBlock(ExtraAllowModel):

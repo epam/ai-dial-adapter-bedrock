@@ -19,7 +19,11 @@ from openai.types.chat.chat_completion_message_function_tool_call import (
     ChatCompletionMessageFunctionToolCall,
     Function,
 )
-from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
+from openai.types.completion_usage import (
+    CompletionTokensDetails,
+    CompletionUsage,
+    PromptTokensDetails,
+)
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
     from_chat_completions,
@@ -219,6 +223,26 @@ def test_state_thinking_is_preferred_over_stages():
     )
 
 
+@pytest.mark.parametrize(
+    "name", ["Thinking", "thought process", "Reasoning", "REASON", "Thoughts"]
+)
+def test_a_reasoning_stage_is_recognised_by_substring(name):
+    # DIAL adapters name the stage freely, so it is matched loosely rather than
+    # by an exact name no adapter has agreed on.
+    msg = translate(
+        response(
+            message(
+                custom_content={
+                    "stages": [{"index": 0, "name": name, "content": "t"}]
+                }
+            )
+        )
+    )
+    assert msg.content[0] == ThinkingBlock(
+        type="thinking", thinking="t", signature=""
+    )
+
+
 def test_custom_content_without_reasoning_adds_no_thinking_block():
     msg = translate(
         response(
@@ -402,7 +426,7 @@ def test_no_stop_sequences_leaves_the_text_alone():
     assert msg.stop_sequence is None
 
 
-# --- §12 usage ---------------------------------------------------------------
+# --- usage -------------------------------------------------------------------
 
 
 def test_cached_tokens_are_subtracted_from_input_tokens():
@@ -456,6 +480,76 @@ def test_missing_usage_is_zeroed_not_an_error():
     usage = translate(completion).usage
     assert usage.input_tokens == 0
     assert usage.output_tokens == 0
+    assert usage.output_tokens_details is None
+
+
+@pytest.mark.parametrize("spelling", ["cache_write_tokens", "cacheWriteTokens"])
+def test_cache_writes_are_recovered_and_subtracted(spelling):
+    # DIAL folds cache writes into `prompt_tokens` while Anthropic reports them
+    # outside `input_tokens`, and adapters report the count under either
+    # spelling — neither of which is part of OpenAI's schema.
+    msg = translate(
+        response(
+            usage=CompletionUsage(
+                prompt_tokens=100,
+                completion_tokens=20,
+                total_tokens=120,
+                prompt_tokens_details=PromptTokensDetails.model_validate(
+                    {"cached_tokens": 30, spelling: 25}
+                ),
+            )
+        )
+    )
+    assert msg.usage.input_tokens == 45
+    assert msg.usage.cache_read_input_tokens == 30
+    assert msg.usage.cache_creation_input_tokens == 25
+
+
+def test_cache_creation_is_zero_when_the_upstream_reports_neither_spelling():
+    msg = translate(
+        response(
+            usage=CompletionUsage(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
+        )
+    )
+    assert msg.usage.cache_creation_input_tokens == 0
+
+
+def test_reasoning_tokens_become_an_informational_breakdown():
+    # They are already inside `completion_tokens`, so `output_tokens` carries
+    # them and this only decomposes the total.
+    msg = translate(
+        response(
+            usage=CompletionUsage(
+                prompt_tokens=10,
+                completion_tokens=50,
+                total_tokens=60,
+                completion_tokens_details=CompletionTokensDetails(
+                    reasoning_tokens=40
+                ),
+            )
+        )
+    )
+    assert msg.usage.output_tokens == 50
+    assert msg.usage.output_tokens_details is not None
+    assert msg.usage.output_tokens_details.thinking_tokens == 40
+
+
+def test_zero_reasoning_tokens_emit_no_breakdown():
+    msg = translate(
+        response(
+            usage=CompletionUsage(
+                prompt_tokens=10,
+                completion_tokens=5,
+                total_tokens=15,
+                completion_tokens_details=CompletionTokensDetails(
+                    reasoning_tokens=0
+                ),
+            )
+        )
+    )
+    assert msg.usage.output_tokens_details is None
 
 
 # --- §10 block order ---------------------------------------------------------
