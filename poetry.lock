@@ -2,19 +2,19 @@
 
 [[package]]
 name = "aidial-adapter-anthropic"
-version = "0.16.0"
+version = "0.17.0"
 description = "Package implementing adapter from DIAL Chat Completions API to Anthropic API"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["main"]
 files = [
-    {file = "aidial_adapter_anthropic-0.16.0-py3-none-any.whl", hash = "sha256:eb2eafbcc31fb6bb1636feed423063964170efa615102c1f30373c6cb04ab482"},
-    {file = "aidial_adapter_anthropic-0.16.0.tar.gz", hash = "sha256:e4174f710fa0debbbfa77615ec6d6a4b7ee5c2f61e9cd82cf7f46f53b21a4e34"},
+    {file = "aidial_adapter_anthropic-0.17.0-py3-none-any.whl", hash = "sha256:7bf772211276b517c1fceda96fca91c120818e01b2f278cc64f83a1b43826fca"},
+    {file = "aidial_adapter_anthropic-0.17.0.tar.gz", hash = "sha256:9ba1062de70402aa331b11094f8fe531f18f5da3f68da72592953855f2ebd4bb"},
 ]
 
 [package.dependencies]
 aidial-sdk = ">=0.39.0,<1"
-aiohttp = ">=3.14.1,<4"
+aiohttp = ">=3.14.3,<4"
 anthropic = ">=0.105.0,<1"
 botocore = {version = ">=1.10.0", optional = true, markers = "extra == \"bedrock\""}
 fastapi = ">=0.51,<1.0"
@@ -2816,4 +2816,4 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "b0dfb6ce9c95eb7f5c6c01623b931ee29bc5a78f511c067a8cca803029ebb7eb"
+content-hash = "d3662d20be02c938a89a1f6ed9d9d7007813c374930da5343f22b90b84934e38"
