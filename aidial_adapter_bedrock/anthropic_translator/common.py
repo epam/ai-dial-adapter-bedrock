@@ -57,38 +57,30 @@ async def parse_request(request: Request) -> MessagesRequest:
         ) from e
 
 
-def resolve_model(request: Request, req: MessagesRequest) -> str:
-    # x-dial-deployment-id is authoritative: Core sets it, and it names the
-    # deployment Core actually routed to, which can differ from `model`.
-    model: str | None = request.headers.get("x-dial-deployment-id") or req.model
-    if not model:
+def resolve_deployment(request: Request, req: MessagesRequest) -> str:
+    """The deployment to address, which `x-dial-deployment-id` names when
+    present: Core sets it to what it actually routed to, and that can differ
+    from the body's `model`."""
+    deployment = request.headers.get("x-dial-deployment-id") or req.model
+    if not deployment:
         raise AnthropicHTTPError(
             400, INVALID_REQUEST_ERROR, "'model' is required"
         )
-    return model
+    return deployment
 
 
 def require_base_url() -> str:
-    # Read at call time (not import) so tests and runtime reconfiguration see
-    # the current env; strip a trailing slash so it composes cleanly with the
-    # `/openai/...` suffixes the client factories append.
+    """DIAL Core's base URL, read at call time so tests and runtime
+    reconfiguration see the current environment."""
     url: str | None = os.getenv("DIAL_URL")
     if not url:
         raise AnthropicHTTPError(500, API_ERROR, NOT_CONFIGURED)
+    # Composes cleanly with the `/openai/...` suffixes the clients append.
     return url.rstrip("/")
 
 
-async def prepare(request: Request) -> tuple[str, MessagesRequest, str]:
-    """The prologue every translator endpoint shares: resolve Core's base URL,
-    parse the inbound Anthropic body, and resolve the target model."""
-    base_url: str = require_base_url()
-    req: MessagesRequest = await parse_request(request)
-    return base_url, req, resolve_model(request, req)
-
-
 def stream_response(chunks: AsyncIterator[bytes]) -> StreamingResponse:
-    """Wrap a translated SSE byte stream in the response shape every streaming
-    translator endpoint returns."""
+    """The response shape every streaming translator endpoint returns."""
     return StreamingResponse(
         chunks,
         media_type="text/event-stream",
@@ -120,8 +112,8 @@ async def _log_stream_chunks(
 def with_debug_logging(
     func: Callable[[Request], Awaitable[Response]],
 ) -> Callable[[Request], Awaitable[Response]]:
-    """Log the request body and the (non-streaming) response body, or attach a
-    chunk logger to a streaming response, when DEBUG logging is enabled.
+    """Log the request and response bodies — or attach a chunk logger to a
+    streaming response — when DEBUG logging is enabled.
 
     Every step is suppressed: a logging failure must never fail a request.
     """

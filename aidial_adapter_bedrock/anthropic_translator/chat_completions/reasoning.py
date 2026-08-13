@@ -20,9 +20,7 @@ from aidial_adapter_bedrock.anthropic_translator.translation_log import (
 )
 
 # Wider than Anthropic's own enum, because what has to be matched is what the
-# *deployment* advertises: OpenAI documents none/minimal/low/medium/high/xhigh/
-# max and Gemini documents minimal/low/medium/high, both model-dependent.
-# `minimum` sits next to `minimal` as a tolerated alias.
+# *deployment* advertises. `minimum` is a tolerated alias of `minimal`.
 EFFORT_LADDER = (
     "none",
     "minimal",
@@ -49,9 +47,8 @@ def resolve_reasoning_effort(
     """The `reasoning_effort` to emit, or nothing at all."""
     advertised = profile.reasoning_efforts
     if not advertised:
-        # `[]` is a real answer — "supports no reasoning", and how a deployment
-        # with pre-wired thinking keeps the field off its requests. An absent
-        # list is silence, and silence is not consent.
+        # `[]` is a real answer — "supports no reasoning" — and an absent list
+        # is silence, which is not consent.
         return None
 
     effort = resolve_effort(req, tlog)
@@ -70,18 +67,15 @@ def resolve_effort(req: MessagesRequest, tlog: TranslationLog) -> str | None:
     thinking: ThinkingConfig | None = req.thinking
 
     if thinking and thinking.type == "disabled":
-        # The opt-out outranks an effort sent alongside it: both fields travel
-        # together on real traffic, because `effort` is the *depth* control for
-        # thinking, and reading the effort first turns reasoning back on for a
-        # request that had just asked for none.
+        # Outranks an effort sent alongside it: both fields travel together on
+        # real traffic, and reading the effort first turns reasoning back on
+        # for a request that had just asked for none.
         return NO_THINKING
 
     match req.output_config.effort if req.output_config else None:
         case None:
             pass
         case effort if effort in EFFORT_LADDER:
-            # Verbatim: degradation happens against what the deployment
-            # advertises, not against Anthropic's own enum.
             return effort
         case unknown:
             tlog.warning("Unknown output_config.effort: %s", unknown)
@@ -94,9 +88,8 @@ def resolve_effort(req: MessagesRequest, tlog: TranslationLog) -> str | None:
 def _from_budget(budget: int | None) -> str:
     if budget is None:
         # `adaptive`, `enabled` without a budget, or a type we have never seen.
-        # Anthropic documents `high` as the API default and states that
-        # omitting the effort "produces identical behavior", so a catch-all
-        # here means "think at the default" rather than "don't think".
+        # Anthropic documents `high` as the API default, so the catch-all means
+        # "think at the default" rather than "don't think".
         return "high"
     if budget <= 0:
         return NO_THINKING

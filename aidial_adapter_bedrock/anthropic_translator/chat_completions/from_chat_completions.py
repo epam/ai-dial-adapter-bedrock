@@ -41,6 +41,7 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.dial_extension
     stage_thinking,
 )
 from aidial_adapter_bedrock.anthropic_translator.stop_sequences import (
+    StopMatch,
     apply_stop_sequences,
 )
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
@@ -70,47 +71,47 @@ def from_chat_completions(
         message: ChatCompletionMessage | None = (
             choice.message if choice else None
         )
-
-        content, matched_stop, saw_refusal, saw_tool_use = _convert_message(
-            message, aliases, stop_sequences, tlog
+        stop: StopMatch = apply_stop_sequences(
+            message.content or "" if message else "", stop_sequences
         )
+        tool_blocks: list[ToolUseBlock] = _tool_use_blocks(
+            message.tool_calls if message else None, aliases, tlog
+        )
+        refusal: str | None = message.refusal if message else None
 
         return Message(
             id=response.id or UNKNOWN_MESSAGE_ID,
             type="message",
             role="assistant",
             model=response.model or requested_model,
-            content=content,
+            content=_content_blocks(message, stop.text, tool_blocks, tlog),
             stop_reason=stop_reason(
                 choice.finish_reason if choice else None,
-                matched_stop,
-                saw_tool_use,
-                saw_refusal,
+                stop.sequence,
+                bool(tool_blocks),
+                bool(refusal),
             ),
-            stop_sequence=matched_stop,
+            stop_sequence=stop.sequence,
             usage=convert_usage(response.usage),
         )
     finally:
         tlog.flush()
 
 
-def _convert_message(
+def _content_blocks(
     message: ChatCompletionMessage | None,
-    aliases: ToolNameAliases,
-    stop_sequences: list[str],
+    text: str,
+    tool_blocks: list[ToolUseBlock],
     tlog: TranslationLog,
-) -> tuple[list[AnthropicContentBlock], str | None, bool, bool]:
-    """The content blocks in the order Anthropic fixes — thinking, web-search
-    pair, text, refusal, tool calls — with what they revealed about the stop
-    reason. Thinking must lead: a misordered signed thinking block is rejected
-    when the turn is replayed.
+) -> list[AnthropicContentBlock]:
+    """The blocks in the order Anthropic fixes — thinking, web-search pair,
+    text, refusal, tool calls. Thinking must lead: a misordered signed thinking
+    block is rejected when the turn is replayed.
     """
-    content: list[AnthropicContentBlock] = []
-    matched_stop: str | None = None
-    saw_refusal = False
-
     if message is None:
-        return [_empty_text()], None, False, False
+        return [_empty_text()]
+
+    content: list[AnthropicContentBlock] = []
 
     extras = parse_extras(message.model_extra)
     if thinking := thinking_block(extras.custom_content):
@@ -119,27 +120,17 @@ def _convert_message(
     for url, title in _citations(message.annotations, tlog):
         content.extend(citation_blocks(url, title))
 
-    if text := message.content:
-        text, matched_stop = apply_stop_sequences(text, stop_sequences)
-        if text:
-            content.append(TextBlock(type="text", text=text))
+    if text:
+        content.append(TextBlock(type="text", text=text))
 
-    if refusal := message.refusal:
-        saw_refusal = True
-        content.append(TextBlock(type="text", text=refusal))
+    if message.refusal:
+        content.append(TextBlock(type="text", text=message.refusal))
 
-    tool_blocks = _tool_use_blocks(message.tool_calls, aliases, tlog)
     content.extend(tool_blocks)
 
-    # Anthropic messages always carry at least one block, and SDKs index
-    # `content[0]` unconditionally, so an empty completion — or one whose
-    # budget reasoning consumed entirely — is backfilled.
-    return (
-        content or [_empty_text()],
-        matched_stop,
-        saw_refusal,
-        bool(tool_blocks),
-    )
+    # Anthropic messages always carry at least one block and SDKs index
+    # `content[0]` unconditionally.
+    return content or [_empty_text()]
 
 
 def _empty_text() -> TextBlock:
@@ -156,8 +147,8 @@ def thinking_block(
             signature=block.signature or "",
         )
     if text := stage_thinking(custom_content):
-        # Anthropic requires a signature on the block. An empty one round-trips
-        # and cannot be mistaken for a real one.
+        # A signature is required; an empty one round-trips and cannot be
+        # mistaken for a real one.
         return ThinkingBlock(type="thinking", thinking=text, signature="")
     return None
 
@@ -217,8 +208,7 @@ def _tool_use_blocks(
             tlog.warning("Skipping unsupported tool call type: %s", call.type)
             continue
         if not call.id or not call.function.name:
-            # A half-built block the client could never correlate a result
-            # with is worse than none.
+            # The client could never correlate a result with a half-built one.
             tlog.warning("Skipping tool call without an id or name")
             continue
         blocks.append(
@@ -265,8 +255,7 @@ def stop_reason(
     return "end_turn"
 
 
-# DIAL adapters report cache writes under either spelling, neither of which is
-# part of OpenAI's schema.
+# Neither spelling is part of OpenAI's schema.
 _CACHE_WRITE_KEYS = ("cache_write_tokens", "cacheWriteTokens")
 
 
@@ -294,8 +283,7 @@ def convert_usage(usage: CompletionUsage | None) -> Usage:
         output_tokens=usage.completion_tokens if usage else 0,
         cache_read_input_tokens=cache_read,
         cache_creation_input_tokens=cache_write,
-        # Reasoning tokens are already inside `completion_tokens`, so
-        # `output_tokens` carries them and this is an informational breakdown.
+        # Already inside `completion_tokens`, so this only decomposes it.
         output_tokens_details=(
             OutputTokensDetails(thinking_tokens=thinking) if thinking else None
         ),

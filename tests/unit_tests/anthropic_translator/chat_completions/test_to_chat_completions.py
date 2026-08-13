@@ -41,20 +41,18 @@ DEPLOYMENT = "gpt-4o"
 LONG_MCP_NAME = "mcp__" + "s" * 60 + "__do_the_thing"
 
 
-def convert_with_aliases(
-    body: dict, model: str = DEPLOYMENT, profile=None
-) -> tuple[CoreChatCompletionRequest, ToolNameAliases]:
+def convert(
+    body: dict,
+    model: str = DEPLOYMENT,
+    profile=None,
+    aliases: ToolNameAliases | None = None,
+) -> CoreChatCompletionRequest:
     return to_chat_completions_request(
         MessagesRequest.model_validate({"max_tokens": 100, **body}),
         model,
         profile if profile is not None else make_profile(),
+        aliases if aliases is not None else ToolNameAliases(),
     )
-
-
-def convert(
-    body: dict, model: str = DEPLOYMENT, profile=None
-) -> CoreChatCompletionRequest:
-    return convert_with_aliases(body, model, profile)[0]
 
 
 def user(content) -> dict:
@@ -82,6 +80,7 @@ def test_missing_max_tokens_raises_400():
             MessagesRequest.model_validate(user("hi")),
             DEPLOYMENT,
             make_profile(),
+            ToolNameAliases(),
         )
     assert exc.value.status_code == 400
     assert exc.value.message == "'max_tokens' is required"
@@ -648,7 +647,8 @@ def test_disable_parallel_tool_use_inverts():
 
 
 def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites():
-    result, aliases = convert_with_aliases(
+    aliases = ToolNameAliases()
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "hi"},
@@ -666,7 +666,8 @@ def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites():
             ],
             "tools": [{"name": LONG_MCP_NAME}],
             "tool_choice": {"type": "tool", "name": LONG_MCP_NAME},
-        }
+        },
+        aliases=aliases,
     )
     tools = result.tools
     assert tools is not None
@@ -687,8 +688,9 @@ def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites():
 
 
 def test_a_conforming_tool_name_is_never_aliased():
-    result, aliases = convert_with_aliases(
-        {**user("hi"), "tools": [{"name": "get_weather"}]}
+    aliases = ToolNameAliases()
+    result = convert(
+        {**user("hi"), "tools": [{"name": "get_weather"}]}, aliases=aliases
     )
     tools = result.tools
     assert tools is not None

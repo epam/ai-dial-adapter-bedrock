@@ -15,8 +15,6 @@ from pydantic import field_validator
 
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 
-# A content block is a heterogeneous, provider-defined object. Keeping it as a
-# dict (rather than a strict union) is intentional — see module docstring.
 ContentBlock = dict[str, Any]
 
 
@@ -26,9 +24,8 @@ class Message(ExtraAllowModel):
 
 
 class Tool(ExtraAllowModel):
-    # Custom tools carry `name` + `input_schema` (and either no `type` or
-    # `type == "custom"`). Server tools (web_search, bash, text_editor, …)
-    # carry a versioned `type` like "web_search_20250305".
+    # Custom tools carry no `type`, or `"custom"`; server tools carry a
+    # versioned one like "web_search_20250305".
     name: str | None = None
     description: str | None = None
     input_schema: dict[str, Any] | None = None
@@ -43,19 +40,15 @@ class ThinkingConfig(ExtraAllowModel):
     @field_validator("budget_tokens", mode="before")
     @classmethod
     def _drop_bool(cls, value: Any) -> Any:
-        # Python's `bool` is an `int` subclass and pydantic coerces `True` to 1,
-        # which the effort ladder would then read as a real budget.
+        # `bool` is an `int` subclass and pydantic coerces `True` to 1, which
+        # the effort ladder would then read as a real budget.
         return None if isinstance(value, bool) else value
 
 
 class OutputConfig(ExtraAllowModel):
-    # Anthropic effort levels are `low | medium | high | max`. Typed as a plain
-    # string (like `ThinkingConfig.type`) so an unexpected value survives to be
-    # mapped or dropped by the converter rather than rejected at validation.
+    # Loosely typed so an unexpected value reaches the converter to be mapped
+    # or dropped, rather than being rejected at validation.
     effort: str | None = None
-    # Structured-output constraint, e.g. `{"type": "json_schema", "schema":
-    # {...}}`. Kept as a raw dict (like `Tool.input_schema`) so the converter
-    # can validate/drop it defensively rather than rejecting at validation.
     format: dict[str, Any] | None = None
 
 
@@ -86,8 +79,8 @@ class MessagesRequest(ExtraAllowModel):
     metadata: Metadata | None = None
     service_tier: str | None = None
     stream: bool | None = None
-    # Declared only so the converters can detect and warn-drop them with a
-    # typed attribute access rather than an untyped `getattr`; never forwarded.
+    # Declared only so the converters can warn-drop them by attribute access
+    # rather than an untyped `getattr`; never forwarded.
     mcp_servers: list[Any] | None = None
     container: Any | None = None
     inference_geo: Any | None = None

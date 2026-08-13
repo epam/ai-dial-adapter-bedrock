@@ -2,19 +2,24 @@ import random
 
 import pytest
 
+from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
+    MessagesRequest,
+)
 from aidial_adapter_bedrock.anthropic_translator.stop_sequences import (
+    StopMatch,
     StopSequenceMatcher,
     apply_stop_sequences,
+    emulated_stop_sequences,
     strips_stop_parameter,
 )
 
 
-def stream(sequences: list[str], chunks: list[str]) -> tuple[str, str | None]:
+def stream(sequences: list[str], chunks: list[str]) -> StopMatch:
     """Feed `chunks` through the incremental matcher and collect what a client
     would have seen."""
     matcher = StopSequenceMatcher(sequences)
     emitted = "".join(matcher.push(chunk) for chunk in chunks)
-    return emitted + matcher.flush(), matcher.matched
+    return StopMatch(text=emitted + matcher.flush(), sequence=matcher.matched)
 
 
 @pytest.mark.parametrize(
@@ -37,9 +42,8 @@ def stream(sequences: list[str], chunks: list[str]) -> tuple[str, str | None]:
     ],
 )
 def test_batch_matching(text, sequences, expected_text, expected_match):
-    assert apply_stop_sequences(text, sequences) == (
-        expected_text,
-        expected_match,
+    assert apply_stop_sequences(text, sequences) == StopMatch(
+        text=expected_text, sequence=expected_match
     )
 
 
@@ -60,7 +64,9 @@ def test_batch_matching(text, sequences, expected_text, expected_match):
     ],
 )
 def test_streaming_matching(sequences, chunks, expected_text, expected_match):
-    assert stream(sequences, chunks) == (expected_text, expected_match)
+    assert stream(sequences, chunks) == StopMatch(
+        text=expected_text, sequence=expected_match
+    )
 
 
 def test_content_after_a_match_is_suppressed():
@@ -125,3 +131,27 @@ def test_stop_unsupported_prefixes_are_configurable(monkeypatch):
 def test_an_empty_prefix_list_disables_stripping(monkeypatch):
     monkeypatch.setenv("TRANSLATOR_STOP_UNSUPPORTED_DEPLOYMENTS", "")
     assert strips_stop_parameter("gpt-5.5") is False
+
+
+@pytest.mark.parametrize(
+    "deployment, sequences, expected",
+    [
+        # The deployment rejects `stop`, so the sequences come back to be
+        # reproduced on the response path.
+        ("gpt-5.5", ["STOP"], ["STOP"]),
+        ("gpt-5.5", None, []),
+        # The deployment takes `stop`, so nothing needs emulating.
+        ("gpt-4o", ["STOP"], []),
+        ("gpt-4o", None, []),
+    ],
+)
+def test_only_a_stop_stripping_deployment_emulates(
+    deployment, sequences, expected
+):
+    req = MessagesRequest.model_validate(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "stop_sequences": sequences,
+        }
+    )
+    assert emulated_stop_sequences(req, deployment) == expected

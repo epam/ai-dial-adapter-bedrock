@@ -14,11 +14,16 @@ A pure HTTP protocol translator: it re-enters DIAL Core at
 `/openai/deployments/{deployment}/chat/completions` and never touches AWS.
 """
 
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from openai import AsyncOpenAI, AsyncStream, Omit
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
+from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
+    MessagesRequest,
+)
 from aidial_adapter_bedrock.anthropic_translator.capabilities import (
     DeploymentProfile,
     parse_deployment_profile,
@@ -36,7 +41,9 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_comple
 from aidial_adapter_bedrock.anthropic_translator.common import (
     build_endpoint,
     not_found,
-    prepare,
+    parse_request,
+    require_base_url,
+    resolve_deployment,
     stream_response,
 )
 from aidial_adapter_bedrock.anthropic_translator.core_client import (
@@ -44,34 +51,40 @@ from aidial_adapter_bedrock.anthropic_translator.core_client import (
     core_headers,
 )
 from aidial_adapter_bedrock.anthropic_translator.stop_sequences import (
-    strips_stop_parameter,
+    emulated_stop_sequences,
+)
+from aidial_adapter_bedrock.anthropic_translator.tool_names import (
+    ToolNameAliases,
 )
 
 app = FastAPI()
 
 
 async def _handle_messages(request: Request) -> Response:
-    # `model` is also the DIAL deployment name here: Chat Completions addresses
-    # models per-deployment, unlike the Responses API.
-    base_url, req, deployment = await prepare(request)
+    base_url: str = require_base_url()
+    req: MessagesRequest = await parse_request(request)
+    # Chat Completions addresses models per deployment, so this names both the
+    # URL path segment and the body's `model`.
+    deployment: str = resolve_deployment(request, req)
     # Capabilities arrive on the inbound request, so this handler makes exactly
     # one outbound call.
     profile: DeploymentProfile = parse_deployment_profile(request.headers)
+    aliases: ToolNameAliases = ToolNameAliases()
+    emulated_stop: list[str] = emulated_stop_sequences(req, deployment)
 
-    body: CoreChatCompletionRequest
-    body, aliases = to_chat_completions_request(req, deployment, profile)
-    data = body.model_dump(mode="json", exclude_none=True, exclude={"stream"})
+    body: CoreChatCompletionRequest = to_chat_completions_request(
+        req, deployment, profile, aliases
+    )
+    data: dict[str, Any] = body.model_dump(
+        mode="json", exclude_none=True, exclude={"stream"}
+    )
     # `custom_fields` isn't part of the SDK's typed `create()` signature, so
-    # it rides in `extra_body` instead (only set when non-empty).
+    # it rides in `extra_body` instead.
     custom_fields = data.pop("custom_fields", None)
     extra_body = {"custom_fields": custom_fields} if custom_fields else None
+
     client: AsyncOpenAI = core_chat_completions_client(base_url, deployment)
     headers: dict[str, str | Omit] = core_headers(request.headers)
-
-    # Sequences the outbound body deliberately omitted, to be reproduced here.
-    emulated_stop: list[str] = (
-        req.stop_sequences or [] if strips_stop_parameter(deployment) else []
-    )
 
     if req.stream:
         events: AsyncStream[

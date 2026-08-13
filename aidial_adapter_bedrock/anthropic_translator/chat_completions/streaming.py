@@ -88,9 +88,8 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
             events.extend(self._on_choice(chunk.choices[0]))
 
         if chunk.usage is not None:
-            # Remember it, but don't treat its arrival as terminal on its own:
-            # some adapters attach usage to a chunk that still has content
-            # coming, and ending there would stop the message mid-flight.
+            # Not terminal on its own: some adapters attach usage to a chunk
+            # that still has content coming.
             self.usage = chunk.usage
             if not chunk.choices or self.finish_reason is not None:
                 events.extend(self.finalize())
@@ -135,8 +134,8 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
 
         events: list[bytes] = []
         for stage in custom_content.stages or []:
-            # A stage's name arrives only on its first delta, so which index is
-            # the reasoning stage is recorded and later deltas keyed off it.
+            # A stage's name arrives only on its first delta, so later deltas
+            # are keyed off the recorded index.
             if is_reasoning_stage(stage.name):
                 self._reasoning_stages.add(stage.index)
             if stage.index in self._reasoning_stages and stage.content:
@@ -165,11 +164,11 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
 
     def _signature_delta(self, signature: str) -> list[bytes]:
         if not self.is_open(_THINKING_KEY):
-            # A delta cannot be sent to a closed block, so the client loses the
-            # ability to replay this one.
+            # A delta cannot be sent to a closed block, so the client loses
+            # the ability to replay this one.
             log.warning("Thinking signature arrived after the block closed")
             return []
-        # A signed block is complete.
+        # A signed block is complete, so nothing may join it.
         events = self.delta(
             SignatureDelta(type="signature_delta", signature=signature)
         )
@@ -193,8 +192,8 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         return self._emit_text(self._stop.flush())
 
     def _on_annotation(self, citation: AnnotationURLCitation) -> list[bytes]:
-        # `delta.annotations` is not uniformly delta-encoded: several adapters
-        # resend the whole accumulated array on every chunk.
+        # Not uniformly delta-encoded: several adapters resend the whole
+        # accumulated array on every chunk.
         if not citation.url or citation.url in self._seen_citations:
             return []
         self._seen_citations.add(citation.url)
@@ -245,8 +244,8 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
 
         events: list[bytes] = []
         if not self.started:
-            # An upstream that yielded no chunks at all — a 200 with an empty
-            # body, a dropped connection — still needs a message to attach to.
+            # An upstream that yielded no chunks — a 200 with an empty body, a
+            # dropped connection — still needs a message to attach to.
             events.extend(self._start())
         events.extend(self._flush_text())
         if self.next_index == 0:

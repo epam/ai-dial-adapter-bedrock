@@ -15,34 +15,51 @@ start offset instead would make the batch path pick `abXY`, truncating the same
 completion differently in the two modes.
 """
 
+from pydantic import BaseModel
+
+from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
+    MessagesRequest,
+)
 from aidial_adapter_bedrock.anthropic_translator.settings import (
     get_stop_unsupported_deployments,
 )
+
+
+class StopMatch(BaseModel):
+    """Text truncated before the sequence that completed earliest, and the
+    sequence that matched."""
+
+    text: str
+    sequence: str | None = None
 
 
 def strips_stop_parameter(deployment: str) -> bool:
     return deployment.lower().startswith(get_stop_unsupported_deployments())
 
 
-def apply_stop_sequences(
-    text: str, sequences: list[str]
-) -> tuple[str, str | None]:
-    """Truncate `text` before the sequence that completes earliest, returning
-    it with the sequence that matched (`None` when none did)."""
+def emulated_stop_sequences(req: MessagesRequest, deployment: str) -> list[str]:
+    """The sequences the outbound body deliberately omitted, to be reproduced
+    on the response path."""
+    if not strips_stop_parameter(deployment):
+        return []
+    return req.stop_sequences or []
+
+
+def apply_stop_sequences(text: str, sequences: list[str]) -> StopMatch:
     best: tuple[int, int, str] | None = None
     for sequence in sequences:
         if not sequence or (start := text.find(sequence)) < 0:
             continue
-        # Ties on the end offset go to the earlier start; both are compared at
-        # once because the tuple orders by end first.
+        # Ties on the end offset go to the earlier start; the tuple orders by
+        # end first, so both are compared at once.
         candidate = (start + len(sequence), start, sequence)
         if best is None or candidate < best:
             best = candidate
 
     if best is None:
-        return text, None
+        return StopMatch(text=text)
     _, start, sequence = best
-    return text[:start], sequence
+    return StopMatch(text=text[:start], sequence=sequence)
 
 
 class StopSequenceMatcher:
@@ -66,12 +83,11 @@ class StopSequenceMatcher:
             return ""
 
         self._pending += text
-        emitted, self.matched = apply_stop_sequences(
-            self._pending, self._sequences
-        )
-        if self.matched is not None:
+        match: StopMatch = apply_stop_sequences(self._pending, self._sequences)
+        if match.sequence is not None:
+            self.matched = match.sequence
             self._pending = ""
-            return emitted
+            return match.text
 
         # A single-character sequence withholds nothing, so this must emit
         # eagerly rather than buffer forever.

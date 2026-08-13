@@ -41,7 +41,6 @@ _PLACEHOLDER_API_KEY = "-"
 def get_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         # No read timeout: a streaming response may idle between chunks.
-        # Callers that need one (the model catalog) pass it per request.
         timeout=httpx.Timeout(
             _CONNECT_TIMEOUT, read=None, write=None, pool=_CONNECT_TIMEOUT
         ),
@@ -66,33 +65,23 @@ def core_chat_completions_client(base_url: str, deployment: str) -> AsyncOpenAI:
     )
 
 
-def caller_credential(headers: Headers) -> tuple[str, str] | None:
-    """The caller's credential as the header name and value to resend it under.
-
-    The translator holds no credentials of its own; Core accepts either form,
-    including a raw key presented as `Authorization: Bearer <key>`.
-    """
-    if api_key := headers.get("api-key"):
-        return "api-key", api_key
-    if authorization := headers.get("authorization"):
-        return "Authorization", authorization
-    return None
-
-
 def core_headers(headers: Headers) -> dict[str, str | Omit]:
     """Headers for the call to Core: the caller's credential in the same header
     it arrived in, plus any tracing headers.
 
-    Anthropic-specific headers (`anthropic-version`, `anthropic-beta`) are
-    deliberately NOT forwarded — neither upstream understands them and they
-    must not leak.
+    The translator holds no credentials of its own; Core accepts either form,
+    including a raw key presented as `Authorization: Bearer <key>`.
+    `anthropic-version` and `anthropic-beta` are deliberately not forwarded —
+    the upstream does not understand them and they must not leak.
     """
     # `omit` suppresses the bearer header the SDK would derive from the
     # placeholder api_key. A real bearer token overwrites it below.
     result: dict[str, str | Omit] = {"Authorization": omit}
 
-    if credential := caller_credential(headers):
-        result[credential[0]] = credential[1]
+    if api_key := headers.get("api-key"):
+        result["api-key"] = api_key
+    elif authorization := headers.get("authorization"):
+        result["Authorization"] = authorization
 
     for name in _TRACE_HEADERS:
         if value := headers.get(name):
