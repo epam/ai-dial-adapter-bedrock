@@ -9,8 +9,7 @@ from aidial_sdk.utils.merge_chunks import (
     cleanup_indices,
     merge_chat_completion_chunks,
 )
-from openai import AsyncAzureOpenAI, AsyncStream
-from openai._types import NOT_GIVEN
+from openai import AsyncAzureOpenAI, AsyncStream, omit
 from openai.types import CompletionUsage
 from openai.types.chat import (
     ChatCompletion,
@@ -289,11 +288,11 @@ async def chat_completion(
             max_tokens=kwargs.get("max_tokens"),
             temperature=kwargs.get("temperature"),
             n=kwargs.get("n"),
-            function_call="auto" if functions is not None else NOT_GIVEN,
-            functions=NOT_GIVEN if functions is None else functions,
-            tool_choice=tool_choice or NOT_GIVEN,
-            tools=NOT_GIVEN if tools is None else tools,
-            response_format=response_format or NOT_GIVEN,
+            function_call="auto" if functions is not None else omit,
+            functions=omit if functions is None else functions,
+            tool_choice=tool_choice or omit,
+            tools=omit if tools is None else tools,
+            response_format=response_format or omit,
             extra_body=extra_body,
         )
 
