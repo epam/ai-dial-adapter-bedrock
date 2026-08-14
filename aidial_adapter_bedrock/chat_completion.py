@@ -56,17 +56,24 @@ class BedrockChatCompletion(ChatCompletion):
         )
 
     async def _get_model(
-        self, request: FromRequestDeploymentMixin
+        self,
+        request: FromRequestDeploymentMixin,
+        sub_request: ChatCompletionRequest | None = None,
     ) -> ChatCompletionAdapter:
+        if sub_request is not None:
+            adapter_request = sub_request
+        elif isinstance(request, Request):
+            adapter_request = request
+        else:
+            adapter_request = None
+
         return await get_bedrock_adapter(
             deployment=self._get_deployment(request),
             api_key=request.api_key,
             upstream_config=await parse_upstream_config(
                 request.original_request
             ),
-            request=request
-            if isinstance(request, Request | TokenizeRequest)
-            else None,
+            request=adapter_request,
         )
 
     @override
@@ -99,16 +106,16 @@ class BedrockChatCompletion(ChatCompletion):
     @dial_exception_decorator
     @not_implemented_handler
     async def tokenize(self, request: TokenizeRequest) -> TokenizeResponse:
-        model = await self._get_model(request)
-
         outputs: list[TokenizeOutput] = []
         for input in request.inputs:
             match input:
                 case TokenizeInputRequest():
+                    model = await self._get_model(request, input.value)
                     outputs.append(
                         await self._tokenize_request(model, input.value)
                     )
                 case TokenizeInputString():
+                    model = await self._get_model(request)
                     outputs.append(
                         await self._tokenize_string(model, input.value)
                     )
@@ -150,10 +157,9 @@ class BedrockChatCompletion(ChatCompletion):
     async def truncate_prompt(
         self, request: TruncatePromptRequest
     ) -> TruncatePromptResponse:
-        model = await self._get_model(request)
-
         outputs: list[TruncatePromptResult] = []
         for input in request.inputs:
+            model = await self._get_model(request, input)
             outputs.append(await self._truncate_prompt_request(model, input))
         return TruncatePromptResponse(outputs=outputs)
 

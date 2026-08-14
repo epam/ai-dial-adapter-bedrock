@@ -1,8 +1,7 @@
 from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
-from aidial_sdk.chat_completion import Request as ChatCompletionRequest
-from aidial_sdk.deployment.tokenize import TokenizeRequest
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.claude.adapter as anthropic_claude
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -45,7 +44,7 @@ async def get_bedrock_adapter(
     deployment: AdapterChatCompletionDeployment,
     api_key: str,
     upstream_config: UpstreamConfig,
-    request: ChatCompletionRequest | TokenizeRequest | None,
+    request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
     async def get_bedrock_client():
         return await Bedrock.acreate(upstream_config)
