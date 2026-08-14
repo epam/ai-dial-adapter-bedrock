@@ -1,6 +1,6 @@
 from typing import Literal
 
-from aidial_sdk.chat_completion import Request as ChatCompletionRequest
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import Field
 
 from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel

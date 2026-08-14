@@ -62,10 +62,14 @@ def _make_bedrock(count_tokens_result: dict) -> Bedrock:
 
 @pytest.mark.parametrize("deployment", list(CCD), ids=lambda d: d.value)
 def test_tokenizer_factory_routing(deployment: CCD):
-    """Only the designated models must route to the upstream tokenizer;
-    everyone else must keep computing tokens offline."""
     if deployment in _STABILITY_DEPLOYMENTS:
-        with pytest.raises(ValueError, match="Stability AI"):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Stability AI deployments are not supported by "
+                "Converse API adapter."
+            ),
+        ):
             _get_tokenizer_factory(deployment)
     elif deployment in _UPSTREAM_TOKENIZER_DEPLOYMENTS:
         assert (
@@ -80,8 +84,6 @@ def test_tokenizer_factory_routing(deployment: CCD):
 
 
 async def test_upstream_tokenizer_delegates_to_count_tokens_api():
-    """The upstream tokenizer must call the Bedrock CountTokens API and
-    return its result verbatim, rather than estimating tokens offline."""
     bedrock = _make_bedrock({"inputTokens": 42})
     params = _make_params()
 
@@ -96,7 +98,6 @@ async def test_upstream_tokenizer_delegates_to_count_tokens_api():
 
 
 async def test_default_tokenizer_counts_offline():
-    """The default tokenizer must not touch the upstream CountTokens API."""
     bedrock = _make_bedrock({"inputTokens": 42})
     params = _make_params()
 
