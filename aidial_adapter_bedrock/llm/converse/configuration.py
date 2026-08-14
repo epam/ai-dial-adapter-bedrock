@@ -34,9 +34,7 @@ class ConverseAPIConfiguration(ExtraForbidModel):
     )
 
 
-def has_converse_api_configuration(
-    request: ChatCompletionRequest,
-) -> bool:
+def has_converse_api_configuration(request: ChatCompletionRequest) -> bool:
     configuration = cf.configuration if (cf := request.custom_fields) else None
     return configuration is not None and (
         "performanceConfig" in configuration
