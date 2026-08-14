@@ -31,7 +31,10 @@ def _supports_thinking(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     }
 
 
@@ -48,7 +51,10 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     }
 
 
