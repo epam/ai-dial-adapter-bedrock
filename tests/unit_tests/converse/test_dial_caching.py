@@ -19,10 +19,12 @@ from aidial_sdk.chat_completion.request import (
 )
 
 from aidial_adapter_bedrock.bedrock import Bedrock
+from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.llm.converse import caching as caching_module
 from aidial_adapter_bedrock.llm.converse.caching import get_cache_info
 from aidial_adapter_bedrock.llm.converse.factory import ConverseAdapterFactory
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
+from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 
 
 def _message(
@@ -67,7 +69,10 @@ async def adapter() -> ChatCompletionAdapter:
         )
 
     return await ConverseAdapterFactory(
-        deployment="test-deployment-id",
+        deployment=AdapterDeployment(
+            upstream_deployment_id="test-deployment-id",
+            reference_deployment_id=D.ANTHROPIC_CLAUDE_V3_SONNET,
+        ),
         api_key="test-api-key",
         get_client=get_client,
     ).create()

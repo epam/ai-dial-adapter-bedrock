@@ -189,6 +189,16 @@ class Bedrock:
 
         return to_async_iterator(iter(response["stream"]))
 
+    async def acount_tokens(
+        self, model: str, **params: Unpack[ConverseRequest]
+    ) -> int:
+        response = await make_async(
+            lambda: self.client.count_tokens(
+                modelId=model, input={"converse": params}
+            )
+        )
+        return response["inputTokens"]
+
     def _create_invoke_params(self, model: str, body: dict) -> dict:
         return {
             "modelId": model,
