@@ -63,8 +63,12 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_7_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V4_8_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_FABLE.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -86,7 +90,27 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.AMAZON_NOVA_LITE: _EAST_1,
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
+    D.MINIMAX_M25: _EAST_1,
 }
+
+
+# https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
+def support_legacy_claude_client(deployment: D) -> bool:
+    legacy_client_not_supported = {D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE}
+    return (
+        is_claude(deployment) and deployment not in legacy_client_not_supported
+    )
+
+
+def support_mantle_claude_client(deployment: D) -> bool:
+    return deployment in {
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE,
+        D.ANTHROPIC_CLAUDE_V4_7_OPUS,
+        D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
+    }
 
 
 def is_retired_model(deployment: D) -> bool:
@@ -99,6 +123,8 @@ def is_retired_model(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.META_LLAMA3_2_11B_INSTRUCT_V1,
     }
 
 
@@ -129,10 +155,14 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_1_OPUS,
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
         D.ANTHROPIC_CLAUDE_V4_7_OPUS,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     ]
 
 
@@ -182,6 +212,10 @@ def is_nova(deployment: D) -> bool:
     return "amazon.nova" in deployment.value
 
 
+def is_minimax(deployment: D) -> bool:
+    return "minimax" in deployment.value
+
+
 def is_deepseek(deployment: D) -> bool:
     return "deepseek" in deployment.value
 
@@ -204,6 +238,7 @@ def supports_tools(deployment: D) -> bool:
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
         D.AMAZON_NOVA_MICRO,
+        D.MINIMAX_M25,
         # DeepSeek via Converse API doesn't support tools even though
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
@@ -244,10 +279,13 @@ def supports_document_understanding(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_7_OPUS,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     ]
 
 
@@ -284,10 +322,14 @@ def supports_json_schema_response_format(deployment: D) -> bool:
     ]
 
 
+def supports_stop_sequence(deployment: D) -> bool:
+    return not is_minimax(deployment)
+
+
 def is_reasoning_model(deployment: D) -> bool:
     # The models with reasoning feature enabled by default
     # and no way to disable it.
-    return is_deepseek(deployment)
+    return is_deepseek(deployment) or is_minimax(deployment)
 
 
 @dataclass
@@ -295,41 +337,64 @@ class DeploymentSpec:
     region: str
     deployment: Deployment
     optimized_latency: bool
+    bedrock_client_type: str | None = None
 
     def get_id(self):
         ret = f"{display_deployment(self.deployment)}"
         if self.optimized_latency:
             ret += "-optimized"
+        if self.bedrock_client_type is not None:
+            ret += f"-{self.bedrock_client_type}_client"
         return ret
 
 
-def _deployment_spec(deployments: list[Deployment]):
-    def gen():
-        for deployment in deployments:
-            region = _DEPLOYMENT_TO_REGION.get(deployment)
-            if region is None:
-                raise ValueError(
-                    f"{deployment.value!r} is missing from the region mapping"
-                )
+def _supported_claude_client_types(deployment: Deployment) -> tuple[str, ...]:
+    ret = []
+    if support_legacy_claude_client(deployment.origin):
+        ret.append("legacy")
+    if support_mantle_claude_client(deployment.origin):
+        ret.append("mantle")
+    return tuple(ret)
 
-            opt_latency_regions = (
-                deployments_supporting_optimized_latency.get(deployment.origin)
-                or []
+
+def _deployment_specs(deployments: list[Deployment]):
+    for deployment in deployments:
+        region = _DEPLOYMENT_TO_REGION.get(deployment)
+        if region is None:
+            raise ValueError(
+                f"{deployment.value!r} is missing from the region mapping"
             )
 
-            latencies = [False]
-            if region in opt_latency_regions:
-                latencies.append(True)
+        opt_latency_regions = (
+            deployments_supporting_optimized_latency.get(deployment.origin)
+            or []
+        )
 
-            for latency in latencies:
+        latencies = [False]
+        if region in opt_latency_regions:
+            latencies.append(True)
+
+        bedrock_client_types: tuple[str | None, ...] = (
+            _supported_claude_client_types(deployment)
+            if is_claude(deployment.origin)
+            else (None,)
+        )
+
+        for latency in latencies:
+            for bedrock_client_type in bedrock_client_types:
                 yield DeploymentSpec(
                     region=region,
                     deployment=deployment,
                     optimized_latency=latency,
+                    bedrock_client_type=bedrock_client_type,
                 )
 
+
+def _deployment_spec(deployments: list[Deployment]):
     return pytest.mark.parametrize(
-        "deployment_spec", list(gen()), ids=lambda x: x.get_id()
+        "deployment_spec",
+        list(_deployment_specs(deployments)),
+        ids=lambda x: x.get_id(),
     )
 
 
@@ -370,8 +435,18 @@ def create_message_with_image(request) -> Callable:
 
 
 @pytest.fixture
-def bedrock_client_type(request) -> str | None:
-    return getattr(request, "param", None)
+def bedrock_client_type(request, deployment_spec: DeploymentSpec) -> str | None:
+    return getattr(request, "param", deployment_spec.bedrock_client_type)
+
+
+def _request_deployment_id(
+    deployment: Deployment, bedrock_client_type: str | None
+) -> str:
+    return (
+        deployment.origin.value
+        if bedrock_client_type == "mantle" and is_claude(deployment.origin)
+        else deployment.value
+    )
 
 
 @pytest.fixture
@@ -381,17 +456,14 @@ def openai_client(
     get_openai_client,
     bedrock_client_type: str | None,
 ):
+    deployment_id = _request_deployment_id(deployment, bedrock_client_type)
     extra_headers = (
-        {
-            "x-upstream-extra-data": json.dumps(
-                {"claude_client": bedrock_client_type}
-            )
-        }
+        {"claude_client": bedrock_client_type}
         if bedrock_client_type is not None
         else None
     )
     return get_openai_client(
-        deployment.value, region=region, extra_headers=extra_headers
+        deployment_id, region=region, extra_headers=extra_headers
     )
 
 
@@ -457,9 +529,14 @@ async def test_dialog_recall(deployment: Deployment, chat: Chat):
 
 
 @_deployment_spec(deployments)
-async def test_model_field(deployment: Deployment, chat: Chat):
+async def test_model_field(
+    deployment: Deployment, bedrock_client_type: str | None, chat: Chat
+):
     response = await chat(messages=[user("test")], max_tokens=1)
-    assert deployment.value == response.response.model
+    assert (
+        _request_deployment_id(deployment, bedrock_client_type)
+        == response.response.model
+    )
 
 
 @_deployment_spec(deployments)
@@ -571,6 +648,7 @@ async def test_empty_user_message(
         or is_llama(origin)
         or is_nova(origin)
         or is_deepseek(origin)
+        or is_minimax(origin)
     ):
         message = converse_api_error_message
     else:
@@ -663,7 +741,7 @@ async def test_finish_reason_length(chat: Chat):
     assert response.finish_reasons == ["length"]
 
 
-@_deployment_spec(deployments)
+@_deployment_spec(select(pred(supports_stop_sequence), deployments))
 async def test_stop_sequence(chat: Chat):
     stop = ["cat", "dog", "fish"]
     response = await chat(

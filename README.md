@@ -75,12 +75,16 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
-|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Opus|anthropic.claude-opus-4-6-v1|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Sonnet|anthropic.claude-sonnet-4-6|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Haiku (Mantle)|anthropic.claude-haiku-4-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.1 Opus|anthropic.claude-opus-4-1-20250805-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -92,6 +96,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|MiniMax|MiniMax M2.5|minimax.minimax-m2.5|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Scout 17B Instruct|meta.llama4-scout-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Maverick 17B Instruct|meta.llama4-maverick-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
@@ -115,7 +120,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 
-✅, 🟡, and ❌ denote degrees of support of the given feature:
+✅, 🟢, 🟡, and ❌ denote degrees of support of the given feature.
+
+For Claude models that support client choice (`mantle` or `legacy`), feature support varies by client.
 
 ||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
 |---|---|---|---|
@@ -199,6 +206,9 @@ When it happens, you are forfeiting all the features exclusive to the Anthropic 
 ##### Claude models
 
 The configuration of the Claude models _(extended thinking, reasoning level, beta feature flags, citations)_ is documented in the [Anthropic adapter README](https://github.com/epam/ai-dial-adapter-anthropic/blob/0.16.0/README.md#configuration).
+
+> [!NOTE]
+> For Anthropic Claude Fable 5 to work properly, [additional settings for Data Retention](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5.html#model-card-anthropic-claude-fable-5-data-retention) are required.
 
 ##### Stability AI models
 
@@ -660,6 +670,7 @@ The `claude_client` field selects which AWS Bedrock integration is used for Clau
 - `converse` for the [Converse API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html) integration for Claude models
 
 For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` use precise prompt token counting.
 
 ## Authentication
 
@@ -669,6 +680,8 @@ Authentication with AWS Bedrock is configured either:
 
 1. globally via `AWS_*` environment vars, or
 2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
+
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` require the `bedrock-mantle:CountTokens` IAM permission for exact prompt token counting.
 
 ### Anthropic API
 

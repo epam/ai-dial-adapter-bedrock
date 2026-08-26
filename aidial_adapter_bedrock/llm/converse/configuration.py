@@ -1,6 +1,6 @@
 from typing import Literal
 
-from aidial_sdk.chat_completion import Request
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import Field
 
 from aidial_adapter_bedrock.upstream_config import (
@@ -39,7 +39,7 @@ class ConverseAPIConfiguration(ExtraForbidModel):
 
 
 def has_converse_api_configuration(
-    request: Request | None, upstream_config: UpstreamConfig
+    request: ChatCompletionRequest | None, upstream_config: UpstreamConfig
 ) -> bool:
     cond1 = None
     if request:

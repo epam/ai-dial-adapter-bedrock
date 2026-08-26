@@ -20,9 +20,6 @@ from aidial_adapter_bedrock.llm.chat_model import (
 from aidial_adapter_bedrock.llm.converse.configuration import (
     ConverseAPIConfiguration,
 )
-from aidial_adapter_bedrock.llm.converse.default_tokenizer import (
-    default_converse_tokenizer_factory,
-)
 from aidial_adapter_bedrock.llm.converse.input import (
     extract_converse_system_prompt,
     to_converse_messages,
@@ -37,6 +34,9 @@ from aidial_adapter_bedrock.llm.converse.request_metadata import (
 )
 from aidial_adapter_bedrock.llm.converse.request_metadata import (
     is_enabled as is_request_metadata_enabled,
+)
+from aidial_adapter_bedrock.llm.converse.tokenizers import (
+    default_converse_tokenizer_factory,
 )
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
@@ -73,7 +73,7 @@ class ConverseAdapter(ChatCompletionAdapter):
 
     tokenize_text: Callable[[str], int] = default_tokenize_string
     input_tokenizer_factory: Callable[
-        [ConverseDeployment, ConverseRequestWrapper],
+        [ConverseDeployment, Bedrock, ConverseRequestWrapper],
         Callable[[ConverseMessages], Awaitable[int]],
     ] = default_converse_tokenizer_factory
 
@@ -92,7 +92,9 @@ class ConverseAdapter(ChatCompletionAdapter):
 
         discarded_messages, messages = await truncate_prompt(
             messages=params.messages.lst,
-            tokenizer=self.input_tokenizer_factory(self.deployment, params),
+            tokenizer=self.input_tokenizer_factory(
+                self.deployment, self.bedrock, params
+            ),
             keep_message=keep_last,
             partitioner=self.partitioner,
             model_limit=None,
@@ -115,7 +117,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     ) -> int:
         converse_params = await self.construct_converse_params(messages, params)
         return await self.input_tokenizer_factory(
-            self.deployment, converse_params
+            self.deployment, self.bedrock, converse_params
         )(converse_params.messages.lst)
 
     async def count_completion_tokens(self, string: str) -> int:

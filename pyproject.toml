@@ -23,9 +23,9 @@ Repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 package-mode = false
 
 [tool.poetry.dependencies]
-aidial-adapter-anthropic = { "version" = "0.16.0", extras = ["bedrock"] }
-boto3 = "1.37.24"
-botocore = "1.37.24"
+aidial-adapter-anthropic = { "version" = "0.17.0", extras = ["bedrock"] }
+boto3 = "1.43.56"
+botocore = "1.43.56"
 aidial-sdk = { version = "0.39.0", extras = ["telemetry"] }
 anthropic = { version = "0.105.0", extras = ["bedrock"] }
 fastapi = "0.135.1"

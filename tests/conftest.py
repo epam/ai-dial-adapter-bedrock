@@ -47,8 +47,14 @@ def get_openai_client(test_http_client: httpx.AsyncClient):
         region: str | None = None,
         extra_headers: dict | None = None,
     ) -> AsyncAzureOpenAI:
-        default_headers = (extra_headers or {}) | (
-            _get_extra_headers(region) if region else {}
+        headers = {}
+        if extra_headers:
+            headers.update(extra_headers)
+        if region:
+            headers["region"] = region
+
+        default_headers = (
+            {"x-upstream-extra-data": json.dumps(headers)} if headers else None
         )
         return AsyncAzureOpenAI(
             azure_endpoint=str(test_http_client.base_url),
