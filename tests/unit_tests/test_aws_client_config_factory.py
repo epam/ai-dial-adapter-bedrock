@@ -11,6 +11,7 @@ from aidial_adapter_bedrock.upstream_config import (
     AWSAssumeRoleCredentials,
     ClientCredentialArgs,
     CloudUpstreamConfig,
+    SessionTag,
     parse_upstream_config,
 )
 
@@ -126,7 +127,7 @@ class TestAWSClientConfigFactory:
         assert conf.region == "test-region"
         assert conf.claude_client == "legacy"
 
-        _expiration, creds = await conf.get_credentials()
+        _expiration, creds = await conf.get_credentials(session_tags=None)
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
         assert creds.aws_secret_access_key == "key"  # noqa: S105
@@ -154,11 +155,77 @@ class TestAWSClientConfigFactory:
         assert conf.region == "test-region"
         assert conf.claude_client == "legacy"
 
-        _expiration, creds = await conf.get_credentials()
+        _expiration, creds = await conf.get_credentials(session_tags=None)
         assert creds is not None
         assert creds.aws_access_key_id == "key_id"
         assert creds.aws_secret_access_key == "key"  # noqa: S105
         assert creds.aws_session_token == "session_token"  # noqa: S105
+
+    async def test_assume_role_passes_session_tags(self, monkeypatch):
+        captured: dict = {}
+
+        class _Sts:
+            def assume_role(self, **kwargs):
+                captured.update(kwargs)
+                return {
+                    "Credentials": {
+                        "Expiration": datetime.now(),
+                        "AccessKeyId": "a",
+                        "SecretAccessKey": "s",
+                        "SessionToken": "t",
+                    }
+                }
+
+        class _Session:
+            def client(self, *args, **kwargs):
+                return _Sts()
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.upstream_config.boto3.Session",
+            lambda: _Session(),
+        )
+
+        creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
+        tags: list[SessionTag] = [{"Key": "project", "Value": "epam"}]
+
+        _expiration, creds = await creds_config.get_credentials(
+            "us-east-1", tags
+        )
+
+        assert captured["RoleArn"] == "arn"
+        assert captured["RoleSessionName"] == "BedrockAccessSession"
+        assert captured["Tags"] == tags
+        assert creds.aws_access_key_id == "a"
+
+    async def test_assume_role_omits_tags_when_empty(self, monkeypatch):
+        captured: dict = {}
+
+        class _Sts:
+            def assume_role(self, **kwargs):
+                captured.update(kwargs)
+                return {
+                    "Credentials": {
+                        "Expiration": datetime.now(),
+                        "AccessKeyId": "a",
+                        "SecretAccessKey": "s",
+                        "SessionToken": "t",
+                    }
+                }
+
+        class _Session:
+            def client(self, *args, **kwargs):
+                return _Sts()
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.upstream_config.boto3.Session",
+            lambda: _Session(),
+        )
+
+        creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
+
+        await creds_config.get_credentials("us-east-1", None)
+
+        assert "Tags" not in captured
 
     async def test__get_client_config__api_key_config(self):
         request = self._get_request(api_key="api-key")

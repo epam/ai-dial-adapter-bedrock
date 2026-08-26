@@ -1,26 +1,34 @@
 import json
-import os
-import re
 from typing import Any
 
 from aidial_client import UserInfo
 
+from aidial_adapter_bedrock.dial_api.client import create_dial_client
+from aidial_adapter_bedrock.upstream_config import (
+    AWSAssumeRoleCredentials,
+    CloudUpstreamConfig,
+    SessionTag,
+    UpstreamConfig,
+)
+from aidial_adapter_bedrock.utils.env import get_env_list
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-CONVERSE_API_REQUEST_METADATA_FIELDS = os.getenv(
-    "CONVERSE_API_REQUEST_METADATA_FIELDS"
+CONVERSE_API_SESSION_TAGS_FIELDS = get_env_list(
+    "CONVERSE_API_SESSION_TAGS_FIELDS"
 )
 
-_MAX_ENTRIES = 16
-_MAX_KEY_LEN = 256
+# AWS STS session tag constraints:
+# https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations
+_MAX_ENTRIES = 50
+_MAX_KEY_LEN = 128
 _MAX_VALUE_LEN = 256
-_ALLOWED = re.compile(r"[^a-zA-Z0-9\s:_@$#=/+,.\-]")
 
 
-def is_enabled() -> bool:
-    return bool(
-        CONVERSE_API_REQUEST_METADATA_FIELDS
-        and CONVERSE_API_REQUEST_METADATA_FIELDS.strip()
+def is_enabled(upstream_config: UpstreamConfig) -> bool:
+    return (
+        bool(CONVERSE_API_SESSION_TAGS_FIELDS)
+        and isinstance(upstream_config, CloudUpstreamConfig)
+        and isinstance(upstream_config.credentials, AWSAssumeRoleCredentials)
     )
 
 
@@ -36,20 +44,20 @@ def _get_element_at_path(node: Any, path: str) -> Any:
 
 
 def resolve_paths(
-    data: dict[str, Any], config: str | None = None
+    data: dict[str, Any], paths: list[str] | None = None
 ) -> dict[str, str]:
-    if not config:
+    if not paths:
         return {}
 
     result: dict[str, str] = {}
-    for path in (p.strip() for p in config.split(",")):
+    for path in paths:
         if not path:
             continue
         try:
             element = _get_element_at_path(data, path)
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             log.warning(
-                f"Skipping unresolved Converse requestMetadata path "
+                f"Skipping unresolved AWS STS session tags path "
                 f"{path!r}: {type(exc).__name__}: {exc}"
             )
             continue
@@ -61,7 +69,7 @@ def _format_paths(paths: list[str]) -> str:
     return ", ".join(paths)
 
 
-def _to_bedrock_metadata(flat: dict[str, str]) -> dict[str, str]:
+def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
     safe: dict[str, str] = {}
     changed_keys: list[str] = []
     changed_values: list[str] = []
@@ -73,14 +81,14 @@ def _to_bedrock_metadata(flat: dict[str, str]) -> dict[str, str]:
         if len(safe) >= _MAX_ENTRIES:
             omitted = [path for path, _ in items[index:]]
             log.warning(
-                f"Converse requestMetadata entry cap reached; "
+                f"AWS STS session tags entry cap reached; "
                 f"omitted {len(omitted)} configured path(s): "
                 f"{_format_paths(omitted)}"
             )
             break
 
-        safe_key = _ALLOWED.sub("", key)[:_MAX_KEY_LEN]
-        safe_value = _ALLOWED.sub("", value)[:_MAX_VALUE_LEN]
+        safe_key = key[:_MAX_KEY_LEN]
+        safe_value = value[:_MAX_VALUE_LEN]
 
         if safe_key != key:
             changed_keys.append(key)
@@ -97,30 +105,53 @@ def _to_bedrock_metadata(flat: dict[str, str]) -> dict[str, str]:
 
     if changed_keys:
         log.warning(
-            f"Sanitized Converse requestMetadata key(s): "
+            f"Sanitized AWS STS session tags key(s): "
             f"{_format_paths(changed_keys)}"
         )
     if changed_values:
         log.warning(
-            f"Sanitized Converse requestMetadata value(s) for path(s): "
+            f"Sanitized AWS STS session tags value(s) for path(s): "
             f"{_format_paths(changed_values)}"
         )
     if empty_keys:
         log.warning(
-            f"Dropped Converse requestMetadata path(s) with empty sanitized "
+            f"Dropped AWS STS session tags path(s) with empty sanitized "
             f"key(s): {_format_paths(empty_keys)}"
         )
     if collisions:
         log.warning(
-            f"Dropped Converse requestMetadata path(s) whose sanitized key "
+            f"Dropped AWS STS session tags path(s) whose sanitized key "
             f"collides with an earlier entry: {_format_paths(collisions)}"
         )
 
-    return safe
+    return [{"Key": key, "Value": value} for key, value in safe.items()]
 
 
-def from_user_info(user_info: UserInfo) -> dict[str, str]:
+def from_user_info(user_info: UserInfo) -> list[SessionTag]:
     data = user_info.model_dump(mode="json")
-    return _to_bedrock_metadata(
-        resolve_paths(data, CONVERSE_API_REQUEST_METADATA_FIELDS)
-    )
+    resolved = resolve_paths(data, CONVERSE_API_SESSION_TAGS_FIELDS)
+    ret = _to_session_tags(resolved)
+    log.debug(f"Built AWS STS session tags: {ret}")
+    return ret
+
+
+async def resolve_session_tags(
+    api_key: str, upstream_config: UpstreamConfig
+) -> list[SessionTag] | None:
+    if not is_enabled(upstream_config):
+        return None
+
+    dial_client = create_dial_client(api_key)
+    if dial_client is None:
+        return None
+
+    try:
+        user_info = await dial_client.user.info()
+    except Exception as exc:
+        log.warning(
+            f"Skipping AWS STS session tags; failed to fetch DIAL user info: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return None
+
+    return from_user_info(user_info) or None

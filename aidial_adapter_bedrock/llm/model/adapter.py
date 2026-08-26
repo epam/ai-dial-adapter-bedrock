@@ -26,6 +26,9 @@ from aidial_adapter_bedrock.llm.converse.factory import (
     ConverseAdapterFactory,
     ToolsSupport,
 )
+from aidial_adapter_bedrock.llm.converse.session_tags import (
+    resolve_session_tags,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
@@ -47,7 +50,8 @@ async def get_bedrock_adapter(
     request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
     async def get_bedrock_client():
-        return await Bedrock.acreate(upstream_config)
+        session_tags = await resolve_session_tags(api_key, upstream_config)
+        return await Bedrock.acreate(upstream_config, session_tags)
 
     converse_adapter = ConverseAdapterFactory(
         deployment=deployment, get_client=get_bedrock_client, api_key=api_key
@@ -165,7 +169,8 @@ async def get_embeddings_model(
     upstream_config: UpstreamConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
-    client = await Bedrock.acreate(upstream_config)
+    session_tags = await resolve_session_tags(api_key, upstream_config)
+    client = await Bedrock.acreate(upstream_config, session_tags)
     match deployment.reference_deployment_id:
         case ED.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(

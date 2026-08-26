@@ -41,18 +41,18 @@ class ConverseAPIConfiguration(ExtraForbidModel):
 def has_converse_api_configuration(
     request: ChatCompletionRequest | None, upstream_config: UpstreamConfig
 ) -> bool:
-    cond1 = None
-    if request:
-        configuration = (
-            cf.configuration if (cf := request.custom_fields) else None
-        )
-        cond1 = configuration is not None and (
-            "performanceConfig" in configuration
-            or "guardrailConfig" in configuration
-        )
+    configuration = (
+        cf.configuration
+        if (request and (cf := request.custom_fields))
+        else None
+    )
+    if configuration and (
+        "performanceConfig" in configuration
+        or "guardrailConfig" in configuration
+    ):
+        return True
 
-    cond2 = (
+    return (
         isinstance(upstream_config, CloudUpstreamConfig)
         and upstream_config.claude_client == "converse"
     )
-    return any([cond1, cond2])

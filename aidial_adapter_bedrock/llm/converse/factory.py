@@ -6,7 +6,6 @@ from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
-from aidial_adapter_bedrock.dial_api.client import create_dial_client
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as CCD
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.llm.chat_model import default_preprocess_messages
@@ -135,7 +134,6 @@ class ConverseAdapterFactory(BaseModel):
             deployment=self.deployment.upstream_deployment_id,
             bedrock=await self.get_client(),
             storage=create_file_storage(self.api_key),
-            dial_client=create_dial_client(self.api_key),
             input_tokenizer_factory=_get_tokenizer_factory(
                 self.deployment.reference_deployment_id
             ),

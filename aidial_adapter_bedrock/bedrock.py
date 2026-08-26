@@ -25,6 +25,7 @@ from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     CloudUpstreamConfig,
+    SessionTag,
     UpstreamConfig,
 )
 from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
@@ -108,7 +109,7 @@ async def create_anthropic_client(
         )
         return (None, anthropic_client)
 
-    expiration, creds = await upstream_config.get_credentials()
+    expiration, creds = await upstream_config.get_credentials(session_tags=None)
     client_params: _BedrockClientParams = {
         "aws_region": upstream_config.region,
         "aws_access_key": creds.aws_access_key_id,
@@ -133,9 +134,11 @@ async def create_anthropic_client(
 
 @ttl_cache
 async def create_boto_client(
-    service_name: str, upstream_config: CloudUpstreamConfig
+    service_name: str,
+    upstream_config: CloudUpstreamConfig,
+    session_tags: list[SessionTag] | None = None,
 ) -> tuple[datetime | None, Any]:
-    expiration, creds = await upstream_config.get_credentials()
+    expiration, creds = await upstream_config.get_credentials(session_tags)
 
     config = botocore.client.Config(  # type: ignore
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
@@ -178,12 +181,19 @@ class Bedrock:
         self.client = client
 
     @classmethod
-    async def acreate(cls, upstream_config: UpstreamConfig) -> "Bedrock":
+    async def acreate(
+        cls,
+        upstream_config: UpstreamConfig,
+        session_tags: list[SessionTag] | None = None,
+    ) -> "Bedrock":
         if isinstance(upstream_config, ApiKeyUpstreamConfig):
             raise ValueError(
                 "Authentication via API key isn't supported for the deployment"
             )
-        client = await create_boto_client("bedrock-runtime", upstream_config)
+
+        client = await create_boto_client(
+            "bedrock-runtime", upstream_config, session_tags
+        )
         return cls(client)
 
     async def aconverse_non_streaming(

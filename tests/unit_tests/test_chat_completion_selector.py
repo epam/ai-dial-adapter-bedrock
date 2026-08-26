@@ -99,10 +99,7 @@ class TestChatCompletionSelector:
         )
 
         assert adapter is expected_adapter
-        assert (
-            captured["factory_kwargs"]["deployment"]
-            == D.ANTHROPIC_CLAUDE_V4_6_SONNET.value
-        )
+        assert captured["factory_kwargs"]["deployment"] == deployment
         assert captured["factory_kwargs"]["api_key"] == "dummy"
         assert captured["create_kwargs"] == {
             "tools_support": ToolsSupport.ALWAYS,
