@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, TypedDict, assert_never
 
 import boto3
 import fastapi
@@ -19,6 +19,11 @@ from aidial_adapter_bedrock.utils.env import (
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
+
+
+class SessionTag(TypedDict):
+    Key: str
+    Value: str
 
 
 class ClientCredentialArgs(BaseModel):
@@ -44,16 +49,22 @@ class AWSAssumeRoleCredentials(BaseModel):
     aws_assume_role_arn: str
 
     async def get_credentials(
-        self, region: str
+        self,
+        region: str,
+        session_tags: list[SessionTag] | None = None,
     ) -> tuple[datetime, ClientCredentialArgs]:
         sts_client = await make_async(
             lambda: boto3.Session().client("sts", region_name=region)
         )
 
-        response = sts_client.assume_role(
-            RoleArn=self.aws_assume_role_arn,
-            RoleSessionName="BedrockAccessSession",
-        )
+        assume_role_params: dict = {
+            "RoleArn": self.aws_assume_role_arn,
+            "RoleSessionName": "BedrockAccessSession",
+        }
+        if session_tags:
+            assume_role_params["Tags"] = session_tags
+
+        response = sts_client.assume_role(**assume_role_params)
 
         creds = response["Credentials"]
 
@@ -87,13 +98,19 @@ class CloudUpstreamConfig(BaseModel):
         )
 
     async def get_credentials(
-        self,
+        self, session_tags: list[SessionTag] | None
     ) -> tuple[datetime | None, ClientCredentialArgs]:
-        if self.credentials is None:
-            return (None, ClientCredentialArgs())
-        if isinstance(self.credentials, AWSClientCredentials):
-            return self.credentials.get_credentials()
-        return await self.credentials.get_credentials(self.region)
+        match self.credentials:
+            case None:
+                return None, ClientCredentialArgs()
+            case AWSClientCredentials():
+                return self.credentials.get_credentials()
+            case AWSAssumeRoleCredentials():
+                return await self.credentials.get_credentials(
+                    self.region, session_tags
+                )
+            case _:
+                assert_never(self.credentials)
 
 
 class ApiKeyUpstreamConfig(BaseModel):
