@@ -3,6 +3,10 @@ from typing import Literal
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 from pydantic import Field
 
+from aidial_adapter_bedrock.upstream_config import (
+    CloudUpstreamConfig,
+    UpstreamConfig,
+)
 from aidial_adapter_bedrock.utils.pydantic import ExtraForbidModel
 
 
@@ -34,9 +38,21 @@ class ConverseAPIConfiguration(ExtraForbidModel):
     )
 
 
-def has_converse_api_configuration(request: ChatCompletionRequest) -> bool:
-    configuration = cf.configuration if (cf := request.custom_fields) else None
-    return configuration is not None and (
+def has_converse_api_configuration(
+    request: ChatCompletionRequest | None, upstream_config: UpstreamConfig
+) -> bool:
+    configuration = (
+        cf.configuration
+        if (request and (cf := request.custom_fields))
+        else None
+    )
+    if configuration and (
         "performanceConfig" in configuration
         or "guardrailConfig" in configuration
+    ):
+        return True
+
+    return (
+        isinstance(upstream_config, CloudUpstreamConfig)
+        and upstream_config.claude_client == "converse"
     )

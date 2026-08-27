@@ -3,7 +3,7 @@ import os
 from abc import ABC
 from collections.abc import Mapping
 from datetime import datetime
-from functools import cache
+from functools import cache as functools_cache
 from logging import DEBUG
 from typing import Any, TypedDict, Unpack, assert_never
 
@@ -12,6 +12,7 @@ import boto3
 import botocore
 import httpx
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
+from aidial_client import AsyncDialClientPool
 from anthropic import (
     AsyncAnthropic,
     AsyncAnthropicBedrock,
@@ -24,9 +25,10 @@ from aidial_adapter_bedrock.llm.converse.types import ConverseRequest
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     CloudUpstreamConfig,
+    SessionTag,
     UpstreamConfig,
 )
-from aidial_adapter_bedrock.utils.cache import ttl_cache
+from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
     to_async_iterator,
@@ -65,7 +67,7 @@ def _get_botocore_max_retry_attempts():
     return 0
 
 
-@cache
+@functools_cache
 def get_default_anthropic_timeout() -> httpx.Timeout:
     # Providing a timeout marginally different from the default Anthropic timeout
     # in order to disable the check that throws an error when
@@ -107,7 +109,7 @@ async def create_anthropic_client(
         )
         return (None, anthropic_client)
 
-    expiration, creds = await upstream_config.get_credentials()
+    expiration, creds = await upstream_config.get_credentials(session_tags=None)
     client_params: _BedrockClientParams = {
         "aws_region": upstream_config.region,
         "aws_access_key": creds.aws_access_key_id,
@@ -122,15 +124,21 @@ async def create_anthropic_client(
             return expiration, AsyncAnthropicBedrockMantle(**client_params)
         case "legacy":
             return expiration, AsyncAnthropicBedrock(**client_params)
+        case "converse":
+            raise ValueError(
+                "Claude client `converse` isn't supported for Anthropic API requests"
+            )
         case _:
             assert_never(upstream_config.claude_client)
 
 
 @ttl_cache
 async def create_boto_client(
-    service_name: str, upstream_config: CloudUpstreamConfig
+    service_name: str,
+    upstream_config: CloudUpstreamConfig,
+    session_tags: list[SessionTag] | None = None,
 ) -> tuple[datetime | None, Any]:
-    expiration, creds = await upstream_config.get_credentials()
+    expiration, creds = await upstream_config.get_credentials(session_tags)
 
     config = botocore.client.Config(  # type: ignore
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
@@ -157,6 +165,15 @@ async def create_boto_client(
     return (expiration, client)
 
 
+async def _close_dial_client_pool(pool: AsyncDialClientPool) -> None:
+    await pool.aclose()
+
+
+@cache(close=_close_dial_client_pool)
+def get_dial_client_pool() -> AsyncDialClientPool:
+    return AsyncDialClientPool()
+
+
 class Bedrock:
     client: Any
 
@@ -164,12 +181,19 @@ class Bedrock:
         self.client = client
 
     @classmethod
-    async def acreate(cls, upstream_config: UpstreamConfig) -> "Bedrock":
+    async def acreate(
+        cls,
+        upstream_config: UpstreamConfig,
+        session_tags: list[SessionTag] | None = None,
+    ) -> "Bedrock":
         if isinstance(upstream_config, ApiKeyUpstreamConfig):
             raise ValueError(
                 "Authentication via API key isn't supported for the deployment"
             )
-        client = await create_boto_client("bedrock-runtime", upstream_config)
+
+        client = await create_boto_client(
+            "bedrock-runtime", upstream_config, session_tags
+        )
         return cls(client)
 
     async def aconverse_non_streaming(
