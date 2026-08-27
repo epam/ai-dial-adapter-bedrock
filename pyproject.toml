@@ -11,7 +11,7 @@ license = "Apache-2.0"
 readme = "README.md"
 keywords = ["ai"]
 classifiers = ["Topic :: Software Development :: Libraries :: Python Modules"]
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.11,<3.14"
 dynamic = ["dependencies"]
 
 [project.urls]
@@ -33,6 +33,7 @@ uvicorn = "0.23.2"
 pydantic = "2.10.4"
 numpy = "2.0.0"
 pillow = "12.3.0"
+aidial-client = "^0.14.0"
 
 [tool.poetry.group.test.dependencies]
 openai = "1.107.3"

@@ -540,7 +540,15 @@ async def test_model_field(
 
 
 @_deployment_spec(deployments)
-async def test_2_plus_3(chat: Chat):
+@pytest.mark.parametrize(
+    "bedrock_client_type",
+    ["legacy", "mantle", "converse"],
+    ids=["legacy_client", "mantle_client", "converse_client"],
+    indirect=True,
+)
+async def test_2_plus_3(
+    deployment: Deployment, bedrock_client_type: str, chat: Chat
+):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 

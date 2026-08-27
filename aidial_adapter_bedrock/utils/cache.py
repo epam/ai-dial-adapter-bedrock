@@ -12,19 +12,61 @@ from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 _P = ParamSpec("_P")
 _T_co = TypeVar("_T_co", covariant=True)
+_T = TypeVar("_T")
 
 
-class _CachedFunction(Protocol, Generic[_P, _T_co]):
+class _SyncCachedFunction(Protocol, Generic[_P, _T_co]):
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T_co: ...
+    async def clear(self) -> None: ...
+
+
+def cache(
+    close: Callable[[_T], Coroutine[Any, Any, None]] | None = None,
+) -> Callable[[Callable[_P, _T]], _SyncCachedFunction[_P, _T]]:
+    def wrapper(
+        func: Callable[_P, _T],
+    ) -> _SyncCachedFunction[_P, _T]:
+        _cache: dict[str, _T] = {}
+
+        class _Wrapper:
+            def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+                key = _make_key(args, kwargs)
+
+                if key not in _cache:
+                    _cache[key] = func(*args, **kwargs)
+
+                return _cache[key]
+
+            async def clear(self) -> None:
+                nonlocal _cache
+                entries = _cache
+                _cache = {}
+
+                func_name = f"{func.__module__}.{func.__qualname__}"
+                log.debug(f"Clearing cache {func_name}")
+
+                if close is not None:
+                    for key, value in entries.items():
+                        log.debug(f"Closing cached value {func_name}({key})")
+
+                        try:
+                            await close(value)
+                        except Exception as e:
+                            log.error(f"Error on closing cached value: {e}")
+
+        return _Wrapper()
+
+    return wrapper
+
+
+class _AsyncCachedFunction(Protocol, Generic[_P, _T_co]):
     async def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T_co: ...
     def clear(self) -> None: ...
 
 
-_T = TypeVar("_T")
-
-
 def ttl_cache(
     func: Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]],
-) -> _CachedFunction[_P, _T]:
+) -> _AsyncCachedFunction[_P, _T]:
     _cache: dict[str, tuple[datetime | None, _T]] = {}
     _locks: dict[str, Lock] = defaultdict(Lock)
 

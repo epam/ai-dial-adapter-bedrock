@@ -1,11 +1,11 @@
 import json
 import os
 from functools import cache
-from typing import Literal
+from typing import Literal, cast, get_args
 
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
-AWSClaudeClient = Literal["legacy", "mantle"]
+AWSClaudeClient = Literal["legacy", "mantle", "converse"]
 
 
 def get_env(name: str, err_msg: str | None = None) -> str:
@@ -16,6 +16,12 @@ def get_env(name: str, err_msg: str | None = None) -> str:
 
 def get_env_int(name: str, default: int) -> int:
     return int(os.getenv(name) or default)
+
+
+def get_env_list(name: str) -> list[str] | None:
+    if (value := os.getenv(name)) is not None:
+        return [str.strip(s) for s in value.split(",")]
+    return None
 
 
 def get_str_dict(name: str) -> dict[str, str]:
@@ -53,8 +59,13 @@ def get_aws_default_region() -> str:
 
 def get_default_claude_client() -> AWSClaudeClient:
     client = os.getenv("AWS_CLAUDE_DEFAULT_CLIENT", "legacy")
-    if client == "legacy" or client == "mantle":
-        return client
+    allowed_clients = get_args(AWSClaudeClient)
+    if client in allowed_clients:
+        return cast(AWSClaudeClient, client)
+
+    allowed_clients_str = ", ".join(
+        f"'{allowed_client}'" for allowed_client in allowed_clients
+    )
     raise ValueError(
-        "AWS_CLAUDE_DEFAULT_CLIENT env variable must be either 'legacy' or 'mantle'"
+        f"AWS_CLAUDE_DEFAULT_CLIENT env variable must be one of: {allowed_clients_str}"
     )
