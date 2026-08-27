@@ -64,7 +64,7 @@ def jwt_auth() -> dict:
         ("", {}),
         ("   ", {}),
         ("*", {}),
-        ("userId", {"userId": '"sub"'}),
+        ("userId", {"userId": "sub"}),
         ("roles", {"roles": '["user"]'}),
         (
             "userClaims.id,userClaims.iat",
@@ -73,22 +73,22 @@ def jwt_auth() -> dict:
         (
             "userClaims.access.0,userClaims.access.1",
             {
-                "userClaims.access.0": '"read"',
-                "userClaims.access.1": '"write"',
+                "userClaims.access.0": "read",
+                "userClaims.access.1": "write",
             },
         ),
         ("userClaims.map", {"userClaims.map": '{"a": ["b"]}'}),
         (
             "userId,userClaims.id,userClaims.access.0",
             {
-                "userId": '"sub"',
+                "userId": "sub",
                 "userClaims.id": "15",
-                "userClaims.access.0": '"read"',
+                "userClaims.access.0": "read",
             },
         ),
         (
             "userId,,userClaims.id,",
-            {"userId": '"sub"', "userClaims.id": "15"},
+            {"userId": "sub", "userClaims.id": "15"},
         ),
         (
             "  userClaims.id ,  userClaims.iat ",
@@ -100,7 +100,7 @@ def jwt_auth() -> dict:
         ("roles.x", {}),
         (
             "userId,does.not.exist,userClaims.id",
-            {"userId": '"sub"', "userClaims.id": "15"},
+            {"userId": "sub", "userClaims.id": "15"},
         ),
     ],
 )
@@ -135,7 +135,7 @@ def test_resolve_paths_values_are_strings(jwt_auth: dict):
         (
             {"s": "hi", "lst": [1, 2], "obj": {"k": "v"}},
             "s,lst,obj",
-            {"s": '"hi"', "lst": "[1, 2]", "obj": '{"k": "v"}'},
+            {"s": "hi", "lst": "[1, 2]", "obj": '{"k": "v"}'},
         ),
         (
             {"field1": [{"field2": [10, 20, 30]}]},
@@ -146,7 +146,7 @@ def test_resolve_paths_values_are_strings(jwt_auth: dict):
         (
             {"a": {"b": {"c": {"d": ["leaf"]}}}},
             "a.b.c.d.0",
-            {"a.b.c.d.0": '"leaf"'},
+            {"a.b.c.d.0": "leaf"},
         ),
         (
             {"a": {"b": {"c": {"d": ["leaf"]}}}},
@@ -280,10 +280,10 @@ def test_from_user_info_resolves_paths_and_sanitizes(
     )
 
     assert session_tags.from_user_info(user_info) == [
-        {"Key": "roles.0", "Value": '"admin"'},
+        {"Key": "roles.0", "Value": "admin"},
         {"Key": "project", "Value": "null"},
         {"Key": "userClaims.id", "Value": "15"},
-        {"Key": "userClaims.email", "Value": '"user@example.com"'},
+        {"Key": "userClaims.email", "Value": "user@example.com"},
         {"Key": "userClaims.map", "Value": '{"a": ["b"]}'},
     ]
 
@@ -355,8 +355,8 @@ async def test_resolve_session_tags_returns_tags(
     assert await session_tags.resolve_session_tags(
         "key", _assume_role_upstream_config()
     ) == [
-        {"Key": "roles.0", "Value": '"admin"'},
-        {"Key": "userClaims.email", "Value": '"user@example.com"'},
+        {"Key": "roles.0", "Value": "admin"},
+        {"Key": "userClaims.email", "Value": "user@example.com"},
     ]
 
 

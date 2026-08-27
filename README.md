@@ -486,10 +486,8 @@ Paths use object keys and integer list indices, for example
 `userClaims.access.0`. Empty path entries are ignored, and unresolvable paths
 are skipped with a warning.
 
-Tag keys are the configured paths. Tag values are JSON strings, so string values
-include quotes: `roles.0` with value `admin` becomes
-`{"Key": "roles.0", "Value": "\"admin\""}`. Objects and arrays are serialized
-as JSON objects and arrays.
+Tag keys are the configured paths. String values are used as-is. All other values
+are JSON-serialized, e.g. numbers, booleans, `null`, objects and arrays.
 
 AWS sets several constraints for session tags. See the AWS docs on
 [passing session tags in AWS STS](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations)

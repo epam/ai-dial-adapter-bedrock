@@ -61,7 +61,9 @@ def resolve_paths(
                 f"{path!r}: {type(exc).__name__}: {exc}"
             )
             continue
-        result[path] = json.dumps(element)
+        result[path] = (
+            element if isinstance(element, str) else json.dumps(element)
+        )
     return result
 
 
