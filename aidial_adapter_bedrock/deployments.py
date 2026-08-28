@@ -62,6 +62,8 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
 
     DEEPSEEK_R1_V2 = "deepseek.r1-v1:0"
 
+    MINIMAX_M25 = "minimax.minimax-m2.5"
+
 
 ClaudeDeployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_SONNET,

@@ -10,6 +10,7 @@ from aidial_adapter_bedrock.anthropic_passthrough import (
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
     create_boto_client,
+    get_dial_client_pool,
 )
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
     yield
     create_anthropic_client.clear()
     create_boto_client.clear()
+    await get_dial_client_pool.clear()
 
 
 app = DIALApp(

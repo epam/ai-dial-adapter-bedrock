@@ -30,6 +30,7 @@
       - [Cross-region inference](#cross-region-inference)
     - [Embedding models](#embedding-models)
   - [Environment Variables](#environment-variables)
+    - [Session Tags](#session-tags)
     - [Logging](#logging)
     - [Resource limits](#resource-limits)
     - [Default `max_tokens` for Claude models](#default-max_tokens-for-claude-models)
@@ -75,16 +76,16 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
-|Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.8 Opus|anthropic.claude-opus-4-8|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.7 Opus|anthropic.claude-opus-4-7|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Opus|anthropic.claude-opus-4-6-v1|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.6 Sonnet|anthropic.claude-sonnet-4-6|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Sonnet|anthropic.claude-sonnet-4-5-20250929-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.5 Haiku|anthropic.claude-haiku-4-5-20251001-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 4.5 Haiku (Mantle)|anthropic.claude-haiku-4-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 4.5 Haiku (Mantle)|anthropic.claude-haiku-4-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4.1 Opus|anthropic.claude-opus-4-1-20250805-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Opus|anthropic.claude-opus-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 4 Sonnet|anthropic.claude-sonnet-4-20250514-v1:0|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
@@ -96,6 +97,7 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|MiniMax|MiniMax M2.5|minimax.minimax-m2.5|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Scout 17B Instruct|meta.llama4-scout-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Maverick 17B Instruct|meta.llama4-maverick-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
@@ -119,7 +121,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Cohere|Command R|cohere.command-r-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 |Cohere|Command R+|cohere.command-r-plus-v1:0|(text/document)-to-text|🟡|🟡|✅|✅|Converse API|
 
-✅, 🟡, and ❌ denote degrees of support of the given feature:
+✅, 🟢, 🟡, and ❌ denote degrees of support of the given feature.
+
+For Claude models that support client choice (`mantle` or `legacy`), feature support varies by client.
 
 ||`/tokenize`, `/truncate_prompt`, `max_prompt_token`|tools/functions|`/configuration`|
 |---|---|---|---|
@@ -444,15 +448,58 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |AWS_SECRET_ACCESS_KEY|NA|AWS credentials with an access to the Bedrock service|
 |AWS_SESSION_TOKEN|NA|AWS session token with an access the Bedrock service|
 |AWS_DEFAULT_REGION||AWS region e.g. `us-east-1`|
-|AWS_CLAUDE_DEFAULT_CLIENT|legacy|Default AWS Claude client mode for cloud credentials path. Supported values: `legacy`, `mantle`.|
+|AWS_CLAUDE_DEFAULT_CLIENT|legacy|Default AWS Claude client mode for cloud credentials path. Supported values: `legacy`, `mantle`, `converse`.|
 |AWS_ASSUME_ROLE_ARN||AWS assume role ARN e.g. `arn:aws:iam::123456789012:role/RoleName`|
 |LOG_LEVEL|INFO|Application log level. Use DEBUG for dev purposes and INFO in prod|
 |DIAL_URL||URL of the core DIAL server. If defined, images generated by Stability are uploaded to the DIAL file storage and attachments are returned with URLs pointing to the images. Otherwise, the images are returned as base64 encoded strings.|
+|CONVERSE_API_SESSION_TAGS_FIELDS|NA|Comma-separated list of paths into DIAL UserInfo to pass as AWS STS session tags when assuming a role, for example `roles.0,project,userClaims.email`. Unset to disable.|
 |WEB_CONCURRENCY|1|Number of workers for the server|
 |COMPATIBILITY_MAPPING|{}|**Deprecated** in favour of [compatibility configuration in DIAL Core config](#compatibility-configuration-in-dial-core-config). A JSON dictionary that maps Bedrock deployments that **aren't supported** by the Adapter to the Bedrock deployments that **are supported** by the Adapter _(see the [Supported models](#supported-models)_ section). Find more details in the [compatibility mode](#compatibility-configuration-in-adapter) section.|
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
+
+### Session Tags
+
+`CONVERSE_API_SESSION_TAGS_FIELDS` configures optional AWS STS
+[session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html)
+for Bedrock clients created through `AssumeRole`. The adapter resolves the
+configured paths against the JSON response to the DIAL `GET /v1/user/info`
+[request](https://dialx.ai/dial_api#operation/getUserInfo), converts each
+resolved value to a JSON string, and passes the resulting tags to the STS
+`AssumeRole` call.
+
+Session tags are only used for the assume-role credentials path
+(`AWS_ASSUME_ROLE_ARN` or `aws_assume_role_arn` in upstream `extraData`). They
+are ignored for static AWS credentials and Anthropic API key upstreams.
+
+The variable is a comma-separated list of dot-separated paths into that JSON
+response. The user info response has the following fields:
+
+|Field|Type|Description|
+|---|---|---|
+|`roles`|array of strings|User roles, addressable by list index, e.g. `roles.0`|
+|`project`|string or null|User project|
+|`userClaims`|object or null|User claims, addressable by nested paths, e.g. `userClaims.email`|
+
+Paths use object keys and integer list indices, for example
+`userClaims.access.0`. Empty path entries are ignored, and unresolvable paths
+are skipped with a warning.
+
+Tag keys are the configured paths. String values are used as-is. All other values
+are JSON-serialized, e.g. numbers, booleans, `null`, objects and arrays.
+
+AWS sets several constraints for session tags. See the AWS docs on
+[passing session tags in AWS STS](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations)
+for details.
+
+|Intent|`CONVERSE_API_SESSION_TAGS_FIELDS`|
+|---|---|
+|Disabled|Unset the variable|
+|First role|`roles.0`|
+|Project|`project`|
+|A claim|`userClaims.email`|
+|Several|`roles.0,project,userClaims.email`|
 
 ### Logging
 
@@ -632,8 +679,10 @@ The `claude_client` field selects which AWS Bedrock integration is used for Clau
 
 - `legacy` (default) for the [legacy](https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock-legacy) Amazon Bedrock integration for Claude models
 - `mantle` for the [modern](https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock) Amazon Bedrock integration for Claude models
+- `converse` for the [Converse API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html) integration for Claude models
 
 For new Claude in Amazon Bedrock integrations, Anthropic generally recommends using `mantle`.
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` use precise prompt token counting.
 
 ## Authentication
 
@@ -643,6 +692,8 @@ Authentication with AWS Bedrock is configured either:
 
 1. globally via `AWS_*` environment vars, or
 2. on a [per upstream basis](#load-balancing) via `upstreams.extraData` fields in DIAL Core Config.
+
+Claude deployments using `AWS_CLAUDE_DEFAULT_CLIENT=mantle` require the `bedrock-mantle:CountTokens` IAM permission for exact prompt token counting.
 
 ### Anthropic API
 

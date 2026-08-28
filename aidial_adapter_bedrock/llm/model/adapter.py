@@ -1,7 +1,7 @@
 from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
-from aidial_sdk.chat_completion import Request as ChatCompletionRequest
+from aidial_sdk.chat_completion.request import ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.claude.adapter as anthropic_claude
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -26,6 +26,9 @@ from aidial_adapter_bedrock.llm.converse.factory import (
     ConverseAdapterFactory,
     ToolsSupport,
 )
+from aidial_adapter_bedrock.llm.converse.session_tags import (
+    resolve_session_tags,
+)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
@@ -46,13 +49,12 @@ async def get_bedrock_adapter(
     upstream_config: UpstreamConfig,
     request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
-    model = deployment.upstream_deployment_id
-
     async def get_bedrock_client():
-        return await Bedrock.acreate(upstream_config)
+        session_tags = await resolve_session_tags(api_key, upstream_config)
+        return await Bedrock.acreate(upstream_config, session_tags)
 
     converse_adapter = ConverseAdapterFactory(
-        deployment=model, get_client=get_bedrock_client, api_key=api_key
+        deployment=deployment, get_client=get_bedrock_client, api_key=api_key
     )
 
     match deployment.reference_deployment_id:
@@ -78,7 +80,7 @@ async def get_bedrock_adapter(
             | CCD.ANTHROPIC_CLAUDE_V5_OPUS
             | CCD.ANTHROPIC_CLAUDE_V5_FABLE
         ):
-            if request and has_converse_api_configuration(request):
+            if has_converse_api_configuration(request, upstream_config):
                 return await converse_adapter.create(
                     tools_support=ToolsSupport.ALWAYS,
                     supported_image_types=ConverseImageType.all(),
@@ -116,7 +118,12 @@ async def get_bedrock_adapter(
                 ensure_non_empty_tool_descriptions=True,
                 supported_document_types=ConverseDocumentType.all(),
             )
-        case CCD.AMAZON_NOVA_MICRO | CCD.AMAZON_NOVA_PRO | CCD.AMAZON_NOVA_LITE:
+        case (
+            CCD.AMAZON_NOVA_MICRO
+            | CCD.AMAZON_NOVA_PRO
+            | CCD.AMAZON_NOVA_LITE
+            | CCD.MINIMAX_M25
+        ):
             return await converse_adapter.create(
                 tools_support=ToolsSupport.ALWAYS,
                 supported_image_types=ConverseImageType.all(),
@@ -162,7 +169,8 @@ async def get_embeddings_model(
     upstream_config: UpstreamConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
-    client = await Bedrock.acreate(upstream_config)
+    session_tags = await resolve_session_tags(api_key, upstream_config)
+    client = await Bedrock.acreate(upstream_config, session_tags)
     match deployment.reference_deployment_id:
         case ED.AMAZON_TITAN_EMBED_TEXT_V1:
             return AmazonTitanTextEmbeddings.create(

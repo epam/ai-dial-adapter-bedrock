@@ -13,7 +13,10 @@ from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.deployments import ClaudeDeployment
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
 from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
-from aidial_adapter_bedrock.upstream_config import UpstreamConfig
+from aidial_adapter_bedrock.upstream_config import (
+    CloudUpstreamConfig,
+    UpstreamConfig,
+)
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 
 
@@ -28,7 +31,10 @@ def _supports_thinking(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     }
 
 
@@ -45,7 +51,10 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
     }
 
 
@@ -115,12 +124,18 @@ async def create_adapter(
 ) -> ChatCompletionAdapter:
     ref = deployment.reference_deployment_id
     client = await create_anthropic_client(upstream_config)
+    custom_tokenizer = (
+        _Tokenizer(ref)
+        if isinstance(upstream_config, CloudUpstreamConfig)
+        and upstream_config.claude_client == "legacy"
+        else None
+    )
 
     return await create_anthropic_adapter(
         deployment=deployment.upstream_deployment_id,
         storage=create_file_storage(api_key),
         client=client,
-        custom_tokenizer=_Tokenizer(deployment.reference_deployment_id),
+        custom_tokenizer=custom_tokenizer,
         default_max_tokens=CLAUDE_DEFAULT_MAX_TOKENS,
         supports_thinking=_supports_thinking(ref),
         supports_documents=_supports_documents(ref),

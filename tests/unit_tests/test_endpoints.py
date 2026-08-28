@@ -8,6 +8,7 @@ test_cases: list[tuple[D, bool, bool, bool]] = [
     (D.AMAZON_NOVA_PRO, True, True, True),
     (D.AMAZON_NOVA_LITE, True, True, True),
     (D.AMAZON_NOVA_MICRO, True, True, True),
+    (D.MINIMAX_M25, True, True, True),
     (D.AI21_JAMBA_1_5_LARGE_V1, True, True, True),
     (D.AI21_JAMBA_1_5_MINI_V1, True, True, True),
     (D.ANTHROPIC_CLAUDE_V3_SONNET, True, True, True),

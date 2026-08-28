@@ -2,19 +2,19 @@
 
 [[package]]
 name = "aidial-adapter-anthropic"
-version = "0.16.0"
+version = "0.17.0"
 description = "Package implementing adapter from DIAL Chat Completions API to Anthropic API"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["main"]
 files = [
-    {file = "aidial_adapter_anthropic-0.16.0-py3-none-any.whl", hash = "sha256:eb2eafbcc31fb6bb1636feed423063964170efa615102c1f30373c6cb04ab482"},
-    {file = "aidial_adapter_anthropic-0.16.0.tar.gz", hash = "sha256:e4174f710fa0debbbfa77615ec6d6a4b7ee5c2f61e9cd82cf7f46f53b21a4e34"},
+    {file = "aidial_adapter_anthropic-0.17.0-py3-none-any.whl", hash = "sha256:7bf772211276b517c1fceda96fca91c120818e01b2f278cc64f83a1b43826fca"},
+    {file = "aidial_adapter_anthropic-0.17.0.tar.gz", hash = "sha256:9ba1062de70402aa331b11094f8fe531f18f5da3f68da72592953855f2ebd4bb"},
 ]
 
 [package.dependencies]
 aidial-sdk = ">=0.39.0,<1"
-aiohttp = ">=3.14.1,<4"
+aiohttp = ">=3.14.3,<4"
 anthropic = ">=0.105.0,<1"
 botocore = {version = ">=1.10.0", optional = true, markers = "extra == \"bedrock\""}
 fastapi = ">=0.51,<1.0"
@@ -23,6 +23,24 @@ pydantic = ">=2.8.2,<3"
 
 [package.extras]
 bedrock = ["botocore (>=1.10.0)"]
+
+[[package]]
+name = "aidial-client"
+version = "0.14.0"
+description = "A Python client library for the AI DIAL API"
+optional = false
+python-versions = "<3.14,>=3.10"
+groups = ["main"]
+files = [
+    {file = "aidial_client-0.14.0-py3-none-any.whl", hash = "sha256:66de6953324087264c88fed9d6557092aabe1b06599495fd3751b3df8f5fb114"},
+    {file = "aidial_client-0.14.0.tar.gz", hash = "sha256:f64e9bc265458b6495eb30fedf66e91c96d091b8346fa5b785682706e3f49db3"},
+]
+
+[package.dependencies]
+aiofiles = ">=0.5.0"
+httpx = ">=0.25.0,<1"
+openai = ">=1.1.0,<3"
+pydantic = ">=1.10,<3"
 
 [[package]]
 name = "aidial-sdk"
@@ -57,6 +75,18 @@ wrapt = ">=1.10,<2"
 [package.extras]
 httpx = ["httpx (>=0.25.0,<1.0)"]
 telemetry = ["opentelemetry-api (>=1.22.0,<2.0)", "opentelemetry-exporter-otlp-proto-grpc (>=1.22.0,<2.0)", "opentelemetry-exporter-prometheus (>=0.43b0)", "opentelemetry-instrumentation-aiohttp-client (>=0.43b0)", "opentelemetry-instrumentation-fastapi (>=0.43b0)", "opentelemetry-instrumentation-httpx (>=0.43b0)", "opentelemetry-instrumentation-logging (>=0.43b0)", "opentelemetry-instrumentation-requests (>=0.43b0)", "opentelemetry-instrumentation-system-metrics (>=0.43b0)", "opentelemetry-instrumentation-urllib (>=0.43b0)", "opentelemetry-sdk (>=1.22.0,<2.0)", "prometheus-client (>=0.17.1,<1.0)"]
+
+[[package]]
+name = "aiofiles"
+version = "25.1.0"
+description = "File support for asyncio."
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "aiofiles-25.1.0-py3-none-any.whl", hash = "sha256:abe311e527c862958650f9438e859c1fa7568a141b22abcd015e120e86a85695"},
+    {file = "aiofiles-25.1.0.tar.gz", hash = "sha256:a8d728f0a29de45dc521f18f07297428d56992a742f0cd2701ba86e44d23d5b2"},
+]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -401,43 +431,43 @@ tests-no-zope = ["cloudpickle ; platform_python_implementation == \"CPython\"", 
 
 [[package]]
 name = "boto3"
-version = "1.37.24"
+version = "1.43.56"
 description = "The AWS SDK for Python"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "boto3-1.37.24-py3-none-any.whl", hash = "sha256:2f2b8f82a5d7f89283973bf2cab771b90c09348799e78b2a25c60cd22c443514"},
-    {file = "boto3-1.37.24.tar.gz", hash = "sha256:1d3c6fc63a9efba0af8b531ec6b7f7c6b0ef197bf3dcd875f03c9097ac68b58f"},
+    {file = "boto3-1.43.56-py3-none-any.whl", hash = "sha256:feb699d4ab241ef5c1b80bb58277be2aaad365cd4b672d7817e0bc59ee45131b"},
+    {file = "boto3-1.43.56.tar.gz", hash = "sha256:57c90df9fb026f2e6ae22530861198130203733c5c9ec4e5cca3a4037f5a8db4"},
 ]
 
 [package.dependencies]
-botocore = ">=1.37.24,<1.38.0"
+botocore = ">=1.43.56,<1.44.0"
 jmespath = ">=0.7.1,<2.0.0"
-s3transfer = ">=0.11.0,<0.12.0"
+s3transfer = ">=0.19.0,<0.20.0"
 
 [package.extras]
 crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.37.24"
+version = "1.43.56"
 description = "Low-level, data-driven core of boto 3."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "botocore-1.37.24-py3-none-any.whl", hash = "sha256:f1a55332cca85a6556af8941cccdaf5d2d00336647d9e89f31174f2361ffb4f2"},
-    {file = "botocore-1.37.24.tar.gz", hash = "sha256:a0bcc3c376a371f2c11afcbcc9917010c1c0a701d0e45d1ea3ec3bddeb06a8ff"},
+    {file = "botocore-1.43.56-py3-none-any.whl", hash = "sha256:aafc741f1b10f6fd63253eaf6ea029680c1ff436d87e1b8969d62aefa0c76976"},
+    {file = "botocore-1.43.56.tar.gz", hash = "sha256:6c01f85f0ff9863076f4c761e74ee3aa96c5ccc1ad09fc1efd62ef8f2d22bf57"},
 ]
 
 [package.dependencies]
 jmespath = ">=0.7.1,<2.0.0"
 python-dateutil = ">=2.1,<3.0.0"
-urllib3 = {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""}
+urllib3 = ">=1.25.4,<2.2.0 || >2.2.0,<3"
 
 [package.extras]
-crt = ["awscrt (==0.23.8)"]
+crt = ["awscrt (==0.36.0)"]
 
 [[package]]
 name = "certifi"
@@ -489,7 +519,7 @@ files = [
     {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
     {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
 ]
-markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\"", test = "sys_platform == \"win32\" or platform_system == \"Windows\""}
+markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\"", test = "platform_system == \"Windows\" or sys_platform == \"win32\""}
 
 [[package]]
 name = "colorlog"
@@ -1241,7 +1271,7 @@ version = "1.107.3"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
-groups = ["test"]
+groups = ["main", "test"]
 files = [
     {file = "openai-1.107.3-py3-none-any.whl", hash = "sha256:4ca54a847235ac04c6320da70fdc06b62d71439de9ec0aa40d5690c3064d4025"},
     {file = "openai-1.107.3.tar.gz", hash = "sha256:69bb8032b05c5f00f7660e422f70f9aabc94793b9a30c5f899360ed21e46314f"},
@@ -2419,14 +2449,14 @@ files = [
 
 [[package]]
 name = "s3transfer"
-version = "0.11.4"
+version = "0.19.2"
 description = "An Amazon S3 Transfer Manager"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "s3transfer-0.11.4-py3-none-any.whl", hash = "sha256:ac265fa68318763a03bf2dc4f39d5cbd6a9e178d81cc9483ad27da33637e320d"},
-    {file = "s3transfer-0.11.4.tar.gz", hash = "sha256:559f161658e1cf0a911f45940552c696735f5c74e64362e515f333ebed87d679"},
+    {file = "s3transfer-0.19.2-py3-none-any.whl", hash = "sha256:d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25"},
+    {file = "s3transfer-0.19.2.tar.gz", hash = "sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993"},
 ]
 
 [package.dependencies]
@@ -2520,7 +2550,7 @@ version = "4.66.3"
 description = "Fast, Extensible Progress Meter"
 optional = false
 python-versions = ">=3.7"
-groups = ["test"]
+groups = ["main", "test"]
 files = [
     {file = "tqdm-4.66.3-py3-none-any.whl", hash = "sha256:4f41d54107ff9a223dca80b53efe4fb654c67efaba7f47bada3ee9d50e05bd53"},
     {file = "tqdm-4.66.3.tar.gz", hash = "sha256:23097a41eba115ba99ecae40d06444c15d1c0c698d527a01c6c8bd1c5d0647e5"},
@@ -2815,5 +2845,5 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11,<4.0"
-content-hash = "5edfbdb27a04570ec986a3206a784fb2bc54f158f742924243e228cf72dc6c0e"
+python-versions = ">=3.11,<3.14"
+content-hash = "c30320a3f843e86256f7f73c1c1d6940c91ac753156ab05c4ee1f854533560e4"

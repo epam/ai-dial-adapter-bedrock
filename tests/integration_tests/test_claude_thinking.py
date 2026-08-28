@@ -27,10 +27,13 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE.US: _EAST,
 }
 
 
-_CONFIGURATION = {
+_EXTENDED_THINKING_CONFIGURATION = {
     "custom_fields": {
         "configuration": {
             "thinking": {
@@ -39,6 +42,29 @@ _CONFIGURATION = {
             }
         }
     }
+}
+
+
+_ADAPTIVE_THINKING_CONFIGURATION = {
+    "custom_fields": {
+        "configuration": {
+            "thinking": {"type": "adaptive"},
+            "effort": "medium",
+        }
+    }
+}
+
+
+_ADAPTIVE_THINKING_DEPLOYMENTS = {
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_SONNET,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
+}
+
+# Specific Data Retention cloud configuration required
+# https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5.html#model-card-anthropic-claude-fable-5-data-retention
+_MANTLE_CLIENT_DEPLOYMENTS = {
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
 }
 
 
@@ -53,6 +79,30 @@ class TestCase:
     def get_id(self) -> str:
         stream = "stream" if self.stream else "block"
         return sanitize_test_name(f"{stream}/{self.deployment.value}")
+
+    @property
+    def thinking_configuration(self):
+        if self.deployment.origin in _ADAPTIVE_THINKING_DEPLOYMENTS:
+            return _ADAPTIVE_THINKING_CONFIGURATION
+        return _EXTENDED_THINKING_CONFIGURATION
+
+    @property
+    def extra_headers(self):
+        if self.deployment.origin in _MANTLE_CLIENT_DEPLOYMENTS:
+            return {"claude_client": "mantle"}
+        return None
+
+    @property
+    def request_deployment_id(self) -> str:
+        if self.deployment.origin in _MANTLE_CLIENT_DEPLOYMENTS:
+            return self.deployment.origin.value
+        return self.deployment.value
+
+    def assert_claude_message_content(self, state: MessageState):
+        if self.deployment.origin in _ADAPTIVE_THINKING_DEPLOYMENTS:
+            assert len(state.claude_message_content) > 0
+        else:
+            assert len(state.claude_message_content) == 2
 
 
 @pytest.mark.parametrize(
@@ -69,31 +119,39 @@ async def test_claude_thinking_no_function_calling(
 ):
     stream = test_case.stream
     client = get_openai_client(
-        test_case.deployment.value, region=test_case.region
+        test_case.request_deployment_id,
+        region=test_case.region,
+        extra_headers=test_case.extra_headers,
     )
 
     messages: list[ChatCompletionMessageParam] = [user("2+3=?")]
 
     response1 = await chat_completion(
-        client, messages=messages, stream=stream, extra_body=_CONFIGURATION
+        client,
+        messages=messages,
+        stream=stream,
+        extra_body=test_case.thinking_configuration,
     )
 
     bot_message1 = response1.response.choices[0].message
     state_dict1 = bot_message1.custom_content["state"]  # type: ignore
     state1 = MessageState.model_validate(state_dict1)
-    assert len(state1.claude_message_content) == 2
+    test_case.assert_claude_message_content(state1)
 
     messages.append(bot_message1.model_dump(exclude_none=True))  # type: ignore
     messages.append(user("5+5=?"))
 
     response2 = await chat_completion(
-        client, messages=messages, stream=stream, extra_body=_CONFIGURATION
+        client,
+        messages=messages,
+        stream=stream,
+        extra_body=test_case.thinking_configuration,
     )
 
     bot_message2 = response2.response.choices[0].message
     state_dict2 = bot_message2.custom_content["state"]  # type: ignore
     state2 = MessageState.model_validate(state_dict2)
-    assert len(state2.claude_message_content) == 2
+    test_case.assert_claude_message_content(state2)
 
 
 @pytest.mark.parametrize(
@@ -110,7 +168,9 @@ async def test_claude_thinking_with_function_calling(
 ):
     stream = test_case.stream
     client = get_openai_client(
-        test_case.deployment.value, region=test_case.region
+        test_case.request_deployment_id,
+        region=test_case.region,
+        extra_headers=test_case.extra_headers,
     )
 
     cities = ["Glasgow", "London"]
@@ -127,7 +187,7 @@ async def test_claude_thinking_with_function_calling(
         messages=messages,
         stream=stream,
         tools=[function_to_tool(GET_WEATHER_FUNCTION)],
-        extra_body=_CONFIGURATION,
+        extra_body=test_case.thinking_configuration,
     )
 
     bot_message1 = response1.response.choices[0].message
@@ -155,7 +215,7 @@ async def test_claude_thinking_with_function_calling(
         messages=messages,
         stream=stream,
         tools=[function_to_tool(GET_WEATHER_FUNCTION)],
-        extra_body=_CONFIGURATION,
+        extra_body=test_case.thinking_configuration,
     )
 
     bot_message2 = response2.response.choices[0].message
