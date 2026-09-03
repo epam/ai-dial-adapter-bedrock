@@ -10,12 +10,22 @@ from aidial_adapter_bedrock.upstream_config import (
     SessionTag,
     UpstreamConfig,
 )
-from aidial_adapter_bedrock.utils.env import get_env_list
+from aidial_adapter_bedrock.utils.env import get_env_bool, get_env_list
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-CONVERSE_API_SESSION_TAGS_FIELDS = get_env_list(
-    "CONVERSE_API_SESSION_TAGS_FIELDS"
+# The master switch for the whole feature.
+AWS_SESSION_TAGS_ENABLED = get_env_bool("AWS_SESSION_TAGS_ENABLED")
+
+# The allow-list of DIAL UserInfo paths to pass as tags. Only affects the
+# UserInfo tag source; the other sources are passed regardless of it.
+AWS_SESSION_TAGS_USER_INFO_FIELDS = get_env_list(
+    "AWS_SESSION_TAGS_USER_INFO_FIELDS"
 )
+
+# Tag keys are namespaced by their source, so that the sources stay
+# independent and their keys cannot collide.
+_DEPLOYMENT_TAG_KEY = "Bedrock.modelId"
+_USER_INFO_TAG_PREFIX = "UserInfo."
 
 # AWS STS session tag constraints:
 # https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations
@@ -26,7 +36,7 @@ _MAX_VALUE_LEN = 256
 
 def is_enabled(upstream_config: UpstreamConfig) -> bool:
     return (
-        bool(CONVERSE_API_SESSION_TAGS_FIELDS)
+        AWS_SESSION_TAGS_ENABLED
         and isinstance(upstream_config, CloudUpstreamConfig)
         and isinstance(upstream_config.credentials, AWSAssumeRoleCredentials)
     )
@@ -129,31 +139,67 @@ def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
     return [{"Key": key, "Value": value} for key, value in safe.items()]
 
 
-def from_user_info(user_info: UserInfo) -> list[SessionTag]:
-    data = user_info.model_dump(mode="json")
-    resolved = resolve_paths(data, CONVERSE_API_SESSION_TAGS_FIELDS)
-    ret = _to_session_tags(resolved)
+def build_tags(
+    deployment: str | None, user_info: UserInfo | None
+) -> list[SessionTag]:
+    # The tag sources are independent: the tags from one source are passed
+    # even when another one is unconfigured or unavailable.
+    # Non-UserInfo tags go first so that the entry cap never drops them.
+
+    # Tags extracted from other sources
+    tags = {} if deployment is None else {_DEPLOYMENT_TAG_KEY: deployment}
+
+    # Tags extracted from UserInfo
+    if user_info is not None:
+        data = user_info.model_dump(mode="json")
+        resolved = resolve_paths(data, AWS_SESSION_TAGS_USER_INFO_FIELDS)
+        tags.update(
+            (f"{_USER_INFO_TAG_PREFIX}{path}", value)
+            for path, value in resolved.items()
+        )
+
+    ret = _to_session_tags(tags)
     log.debug(f"Built AWS STS session tags: {ret}")
     return ret
 
 
-async def resolve_session_tags(
-    api_key: str, upstream_config: UpstreamConfig
-) -> list[SessionTag] | None:
-    if not is_enabled(upstream_config):
+async def _fetch_user_info(api_key: str | None) -> UserInfo | None:
+    """Returns None if the UserInfo tag source is unconfigured or unavailable."""
+
+    if not AWS_SESSION_TAGS_USER_INFO_FIELDS:
+        return None
+
+    if api_key is None:
+        log.warning(
+            "Skipping UserInfo AWS STS session tags; "
+            "the request carries no DIAL API key"
+        )
         return None
 
     dial_client = create_dial_client(api_key)
     if dial_client is None:
-        return None
-
-    try:
-        user_info = await dial_client.user.info()
-    except Exception as exc:
         log.warning(
-            f"Skipping AWS STS session tags; failed to fetch DIAL user info: "
-            f"{type(exc).__name__}: {exc}"
+            "Skipping UserInfo AWS STS session tags; "
+            "DIAL_URL env variable is not set"
         )
         return None
 
-    return from_user_info(user_info) or None
+    try:
+        return await dial_client.user.info()
+    except Exception as exc:
+        log.warning(
+            f"Skipping UserInfo AWS STS session tags; "
+            f"failed to fetch DIAL user info: {type(exc).__name__}: {exc}"
+        )
+        return None
+
+
+async def resolve_session_tags(
+    api_key: str | None,
+    upstream_config: UpstreamConfig,
+    deployment: str | None,
+) -> list[SessionTag] | None:
+    if not is_enabled(upstream_config):
+        return None
+
+    return build_tags(deployment, await _fetch_user_info(api_key)) or None

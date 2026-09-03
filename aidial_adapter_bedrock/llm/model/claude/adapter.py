@@ -18,6 +18,7 @@ from aidial_adapter_bedrock.upstream_config import (
     UpstreamConfig,
 )
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
+from aidial_adapter_bedrock.utils.session_tags import resolve_session_tags
 
 
 def _supports_thinking(deployment: ClaudeDeployment) -> bool:
@@ -123,7 +124,10 @@ async def create_adapter(
     upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
     ref = deployment.reference_deployment_id
-    client = await create_anthropic_client(upstream_config)
+    session_tags = await resolve_session_tags(
+        api_key, upstream_config, deployment.upstream_deployment_id
+    )
+    client = await create_anthropic_client(upstream_config, session_tags)
     custom_tokenizer = (
         _Tokenizer(ref)
         if isinstance(upstream_config, CloudUpstreamConfig)

@@ -3,13 +3,13 @@ import logging
 import pytest
 from aidial_client import UserInfo
 
-from aidial_adapter_bedrock.llm.converse import session_tags
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     AWSAssumeRoleCredentials,
     AWSClientCredentials,
     CloudUpstreamConfig,
 )
+from aidial_adapter_bedrock.utils import session_tags
 
 
 def _paths(paths: str | None) -> list[str] | None:
@@ -172,24 +172,31 @@ def test_resolve_paths_logs_unresolved_path_error(caplog, jwt_auth: dict):
     ]
 
 
-@pytest.mark.parametrize(
-    ("config", "expected"),
-    [(None, False), ("", True), ("   ", True), ("roles.0", True)],
-)
-def test_is_enabled(monkeypatch: pytest.MonkeyPatch, config, expected: bool):
+@pytest.mark.parametrize("enabled", [False, True])
+def test_is_enabled_follows_the_enabled_var(
+    monkeypatch: pytest.MonkeyPatch, enabled: bool
+):
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", enabled)
+
+    assert session_tags.is_enabled(_assume_role_upstream_config()) is enabled
+
+
+@pytest.mark.parametrize("fields", [None, [], ["roles.0"]])
+def test_is_enabled_ignores_the_user_info_fields_var(
+    monkeypatch: pytest.MonkeyPatch, fields: list[str] | None
+):
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
-        session_tags, "CONVERSE_API_SESSION_TAGS_FIELDS", _paths(config)
+        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", fields
     )
 
-    assert session_tags.is_enabled(_assume_role_upstream_config()) is expected
+    assert session_tags.is_enabled(_assume_role_upstream_config()) is True
 
 
 def test_is_enabled_requires_assume_role_config(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(
-        session_tags, "CONVERSE_API_SESSION_TAGS_FIELDS", ["roles.0"]
-    )
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
 
     assert (
         session_tags.is_enabled(
@@ -270,21 +277,122 @@ def test_to_session_tags_logs_truncated_keys_and_values(caplog):
     ]
 
 
-def test_from_user_info_resolves_paths_and_sanitizes(
+def test_build_tags_resolves_paths_and_sanitizes(
     monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
     monkeypatch.setattr(
         session_tags,
-        "CONVERSE_API_SESSION_TAGS_FIELDS",
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
         _paths("roles.0,project,userClaims.id,userClaims.email,userClaims.map"),
     )
 
-    assert session_tags.from_user_info(user_info) == [
-        {"Key": "roles.0", "Value": "admin"},
-        {"Key": "project", "Value": "null"},
-        {"Key": "userClaims.id", "Value": "15"},
-        {"Key": "userClaims.email", "Value": "user@example.com"},
-        {"Key": "userClaims.map", "Value": '{"a": ["b"]}'},
+    assert session_tags.build_tags("my-claude", user_info) == [
+        {"Key": "Bedrock.modelId", "Value": "my-claude"},
+        {"Key": "UserInfo.roles.0", "Value": "admin"},
+        {"Key": "UserInfo.project", "Value": "null"},
+        {"Key": "UserInfo.userClaims.id", "Value": "15"},
+        {"Key": "UserInfo.userClaims.email", "Value": "user@example.com"},
+        {"Key": "UserInfo.userClaims.map", "Value": '{"a": ["b"]}'},
+    ]
+
+
+@pytest.mark.parametrize("fields", [None, [], ["roles.0"]])
+def test_build_tags_without_user_info(
+    monkeypatch: pytest.MonkeyPatch, fields: list[str] | None
+):
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", fields
+    )
+
+    assert session_tags.build_tags("my-claude", None) == [
+        {"Key": "Bedrock.modelId", "Value": "my-claude"}
+    ]
+
+
+def test_build_tags_without_a_deployment(
+    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
+):
+    """An unknown deployment mustn't sink the UserInfo tags."""
+
+    monkeypatch.setattr(
+        session_tags,
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
+        _paths("roles.0"),
+    )
+
+    assert session_tags.build_tags(None, user_info) == [
+        {"Key": "UserInfo.roles.0", "Value": "admin"}
+    ]
+
+
+def test_build_tags_without_any_source(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", _paths("roles.0")
+    )
+
+    assert session_tags.build_tags(None, None) == []
+
+
+async def test_resolve_session_tags_without_an_api_key(
+    monkeypatch: pytest.MonkeyPatch, caplog
+):
+    """A request with no DIAL API key still gets the other tag sources."""
+
+    caplog.set_level(logging.WARNING, logger="bedrock")
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", _paths("roles.0")
+    )
+
+    assert await session_tags.resolve_session_tags(
+        None, _assume_role_upstream_config(), "my-claude"
+    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    assert any(
+        "carries no DIAL API key" in message for message in caplog.messages
+    )
+
+
+async def test_resolve_session_tags_without_any_source(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """No tags at all is reported as None, so AssumeRole omits Tags."""
+
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", None)
+
+    assert (
+        await session_tags.resolve_session_tags(
+            None, _assume_role_upstream_config(), None
+        )
+        is None
+    )
+
+
+def test_build_tags_keeps_other_sources_when_entry_cap_is_reached(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        session_tags,
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
+        [f"roles.{i}" for i in range(60)],
+    )
+
+    tags = session_tags.build_tags(
+        "my-claude", UserInfo(roles=[f"r{i}" for i in range(60)])
+    )
+
+    assert tags == [{"Key": "Bedrock.modelId", "Value": "my-claude"}] + [
+        {"Key": f"UserInfo.roles.{i}", "Value": f"r{i}"} for i in range(49)
+    ]
+
+
+def test_build_tags_truncates_long_deployment(
+    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
+):
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", [])
+
+    assert session_tags.build_tags("d" * 300, user_info) == [
+        {"Key": "Bedrock.modelId", "Value": "d" * 256}
     ]
 
 
@@ -310,40 +418,71 @@ class _FakeDialClient:
 
 
 async def test_resolve_session_tags_disabled(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(session_tags, "CONVERSE_API_SESSION_TAGS_FIELDS", None)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", False)
+    monkeypatch.setattr(
+        session_tags,
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
+        _paths("roles.0"),
+    )
 
     assert (
         await session_tags.resolve_session_tags(
-            "key", _assume_role_upstream_config()
+            "key", _assume_role_upstream_config(), "my-claude"
         )
         is None
     )
 
 
-async def test_resolve_session_tags_no_dial_client(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_resolve_session_tags_without_user_info_fields(
+    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
+    """The UserInfo request isn't made at all when no fields are configured."""
+
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", None)
+
+    def _unexpected_client(api_key: str):
+        raise AssertionError("the DIAL client must not be created")
+
+    monkeypatch.setattr(session_tags, "create_dial_client", _unexpected_client)
+
+    assert await session_tags.resolve_session_tags(
+        "key", _assume_role_upstream_config(), "my-claude"
+    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+
+
+async def test_resolve_session_tags_no_dial_client(
+    monkeypatch: pytest.MonkeyPatch, caplog
+):
+    """DIAL_URL isn't set: the other tag sources are still passed."""
+
+    caplog.set_level(logging.WARNING, logger="bedrock")
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
-        session_tags, "CONVERSE_API_SESSION_TAGS_FIELDS", _paths("roles.0")
+        session_tags,
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
+        _paths("roles.0"),
     )
     monkeypatch.setattr(
         session_tags, "create_dial_client", lambda api_key: None
     )
 
-    assert (
-        await session_tags.resolve_session_tags(
-            "key", _assume_role_upstream_config()
-        )
-        is None
+    assert await session_tags.resolve_session_tags(
+        "key", _assume_role_upstream_config(), "my-claude"
+    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    assert any(
+        "DIAL_URL env variable is not set" in message
+        for message in caplog.messages
     )
 
 
 async def test_resolve_session_tags_returns_tags(
     monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
         session_tags,
-        "CONVERSE_API_SESSION_TAGS_FIELDS",
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
         _paths("roles.0,userClaims.email"),
     )
     monkeypatch.setattr(
@@ -353,19 +492,25 @@ async def test_resolve_session_tags_returns_tags(
     )
 
     assert await session_tags.resolve_session_tags(
-        "key", _assume_role_upstream_config()
+        "key", _assume_role_upstream_config(), "my-claude"
     ) == [
-        {"Key": "roles.0", "Value": "admin"},
-        {"Key": "userClaims.email", "Value": "user@example.com"},
+        {"Key": "Bedrock.modelId", "Value": "my-claude"},
+        {"Key": "UserInfo.roles.0", "Value": "admin"},
+        {"Key": "UserInfo.userClaims.email", "Value": "user@example.com"},
     ]
 
 
 async def test_resolve_session_tags_swallows_dial_errors(
     monkeypatch: pytest.MonkeyPatch, caplog
 ):
+    """A failed UserInfo request doesn't drop the other tag sources."""
+
     caplog.set_level(logging.WARNING, logger="bedrock")
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
-        session_tags, "CONVERSE_API_SESSION_TAGS_FIELDS", _paths("roles.0")
+        session_tags,
+        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
+        _paths("roles.0"),
     )
     monkeypatch.setattr(
         session_tags,
@@ -373,12 +518,9 @@ async def test_resolve_session_tags_swallows_dial_errors(
         lambda api_key: _FakeDialClient(error=RuntimeError("boom")),
     )
 
-    assert (
-        await session_tags.resolve_session_tags(
-            "key", _assume_role_upstream_config()
-        )
-        is None
-    )
+    assert await session_tags.resolve_session_tags(
+        "key", _assume_role_upstream_config(), "my-claude"
+    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
     assert any(
         "failed to fetch DIAL user info" in message
         for message in caplog.messages

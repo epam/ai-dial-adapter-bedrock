@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from typing import ClassVar, Optional, TypedDict, assert_never
 
@@ -20,10 +21,48 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
 
+_DEFAULT_ROLE_SESSION_NAME = "BedrockAccessSession"
+
+# The session tag naming the user project. When it's passed, the project
+# names the role session instead of the default above.
+_PROJECT_TAG_KEY = "UserInfo.project"
+# The marker goes in front, so that it survives the truncation of a long
+# project and groups the adapter sessions together in the AWS logs.
+_PROJECT_ROLE_SESSION_NAME_PREFIX = "Project_"
+
+# AWS STS RoleSessionName constraints:
+# https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+_MAX_ROLE_SESSION_NAME_LEN = 64
+_INVALID_ROLE_SESSION_NAME_CHARS = re.compile(r"[^\w+=,.@-]")
+
 
 class SessionTag(TypedDict):
     Key: str
     Value: str
+
+
+def _get_role_session_name(session_tags: list[SessionTag] | None) -> str:
+    project = next(
+        (
+            tag["Value"]
+            for tag in session_tags or []
+            if tag["Key"] == _PROJECT_TAG_KEY
+        ),
+        None,
+    )
+
+    # A user without a project is resolved to the JSON "null" by the session
+    # tags, which makes for a meaningless session name.
+    if project is None or project in ("", "null"):
+        return _DEFAULT_ROLE_SESSION_NAME
+
+    max_project_len = _MAX_ROLE_SESSION_NAME_LEN - len(
+        _PROJECT_ROLE_SESSION_NAME_PREFIX
+    )
+    sanitized = _INVALID_ROLE_SESSION_NAME_CHARS.sub("_", project)[
+        :max_project_len
+    ]
+    return f"{_PROJECT_ROLE_SESSION_NAME_PREFIX}{sanitized}"
 
 
 class ClientCredentialArgs(BaseModel):
@@ -59,7 +98,7 @@ class AWSAssumeRoleCredentials(BaseModel):
 
         assume_role_params: dict = {
             "RoleArn": self.aws_assume_role_arn,
-            "RoleSessionName": "BedrockAccessSession",
+            "RoleSessionName": _get_role_session_name(session_tags),
         }
         if session_tags:
             assume_role_params["Tags"] = session_tags

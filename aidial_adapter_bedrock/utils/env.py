@@ -18,6 +18,12 @@ def get_env_int(name: str, default: int) -> int:
     return int(os.getenv(name) or default)
 
 
+def get_env_bool(name: str, default: bool = False) -> bool:
+    if (value := os.getenv(name)) is None:
+        return default
+    return value.strip().lower() in {"1", "true"}
+
+
 def get_env_list(name: str) -> list[str] | None:
     if (value := os.getenv(name)) is not None:
         return [str.strip(s) for s in value.split(",")]

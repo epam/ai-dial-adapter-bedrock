@@ -87,6 +87,7 @@ AnthropicClient = (
 @ttl_cache
 async def create_anthropic_client(
     upstream_config: UpstreamConfig,
+    session_tags: list[SessionTag] | None = None,
 ) -> tuple[datetime | None, AnthropicClient]:
     http_client = httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
@@ -109,7 +110,7 @@ async def create_anthropic_client(
         )
         return (None, anthropic_client)
 
-    expiration, creds = await upstream_config.get_credentials(session_tags=None)
+    expiration, creds = await upstream_config.get_credentials(session_tags)
     client_params: _BedrockClientParams = {
         "aws_region": upstream_config.region,
         "aws_access_key": creds.aws_access_key_id,
