@@ -138,10 +138,10 @@ def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
 
 
 def build_tags(
-    deployment: str | None, user_info: UserInfo | None
+    model_id: str | None, user_info: UserInfo | None
 ) -> list[SessionTag]:
     # Tags extracted from other sources
-    tags = {} if deployment is None else {_MODEL_ID_TAG_KEY: deployment}
+    tags = {} if model_id is None else {_MODEL_ID_TAG_KEY: model_id}
 
     # Tags extracted from UserInfo
     if user_info is not None:
@@ -189,9 +189,9 @@ async def _fetch_user_info(api_key: str | None) -> UserInfo | None:
 async def resolve_session_tags(
     api_key: str | None,
     upstream_config: UpstreamConfig,
-    deployment: str | None,
+    model_id: str | None,
 ) -> list[SessionTag] | None:
     if not is_enabled(upstream_config):
         return None
 
-    return build_tags(deployment, await _fetch_user_info(api_key)) or None
+    return build_tags(model_id, await _fetch_user_info(api_key)) or None
