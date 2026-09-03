@@ -13,11 +13,10 @@ from aidial_adapter_bedrock.upstream_config import (
 from aidial_adapter_bedrock.utils.env import get_env_bool, get_env_list
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-# The master switch for the whole feature.
 AWS_SESSION_TAGS_ENABLED = get_env_bool("AWS_SESSION_TAGS_ENABLED")
 
-# The allow-list of DIAL UserInfo paths to pass as tags. Only affects the
-# UserInfo tag source; the other sources are passed regardless of it.
+# The allow-list of DIAL UserInfo paths to pass as tags.
+# Only affects the UserInfo tag source.
 AWS_SESSION_TAGS_USER_INFO_FIELDS = get_env_list(
     "AWS_SESSION_TAGS_USER_INFO_FIELDS"
 )
@@ -142,10 +141,6 @@ def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
 def build_tags(
     deployment: str | None, user_info: UserInfo | None
 ) -> list[SessionTag]:
-    # The tag sources are independent: the tags from one source are passed
-    # even when another one is unconfigured or unavailable.
-    # Non-UserInfo tags go first so that the entry cap never drops them.
-
     # Tags extracted from other sources
     tags = {} if deployment is None else {_DEPLOYMENT_TAG_KEY: deployment}
 
@@ -164,8 +159,6 @@ def build_tags(
 
 
 async def _fetch_user_info(api_key: str | None) -> UserInfo | None:
-    """Returns None if the UserInfo tag source is unconfigured or unavailable."""
-
     if not AWS_SESSION_TAGS_USER_INFO_FIELDS:
         return None
 

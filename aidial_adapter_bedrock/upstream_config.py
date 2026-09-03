@@ -53,7 +53,7 @@ def _get_role_session_name(session_tags: list[SessionTag] | None) -> str:
 
     # A user without a project is resolved to the JSON "null" by the session
     # tags, which makes for a meaningless session name.
-    if project is None or project in ("", "null"):
+    if project is None or project in {"", "null"}:
         return _DEFAULT_ROLE_SESSION_NAME
 
     max_project_len = _MAX_ROLE_SESSION_NAME_LEN - len(

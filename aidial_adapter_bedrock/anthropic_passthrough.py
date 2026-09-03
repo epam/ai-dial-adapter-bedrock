@@ -26,11 +26,9 @@ _API_KEY_HEADER_NAME = "Api-Key"
 
 
 async def _get_model(request: Request) -> str | None:
-    """The model of an Anthropic Messages API request, which carries it in the
+    """
+    The model of an Anthropic Messages API request, which carries it in the
     body rather than in the path.
-
-    Reading the body here is safe: the passthrough hands the very same request
-    to the proxy, and Starlette caches the body it has already read.
     """
 
     try:
@@ -49,8 +47,6 @@ async def _get_model(request: Request) -> str | None:
 async def _resolve_session_tags(
     request: Request, upstream_config: UpstreamConfig
 ):
-    # Guarding here as well, so that a disabled feature doesn't pay for
-    # reading the request body.
     if not session_tags_enabled(upstream_config):
         return None
 
