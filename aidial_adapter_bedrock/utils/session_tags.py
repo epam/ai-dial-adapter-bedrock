@@ -16,14 +16,13 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 AWS_SESSION_TAGS_ENABLED = get_env_bool("AWS_SESSION_TAGS_ENABLED")
 
 # The allow-list of DIAL UserInfo paths to pass as tags.
-# Only affects the UserInfo tag source.
 AWS_SESSION_TAGS_USER_INFO_FIELDS = get_env_list(
     "AWS_SESSION_TAGS_USER_INFO_FIELDS"
 )
 
 # Tag keys are namespaced by their source, so that the sources stay
 # independent and their keys cannot collide.
-_DEPLOYMENT_TAG_KEY = "Bedrock.modelId"
+_MODEL_ID_TAG_KEY = "Bedrock.modelId"
 _USER_INFO_TAG_PREFIX = "UserInfo."
 
 # AWS STS session tag constraints:
@@ -142,7 +141,7 @@ def build_tags(
     deployment: str | None, user_info: UserInfo | None
 ) -> list[SessionTag]:
     # Tags extracted from other sources
-    tags = {} if deployment is None else {_DEPLOYMENT_TAG_KEY: deployment}
+    tags = {} if deployment is None else {_MODEL_ID_TAG_KEY: deployment}
 
     # Tags extracted from UserInfo
     if user_info is not None:
