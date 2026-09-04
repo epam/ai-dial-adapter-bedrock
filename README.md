@@ -458,6 +458,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
+|REQUEST_TIMEOUT_SECONDS|600|The request timeout in seconds (read, write and pool) for the requests to AWS Bedrock.|
 
 ### Session Tags
 
@@ -525,7 +526,6 @@ The following environment variables reveal adapter's implementation details and 
 |ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
-|REQUEST_TIMEOUT_SECONDS|All|600|The request timeout in seconds (read, write and pool) for the requests to AWS Bedrock.|
 
 ### Default `max_tokens` for Claude models
 
