@@ -13,6 +13,7 @@ from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
 )
 from aidial_adapter_bedrock.upstream_config import (
+    SessionTag,
     UpstreamConfig,
     parse_upstream_config,
 )
@@ -26,11 +27,6 @@ _API_KEY_HEADER_NAME = "Api-Key"
 
 
 async def _get_model(request: Request) -> str | None:
-    """
-    The model of an Anthropic Messages API request, which carries it in the
-    body rather than in the path.
-    """
-
     try:
         body = await request.json()
         model = body["model"]
@@ -46,7 +42,7 @@ async def _get_model(request: Request) -> str | None:
 
 async def _resolve_session_tags(
     request: Request, upstream_config: UpstreamConfig
-):
+) -> list[SessionTag] | None:
     if not session_tags_enabled(upstream_config):
         return None
 

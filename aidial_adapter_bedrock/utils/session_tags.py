@@ -13,7 +13,9 @@ from aidial_adapter_bedrock.upstream_config import (
 from aidial_adapter_bedrock.utils.env import get_env_bool, get_env_list
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-AWS_SESSION_TAGS_ENABLED = get_env_bool("AWS_SESSION_TAGS_ENABLED")
+AWS_SESSION_TAGS_ENABLED = get_env_bool(
+    "AWS_SESSION_TAGS_ENABLED", default=False
+)
 
 # The allow-list of DIAL UserInfo paths to pass as tags.
 AWS_SESSION_TAGS_USER_INFO_FIELDS = get_env_list(
@@ -23,7 +25,7 @@ AWS_SESSION_TAGS_USER_INFO_FIELDS = get_env_list(
 # Tag keys are namespaced by their source, so that the sources stay
 # independent and their keys cannot collide.
 _MODEL_ID_TAG_KEY = "Bedrock.modelId"
-_USER_INFO_TAG_PREFIX = "UserInfo."
+_USER_INFO_TAG_KEY_PREFIX = "UserInfo."
 
 # AWS STS session tag constraints:
 # https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations
@@ -140,15 +142,15 @@ def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
 def build_tags(
     model_id: str | None, user_info: UserInfo | None
 ) -> list[SessionTag]:
-    # Tags extracted from other sources
+    # Tags extracted from request
     tags = {} if model_id is None else {_MODEL_ID_TAG_KEY: model_id}
 
-    # Tags extracted from UserInfo
+    # Tags extracted from DIAL /user/info
     if user_info is not None:
         data = user_info.model_dump(mode="json")
         resolved = resolve_paths(data, AWS_SESSION_TAGS_USER_INFO_FIELDS)
         tags.update(
-            (f"{_USER_INFO_TAG_PREFIX}{path}", value)
+            (f"{_USER_INFO_TAG_KEY_PREFIX}{path}", value)
             for path, value in resolved.items()
         )
 
