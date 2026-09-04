@@ -50,7 +50,9 @@ async def get_bedrock_adapter(
     request: ChatCompletionRequest | None,
 ) -> ChatCompletionAdapter:
     async def get_bedrock_client():
-        session_tags = await resolve_session_tags(api_key, upstream_config)
+        session_tags = await resolve_session_tags(
+            api_key, upstream_config, deployment.upstream_deployment_id
+        )
         return await Bedrock.acreate(upstream_config, session_tags)
 
     converse_adapter = ConverseAdapterFactory(
@@ -169,7 +171,7 @@ async def get_embeddings_model(
     upstream_config: UpstreamConfig,
 ) -> EmbeddingsAdapter:
     model = deployment.upstream_deployment_id
-    session_tags = await resolve_session_tags(api_key, upstream_config)
+    session_tags = await resolve_session_tags(api_key, upstream_config, model)
     client = await Bedrock.acreate(upstream_config, session_tags)
     match deployment.reference_deployment_id:
         case ED.AMAZON_TITAN_EMBED_TEXT_V1:

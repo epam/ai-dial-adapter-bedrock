@@ -12,6 +12,9 @@ from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from aidial_adapter_bedrock.deployments import ClaudeDeployment
 from aidial_adapter_bedrock.dial_api.storage import create_file_storage
+from aidial_adapter_bedrock.llm.converse.session_tags import (
+    resolve_session_tags,
+)
 from aidial_adapter_bedrock.llm.model.conf import CLAUDE_DEFAULT_MAX_TOKENS
 from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
@@ -123,7 +126,10 @@ async def create_adapter(
     upstream_config: UpstreamConfig,
 ) -> ChatCompletionAdapter:
     ref = deployment.reference_deployment_id
-    client = await create_anthropic_client(upstream_config)
+    session_tags = await resolve_session_tags(
+        api_key, upstream_config, deployment.upstream_deployment_id
+    )
+    client = await create_anthropic_client(upstream_config, session_tags)
     custom_tokenizer = (
         _Tokenizer(ref)
         if isinstance(upstream_config, CloudUpstreamConfig)

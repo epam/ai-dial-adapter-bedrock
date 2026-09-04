@@ -12,8 +12,57 @@ from aidial_adapter_bedrock.upstream_config import (
     ClientCredentialArgs,
     CloudUpstreamConfig,
     SessionTag,
+    _get_role_session_name,
     parse_upstream_config,
 )
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        (None, "BedrockAccessSession"),
+        ([], "BedrockAccessSession"),
+        # No project tag among the passed ones.
+        ([{"Key": "Bedrock.modelId", "Value": "m"}], "BedrockAccessSession"),
+        # The unprefixed key isn't the project tag.
+        ([{"Key": "project", "Value": "epam"}], "BedrockAccessSession"),
+        # A user without a project resolves to the JSON "null".
+        (
+            [{"Key": "UserInfo.project", "Value": "null"}],
+            "BedrockAccessSession",
+        ),
+        ([{"Key": "UserInfo.project", "Value": ""}], "BedrockAccessSession"),
+        ([{"Key": "UserInfo.project", "Value": "epam"}], "Project_epam"),
+        (
+            [
+                {"Key": "Bedrock.modelId", "Value": "m"},
+                {"Key": "UserInfo.project", "Value": "epam"},
+            ],
+            "Project_epam",
+        ),
+        # Characters outside the RoleSessionName charset are replaced.
+        (
+            [{"Key": "UserInfo.project", "Value": "EPAM / DIAL (prod)"}],
+            "Project_EPAM___DIAL__prod_",
+        ),
+        # The charset allows these as-is.
+        (
+            [{"Key": "UserInfo.project", "Value": "a+b=c,d.e@f-g_1"}],
+            "Project_a+b=c,d.e@f-g_1",
+        ),
+    ],
+)
+def test_get_role_session_name(tags: list[SessionTag] | None, expected: str):
+    assert _get_role_session_name(tags) == expected
+
+
+def test_get_role_session_name_truncates_long_projects():
+    name = _get_role_session_name(
+        [{"Key": "UserInfo.project", "Value": "p" * 100}]
+    )
+
+    assert name == "Project_" + "p" * 56
+    assert len(name) == 64
 
 
 @dataclass
@@ -186,7 +235,7 @@ class TestAWSClientConfigFactory:
         )
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
-        tags: list[SessionTag] = [{"Key": "project", "Value": "epam"}]
+        tags: list[SessionTag] = [{"Key": "UserInfo.roles.0", "Value": "admin"}]
 
         _expiration, creds = await creds_config.get_credentials(
             "us-east-1", tags
@@ -196,6 +245,39 @@ class TestAWSClientConfigFactory:
         assert captured["RoleSessionName"] == "BedrockAccessSession"
         assert captured["Tags"] == tags
         assert creds.aws_access_key_id == "a"
+
+    async def test_assume_role_names_the_session_after_the_project(
+        self, monkeypatch
+    ):
+        captured: dict = {}
+
+        class _Sts:
+            def assume_role(self, **kwargs):
+                captured.update(kwargs)
+                return {
+                    "Credentials": {
+                        "Expiration": datetime.now(),
+                        "AccessKeyId": "a",
+                        "SecretAccessKey": "s",
+                        "SessionToken": "t",
+                    }
+                }
+
+        class _Session:
+            def client(self, *args, **kwargs):
+                return _Sts()
+
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.upstream_config.boto3.Session",
+            lambda: _Session(),
+        )
+
+        creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
+        tags: list[SessionTag] = [{"Key": "UserInfo.project", "Value": "epam"}]
+
+        await creds_config.get_credentials("us-east-1", tags)
+
+        assert captured["RoleSessionName"] == "Project_epam"
 
     async def test_assume_role_omits_tags_when_empty(self, monkeypatch):
         captured: dict = {}

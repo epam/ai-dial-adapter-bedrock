@@ -5,7 +5,10 @@ import pytest
 from aidial_adapter_bedrock.bedrock import create_anthropic_client
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
+    AWSAssumeRoleCredentials,
+    ClientCredentialArgs,
     CloudUpstreamConfig,
+    SessionTag,
 )
 
 
@@ -13,6 +16,14 @@ from aidial_adapter_bedrock.upstream_config import (
 class _DummyClient:
     kind: str
     kwargs: dict
+
+
+def _assume_role_config() -> CloudUpstreamConfig:
+    return CloudUpstreamConfig(
+        region="us-east-1",
+        claude_client="legacy",
+        credentials=AWSAssumeRoleCredentials(aws_assume_role_arn="arn"),
+    )
 
 
 class TestCreateAnthropicClient:
@@ -131,3 +142,66 @@ class TestCreateAnthropicClient:
         assert mantle_1 is mantle_2
         assert legacy_1 is not mantle_1
         assert calls == {"legacy": 1, "mantle": 1}
+
+    async def test_cloud_path_passes_session_tags_to_assume_role(
+        self, monkeypatch
+    ):
+        create_anthropic_client.clear()
+        captured: list = []
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            captured.append(session_tags)
+            return None, ClientCredentialArgs()
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            lambda **kwargs: _DummyClient("legacy", kwargs),
+        )
+
+        tags: list[SessionTag] = [
+            {"Key": "Bedrock.modelId", "Value": "anthropic.claude-opus-5"}
+        ]
+
+        await create_anthropic_client(_assume_role_config(), tags)
+
+        assert captured == [tags]
+
+    async def test_cache_key_separates_session_tags(self, monkeypatch):
+        """Two users must never share one set of assumed-role credentials."""
+
+        create_anthropic_client.clear()
+        calls = 0
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            return None, ClientCredentialArgs()
+
+        def _fake_legacy_client(**kwargs):
+            nonlocal calls
+            calls += 1
+            return _DummyClient("legacy", kwargs)
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            _fake_legacy_client,
+        )
+
+        alice: list[SessionTag] = [
+            {"Key": "UserInfo.userClaims.email", "Value": "alice@example.com"}
+        ]
+        bob: list[SessionTag] = [
+            {"Key": "UserInfo.userClaims.email", "Value": "bob@example.com"}
+        ]
+
+        alice_1 = await create_anthropic_client(_assume_role_config(), alice)
+        alice_2 = await create_anthropic_client(_assume_role_config(), alice)
+        bob_1 = await create_anthropic_client(_assume_role_config(), bob)
+
+        assert alice_1 is alice_2
+        assert alice_1 is not bob_1
+        assert calls == 2
