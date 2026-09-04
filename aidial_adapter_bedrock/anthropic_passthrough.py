@@ -12,16 +12,18 @@ from aidial_adapter_bedrock.bedrock import (
     AnthropicClient,
     create_anthropic_client,
 )
+from aidial_adapter_bedrock.llm.converse.session_tags import (
+    is_enabled as session_tags_enabled,
+)
+from aidial_adapter_bedrock.llm.converse.session_tags import (
+    resolve_session_tags,
+)
 from aidial_adapter_bedrock.upstream_config import (
     SessionTag,
     UpstreamConfig,
     parse_upstream_config,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-from aidial_adapter_bedrock.utils.session_tags import (
-    is_enabled as session_tags_enabled,
-)
-from aidial_adapter_bedrock.utils.session_tags import resolve_session_tags
 
 _API_KEY_HEADER_NAME = "Api-Key"
 
