@@ -7,7 +7,6 @@ from functools import cache
 from logging import DEBUG
 from typing import Any, TypedDict, Unpack, assert_never
 
-import anthropic
 import boto3
 import botocore
 import httpx
@@ -47,6 +46,9 @@ BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
 )
 ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
 
+# Same as Anthropic SDK timeouts: anthropic._constants.DEFAULT_TIMEOUT
+DEFAULT_TIMEOUTS = httpx.Timeout(timeout=10 * 60, connect=5.0)
+
 
 class _BedrockClientParams(TypedDict):
     aws_region: str
@@ -72,7 +74,7 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
     # stream=False & max_tokens>=128K/6:
     # https://github.com/anthropics/anthropic-sdk-python/blob/f5bdf5137cc3da4d3663aedb8c63d54652981c3b/src/anthropic/resources/beta/messages/messages.py#L2175-L2176
 
-    timeout = anthropic._constants.DEFAULT_TIMEOUT.as_dict()
+    timeout = DEFAULT_TIMEOUTS.as_dict()
     timeout["connect"] *= 1.0001  # type: ignore
     return httpx.Timeout(**timeout)
 
@@ -136,6 +138,9 @@ async def create_boto_client(
         # The max number of connections to the same upstream that are persisted (saved to a connection pool).
         # Greater number of connections *don't block* each other.
         max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS,
+        # Overriding Botocore default read timeout of 60s,
+        # which is too short for non-streaming Converse API requests.
+        read_timeout=DEFAULT_TIMEOUTS.read,
         retries={
             "mode": "standard",
             "total_max_attempts": 1 + _get_botocore_max_retry_attempts(),
