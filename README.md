@@ -525,6 +525,7 @@ The following environment variables reveal adapter's implementation details and 
 |ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
+|REQUEST_TIMEOUT_SECONDS|All|600|The request timeout in seconds (read, write and pool) for the requests to AWS Bedrock.|
 
 ### Default `max_tokens` for Claude models
 
