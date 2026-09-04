@@ -172,31 +172,30 @@ def test_resolve_paths_logs_unresolved_path_error(caplog, jwt_auth: dict):
     ]
 
 
-@pytest.mark.parametrize("enabled", [False, True])
-def test_is_enabled_follows_the_enabled_var(
-    monkeypatch: pytest.MonkeyPatch, enabled: bool
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (None, False),
+        ("", False),
+        ("Bedrock.modelId", True),
+        ("UserInfo.project", True),
+        # Setting the variable enables the feature, even if every configured
+        # tag turns out to be unusable.
+        ("Nope.field", True),
+    ],
+)
+def test_is_enabled_follows_the_tags_var(
+    monkeypatch: pytest.MonkeyPatch, config: str | None, expected: bool
 ):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", enabled)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", _paths(config))
 
-    assert session_tags.is_enabled(_assume_role_upstream_config()) is enabled
-
-
-@pytest.mark.parametrize("fields", [None, [], ["roles.0"]])
-def test_is_enabled_ignores_the_user_info_fields_var(
-    monkeypatch: pytest.MonkeyPatch, fields: list[str] | None
-):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
-    monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", fields
-    )
-
-    assert session_tags.is_enabled(_assume_role_upstream_config()) is True
+    assert session_tags.is_enabled(_assume_role_upstream_config()) is expected
 
 
 def test_is_enabled_requires_assume_role_config(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", ["Bedrock.modelId"])
 
     assert (
         session_tags.is_enabled(
@@ -224,19 +223,62 @@ def test_to_session_tags_truncates_long_keys_and_values():
     long_key = "k" * 200
     long_value = "v" * 300
 
-    assert session_tags._to_session_tags(
-        {"bad[key]": '"a\'b"', long_key: long_value}
-    ) == [
-        {"Key": "bad[key]", "Value": '"a\'b"'},
-        {"Key": "k" * 128, "Value": "v" * 256},
+    assert session_tags._to_session_tags({long_key: long_value}) == [
+        {"Key": "k" * 128, "Value": "v" * 256}
     ]
 
 
-def test_to_session_tags_preserves_configured_paths_and_values():
-    assert session_tags._to_session_tags({"a,b": "x", "c#d": "y$z"}) == [
-        {"Key": "a,b", "Value": "x"},
-        {"Key": "c#d", "Value": "y$z"},
-    ]
+@pytest.mark.parametrize(
+    ("flat", "expected"),
+    [
+        # The AssumeRole failure this sanitization was added for: a claim
+        # holding a single email in a list.
+        (
+            {"UserInfo.userClaims.email": '["test_user@example.com"]'},
+            [
+                {
+                    "Key": "UserInfo.userClaims.email",
+                    "Value": "__test_user@example.com__",
+                }
+            ],
+        ),
+        # A comma isn't allowed either, so no JSON value passes as-is.
+        (
+            {"UserInfo.userClaims.access": '["read", "write"]'},
+            [
+                {
+                    "Key": "UserInfo.userClaims.access",
+                    "Value": "__read__ _write__",
+                }
+            ],
+        ),
+        ({"a,b": "x"}, [{"Key": "a_b", "Value": "x"}]),
+        ({"c#d": "y$z"}, [{"Key": "c_d", "Value": "y_z"}]),
+        ({"k": '"a\'b"'}, [{"Key": "k", "Value": "_a_b_"}]),
+        # The allowed punctuation survives.
+        (
+            {"UserInfo.project": "a_b.c:d/e=f+g-h@i"},
+            [{"Key": "UserInfo.project", "Value": "a_b.c:d/e=f+g-h@i"}],
+        ),
+        # Letters, numbers and separators of any script survive.
+        (
+            {"UserInfo.project": "Ünïcode Проект 42"},
+            [{"Key": "UserInfo.project", "Value": "Ünïcode Проект 42"}],
+        ),
+    ],
+)
+def test_to_session_tags_sanitizes_disallowed_chars(
+    flat: dict[str, str], expected: list[dict[str, str]]
+):
+    assert session_tags._to_session_tags(flat) == expected
+
+
+def test_to_session_tags_sanitization_preserves_length():
+    value = '{"a": ["b"], "c": 1}'
+
+    tags = session_tags._to_session_tags({"k": value})
+
+    assert len(tags[0]["Value"]) == len(value)
 
 
 def test_to_session_tags_caps_at_50_entries():
@@ -247,13 +289,40 @@ def test_to_session_tags_caps_at_50_entries():
     ]
 
 
-def test_to_session_tags_keeps_first_truncated_key_collision():
-    first_key = f"{'a' * 128}x"
-    second_key = f"{'a' * 128}y"
+def test_to_session_tags_postfixes_truncated_key_collisions():
+    keys = {f"{'a' * 128}{suffix}": suffix for suffix in ("x", "y", "z")}
 
-    assert session_tags._to_session_tags(
-        {first_key: "first", second_key: "second"}
-    ) == [{"Key": "a" * 128, "Value": "first"}]
+    tags = session_tags._to_session_tags(keys)
+
+    assert tags == [
+        {"Key": "a" * 128, "Value": "x"},
+        {"Key": "a" * 126 + "_1", "Value": "y"},
+        {"Key": "a" * 126 + "_2", "Value": "z"},
+    ]
+    assert all(len(tag["Key"]) == 128 for tag in tags)
+
+
+def test_to_session_tags_postfixes_sanitized_key_collisions():
+    tags = session_tags._to_session_tags(
+        {"a#b": "first", "a$b": "second", "a%b": "third"}
+    )
+
+    assert tags == [
+        {"Key": "a_b", "Value": "first"},
+        {"Key": "a_b_1", "Value": "second"},
+        {"Key": "a_b_2", "Value": "third"},
+    ]
+
+
+def test_to_session_tags_logs_postfixed_key_collisions(caplog):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+
+    session_tags._to_session_tags({"a#b": "first", "a$b": "second"})
+
+    assert any(
+        "collides with an earlier entry: a$b" in message
+        for message in caplog.messages
+    )
 
 
 def test_to_session_tags_drops_empty_keys_but_keeps_empty_values():
@@ -277,13 +346,68 @@ def test_to_session_tags_logs_truncated_keys_and_values(caplog):
     ]
 
 
-def test_build_tags_resolves_paths_and_sanitizes(
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (None, []),
+        ("", []),
+        ("Bedrock.modelId", [("Bedrock.modelId", "Bedrock", "modelId")]),
+        (
+            "UserInfo.userClaims.email",
+            [("UserInfo.userClaims.email", "UserInfo", "userClaims.email")],
+        ),
+        # The order of the variable is kept.
+        (
+            "UserInfo.project,Bedrock.modelId",
+            [
+                ("UserInfo.project", "UserInfo", "project"),
+                ("Bedrock.modelId", "Bedrock", "modelId"),
+            ],
+        ),
+        # An unprefixed entry names no source.
+        ("project", []),
+        ("", []),
+        # Unknown source.
+        ("Nope.project", []),
+        # The Bedrock source only provides modelId.
+        ("Bedrock.region", []),
+        (
+            "Bedrock.region,UserInfo.project",
+            [("UserInfo.project", "UserInfo", "project")],
+        ),
+    ],
+)
+def test_parse_tags(config: str | None, expected: list[tuple[str, str, str]]):
+    assert session_tags.parse_tags(_paths(config)) == expected
+
+
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        ("project", "it names no source"),
+        ("Nope.project", "unknown source 'Nope'"),
+        ("Bedrock.region", "only provides 'modelId'"),
+    ],
+)
+def test_parse_tags_logs_skipped_tags(caplog, config: str, message: str):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+
+    assert session_tags.parse_tags(_paths(config)) == []
+
+    assert any(message in logged for logged in caplog.messages)
+
+
+def test_build_tags_resolves_configured_tags(
     monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0,project,userClaims.id,userClaims.email,userClaims.map"),
+        "AWS_SESSION_TAGS",
+        _paths(
+            "Bedrock.modelId,UserInfo.roles.0,UserInfo.project,"
+            "UserInfo.userClaims.id,UserInfo.userClaims.email,"
+            "UserInfo.userClaims.map"
+        ),
     )
 
     assert session_tags.build_tags("my-claude", user_info) == [
@@ -292,16 +416,48 @@ def test_build_tags_resolves_paths_and_sanitizes(
         {"Key": "UserInfo.project", "Value": "null"},
         {"Key": "UserInfo.userClaims.id", "Value": "15"},
         {"Key": "UserInfo.userClaims.email", "Value": "user@example.com"},
-        {"Key": "UserInfo.userClaims.map", "Value": '{"a": ["b"]}'},
+        # The JSON punctuation isn't allowed by AWS.
+        {"Key": "UserInfo.userClaims.map", "Value": "__a_: __b___"},
     ]
 
 
-@pytest.mark.parametrize("fields", [None, [], ["roles.0"]])
-def test_build_tags_without_user_info(
-    monkeypatch: pytest.MonkeyPatch, fields: list[str] | None
+def test_build_tags_keeps_the_configured_order(
+    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
     monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", fields
+        session_tags,
+        "AWS_SESSION_TAGS",
+        _paths("UserInfo.roles.1,Bedrock.modelId,UserInfo.roles.0"),
+    )
+
+    assert session_tags.build_tags("my-claude", user_info) == [
+        {"Key": "UserInfo.roles.1", "Value": "writer"},
+        {"Key": "Bedrock.modelId", "Value": "my-claude"},
+        {"Key": "UserInfo.roles.0", "Value": "admin"},
+    ]
+
+
+def test_build_tags_passes_only_the_configured_tags(
+    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
+):
+    """A tag that isn't configured is never passed, model id included."""
+
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS", _paths("UserInfo.roles.0")
+    )
+
+    assert session_tags.build_tags("my-claude", user_info) == [
+        {"Key": "UserInfo.roles.0", "Value": "admin"}
+    ]
+
+
+def test_build_tags_without_user_info(monkeypatch: pytest.MonkeyPatch):
+    """An unavailable UserInfo mustn't sink the Bedrock tags."""
+
+    monkeypatch.setattr(
+        session_tags,
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
 
     assert session_tags.build_tags("my-claude", None) == [
@@ -309,15 +465,15 @@ def test_build_tags_without_user_info(
     ]
 
 
-def test_build_tags_without_a_deployment(
+def test_build_tags_without_a_model_id(
     monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
-    """An unknown deployment mustn't sink the UserInfo tags."""
+    """An unknown model mustn't sink the UserInfo tags."""
 
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0"),
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
 
     assert session_tags.build_tags(None, user_info) == [
@@ -327,7 +483,9 @@ def test_build_tags_without_a_deployment(
 
 def test_build_tags_without_any_source(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", _paths("roles.0")
+        session_tags,
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
 
     assert session_tags.build_tags(None, None) == []
@@ -339,9 +497,10 @@ async def test_resolve_session_tags_without_an_api_key(
     """A request with no DIAL API key still gets the other tag sources."""
 
     caplog.set_level(logging.WARNING, logger="bedrock")
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", _paths("roles.0")
+        session_tags,
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
 
     assert await session_tags.resolve_session_tags(
@@ -357,8 +516,9 @@ async def test_resolve_session_tags_without_any_source(
 ):
     """No tags at all is reported as None, so AssumeRole omits Tags."""
 
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", None)
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS", _paths("Bedrock.modelId")
+    )
 
     assert (
         await session_tags.resolve_session_tags(
@@ -368,13 +528,11 @@ async def test_resolve_session_tags_without_any_source(
     )
 
 
-def test_build_tags_keeps_other_sources_when_entry_cap_is_reached(
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_build_tags_caps_at_50_entries(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        [f"roles.{i}" for i in range(60)],
+        "AWS_SESSION_TAGS",
+        ["Bedrock.modelId"] + [f"UserInfo.roles.{i}" for i in range(60)],
     )
 
     tags = session_tags.build_tags(
@@ -386,12 +544,12 @@ def test_build_tags_keeps_other_sources_when_entry_cap_is_reached(
     ]
 
 
-def test_build_tags_truncates_long_deployment(
-    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
-):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", [])
+def test_build_tags_truncates_long_model_ids(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS", _paths("Bedrock.modelId")
+    )
 
-    assert session_tags.build_tags("d" * 300, user_info) == [
+    assert session_tags.build_tags("d" * 300, None) == [
         {"Key": "Bedrock.modelId", "Value": "d" * 256}
     ]
 
@@ -418,12 +576,7 @@ class _FakeDialClient:
 
 
 async def test_resolve_session_tags_disabled(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", False)
-    monkeypatch.setattr(
-        session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0"),
-    )
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", None)
 
     assert (
         await session_tags.resolve_session_tags(
@@ -433,13 +586,15 @@ async def test_resolve_session_tags_disabled(monkeypatch: pytest.MonkeyPatch):
     )
 
 
-async def test_resolve_session_tags_without_user_info_fields(
-    monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
+async def test_resolve_session_tags_without_user_info_tags(
+    monkeypatch: pytest.MonkeyPatch,
 ):
-    """The UserInfo request isn't made at all when no fields are configured."""
+    """The UserInfo request isn't made at all when no UserInfo tag is asked
+    for."""
 
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_USER_INFO_FIELDS", None)
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS", _paths("Bedrock.modelId")
+    )
 
     def _unexpected_client(api_key: str):
         raise AssertionError("the DIAL client must not be created")
@@ -457,11 +612,10 @@ async def test_resolve_session_tags_no_dial_client(
     """DIAL_URL isn't set: the other tag sources are still passed."""
 
     caplog.set_level(logging.WARNING, logger="bedrock")
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0"),
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
     monkeypatch.setattr(
         session_tags, "create_dial_client", lambda api_key: None
@@ -479,11 +633,10 @@ async def test_resolve_session_tags_no_dial_client(
 async def test_resolve_session_tags_returns_tags(
     monkeypatch: pytest.MonkeyPatch, user_info: UserInfo
 ):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0,userClaims.email"),
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0,UserInfo.userClaims.email"),
     )
     monkeypatch.setattr(
         session_tags,
@@ -506,11 +659,10 @@ async def test_resolve_session_tags_swallows_dial_errors(
     """A failed UserInfo request doesn't drop the other tag sources."""
 
     caplog.set_level(logging.WARNING, logger="bedrock")
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS_ENABLED", True)
     monkeypatch.setattr(
         session_tags,
-        "AWS_SESSION_TAGS_USER_INFO_FIELDS",
-        _paths("roles.0"),
+        "AWS_SESSION_TAGS",
+        _paths("Bedrock.modelId,UserInfo.roles.0"),
     )
     monkeypatch.setattr(
         session_tags,
