@@ -508,9 +508,11 @@ a `UserInfo.project` tag is passed and holds an actual project, the session is
 named `Project_<project>` instead — so add `project` to
 `AWS_SESSION_TAGS_USER_INFO_FIELDS` to enable this.
 
-AWS restricts the session name to 64 characters of `[a-zA-Z0-9+=,.@_-]`, so
-characters outside that set are replaced with `_` and projects longer than 56
-characters are truncated. Users with no project fall back to the default name.
+AWS constrains the session name's length and character set. See the AWS docs on
+[the `RoleSessionName` parameter of `AssumeRole`](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
+for details. Characters outside the allowed set are replaced with `_` and long
+project names are truncated. Users with no project fall back to the default
+name.
 
 #### The DIAL UserInfo source
 
