@@ -47,7 +47,9 @@ BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
 ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
 
 # Same as Anthropic SDK timeouts: anthropic._constants.DEFAULT_TIMEOUT
-DEFAULT_TIMEOUTS = httpx.Timeout(timeout=10 * 60, connect=5.0)
+DEFAULT_TIMEOUTS = httpx.Timeout(
+    timeout=get_env_int("REQUEST_TIMEOUT_SECONDS", 10 * 60), connect=5.0
+)
 
 
 class _BedrockClientParams(TypedDict):
