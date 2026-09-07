@@ -56,13 +56,9 @@ def _get_role_session_name(session_tags: list[SessionTag] | None) -> str:
     if project is None or project in {"", "null"}:
         return _DEFAULT_ROLE_SESSION_NAME
 
-    max_project_len = _MAX_ROLE_SESSION_NAME_LEN - len(
-        _PROJECT_ROLE_SESSION_NAME_PREFIX
-    )
-    sanitized = _INVALID_ROLE_SESSION_NAME_CHARS.sub("_", project)[
-        :max_project_len
-    ]
-    return f"{_PROJECT_ROLE_SESSION_NAME_PREFIX}{sanitized}"
+    project = f"{_PROJECT_ROLE_SESSION_NAME_PREFIX}{project}"
+    project = _INVALID_ROLE_SESSION_NAME_CHARS.sub("_", project)
+    return project[:_MAX_ROLE_SESSION_NAME_LEN]
 
 
 class ClientCredentialArgs(BaseModel):

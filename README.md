@@ -31,6 +31,9 @@
     - [Embedding models](#embedding-models)
   - [Environment Variables](#environment-variables)
     - [Session Tags](#session-tags)
+      - [The Bedrock source](#the-bedrock-source)
+      - [The role session name](#the-role-session-name)
+      - [The DIAL UserInfo source](#the-dial-userinfo-source)
     - [Logging](#logging)
     - [Resource limits](#resource-limits)
     - [Default `max_tokens` for Claude models](#default-max_tokens-for-claude-models)
@@ -485,31 +488,19 @@ the field wanted from that source:
 |Source|Entries|Provides|
 |---|---|---|
 |`Bedrock`|`Bedrock.modelId`|The requested model|
-|`UserInfo`|`UserInfo.<path>`|A field of the DIAL `/user/info` response. Requires `DIAL_URL`|
+|`UserInfo`|`UserInfo.<path>`|A field of the DIAL `GET /v1/user/info` response|
 
 An entry is passed to AWS verbatim as the tag key, so the prefixes also keep
 the sources from colliding. Entries that name no source (`project`), an unknown
 source (`Nope.project`), or a field a source doesn't provide (`Bedrock.region`)
 are skipped with a warning.
 
-The sources are independent: a source that is unavailable only costs its own
-tags, and the tags of the other sources are still passed.
+Failing to retrieve a tag never fails the request: the failure is logged as a
+warning and the tag is ignored, while the remaining tags are still passed.
 
-Tags are passed in the order they are listed. AWS sets several constraints for
-session tags — see the AWS docs on
-[passing session tags in AWS STS](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations)
-for details. The adapter fits the tags to those constraints, warning about each
-adjustment it makes:
-
-- Keys and values that exceed the length limits are **truncated**.
-- Entries beyond the 50-entry cap are **dropped**.
-- Characters that AWS rejects are **replaced with `_`**, one for one so that
-  the length of the value is preserved. Beyond the documented limits, AWS
-  accepts only letters, digits, spaces and `_ . : / = + - @` in a key or a
-  value — so a value serialized as JSON never passes as-is, and
-  `["user@epam.com"]` is passed as `__user@epam.com__`.
-- Keys that collide once truncated or sanitized get a **`_1`, `_2`, … postfix**
-  rather than being dropped.
+The adapter fits the tags to the AWS constraints for
+[session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations),
+logging every adjustment it makes.
 
 #### The Bedrock source
 
@@ -518,22 +509,18 @@ appears in the request path. For a deployment mapped to a compatible model id,
 this is the requested id, not the model it was mapped to.
 
 The Anthropic API passthrough takes the id from the `model` field of the
-request body instead, since its path carries no deployment. A request whose
-model can't be read contributes no `Bedrock.modelId` tag, while the other
-sources are still passed.
+request body instead, since its path carries no deployment.
 
 #### The role session name
 
 The `AssumeRole` call names its session `BedrockAccessSession` by default. When
 a `UserInfo.project` tag is passed and holds an actual project, the session is
 named `Project_<project>` instead — so add `UserInfo.project` to
-`AWS_SESSION_TAGS` to enable this.
+`AWS_SESSION_TAGS` to enable this. Users with no project fall back to the
+default name.
 
-AWS constrains the session name's length and character set. See the AWS docs on
-[the `RoleSessionName` parameter of `AssumeRole`](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
-for details. Characters outside the allowed set are replaced with `_` and long
-project names are truncated. Users with no project fall back to the default
-name.
+The name is fitted to the AWS constraints for the
+[`RoleSessionName` parameter of `AssumeRole`](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
 
 #### The DIAL UserInfo source
 
@@ -541,11 +528,6 @@ A `UserInfo.<path>` entry takes the field at `<path>` from the JSON response to
 the DIAL `GET /v1/user/info`
 [request](https://dialx.ai/dial_api#operation/getUserInfo), converting the
 resolved value to a JSON string.
-
-Listing no `UserInfo.` entry skips the user info request entirely. The request
-also requires `DIAL_URL` to be set and the incoming request to carry a DIAL API
-key; if either is missing, or if the request fails, the UserInfo tags are
-skipped with a warning while the other sources are still passed.
 
 `<path>` is a dot-separated path into that JSON response, which has the
 following fields:
@@ -561,15 +543,6 @@ Paths use object keys and integer list indices, for example
 
 String values are used as-is. All other values are JSON-serialized, e.g.
 numbers, booleans, `null`, objects and arrays.
-
-|Intent|`AWS_SESSION_TAGS`|
-|---|---|
-|Disabled|Unset the variable|
-|The requested model|`Bedrock.modelId`|
-|First role|`UserInfo.roles.0`|
-|Project|`UserInfo.project`|
-|A claim|`UserInfo.userClaims.email`|
-|Several|`Bedrock.modelId,UserInfo.roles.0,UserInfo.project`|
 
 ### Logging
 

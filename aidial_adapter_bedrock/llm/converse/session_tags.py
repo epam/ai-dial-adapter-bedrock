@@ -1,7 +1,8 @@
 import json
 import unicodedata
 from collections.abc import Container
-from typing import Any, NamedTuple
+from dataclasses import dataclass
+from typing import Any, ClassVar, Self
 
 from aidial_client import UserInfo
 
@@ -21,13 +22,6 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 # the prefixes also keep the sources from colliding.
 AWS_SESSION_TAGS = get_env_list("AWS_SESSION_TAGS")
 
-# The tag sources, as named by the prefix of a configured tag.
-_BEDROCK_SOURCE = "Bedrock"
-_USER_INFO_SOURCE = "UserInfo"
-
-# The only field the Bedrock source provides.
-_MODEL_ID_FIELD = "modelId"
-
 # AWS STS session tag constraints:
 # https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations
 _MAX_ENTRIES = 50
@@ -44,14 +38,6 @@ _ALLOWED_TAG_CHARS = frozenset("_.:/=+-@")
 _TAG_CHAR_PLACEHOLDER = "_"
 
 
-class _Tag(NamedTuple):
-    key: str
-    """The configured tag, passed to AWS as the tag key."""
-
-    source: str
-    field: str
-
-
 def is_enabled(upstream_config: UpstreamConfig) -> bool:
     return (
         # A blank variable holds no tag, so it leaves the feature disabled.
@@ -59,41 +45,6 @@ def is_enabled(upstream_config: UpstreamConfig) -> bool:
         and isinstance(upstream_config, CloudUpstreamConfig)
         and isinstance(upstream_config.credentials, AWSAssumeRoleCredentials)
     )
-
-
-def parse_tags(tags: list[str] | None) -> list[_Tag]:
-    ret: list[_Tag] = []
-    for tag in tags or []:
-        source, _, field = tag.partition(".")
-
-        if not field:
-            if tag:
-                log.warning(
-                    f"Skipping AWS STS session tag {tag!r}: it names no "
-                    f"source; expected {_BEDROCK_SOURCE}.<field> or "
-                    f"{_USER_INFO_SOURCE}.<path>"
-                )
-            continue
-
-        if source == _USER_INFO_SOURCE:
-            ret.append(_Tag(tag, source, field))
-        elif source == _BEDROCK_SOURCE:
-            if field == _MODEL_ID_FIELD:
-                ret.append(_Tag(tag, source, field))
-            else:
-                log.warning(
-                    f"Skipping AWS STS session tag {tag!r}: the "
-                    f"{_BEDROCK_SOURCE} source only provides "
-                    f"{_MODEL_ID_FIELD!r}"
-                )
-        else:
-            log.warning(
-                f"Skipping AWS STS session tag {tag!r}: unknown source "
-                f"{source!r}; expected {_BEDROCK_SOURCE} or "
-                f"{_USER_INFO_SOURCE}"
-            )
-
-    return ret
 
 
 def _get_element_at_path(node: Any, path: str) -> Any:
@@ -223,44 +174,63 @@ def _to_session_tags(flat: dict[str, str]) -> list[SessionTag]:
     return [{"Key": key, "Value": value} for key, value in safe.items()]
 
 
-def build_tags(
-    model_id: str | None, user_info: UserInfo | None
-) -> list[SessionTag]:
-    parsed = parse_tags(AWS_SESSION_TAGS)
+@dataclass
+class Tags:
+    bedrock_model_id: bool
+    user_info_paths: list[str]
 
-    user_info_resolved_paths = (
-        resolve_paths(
-            user_info.model_dump(mode="json"),
-            [tag.field for tag in parsed if tag.source == _USER_INFO_SOURCE],
+    _BEDROCK_MODEL_ID: ClassVar[str] = "Bedrock.modelId"
+    _USER_INFO_PREFIX: ClassVar[str] = "UserInfo."
+
+    @classmethod
+    def parse(cls, tags: list[str] | None) -> Self:
+        bedrock_model_id: bool = False
+        user_info_paths: list[str] = []
+
+        for tag in tags or []:
+            if tag == cls._BEDROCK_MODEL_ID:
+                bedrock_model_id = True
+            elif tag.startswith(cls._USER_INFO_PREFIX):
+                user_info_paths.append(tag.removeprefix(cls._USER_INFO_PREFIX))
+            elif tag:
+                log.warning(
+                    f"Skipping unknown AWS STS session tag {tag!r}; expected "
+                    f"{cls._BEDROCK_MODEL_ID} or "
+                    f"{cls._USER_INFO_PREFIX}<path>"
+                )
+
+        return cls(
+            bedrock_model_id=bedrock_model_id,
+            user_info_paths=user_info_paths,
         )
-        if user_info is not None
-        else {}
-    )
 
-    tags: dict[str, str] = {}
-    for tag in parsed:
-        if tag.source == _BEDROCK_SOURCE:
-            if model_id is not None:
-                tags[tag.key] = model_id
-        elif tag.field in user_info_resolved_paths:
-            tags[tag.key] = user_info_resolved_paths[tag.field]
+    @property
+    def wants_user_info(self) -> bool:
+        return bool(self.user_info_paths)
 
-    ret = _to_session_tags(tags)
-    log.debug(f"Built AWS STS session tags: {ret}")
-    return ret
+    def to_session_tags(
+        self, bedrock_model_id: str | None, user_info: UserInfo | None
+    ) -> list[SessionTag]:
+        flat: dict[str, str] = {}
 
+        if self.bedrock_model_id and bedrock_model_id is not None:
+            flat[self._BEDROCK_MODEL_ID] = bedrock_model_id
 
-def _wants_user_info() -> bool:
-    return any(
-        tag.startswith(f"{_USER_INFO_SOURCE}.")
-        for tag in AWS_SESSION_TAGS or []
-    )
+        if user_info is not None:
+            resolved = resolve_paths(
+                user_info.model_dump(mode="json"), self.user_info_paths
+            )
+            flat.update(
+                (f"{self._USER_INFO_PREFIX}{path}", value)
+                for path, value in resolved.items()
+            )
+
+        ret = _to_session_tags(flat)
+        log.debug(f"Built AWS STS session tags: {ret}")
+        return ret
 
 
 async def _fetch_user_info(api_key: str | None) -> UserInfo | None:
-    if not _wants_user_info():
-        return None
-
     if api_key is None:
         log.warning(
             "Skipping UserInfo AWS STS session tags; "
@@ -294,4 +264,9 @@ async def resolve_session_tags(
     if not is_enabled(upstream_config):
         return None
 
-    return build_tags(model_id, await _fetch_user_info(api_key)) or None
+    tags = Tags.parse(AWS_SESSION_TAGS)
+    user_info = (
+        await _fetch_user_info(api_key) if tags.wants_user_info else None
+    )
+
+    return tags.to_session_tags(model_id, user_info) or None
