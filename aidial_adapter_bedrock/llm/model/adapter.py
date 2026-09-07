@@ -26,9 +26,6 @@ from aidial_adapter_bedrock.llm.converse.factory import (
     ConverseAdapterFactory,
     ToolsSupport,
 )
-from aidial_adapter_bedrock.llm.converse.session_tags import (
-    resolve_session_tags,
-)
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
@@ -39,6 +36,9 @@ from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.adapter_deployments import (
     AdapterChatCompletionDeployment,
     AdapterEmbeddingsDeployment,
+)
+from aidial_adapter_bedrock.utils.session_tags import (
+    resolve_session_tags,
 )
 
 

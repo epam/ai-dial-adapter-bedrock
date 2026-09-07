@@ -3,14 +3,14 @@ import logging
 import pytest
 from aidial_client import UserInfo
 
-from aidial_adapter_bedrock.llm.converse import session_tags
-from aidial_adapter_bedrock.llm.converse.session_tags import Tags
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     AWSAssumeRoleCredentials,
     AWSClientCredentials,
     CloudUpstreamConfig,
 )
+from aidial_adapter_bedrock.utils import session_tags
+from aidial_adapter_bedrock.utils.session_tags import Tags
 
 
 def _paths(paths: str | None) -> list[str] | None:
