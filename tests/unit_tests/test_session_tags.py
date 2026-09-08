@@ -176,19 +176,18 @@ def test_resolve_paths_logs_unresolved_path_error(caplog, jwt_auth: dict):
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        (None, False),
-        ("", False),
-        ("Bedrock.modelId", True),
-        ("UserInfo.project", True),
+        ({}, False),
+        ({"application": "Bedrock.modelId"}, True),
+        ({"project": "UserInfo.project"}, True),
         # Setting the variable enables the feature, even if every configured
         # tag turns out to be unusable.
-        ("Nope.field", True),
+        ({"nope": "Nope.field"}, True),
     ],
 )
 def test_is_enabled_follows_the_tags_var(
-    monkeypatch: pytest.MonkeyPatch, config: str | None, expected: bool
+    monkeypatch: pytest.MonkeyPatch, config: dict[str, str], expected: bool
 ):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", _paths(config))
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", config)
 
     assert session_tags.is_enabled(_assume_role_upstream_config()) is expected
 
@@ -196,7 +195,9 @@ def test_is_enabled_follows_the_tags_var(
 def test_is_enabled_requires_assume_role_config(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", ["Bedrock.modelId"])
+    monkeypatch.setattr(
+        session_tags, "AWS_SESSION_TAGS", {"application": "Bedrock.modelId"}
+    )
 
     assert (
         session_tags.is_enabled(
@@ -220,25 +221,45 @@ def test_is_enabled_requires_assume_role_config(
     assert session_tags.is_enabled(ApiKeyUpstreamConfig(api_key="key")) is False
 
 
-def test_to_session_tags_truncates_long_keys_and_values():
-    long_key = "k" * 200
+def test_to_session_tags_fits_the_alias_not_the_path():
+    """The alias is the AWS tag key, so it's the one AWS constrains."""
+
+    long_alias = "a" * 200
     long_value = "v" * 300
 
-    assert session_tags._to_session_tags({long_key: long_value}) == [
-        {"Key": "k" * 128, "Value": "v" * 256}
+    assert session_tags._to_session_tags(
+        {"UserInfo.project": long_value}, {"UserInfo.project": long_alias}
+    ) == [
+        {
+            "Key": "UserInfo.project",
+            "KeyAlias": "a" * 128,
+            "Value": "v" * 256,
+        }
+    ]
+
+
+def test_to_session_tags_falls_back_to_the_path_without_an_alias():
+    assert session_tags._to_session_tags({"UserInfo.project": "epam"}, {}) == [
+        {
+            "Key": "UserInfo.project",
+            "KeyAlias": "UserInfo.project",
+            "Value": "epam",
+        }
     ]
 
 
 @pytest.mark.parametrize(
-    ("flat", "expected"),
+    ("flat", "aliases", "expected"),
     [
         # The AssumeRole failure this sanitization was added for: a claim
         # holding a single email in a list.
         (
             {"UserInfo.userClaims.email": '["test_user@example.com"]'},
+            {"UserInfo.userClaims.email": "employee"},
             [
                 {
                     "Key": "UserInfo.userClaims.email",
+                    "KeyAlias": "employee",
                     "Value": "__test_user@example.com__",
                 }
             ],
@@ -246,200 +267,320 @@ def test_to_session_tags_truncates_long_keys_and_values():
         # A comma isn't allowed either, so no JSON value passes as-is.
         (
             {"UserInfo.userClaims.access": '["read", "write"]'},
+            {"UserInfo.userClaims.access": "access"},
             [
                 {
                     "Key": "UserInfo.userClaims.access",
+                    "KeyAlias": "access",
                     "Value": "__read__ _write__",
                 }
             ],
         ),
-        ({"a,b": "x"}, [{"Key": "a_b", "Value": "x"}]),
-        ({"c#d": "y$z"}, [{"Key": "c_d", "Value": "y_z"}]),
-        ({"k": '"a\'b"'}, [{"Key": "k", "Value": "_a_b_"}]),
+        # A disallowed character in the alias is replaced.
+        (
+            {"p": "x"},
+            {"p": "a,b"},
+            [{"Key": "p", "KeyAlias": "a_b", "Value": "x"}],
+        ),
+        (
+            {"p": "y$z"},
+            {"p": "c#d"},
+            [{"Key": "p", "KeyAlias": "c_d", "Value": "y_z"}],
+        ),
+        (
+            {"p": '"a\'b"'},
+            {"p": "k"},
+            [{"Key": "p", "KeyAlias": "k", "Value": "_a_b_"}],
+        ),
         # The allowed punctuation survives.
         (
             {"UserInfo.project": "a_b.c:d/e=f+g-h@i"},
-            [{"Key": "UserInfo.project", "Value": "a_b.c:d/e=f+g-h@i"}],
+            {"UserInfo.project": "a_b.c:d/e=f+g-h@i"},
+            [
+                {
+                    "Key": "UserInfo.project",
+                    "KeyAlias": "a_b.c:d/e=f+g-h@i",
+                    "Value": "a_b.c:d/e=f+g-h@i",
+                }
+            ],
         ),
         # Letters, numbers and separators of any script survive.
         (
             {"UserInfo.project": "Ünïcode Проект 42"},
-            [{"Key": "UserInfo.project", "Value": "Ünïcode Проект 42"}],
+            {"UserInfo.project": "Проект"},
+            [
+                {
+                    "Key": "UserInfo.project",
+                    "KeyAlias": "Проект",
+                    "Value": "Ünïcode Проект 42",
+                }
+            ],
         ),
     ],
 )
 def test_to_session_tags_sanitizes_disallowed_chars(
-    flat: dict[str, str], expected: list[dict[str, str]]
+    flat: dict[str, str],
+    aliases: dict[str, str],
+    expected: list[dict[str, str]],
 ):
-    assert session_tags._to_session_tags(flat) == expected
+    assert session_tags._to_session_tags(flat, aliases) == expected
 
 
 def test_to_session_tags_sanitization_preserves_length():
     value = '{"a": ["b"], "c": 1}'
 
-    tags = session_tags._to_session_tags({"k": value})
+    tags = session_tags._to_session_tags({"k": value}, {"k": "alias"})
 
     assert len(tags[0]["Value"]) == len(value)
 
 
 def test_to_session_tags_caps_at_50_entries():
-    flat = {f"k{i}": "v" for i in range(52)}
+    flat = {f"p{i}": "v" for i in range(52)}
+    aliases = {f"p{i}": f"a{i}" for i in range(52)}
 
-    assert session_tags._to_session_tags(flat) == [
-        {"Key": f"k{i}", "Value": "v"} for i in range(50)
+    assert session_tags._to_session_tags(flat, aliases) == [
+        {"Key": f"p{i}", "KeyAlias": f"a{i}", "Value": "v"} for i in range(50)
     ]
 
 
-def test_to_session_tags_postfixes_truncated_key_collisions():
-    keys = {f"{'a' * 128}{suffix}": suffix for suffix in ("x", "y", "z")}
+def test_to_session_tags_logs_the_capped_entries_by_alias(caplog):
+    caplog.set_level(logging.WARNING, logger="bedrock")
 
-    tags = session_tags._to_session_tags(keys)
+    session_tags._to_session_tags(
+        {f"p{i}": "v" for i in range(52)},
+        {f"p{i}": f"a{i}" for i in range(52)},
+    )
+
+    assert any(
+        "omitted 2 configured tag(s): a50, a51" in message
+        for message in caplog.messages
+    )
+
+
+def test_to_session_tags_postfixes_truncated_alias_collisions():
+    flat = {suffix: suffix for suffix in ("x", "y", "z")}
+    aliases = {suffix: f"{'a' * 128}{suffix}" for suffix in ("x", "y", "z")}
+
+    tags = session_tags._to_session_tags(flat, aliases)
 
     assert tags == [
-        {"Key": "a" * 128, "Value": "x"},
-        {"Key": "a" * 126 + "_1", "Value": "y"},
-        {"Key": "a" * 126 + "_2", "Value": "z"},
+        {"Key": "x", "KeyAlias": "a" * 128, "Value": "x"},
+        {"Key": "y", "KeyAlias": "a" * 126 + "_1", "Value": "y"},
+        {"Key": "z", "KeyAlias": "a" * 126 + "_2", "Value": "z"},
     ]
-    assert all(len(tag["Key"]) == 128 for tag in tags)
+    assert all(len(tag["KeyAlias"]) == 128 for tag in tags)
 
 
-def test_to_session_tags_postfixes_sanitized_key_collisions():
+def test_to_session_tags_postfixes_sanitized_alias_collisions():
     tags = session_tags._to_session_tags(
-        {"a#b": "first", "a$b": "second", "a%b": "third"}
+        {"p1": "first", "p2": "second", "p3": "third"},
+        {"p1": "a#b", "p2": "a$b", "p3": "a%b"},
     )
 
     assert tags == [
-        {"Key": "a_b", "Value": "first"},
-        {"Key": "a_b_1", "Value": "second"},
-        {"Key": "a_b_2", "Value": "third"},
+        {"Key": "p1", "KeyAlias": "a_b", "Value": "first"},
+        {"Key": "p2", "KeyAlias": "a_b_1", "Value": "second"},
+        {"Key": "p3", "KeyAlias": "a_b_2", "Value": "third"},
     ]
 
 
-def test_to_session_tags_logs_postfixed_key_collisions(caplog):
+def test_to_session_tags_logs_postfixed_alias_collisions(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags({"a#b": "first", "a$b": "second"})
+    session_tags._to_session_tags(
+        {"p1": "first", "p2": "second"}, {"p1": "a#b", "p2": "a$b"}
+    )
 
+    # The alias is reported, since that's what the check ran on.
     assert any(
         "collides with an earlier entry: a$b" in message
         for message in caplog.messages
     )
 
 
-def test_to_session_tags_drops_empty_keys_but_keeps_empty_values():
-    assert session_tags._to_session_tags({"": "value", "empty": ""}) == [
-        {"Key": "empty", "Value": ""}
-    ]
+def test_to_session_tags_drops_empty_aliases_but_keeps_empty_values():
+    assert session_tags._to_session_tags(
+        {"p1": "value", "p2": ""}, {"p1": "", "p2": "empty"}
+    ) == [{"Key": "p2", "KeyAlias": "empty", "Value": ""}]
 
 
-def test_to_session_tags_logs_truncated_keys_and_values(caplog):
+def test_to_session_tags_logs_the_field_of_an_empty_alias(caplog):
+    """An empty alias can't name itself, so the field identifies the entry."""
+
     caplog.set_level(logging.WARNING, logger="bedrock")
-    long_key = "k" * 200
+
+    session_tags._to_session_tags(
+        {"UserInfo.project": "epam"}, {"UserInfo.project": ""}
+    )
+
+    assert any(
+        "empty key, configured for field(s): UserInfo.project" in message
+        for message in caplog.messages
+    )
+
+
+def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+    long_alias = "a" * 200
     long_value = "v" * 300
 
-    assert session_tags._to_session_tags({long_key: long_value}) == [
-        {"Key": "k" * 128, "Value": "v" * 256}
+    assert session_tags._to_session_tags(
+        {"UserInfo.project": long_value}, {"UserInfo.project": long_alias}
+    ) == [
+        {
+            "Key": "UserInfo.project",
+            "KeyAlias": "a" * 128,
+            "Value": "v" * 256,
+        }
     ]
 
+    # The alias is reported, since that's what the checks ran on.
     assert caplog.messages == [
-        f"Sanitized AWS STS session tags key(s): {long_key}",
-        f"Sanitized AWS STS session tags value(s) for path(s): {long_key}",
+        f"Sanitized AWS STS session tags key(s): {long_alias}",
+        f"Sanitized AWS STS session tags value(s): {long_alias}",
     ]
 
 
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        (None, Tags(bedrock_model_id=False, user_info_paths=[])),
-        ("", Tags(bedrock_model_id=False, user_info_paths=[])),
+        ({}, Tags(bedrock_model_id=False, user_info_paths=[], aliases={})),
         (
-            "Bedrock.modelId",
-            Tags(bedrock_model_id=True, user_info_paths=[]),
+            {"application": "Bedrock.modelId"},
+            Tags(
+                bedrock_model_id=True,
+                user_info_paths=[],
+                aliases={"Bedrock.modelId": "application"},
+            ),
         ),
         (
-            "UserInfo.userClaims.email",
-            Tags(bedrock_model_id=False, user_info_paths=["userClaims.email"]),
+            {"employee": "UserInfo.userClaims.email"},
+            Tags(
+                bedrock_model_id=False,
+                user_info_paths=["userClaims.email"],
+                # The alias is keyed by the prefixed path, so that
+                # `to_session_tags` finds it again.
+                aliases={"UserInfo.userClaims.email": "employee"},
+            ),
         ),
         (
-            "UserInfo.project,Bedrock.modelId",
-            Tags(bedrock_model_id=True, user_info_paths=["project"]),
+            {"project": "UserInfo.project", "application": "Bedrock.modelId"},
+            Tags(
+                bedrock_model_id=True,
+                user_info_paths=["project"],
+                aliases={
+                    "UserInfo.project": "project",
+                    "Bedrock.modelId": "application",
+                },
+            ),
         ),
         # The order of the UserInfo paths is kept.
         (
-            "UserInfo.roles.1,UserInfo.roles.0",
+            {"second": "UserInfo.roles.1", "first": "UserInfo.roles.0"},
             Tags(
-                bedrock_model_id=False, user_info_paths=["roles.1", "roles.0"]
+                bedrock_model_id=False,
+                user_info_paths=["roles.1", "roles.0"],
+                aliases={
+                    "UserInfo.roles.1": "second",
+                    "UserInfo.roles.0": "first",
+                },
             ),
         ),
-        # Unknown tags: no prefix, an unknown source, a field the Bedrock
+        # Unknown fields: no prefix, an unknown source, a field the Bedrock
         # source doesn't provide, and a near-miss of the UserInfo prefix.
-        ("project", Tags(bedrock_model_id=False, user_info_paths=[])),
-        ("Nope.project", Tags(bedrock_model_id=False, user_info_paths=[])),
-        ("Bedrock.region", Tags(bedrock_model_id=False, user_info_paths=[])),
-        ("UserInfoProject", Tags(bedrock_model_id=False, user_info_paths=[])),
         (
-            "Bedrock.region,UserInfo.project",
-            Tags(bedrock_model_id=False, user_info_paths=["project"]),
+            {"a": "project"},
+            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+        ),
+        (
+            {"a": "Nope.project"},
+            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+        ),
+        (
+            {"a": "Bedrock.region"},
+            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+        ),
+        (
+            {"a": "UserInfoProject"},
+            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+        ),
+        (
+            {"a": "Bedrock.region", "project": "UserInfo.project"},
+            Tags(
+                bedrock_model_id=False,
+                user_info_paths=["project"],
+                aliases={"UserInfo.project": "project"},
+            ),
         ),
     ],
 )
-def test_tags_parse(config: str | None, expected: Tags):
-    assert Tags.parse(_paths(config)) == expected
+def test_tags_parse(config: dict[str, str], expected: Tags):
+    assert Tags.parse(config) == expected
 
 
 @pytest.mark.parametrize(
-    "config", ["project", "Nope.project", "Bedrock.region", "UserInfoProject"]
+    "field", ["project", "Nope.project", "Bedrock.region", "UserInfoProject"]
 )
-def test_tags_parse_logs_unknown_tags(caplog, config: str):
+def test_tags_parse_logs_unknown_fields(caplog, field: str):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    Tags.parse(_paths(config))
+    Tags.parse({"my_alias": field})
 
     assert any(
-        f"Skipping unknown AWS STS session tag '{config}'" in logged
+        f"Skipping AWS STS session tag 'my_alias': unknown field {field!r}"
+        in logged
         for logged in caplog.messages
     )
 
 
-def test_tags_parse_ignores_blank_entries(caplog):
-    caplog.set_level(logging.WARNING, logger="bedrock")
-
-    assert Tags.parse(_paths("Bedrock.modelId,,")) == Tags(
-        bedrock_model_id=True, user_info_paths=[]
-    )
-    assert caplog.messages == []
-
-
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        (None, False),
-        ("Bedrock.modelId", False),
-        ("UserInfo.project", True),
-        ("Bedrock.modelId,UserInfo.project", True),
+        ({}, False),
+        ({"application": "Bedrock.modelId"}, False),
+        ({"project": "UserInfo.project"}, True),
+        (
+            {"application": "Bedrock.modelId", "project": "UserInfo.project"},
+            True,
+        ),
     ],
 )
-def test_tags_wants_user_info(config: str | None, expected: bool):
-    assert Tags.parse(_paths(config)).wants_user_info is expected
+def test_tags_wants_user_info(config: dict[str, str], expected: bool):
+    assert Tags.parse(config).wants_user_info is expected
 
 
-def test_to_session_tags_resolves_configured_tags(user_info: UserInfo):
+def test_to_session_tags_keys_every_tag_by_its_alias(user_info: UserInfo):
     tags = Tags.parse(
-        _paths(
-            "Bedrock.modelId,UserInfo.roles.0,UserInfo.project,"
-            "UserInfo.userClaims.id,UserInfo.userClaims.email,"
-            "UserInfo.userClaims.map"
-        )
+        {
+            "application": "Bedrock.modelId",
+            "role": "UserInfo.roles.0",
+            "project": "UserInfo.project",
+            "id": "UserInfo.userClaims.id",
+            "employee": "UserInfo.userClaims.email",
+            "map": "UserInfo.userClaims.map",
+        }
     )
 
     assert tags.to_session_tags("my-claude", user_info) == [
-        {"Key": "Bedrock.modelId", "Value": "my-claude"},
-        {"Key": "UserInfo.roles.0", "Value": "admin"},
-        {"Key": "UserInfo.project", "Value": "null"},
-        {"Key": "UserInfo.userClaims.id", "Value": "15"},
-        {"Key": "UserInfo.userClaims.email", "Value": "user@example.com"},
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        },
+        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"},
+        {"Key": "UserInfo.project", "KeyAlias": "project", "Value": "null"},
+        {"Key": "UserInfo.userClaims.id", "KeyAlias": "id", "Value": "15"},
+        {
+            "Key": "UserInfo.userClaims.email",
+            "KeyAlias": "employee",
+            "Value": "user@example.com",
+        },
         # The JSON punctuation isn't allowed by AWS.
-        {"Key": "UserInfo.userClaims.map", "Value": "__a_: __b___"},
+        {
+            "Key": "UserInfo.userClaims.map",
+            "KeyAlias": "map",
+            "Value": "__a_: __b___",
+        },
     ]
 
 
@@ -447,48 +588,66 @@ def test_to_session_tags_puts_the_model_id_first(user_info: UserInfo):
     """The model id leads, so the entry cap can never drop it."""
 
     tags = Tags.parse(
-        _paths("UserInfo.roles.1,Bedrock.modelId,UserInfo.roles.0")
+        {
+            "second": "UserInfo.roles.1",
+            "application": "Bedrock.modelId",
+            "first": "UserInfo.roles.0",
+        }
     )
 
     assert tags.to_session_tags("my-claude", user_info) == [
-        {"Key": "Bedrock.modelId", "Value": "my-claude"},
-        {"Key": "UserInfo.roles.1", "Value": "writer"},
-        {"Key": "UserInfo.roles.0", "Value": "admin"},
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        },
+        {"Key": "UserInfo.roles.1", "KeyAlias": "second", "Value": "writer"},
+        {"Key": "UserInfo.roles.0", "KeyAlias": "first", "Value": "admin"},
     ]
 
 
 def test_to_session_tags_passes_only_the_configured_tags(user_info: UserInfo):
     """A tag that isn't configured is never passed, model id included."""
 
-    tags = Tags.parse(_paths("UserInfo.roles.0"))
+    tags = Tags.parse({"role": "UserInfo.roles.0"})
 
     assert tags.to_session_tags("my-claude", user_info) == [
-        {"Key": "UserInfo.roles.0", "Value": "admin"}
+        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"}
     ]
 
 
 def test_to_session_tags_without_user_info():
     """An unavailable UserInfo mustn't sink the Bedrock tags."""
 
-    tags = Tags.parse(_paths("Bedrock.modelId,UserInfo.roles.0"))
+    tags = Tags.parse(
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"}
+    )
 
     assert tags.to_session_tags("my-claude", None) == [
-        {"Key": "Bedrock.modelId", "Value": "my-claude"}
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
     ]
 
 
 def test_to_session_tags_without_a_model_id(user_info: UserInfo):
     """An unknown model mustn't sink the UserInfo tags."""
 
-    tags = Tags.parse(_paths("Bedrock.modelId,UserInfo.roles.0"))
+    tags = Tags.parse(
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"}
+    )
 
     assert tags.to_session_tags(None, user_info) == [
-        {"Key": "UserInfo.roles.0", "Value": "admin"}
+        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"}
     ]
 
 
 def test_to_session_tags_without_any_source():
-    tags = Tags.parse(_paths("Bedrock.modelId,UserInfo.roles.0"))
+    tags = Tags.parse(
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"}
+    )
 
     assert tags.to_session_tags(None, None) == []
 
@@ -502,12 +661,18 @@ async def test_resolve_session_tags_without_an_api_key(
     monkeypatch.setattr(
         session_tags,
         "AWS_SESSION_TAGS",
-        _paths("Bedrock.modelId,UserInfo.roles.0"),
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"},
     )
 
     assert await session_tags.resolve_session_tags(
         None, _assume_role_upstream_config(), "my-claude"
-    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    ) == [
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
+    ]
     assert any(
         "carries no DIAL API key" in message for message in caplog.messages
     )
@@ -519,7 +684,7 @@ async def test_resolve_session_tags_without_any_source(
     """No tags at all is reported as None, so AssumeRole omits Tags."""
 
     monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS", _paths("Bedrock.modelId")
+        session_tags, "AWS_SESSION_TAGS", {"application": "Bedrock.modelId"}
     )
 
     assert (
@@ -532,21 +697,37 @@ async def test_resolve_session_tags_without_any_source(
 
 def test_to_session_tags_keeps_the_model_id_when_capped():
     tags = Tags.parse(
-        ["Bedrock.modelId"] + [f"UserInfo.roles.{i}" for i in range(60)]
+        {"application": "Bedrock.modelId"}
+        | {f"role_{i}": f"UserInfo.roles.{i}" for i in range(60)}
     )
 
     assert tags.to_session_tags(
         "my-claude", UserInfo(roles=[f"r{i}" for i in range(60)])
-    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}] + [
-        {"Key": f"UserInfo.roles.{i}", "Value": f"r{i}"} for i in range(49)
+    ) == [
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
+    ] + [
+        {
+            "Key": f"UserInfo.roles.{i}",
+            "KeyAlias": f"role_{i}",
+            "Value": f"r{i}",
+        }
+        for i in range(49)
     ]
 
 
 def test_to_session_tags_truncates_long_model_ids():
-    tags = Tags.parse(_paths("Bedrock.modelId"))
+    tags = Tags.parse({"application": "Bedrock.modelId"})
 
     assert tags.to_session_tags("d" * 300, None) == [
-        {"Key": "Bedrock.modelId", "Value": "d" * 256}
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "d" * 256,
+        }
     ]
 
 
@@ -572,7 +753,7 @@ class _FakeDialClient:
 
 
 async def test_resolve_session_tags_disabled(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", None)
+    monkeypatch.setattr(session_tags, "AWS_SESSION_TAGS", {})
 
     assert (
         await session_tags.resolve_session_tags(
@@ -589,7 +770,7 @@ async def test_resolve_session_tags_without_user_info_tags(
     for."""
 
     monkeypatch.setattr(
-        session_tags, "AWS_SESSION_TAGS", _paths("Bedrock.modelId")
+        session_tags, "AWS_SESSION_TAGS", {"application": "Bedrock.modelId"}
     )
 
     def _unexpected_client(api_key: str):
@@ -599,7 +780,13 @@ async def test_resolve_session_tags_without_user_info_tags(
 
     assert await session_tags.resolve_session_tags(
         "key", _assume_role_upstream_config(), "my-claude"
-    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    ) == [
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
+    ]
 
 
 async def test_resolve_session_tags_no_dial_client(
@@ -611,7 +798,7 @@ async def test_resolve_session_tags_no_dial_client(
     monkeypatch.setattr(
         session_tags,
         "AWS_SESSION_TAGS",
-        _paths("Bedrock.modelId,UserInfo.roles.0"),
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"},
     )
     monkeypatch.setattr(
         session_tags, "create_dial_client", lambda api_key: None
@@ -619,7 +806,13 @@ async def test_resolve_session_tags_no_dial_client(
 
     assert await session_tags.resolve_session_tags(
         "key", _assume_role_upstream_config(), "my-claude"
-    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    ) == [
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
+    ]
     assert any(
         "DIAL_URL env variable is not set" in message
         for message in caplog.messages
@@ -632,7 +825,11 @@ async def test_resolve_session_tags_returns_tags(
     monkeypatch.setattr(
         session_tags,
         "AWS_SESSION_TAGS",
-        _paths("Bedrock.modelId,UserInfo.roles.0,UserInfo.userClaims.email"),
+        {
+            "application": "Bedrock.modelId",
+            "role": "UserInfo.roles.0",
+            "employee": "UserInfo.userClaims.email",
+        },
     )
     monkeypatch.setattr(
         session_tags,
@@ -643,9 +840,17 @@ async def test_resolve_session_tags_returns_tags(
     assert await session_tags.resolve_session_tags(
         "key", _assume_role_upstream_config(), "my-claude"
     ) == [
-        {"Key": "Bedrock.modelId", "Value": "my-claude"},
-        {"Key": "UserInfo.roles.0", "Value": "admin"},
-        {"Key": "UserInfo.userClaims.email", "Value": "user@example.com"},
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        },
+        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"},
+        {
+            "Key": "UserInfo.userClaims.email",
+            "KeyAlias": "employee",
+            "Value": "user@example.com",
+        },
     ]
 
 
@@ -658,7 +863,7 @@ async def test_resolve_session_tags_swallows_dial_errors(
     monkeypatch.setattr(
         session_tags,
         "AWS_SESSION_TAGS",
-        _paths("Bedrock.modelId,UserInfo.roles.0"),
+        {"application": "Bedrock.modelId", "role": "UserInfo.roles.0"},
     )
     monkeypatch.setattr(
         session_tags,
@@ -668,7 +873,13 @@ async def test_resolve_session_tags_swallows_dial_errors(
 
     assert await session_tags.resolve_session_tags(
         "key", _assume_role_upstream_config(), "my-claude"
-    ) == [{"Key": "Bedrock.modelId", "Value": "my-claude"}]
+    ) == [
+        {
+            "Key": "Bedrock.modelId",
+            "KeyAlias": "application",
+            "Value": "my-claude",
+        }
+    ]
     assert any(
         "failed to fetch DIAL user info" in message
         for message in caplog.messages

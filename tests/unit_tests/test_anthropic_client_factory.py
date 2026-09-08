@@ -162,7 +162,11 @@ class TestCreateAnthropicClient:
         )
 
         tags: list[SessionTag] = [
-            {"Key": "Bedrock.modelId", "Value": "anthropic.claude-opus-5"}
+            {
+                "Key": "Bedrock.modelId",
+                "KeyAlias": "application",
+                "Value": "anthropic.claude-opus-5",
+            }
         ]
 
         await create_anthropic_client(_assume_role_config(), tags)
@@ -192,10 +196,18 @@ class TestCreateAnthropicClient:
         )
 
         alice: list[SessionTag] = [
-            {"Key": "UserInfo.userClaims.email", "Value": "alice@example.com"}
+            {
+                "Key": "UserInfo.userClaims.email",
+                "KeyAlias": "employee",
+                "Value": "alice@example.com",
+            }
         ]
         bob: list[SessionTag] = [
-            {"Key": "UserInfo.userClaims.email", "Value": "bob@example.com"}
+            {
+                "Key": "UserInfo.userClaims.email",
+                "KeyAlias": "employee",
+                "Value": "bob@example.com",
+            }
         ]
 
         alice_1 = await create_anthropic_client(_assume_role_config(), alice)

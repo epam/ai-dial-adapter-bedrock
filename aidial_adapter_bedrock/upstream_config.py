@@ -38,6 +38,7 @@ _INVALID_ROLE_SESSION_NAME_CHARS = re.compile(r"[^\w+=,.@-]")
 
 class SessionTag(TypedDict):
     Key: str
+    KeyAlias: str
     Value: str
 
 
@@ -97,7 +98,10 @@ class AWSAssumeRoleCredentials(BaseModel):
             "RoleSessionName": _get_role_session_name(session_tags),
         }
         if session_tags:
-            assume_role_params["Tags"] = session_tags
+            assume_role_params["Tags"] = [
+                {"Key": tag["KeyAlias"], "Value": tag["Value"]}
+                for tag in session_tags
+            ]
 
         response = sts_client.assume_role(**assume_role_params)
 
