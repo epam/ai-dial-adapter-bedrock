@@ -228,7 +228,7 @@ def test_to_session_tags_fits_the_alias_not_the_path():
     long_value = "v" * 300
 
     assert session_tags._to_session_tags(
-        {"UserInfo.project": long_value}, {"UserInfo.project": long_alias}
+        [("UserInfo.project", long_alias, long_value)]
     ) == [
         {
             "Key": "UserInfo.project",
@@ -238,24 +238,33 @@ def test_to_session_tags_fits_the_alias_not_the_path():
     ]
 
 
-def test_to_session_tags_falls_back_to_the_path_without_an_alias():
-    assert session_tags._to_session_tags({"UserInfo.project": "epam"}, {}) == [
-        {
-            "Key": "UserInfo.project",
-            "KeyAlias": "UserInfo.project",
-            "Value": "epam",
-        }
+def test_to_session_tags_passes_one_field_under_every_alias():
+    """Two aliases of one field make two tags, not one."""
+
+    assert session_tags._to_session_tags(
+        [
+            ("UserInfo.project", "x", "epam"),
+            ("UserInfo.project", "y", "epam"),
+        ]
+    ) == [
+        {"Key": "UserInfo.project", "KeyAlias": "x", "Value": "epam"},
+        {"Key": "UserInfo.project", "KeyAlias": "y", "Value": "epam"},
     ]
 
 
 @pytest.mark.parametrize(
-    ("flat", "aliases", "expected"),
+    ("entries", "expected"),
     [
         # The AssumeRole failure this sanitization was added for: a claim
         # holding a single email in a list.
         (
-            {"UserInfo.userClaims.email": '["test_user@example.com"]'},
-            {"UserInfo.userClaims.email": "employee"},
+            [
+                (
+                    "UserInfo.userClaims.email",
+                    "employee",
+                    '["test_user@example.com"]',
+                )
+            ],
             [
                 {
                     "Key": "UserInfo.userClaims.email",
@@ -266,8 +275,7 @@ def test_to_session_tags_falls_back_to_the_path_without_an_alias():
         ),
         # A comma isn't allowed either, so no JSON value passes as-is.
         (
-            {"UserInfo.userClaims.access": '["read", "write"]'},
-            {"UserInfo.userClaims.access": "access"},
+            [("UserInfo.userClaims.access", "access", '["read", "write"]')],
             [
                 {
                     "Key": "UserInfo.userClaims.access",
@@ -278,24 +286,26 @@ def test_to_session_tags_falls_back_to_the_path_without_an_alias():
         ),
         # A disallowed character in the alias is replaced.
         (
-            {"p": "x"},
-            {"p": "a,b"},
+            [("p", "a,b", "x")],
             [{"Key": "p", "KeyAlias": "a_b", "Value": "x"}],
         ),
         (
-            {"p": "y$z"},
-            {"p": "c#d"},
+            [("p", "c#d", "y$z")],
             [{"Key": "p", "KeyAlias": "c_d", "Value": "y_z"}],
         ),
         (
-            {"p": '"a\'b"'},
-            {"p": "k"},
+            [("p", "k", '"a\'b"')],
             [{"Key": "p", "KeyAlias": "k", "Value": "_a_b_"}],
         ),
         # The allowed punctuation survives.
         (
-            {"UserInfo.project": "a_b.c:d/e=f+g-h@i"},
-            {"UserInfo.project": "a_b.c:d/e=f+g-h@i"},
+            [
+                (
+                    "UserInfo.project",
+                    "a_b.c:d/e=f+g-h@i",
+                    "a_b.c:d/e=f+g-h@i",
+                )
+            ],
             [
                 {
                     "Key": "UserInfo.project",
@@ -306,8 +316,7 @@ def test_to_session_tags_falls_back_to_the_path_without_an_alias():
         ),
         # Letters, numbers and separators of any script survive.
         (
-            {"UserInfo.project": "Ünïcode Проект 42"},
-            {"UserInfo.project": "Проект"},
+            [("UserInfo.project", "Проект", "Ünïcode Проект 42")],
             [
                 {
                     "Key": "UserInfo.project",
@@ -319,26 +328,24 @@ def test_to_session_tags_falls_back_to_the_path_without_an_alias():
     ],
 )
 def test_to_session_tags_sanitizes_disallowed_chars(
-    flat: dict[str, str],
-    aliases: dict[str, str],
+    entries: list[tuple[str, str, str]],
     expected: list[dict[str, str]],
 ):
-    assert session_tags._to_session_tags(flat, aliases) == expected
+    assert session_tags._to_session_tags(entries) == expected
 
 
 def test_to_session_tags_sanitization_preserves_length():
     value = '{"a": ["b"], "c": 1}'
 
-    tags = session_tags._to_session_tags({"k": value}, {"k": "alias"})
+    tags = session_tags._to_session_tags([("k", "alias", value)])
 
     assert len(tags[0]["Value"]) == len(value)
 
 
 def test_to_session_tags_caps_at_50_entries():
-    flat = {f"p{i}": "v" for i in range(52)}
-    aliases = {f"p{i}": f"a{i}" for i in range(52)}
+    entries = [(f"p{i}", f"a{i}", "v") for i in range(52)]
 
-    assert session_tags._to_session_tags(flat, aliases) == [
+    assert session_tags._to_session_tags(entries) == [
         {"Key": f"p{i}", "KeyAlias": f"a{i}", "Value": "v"} for i in range(50)
     ]
 
@@ -346,10 +353,7 @@ def test_to_session_tags_caps_at_50_entries():
 def test_to_session_tags_logs_the_capped_entries_by_alias(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags(
-        {f"p{i}": "v" for i in range(52)},
-        {f"p{i}": f"a{i}" for i in range(52)},
-    )
+    session_tags._to_session_tags([(f"p{i}", f"a{i}", "v") for i in range(52)])
 
     assert any(
         "omitted 2 configured tag(s): a50, a51" in message
@@ -358,10 +362,9 @@ def test_to_session_tags_logs_the_capped_entries_by_alias(caplog):
 
 
 def test_to_session_tags_postfixes_truncated_alias_collisions():
-    flat = {suffix: suffix for suffix in ("x", "y", "z")}
-    aliases = {suffix: f"{'a' * 128}{suffix}" for suffix in ("x", "y", "z")}
-
-    tags = session_tags._to_session_tags(flat, aliases)
+    tags = session_tags._to_session_tags(
+        [(suffix, f"{'a' * 128}{suffix}", suffix) for suffix in ("x", "y", "z")]
+    )
 
     assert tags == [
         {"Key": "x", "KeyAlias": "a" * 128, "Value": "x"},
@@ -373,8 +376,11 @@ def test_to_session_tags_postfixes_truncated_alias_collisions():
 
 def test_to_session_tags_postfixes_sanitized_alias_collisions():
     tags = session_tags._to_session_tags(
-        {"p1": "first", "p2": "second", "p3": "third"},
-        {"p1": "a#b", "p2": "a$b", "p3": "a%b"},
+        [
+            ("p1", "a#b", "first"),
+            ("p2", "a$b", "second"),
+            ("p3", "a%b", "third"),
+        ]
     )
 
     assert tags == [
@@ -388,7 +394,7 @@ def test_to_session_tags_logs_postfixed_alias_collisions(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
     session_tags._to_session_tags(
-        {"p1": "first", "p2": "second"}, {"p1": "a#b", "p2": "a$b"}
+        [("p1", "a#b", "first"), ("p2", "a$b", "second")]
     )
 
     # The alias is reported, since that's what the check ran on.
@@ -400,7 +406,7 @@ def test_to_session_tags_logs_postfixed_alias_collisions(caplog):
 
 def test_to_session_tags_drops_empty_aliases_but_keeps_empty_values():
     assert session_tags._to_session_tags(
-        {"p1": "value", "p2": ""}, {"p1": "", "p2": "empty"}
+        [("p1", "", "value"), ("p2", "empty", "")]
     ) == [{"Key": "p2", "KeyAlias": "empty", "Value": ""}]
 
 
@@ -409,9 +415,7 @@ def test_to_session_tags_logs_the_field_of_an_empty_alias(caplog):
 
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags(
-        {"UserInfo.project": "epam"}, {"UserInfo.project": ""}
-    )
+    session_tags._to_session_tags([("UserInfo.project", "", "epam")])
 
     assert any(
         "empty key, configured for field(s): UserInfo.project" in message
@@ -425,7 +429,7 @@ def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
     long_value = "v" * 300
 
     assert session_tags._to_session_tags(
-        {"UserInfo.project": long_value}, {"UserInfo.project": long_alias}
+        [("UserInfo.project", long_alias, long_value)]
     ) == [
         {
             "Key": "UserInfo.project",
@@ -444,72 +448,71 @@ def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        ({}, Tags(bedrock_model_id=False, user_info_paths=[], aliases={})),
+        ({}, Tags(bedrock_model_id=[], user_info_paths=[])),
         (
             {"application": "Bedrock.modelId"},
-            Tags(
-                bedrock_model_id=True,
-                user_info_paths=[],
-                aliases={"Bedrock.modelId": "application"},
-            ),
+            Tags(bedrock_model_id=["application"], user_info_paths=[]),
         ),
         (
             {"employee": "UserInfo.userClaims.email"},
             Tags(
-                bedrock_model_id=False,
-                user_info_paths=["userClaims.email"],
-                # The alias is keyed by the prefixed path, so that
-                # `to_session_tags` finds it again.
-                aliases={"UserInfo.userClaims.email": "employee"},
+                bedrock_model_id=[],
+                user_info_paths=[("employee", "userClaims.email")],
             ),
         ),
         (
             {"project": "UserInfo.project", "application": "Bedrock.modelId"},
             Tags(
-                bedrock_model_id=True,
-                user_info_paths=["project"],
-                aliases={
-                    "UserInfo.project": "project",
-                    "Bedrock.modelId": "application",
-                },
+                bedrock_model_id=["application"],
+                user_info_paths=[("project", "project")],
             ),
         ),
         # The order of the UserInfo paths is kept.
         (
             {"second": "UserInfo.roles.1", "first": "UserInfo.roles.0"},
             Tags(
-                bedrock_model_id=False,
-                user_info_paths=["roles.1", "roles.0"],
-                aliases={
-                    "UserInfo.roles.1": "second",
-                    "UserInfo.roles.0": "first",
-                },
+                bedrock_model_id=[],
+                user_info_paths=[
+                    ("second", "roles.1"),
+                    ("first", "roles.0"),
+                ],
+            ),
+        ),
+        # Several keys may take the same field; each keeps its own alias.
+        (
+            {"a": "Bedrock.modelId", "b": "Bedrock.modelId"},
+            Tags(bedrock_model_id=["a", "b"], user_info_paths=[]),
+        ),
+        (
+            {"x": "UserInfo.project", "y": "UserInfo.project"},
+            Tags(
+                bedrock_model_id=[],
+                user_info_paths=[("x", "project"), ("y", "project")],
             ),
         ),
         # Unknown fields: no prefix, an unknown source, a field the Bedrock
         # source doesn't provide, and a near-miss of the UserInfo prefix.
         (
             {"a": "project"},
-            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+            Tags(bedrock_model_id=[], user_info_paths=[]),
         ),
         (
             {"a": "Nope.project"},
-            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+            Tags(bedrock_model_id=[], user_info_paths=[]),
         ),
         (
             {"a": "Bedrock.region"},
-            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+            Tags(bedrock_model_id=[], user_info_paths=[]),
         ),
         (
             {"a": "UserInfoProject"},
-            Tags(bedrock_model_id=False, user_info_paths=[], aliases={}),
+            Tags(bedrock_model_id=[], user_info_paths=[]),
         ),
         (
             {"a": "Bedrock.region", "project": "UserInfo.project"},
             Tags(
-                bedrock_model_id=False,
-                user_info_paths=["project"],
-                aliases={"UserInfo.project": "project"},
+                bedrock_model_id=[],
+                user_info_paths=[("project", "project")],
             ),
         ),
     ],
@@ -547,6 +550,19 @@ def test_tags_parse_logs_unknown_fields(caplog, field: str):
 )
 def test_tags_wants_user_info(config: dict[str, str], expected: bool):
     assert Tags.parse(config).wants_user_info is expected
+
+
+@pytest.mark.parametrize("field", ["Bedrock.modelId", "UserInfo.roles.0"])
+def test_to_session_tags_repeats_a_field_under_every_key(
+    user_info: UserInfo, field: str
+):
+    """Two keys taking the same field make two tags, not one."""
+
+    tags = Tags.parse({"a": field, "b": field})
+
+    assert [
+        tag["KeyAlias"] for tag in tags.to_session_tags("my-claude", user_info)
+    ] == ["a", "b"]
 
 
 def test_to_session_tags_keys_every_tag_by_its_alias(user_info: UserInfo):

@@ -115,11 +115,14 @@ def _dedupe_key(key: str, taken: Container[str]) -> str:
     return key
 
 
-def _to_session_tags(
-    flat: dict[str, str], aliases: dict[str, str]
-) -> list[SessionTag]:
+"""A tag to pass: the field it comes from, the alias AWS keys it by, and the
+resolved value."""
+_Entry = tuple[str, str, str]
+
+
+def _to_session_tags(entries: list[_Entry]) -> list[SessionTag]:
     # The alias is what AWS receives as the tag key, so the AWS constraints
-    # are fitted to the alias rather than to the path it's configured for.
+    # are fitted to the alias rather than to the field it's configured for.
     ret: list[SessionTag] = []
     taken: set[str] = set()
     changed_keys: list[str] = []
@@ -127,13 +130,9 @@ def _to_session_tags(
     empty_keys: list[str] = []
     collisions: list[str] = []
 
-    items = list(flat.items())
-    for index, (path, value) in enumerate(items):
+    for index, (path, alias, value) in enumerate(entries):
         if len(ret) >= _MAX_ENTRIES:
-            omitted = [
-                aliases.get(omitted_path, omitted_path)
-                for omitted_path, _ in items[index:]
-            ]
+            omitted = [alias for _, alias, _ in entries[index:]]
             log.warning(
                 f"AWS STS session tags entry cap reached; "
                 f"omitted {len(omitted)} configured tag(s): "
@@ -141,7 +140,6 @@ def _to_session_tags(
             )
             break
 
-        alias = aliases.get(path, path)
         safe_alias = _sanitize_chars(alias)[:_MAX_KEY_LEN]
         safe_value = _sanitize_chars(value)[:_MAX_VALUE_LEN]
 
@@ -185,28 +183,24 @@ def _to_session_tags(
 
 @dataclass
 class Tags:
-    bedrock_model_id: bool
-    user_info_paths: list[str]
-    aliases: dict[str, str]
+    bedrock_model_id: list[str]
+    user_info_paths: list[tuple[str, str]]
 
     _BEDROCK_MODEL_ID: ClassVar[str] = "Bedrock.modelId"
     _USER_INFO_PREFIX: ClassVar[str] = "UserInfo."
 
     @classmethod
     def parse(cls, tags: dict[str, str]) -> Self:
-        bedrock_model_id: bool = False
-        user_info_paths: list[str] = []
-        aliases: dict[str, str] = {}
+        bedrock_model_id: list[str] = []
+        user_info_paths: list[tuple[str, str]] = []
 
         for tag_alias, tag_path in tags.items():
             if tag_path == cls._BEDROCK_MODEL_ID:
-                bedrock_model_id = True
-                aliases[tag_path] = tag_alias
+                bedrock_model_id.append(tag_alias)
             elif tag_path.startswith(cls._USER_INFO_PREFIX):
                 user_info_paths.append(
-                    tag_path.removeprefix(cls._USER_INFO_PREFIX)
+                    (tag_alias, tag_path.removeprefix(cls._USER_INFO_PREFIX))
                 )
-                aliases[tag_path] = tag_alias
             else:
                 log.warning(
                     f"Skipping AWS STS session tag {tag_alias!r}: unknown "
@@ -217,7 +211,6 @@ class Tags:
         return cls(
             bedrock_model_id=bedrock_model_id,
             user_info_paths=user_info_paths,
-            aliases=aliases,
         )
 
     @property
@@ -227,21 +220,26 @@ class Tags:
     def to_session_tags(
         self, bedrock_model_id: str | None, user_info: UserInfo | None
     ) -> list[SessionTag]:
-        flat: dict[str, str] = {}
+        entries: list[_Entry] = []
 
-        if self.bedrock_model_id and bedrock_model_id is not None:
-            flat[self._BEDROCK_MODEL_ID] = bedrock_model_id
+        if bedrock_model_id is not None:
+            entries.extend(
+                (self._BEDROCK_MODEL_ID, alias, bedrock_model_id)
+                for alias in self.bedrock_model_id
+            )
 
         if user_info is not None:
             resolved = resolve_paths(
-                user_info.model_dump(mode="json"), self.user_info_paths
+                user_info.model_dump(mode="json"),
+                [path for _, path in self.user_info_paths],
             )
-            flat.update(
-                (f"{self._USER_INFO_PREFIX}{path}", value)
-                for path, value in resolved.items()
+            entries.extend(
+                (f"{self._USER_INFO_PREFIX}{path}", alias, resolved[path])
+                for alias, path in self.user_info_paths
+                if path in resolved
             )
 
-        ret = _to_session_tags(flat, self.aliases)
+        ret = _to_session_tags(entries)
         log.debug(f"Built AWS STS session tags: {ret}")
         return ret
 
