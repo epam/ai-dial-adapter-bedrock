@@ -26,8 +26,8 @@ from aidial_adapter_bedrock.upstream_config import (
         (
             [
                 {
-                    "Key": "Bedrock.modelId",
-                    "KeyAlias": "application",
+                    "Key": "application",
+                    "ValueSource": "Bedrock.modelId",
                     "Value": "m",
                 }
             ],
@@ -35,29 +35,35 @@ from aidial_adapter_bedrock.upstream_config import (
         ),
         # The unprefixed key isn't the project tag.
         (
-            [{"Key": "project", "KeyAlias": "project", "Value": "epam"}],
+            [{"Key": "project", "ValueSource": "project", "Value": "epam"}],
             "BedrockAccessSession",
         ),
         # A user without a project resolves to the JSON "null".
         (
             [
                 {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "project",
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
                     "Value": "null",
                 }
             ],
             "BedrockAccessSession",
         ),
         (
-            [{"Key": "UserInfo.project", "KeyAlias": "project", "Value": ""}],
+            [
+                {
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
+                    "Value": "",
+                }
+            ],
             "BedrockAccessSession",
         ),
         (
             [
                 {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "project",
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
                     "Value": "epam",
                 }
             ],
@@ -66,13 +72,13 @@ from aidial_adapter_bedrock.upstream_config import (
         (
             [
                 {
-                    "Key": "Bedrock.modelId",
-                    "KeyAlias": "application",
+                    "Key": "application",
+                    "ValueSource": "Bedrock.modelId",
                     "Value": "m",
                 },
                 {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "project",
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
                     "Value": "epam",
                 },
             ],
@@ -82,8 +88,8 @@ from aidial_adapter_bedrock.upstream_config import (
         (
             [
                 {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "project",
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
                     "Value": "EPAM / DIAL (prod)",
                 }
             ],
@@ -93,8 +99,8 @@ from aidial_adapter_bedrock.upstream_config import (
         (
             [
                 {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "project",
+                    "Key": "project",
+                    "ValueSource": "UserInfo.project",
                     "Value": "a+b=c,d.e@f-g_1",
                 }
             ],
@@ -108,7 +114,13 @@ def test_get_role_session_name(tags: list[SessionTag] | None, expected: str):
 
 def test_get_role_session_name_truncates_long_projects():
     name = _get_role_session_name(
-        [{"Key": "UserInfo.project", "KeyAlias": "project", "Value": "p" * 100}]
+        [
+            {
+                "Key": "project",
+                "ValueSource": "UserInfo.project",
+                "Value": "p" * 100,
+            }
+        ]
     )
 
     assert name == "Project_" + "p" * 56
@@ -286,7 +298,7 @@ class TestAWSClientConfigFactory:
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
         tags: list[SessionTag] = [
-            {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"}
+            {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"}
         ]
 
         _expiration, creds = await creds_config.get_credentials(
@@ -295,7 +307,7 @@ class TestAWSClientConfigFactory:
 
         assert captured["RoleArn"] == "arn"
         assert captured["RoleSessionName"] == "BedrockAccessSession"
-        # The alias is what AWS receives as the tag key.
+        # Only Key and Value reach AWS; ValueSource is adapter-side.
         assert captured["Tags"] == [{"Key": "role", "Value": "admin"}]
         assert creds.aws_access_key_id == "a"
 
@@ -327,7 +339,11 @@ class TestAWSClientConfigFactory:
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
         tags: list[SessionTag] = [
-            {"Key": "UserInfo.project", "KeyAlias": "project", "Value": "epam"}
+            {
+                "Key": "project",
+                "ValueSource": "UserInfo.project",
+                "Value": "epam",
+            }
         ]
 
         await creds_config.get_credentials("us-east-1", tags)

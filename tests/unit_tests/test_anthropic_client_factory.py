@@ -163,8 +163,8 @@ class TestCreateAnthropicClient:
 
         tags: list[SessionTag] = [
             {
-                "Key": "Bedrock.modelId",
-                "KeyAlias": "application",
+                "Key": "application",
+                "ValueSource": "Bedrock.modelId",
                 "Value": "anthropic.claude-opus-5",
             }
         ]
@@ -197,15 +197,15 @@ class TestCreateAnthropicClient:
 
         alice: list[SessionTag] = [
             {
-                "Key": "UserInfo.userClaims.email",
-                "KeyAlias": "employee",
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
                 "Value": "alice@example.com",
             }
         ]
         bob: list[SessionTag] = [
             {
-                "Key": "UserInfo.userClaims.email",
-                "KeyAlias": "employee",
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
                 "Value": "bob@example.com",
             }
         ]

@@ -23,9 +23,10 @@ _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
 
 _DEFAULT_ROLE_SESSION_NAME = "BedrockAccessSession"
 
-# The session tag naming the user project. When it's passed, the project
-# names the role session instead of the default above.
-_PROJECT_TAG_KEY = "UserInfo.project"
+# The value source of the session tag naming the user project. When such a
+# tag is passed, the project names the role session instead of the default
+# above.
+_PROJECT_VALUE_SOURCE = "UserInfo.project"
 # The marker goes in front, so that it survives the truncation of a long
 # project and groups the adapter sessions together in the AWS logs.
 _PROJECT_ROLE_SESSION_NAME_PREFIX = "Project_"
@@ -38,7 +39,7 @@ _INVALID_ROLE_SESSION_NAME_CHARS = re.compile(r"[^\w+=,.@-]")
 
 class SessionTag(TypedDict):
     Key: str
-    KeyAlias: str
+    ValueSource: str
     Value: str
 
 
@@ -47,7 +48,7 @@ def _get_role_session_name(session_tags: list[SessionTag] | None) -> str:
         (
             tag["Value"]
             for tag in session_tags or []
-            if tag["Key"] == _PROJECT_TAG_KEY
+            if tag["ValueSource"] == _PROJECT_VALUE_SOURCE
         ),
         None,
     )
@@ -99,7 +100,7 @@ class AWSAssumeRoleCredentials(BaseModel):
         }
         if session_tags:
             assume_role_params["Tags"] = [
-                {"Key": tag["KeyAlias"], "Value": tag["Value"]}
+                {"Key": tag["Key"], "Value": tag["Value"]}
                 for tag in session_tags
             ]
 

@@ -16,8 +16,8 @@ from aidial_adapter_bedrock.upstream_config import (
 from aidial_adapter_bedrock.utils.env import get_str_dict
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-# The tags to pass, as a JSON object mapping the AWS tag key to the field to
-# take it from, e.g.
+# The tags to pass, as a JSON object mapping the AWS tag key to the value
+# source to take it from, e.g.
 # {"application": "Bedrock.modelId", "project": "UserInfo.project"}.
 # Setting it enables the feature.
 AWS_SESSION_TAGS = get_str_dict("AWS_SESSION_TAGS")
@@ -115,14 +115,9 @@ def _dedupe_key(key: str, taken: Container[str]) -> str:
     return key
 
 
-"""A tag to pass: the field it comes from, the alias AWS keys it by, and the
-resolved value."""
-_Entry = tuple[str, str, str]
-
-
-def _to_session_tags(entries: list[_Entry]) -> list[SessionTag]:
-    # The alias is what AWS receives as the tag key, so the AWS constraints
-    # are fitted to the alias rather than to the field it's configured for.
+def _sanitize_session_tags(tags: list[SessionTag]) -> list[SessionTag]:
+    # Only the key and the value reach AWS, so they're the ones fitted to the
+    # AWS constraints; the value source is carried through untouched.
     ret: list[SessionTag] = []
     taken: set[str] = set()
     changed_keys: list[str] = []
@@ -130,9 +125,9 @@ def _to_session_tags(entries: list[_Entry]) -> list[SessionTag]:
     empty_keys: list[str] = []
     collisions: list[str] = []
 
-    for index, (path, alias, value) in enumerate(entries):
+    for index, tag in enumerate(tags):
         if len(ret) >= _MAX_ENTRIES:
-            omitted = [alias for _, alias, _ in entries[index:]]
+            omitted = [omitted_tag["Key"] for omitted_tag in tags[index:]]
             log.warning(
                 f"AWS STS session tags entry cap reached; "
                 f"omitted {len(omitted)} configured tag(s): "
@@ -140,22 +135,31 @@ def _to_session_tags(entries: list[_Entry]) -> list[SessionTag]:
             )
             break
 
-        safe_alias = _sanitize_chars(alias)[:_MAX_KEY_LEN]
+        key, value = tag["Key"], tag["Value"]
+        safe_key = _sanitize_chars(key)[:_MAX_KEY_LEN]
         safe_value = _sanitize_chars(value)[:_MAX_VALUE_LEN]
 
-        if safe_alias != alias:
-            changed_keys.append(alias)
+        if safe_key != key:
+            changed_keys.append(key)
         if safe_value != value:
-            changed_values.append(alias)
-        if not safe_alias:
-            empty_keys.append(path)
+            changed_values.append(key)
+        if not safe_key:
+            # There's no key left to name the tag by, so the value source is
+            # all the operator has to go on.
+            empty_keys.append(tag["ValueSource"])
             continue
-        if safe_alias in taken:
-            collisions.append(alias)
-            safe_alias = _dedupe_key(safe_alias, taken)
+        if safe_key in taken:
+            collisions.append(key)
+            safe_key = _dedupe_key(safe_key, taken)
 
-        taken.add(safe_alias)
-        ret.append({"Key": path, "KeyAlias": safe_alias, "Value": safe_value})
+        taken.add(safe_key)
+        ret.append(
+            {
+                "Key": safe_key,
+                "ValueSource": tag["ValueSource"],
+                "Value": safe_value,
+            }
+        )
 
     if changed_keys:
         log.warning(
@@ -170,7 +174,7 @@ def _to_session_tags(entries: list[_Entry]) -> list[SessionTag]:
     if empty_keys:
         log.warning(
             f"Dropped AWS STS session tags with an empty key, configured for "
-            f"field(s): {_format_tags(empty_keys)}"
+            f"value source(s): {_format_tags(empty_keys)}"
         )
     if collisions:
         log.warning(
@@ -194,17 +198,17 @@ class Tags:
         bedrock_model_id: list[str] = []
         user_info_paths: list[tuple[str, str]] = []
 
-        for tag_alias, tag_path in tags.items():
-            if tag_path == cls._BEDROCK_MODEL_ID:
-                bedrock_model_id.append(tag_alias)
-            elif tag_path.startswith(cls._USER_INFO_PREFIX):
+        for tag_key, value_source in tags.items():
+            if value_source == cls._BEDROCK_MODEL_ID:
+                bedrock_model_id.append(tag_key)
+            elif value_source.startswith(cls._USER_INFO_PREFIX):
                 user_info_paths.append(
-                    (tag_alias, tag_path.removeprefix(cls._USER_INFO_PREFIX))
+                    (tag_key, value_source.removeprefix(cls._USER_INFO_PREFIX))
                 )
             else:
                 log.warning(
-                    f"Skipping AWS STS session tag {tag_alias!r}: unknown "
-                    f"field {tag_path!r}; expected {cls._BEDROCK_MODEL_ID} "
+                    f"Skipping AWS STS session tag {tag_key!r}: unknown value "
+                    f"source {value_source!r}; expected {cls._BEDROCK_MODEL_ID} "
                     f"or {cls._USER_INFO_PREFIX}<path>"
                 )
 
@@ -220,12 +224,16 @@ class Tags:
     def to_session_tags(
         self, bedrock_model_id: str | None, user_info: UserInfo | None
     ) -> list[SessionTag]:
-        entries: list[_Entry] = []
+        session_tags: list[SessionTag] = []
 
         if bedrock_model_id is not None:
-            entries.extend(
-                (self._BEDROCK_MODEL_ID, alias, bedrock_model_id)
-                for alias in self.bedrock_model_id
+            session_tags.extend(
+                {
+                    "Key": key,
+                    "ValueSource": self._BEDROCK_MODEL_ID,
+                    "Value": bedrock_model_id,
+                }
+                for key in self.bedrock_model_id
             )
 
         if user_info is not None:
@@ -233,13 +241,17 @@ class Tags:
                 user_info.model_dump(mode="json"),
                 [path for _, path in self.user_info_paths],
             )
-            entries.extend(
-                (f"{self._USER_INFO_PREFIX}{path}", alias, resolved[path])
-                for alias, path in self.user_info_paths
+            session_tags.extend(
+                {
+                    "Key": key,
+                    "ValueSource": f"{self._USER_INFO_PREFIX}{path}",
+                    "Value": resolved[path],
+                }
+                for key, path in self.user_info_paths
                 if path in resolved
             )
 
-        ret = _to_session_tags(entries)
+        ret = _sanitize_session_tags(session_tags)
         log.debug(f"Built AWS STS session tags: {ret}")
         return ret
 

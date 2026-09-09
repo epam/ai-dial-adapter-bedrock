@@ -8,6 +8,7 @@ from aidial_adapter_bedrock.upstream_config import (
     AWSAssumeRoleCredentials,
     AWSClientCredentials,
     CloudUpstreamConfig,
+    SessionTag,
 )
 from aidial_adapter_bedrock.utils import session_tags
 from aidial_adapter_bedrock.utils.session_tags import Tags
@@ -221,139 +222,151 @@ def test_is_enabled_requires_assume_role_config(
     assert session_tags.is_enabled(ApiKeyUpstreamConfig(api_key="key")) is False
 
 
-def test_to_session_tags_fits_the_alias_not_the_path():
-    """The alias is the AWS tag key, so it's the one AWS constrains."""
+def test_sanitize_session_tags_fits_the_key_and_value():
+    """Only the key and the value reach AWS, so only they are fitted."""
 
-    long_alias = "a" * 200
+    long_key = "a" * 200
     long_value = "v" * 300
 
-    assert session_tags._to_session_tags(
-        [("UserInfo.project", long_alias, long_value)]
+    assert session_tags._sanitize_session_tags(
+        [
+            {
+                "Key": long_key,
+                "ValueSource": "UserInfo.project",
+                "Value": long_value,
+            }
+        ]
     ) == [
         {
-            "Key": "UserInfo.project",
-            "KeyAlias": "a" * 128,
+            "Key": "a" * 128,
+            "ValueSource": "UserInfo.project",
             "Value": "v" * 256,
         }
     ]
 
 
-def test_to_session_tags_passes_one_field_under_every_alias():
-    """Two aliases of one field make two tags, not one."""
+def test_sanitize_session_tags_keeps_one_source_under_every_key():
+    """Two keys of one value source make two tags, not one."""
 
-    assert session_tags._to_session_tags(
+    assert session_tags._sanitize_session_tags(
         [
-            ("UserInfo.project", "x", "epam"),
-            ("UserInfo.project", "y", "epam"),
+            {"Key": "x", "ValueSource": "UserInfo.project", "Value": "epam"},
+            {"Key": "y", "ValueSource": "UserInfo.project", "Value": "epam"},
         ]
     ) == [
-        {"Key": "UserInfo.project", "KeyAlias": "x", "Value": "epam"},
-        {"Key": "UserInfo.project", "KeyAlias": "y", "Value": "epam"},
+        {"Key": "x", "ValueSource": "UserInfo.project", "Value": "epam"},
+        {"Key": "y", "ValueSource": "UserInfo.project", "Value": "epam"},
     ]
 
 
 @pytest.mark.parametrize(
-    ("entries", "expected"),
+    ("tag", "expected"),
     [
         # The AssumeRole failure this sanitization was added for: a claim
         # holding a single email in a list.
         (
-            [
-                (
-                    "UserInfo.userClaims.email",
-                    "employee",
-                    '["test_user@example.com"]',
-                )
-            ],
-            [
-                {
-                    "Key": "UserInfo.userClaims.email",
-                    "KeyAlias": "employee",
-                    "Value": "__test_user@example.com__",
-                }
-            ],
+            {
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
+                "Value": '["test_user@example.com"]',
+            },
+            {
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
+                "Value": "__test_user@example.com__",
+            },
         ),
         # A comma isn't allowed either, so no JSON value passes as-is.
         (
-            [("UserInfo.userClaims.access", "access", '["read", "write"]')],
-            [
-                {
-                    "Key": "UserInfo.userClaims.access",
-                    "KeyAlias": "access",
-                    "Value": "__read__ _write__",
-                }
-            ],
+            {
+                "Key": "access",
+                "ValueSource": "UserInfo.userClaims.access",
+                "Value": '["read", "write"]',
+            },
+            {
+                "Key": "access",
+                "ValueSource": "UserInfo.userClaims.access",
+                "Value": "__read__ _write__",
+            },
         ),
-        # A disallowed character in the alias is replaced.
+        # A disallowed character in the key is replaced.
         (
-            [("p", "a,b", "x")],
-            [{"Key": "p", "KeyAlias": "a_b", "Value": "x"}],
-        ),
-        (
-            [("p", "c#d", "y$z")],
-            [{"Key": "p", "KeyAlias": "c_d", "Value": "y_z"}],
+            {"Key": "a,b", "ValueSource": "p", "Value": "x"},
+            {"Key": "a_b", "ValueSource": "p", "Value": "x"},
         ),
         (
-            [("p", "k", '"a\'b"')],
-            [{"Key": "p", "KeyAlias": "k", "Value": "_a_b_"}],
+            {"Key": "c#d", "ValueSource": "p", "Value": "y$z"},
+            {"Key": "c_d", "ValueSource": "p", "Value": "y_z"},
+        ),
+        (
+            {"Key": "k", "ValueSource": "p", "Value": '"a\'b"'},
+            {"Key": "k", "ValueSource": "p", "Value": "_a_b_"},
         ),
         # The allowed punctuation survives.
         (
-            [
-                (
-                    "UserInfo.project",
-                    "a_b.c:d/e=f+g-h@i",
-                    "a_b.c:d/e=f+g-h@i",
-                )
-            ],
-            [
-                {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "a_b.c:d/e=f+g-h@i",
-                    "Value": "a_b.c:d/e=f+g-h@i",
-                }
-            ],
+            {
+                "Key": "a_b.c:d/e=f+g-h@i",
+                "ValueSource": "UserInfo.project",
+                "Value": "a_b.c:d/e=f+g-h@i",
+            },
+            {
+                "Key": "a_b.c:d/e=f+g-h@i",
+                "ValueSource": "UserInfo.project",
+                "Value": "a_b.c:d/e=f+g-h@i",
+            },
         ),
         # Letters, numbers and separators of any script survive.
         (
-            [("UserInfo.project", "Проект", "Ünïcode Проект 42")],
-            [
-                {
-                    "Key": "UserInfo.project",
-                    "KeyAlias": "Проект",
-                    "Value": "Ünïcode Проект 42",
-                }
-            ],
+            {
+                "Key": "Проект",
+                "ValueSource": "UserInfo.project",
+                "Value": "Ünïcode Проект 42",
+            },
+            {
+                "Key": "Проект",
+                "ValueSource": "UserInfo.project",
+                "Value": "Ünïcode Проект 42",
+            },
         ),
     ],
 )
-def test_to_session_tags_sanitizes_disallowed_chars(
-    entries: list[tuple[str, str, str]],
-    expected: list[dict[str, str]],
+def test_sanitize_session_tags_replaces_disallowed_chars(
+    tag: SessionTag, expected: SessionTag
 ):
-    assert session_tags._to_session_tags(entries) == expected
+    assert session_tags._sanitize_session_tags([tag]) == [expected]
 
 
-def test_to_session_tags_sanitization_preserves_length():
+def test_sanitize_session_tags_preserves_the_value_length():
     value = '{"a": ["b"], "c": 1}'
 
-    tags = session_tags._to_session_tags([("k", "alias", value)])
+    tags = session_tags._sanitize_session_tags(
+        [{"Key": "k", "ValueSource": "src", "Value": value}]
+    )
 
     assert len(tags[0]["Value"]) == len(value)
 
 
-def test_to_session_tags_caps_at_50_entries():
-    entries = [(f"p{i}", f"a{i}", "v") for i in range(52)]
+def test_sanitize_session_tags_caps_at_50_entries():
+    entries: list[SessionTag] = [
+        {"Key": f"a{i}", "ValueSource": f"p{i}", "Value": "v"}
+        for i in range(52)
+    ]
 
-    assert session_tags._to_session_tags(entries) == [
-        {"Key": f"p{i}", "KeyAlias": f"a{i}", "Value": "v"} for i in range(50)
+    assert session_tags._sanitize_session_tags(entries) == [
+        {"Key": f"a{i}", "ValueSource": f"p{i}", "Value": "v"}
+        for i in range(50)
     ]
 
 
-def test_to_session_tags_logs_the_capped_entries_by_alias(caplog):
+def test_sanitize_session_tags_logs_the_capped_entries_by_key(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags([(f"p{i}", f"a{i}", "v") for i in range(52)])
+    session_tags._sanitize_session_tags(
+        [
+            {"Key": f"a{i}", "ValueSource": f"p{i}", "Value": "v"}
+            for i in range(52)
+        ]
+    )
 
     assert any(
         "omitted 2 configured tag(s): a50, a51" in message
@@ -361,87 +374,108 @@ def test_to_session_tags_logs_the_capped_entries_by_alias(caplog):
     )
 
 
-def test_to_session_tags_postfixes_truncated_alias_collisions():
-    tags = session_tags._to_session_tags(
-        [(suffix, f"{'a' * 128}{suffix}", suffix) for suffix in ("x", "y", "z")]
-    )
-
-    assert tags == [
-        {"Key": "x", "KeyAlias": "a" * 128, "Value": "x"},
-        {"Key": "y", "KeyAlias": "a" * 126 + "_1", "Value": "y"},
-        {"Key": "z", "KeyAlias": "a" * 126 + "_2", "Value": "z"},
-    ]
-    assert all(len(tag["KeyAlias"]) == 128 for tag in tags)
-
-
-def test_to_session_tags_postfixes_sanitized_alias_collisions():
-    tags = session_tags._to_session_tags(
+def test_sanitize_session_tags_postfixes_truncated_key_collisions():
+    tags = session_tags._sanitize_session_tags(
         [
-            ("p1", "a#b", "first"),
-            ("p2", "a$b", "second"),
-            ("p3", "a%b", "third"),
+            {
+                "Key": f"{'a' * 128}{suffix}",
+                "ValueSource": suffix,
+                "Value": suffix,
+            }
+            for suffix in ("x", "y", "z")
         ]
     )
 
     assert tags == [
-        {"Key": "p1", "KeyAlias": "a_b", "Value": "first"},
-        {"Key": "p2", "KeyAlias": "a_b_1", "Value": "second"},
-        {"Key": "p3", "KeyAlias": "a_b_2", "Value": "third"},
+        {"Key": "a" * 128, "ValueSource": "x", "Value": "x"},
+        {"Key": "a" * 126 + "_1", "ValueSource": "y", "Value": "y"},
+        {"Key": "a" * 126 + "_2", "ValueSource": "z", "Value": "z"},
+    ]
+    assert all(len(tag["Key"]) == 128 for tag in tags)
+
+
+def test_sanitize_session_tags_postfixes_sanitized_key_collisions():
+    tags = session_tags._sanitize_session_tags(
+        [
+            {"Key": "a#b", "ValueSource": "p1", "Value": "first"},
+            {"Key": "a$b", "ValueSource": "p2", "Value": "second"},
+            {"Key": "a%b", "ValueSource": "p3", "Value": "third"},
+        ]
+    )
+
+    assert tags == [
+        {"Key": "a_b", "ValueSource": "p1", "Value": "first"},
+        {"Key": "a_b_1", "ValueSource": "p2", "Value": "second"},
+        {"Key": "a_b_2", "ValueSource": "p3", "Value": "third"},
     ]
 
 
-def test_to_session_tags_logs_postfixed_alias_collisions(caplog):
+def test_sanitize_session_tags_logs_postfixed_key_collisions(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags(
-        [("p1", "a#b", "first"), ("p2", "a$b", "second")]
+    session_tags._sanitize_session_tags(
+        [
+            {"Key": "a#b", "ValueSource": "p1", "Value": "first"},
+            {"Key": "a$b", "ValueSource": "p2", "Value": "second"},
+        ]
     )
 
-    # The alias is reported, since that's what the check ran on.
+    # The key is reported, since that's what the check ran on.
     assert any(
         "collides with an earlier entry: a$b" in message
         for message in caplog.messages
     )
 
 
-def test_to_session_tags_drops_empty_aliases_but_keeps_empty_values():
-    assert session_tags._to_session_tags(
-        [("p1", "", "value"), ("p2", "empty", "")]
-    ) == [{"Key": "p2", "KeyAlias": "empty", "Value": ""}]
+def test_sanitize_session_tags_drops_empty_keys_but_keeps_empty_values():
+    assert session_tags._sanitize_session_tags(
+        [
+            {"Key": "", "ValueSource": "p1", "Value": "value"},
+            {"Key": "empty", "ValueSource": "p2", "Value": ""},
+        ]
+    ) == [{"Key": "empty", "ValueSource": "p2", "Value": ""}]
 
 
-def test_to_session_tags_logs_the_field_of_an_empty_alias(caplog):
-    """An empty alias can't name itself, so the field identifies the entry."""
+def test_sanitize_session_tags_logs_the_source_of_an_empty_key(caplog):
+    """An empty key can't name itself, so the value source identifies it."""
 
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    session_tags._to_session_tags([("UserInfo.project", "", "epam")])
+    session_tags._sanitize_session_tags(
+        [{"Key": "", "ValueSource": "UserInfo.project", "Value": "epam"}]
+    )
 
     assert any(
-        "empty key, configured for field(s): UserInfo.project" in message
+        "empty key, configured for value source(s): UserInfo.project" in message
         for message in caplog.messages
     )
 
 
-def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
+def test_sanitize_session_tags_logs_truncated_keys_and_values(caplog):
     caplog.set_level(logging.WARNING, logger="bedrock")
-    long_alias = "a" * 200
+    long_key = "a" * 200
     long_value = "v" * 300
 
-    assert session_tags._to_session_tags(
-        [("UserInfo.project", long_alias, long_value)]
+    assert session_tags._sanitize_session_tags(
+        [
+            {
+                "Key": long_key,
+                "ValueSource": "UserInfo.project",
+                "Value": long_value,
+            }
+        ]
     ) == [
         {
-            "Key": "UserInfo.project",
-            "KeyAlias": "a" * 128,
+            "Key": "a" * 128,
+            "ValueSource": "UserInfo.project",
             "Value": "v" * 256,
         }
     ]
 
-    # The alias is reported, since that's what the checks ran on.
+    # The key is reported, since that's what the checks ran on.
     assert caplog.messages == [
-        f"Sanitized AWS STS session tags key(s): {long_alias}",
-        f"Sanitized AWS STS session tags value(s): {long_alias}",
+        f"Sanitized AWS STS session tags key(s): {long_key}",
+        f"Sanitized AWS STS session tags value(s): {long_key}",
     ]
 
 
@@ -478,7 +512,7 @@ def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
                 ],
             ),
         ),
-        # Several keys may take the same field; each keeps its own alias.
+        # Several keys may take the same value source, each keeping its key.
         (
             {"a": "Bedrock.modelId", "b": "Bedrock.modelId"},
             Tags(bedrock_model_id=["a", "b"], user_info_paths=[]),
@@ -490,8 +524,8 @@ def test_to_session_tags_logs_truncated_aliases_and_values(caplog):
                 user_info_paths=[("x", "project"), ("y", "project")],
             ),
         ),
-        # Unknown fields: no prefix, an unknown source, a field the Bedrock
-        # source doesn't provide, and a near-miss of the UserInfo prefix.
+        # Unknown value sources: no prefix, an unknown source, a field the
+        # Bedrock source doesn't provide, and a UserInfo prefix near-miss.
         (
             {"a": "project"},
             Tags(bedrock_model_id=[], user_info_paths=[]),
@@ -522,16 +556,16 @@ def test_tags_parse(config: dict[str, str], expected: Tags):
 
 
 @pytest.mark.parametrize(
-    "field", ["project", "Nope.project", "Bedrock.region", "UserInfoProject"]
+    "source", ["project", "Nope.project", "Bedrock.region", "UserInfoProject"]
 )
-def test_tags_parse_logs_unknown_fields(caplog, field: str):
+def test_tags_parse_logs_unknown_value_sources(caplog, source: str):
     caplog.set_level(logging.WARNING, logger="bedrock")
 
-    Tags.parse({"my_alias": field})
+    Tags.parse({"my_key": source})
 
     assert any(
-        f"Skipping AWS STS session tag 'my_alias': unknown field {field!r}"
-        in logged
+        f"Skipping AWS STS session tag 'my_key': unknown value source "
+        f"{source!r}" in logged
         for logged in caplog.messages
     )
 
@@ -552,20 +586,24 @@ def test_tags_wants_user_info(config: dict[str, str], expected: bool):
     assert Tags.parse(config).wants_user_info is expected
 
 
-@pytest.mark.parametrize("field", ["Bedrock.modelId", "UserInfo.roles.0"])
-def test_to_session_tags_repeats_a_field_under_every_key(
-    user_info: UserInfo, field: str
+@pytest.mark.parametrize(
+    "value_source", ["Bedrock.modelId", "UserInfo.roles.0"]
+)
+def test_to_session_tags_repeats_a_source_under_every_key(
+    user_info: UserInfo, value_source: str
 ):
-    """Two keys taking the same field make two tags, not one."""
+    """Two keys taking the same value source make two tags, not one."""
 
-    tags = Tags.parse({"a": field, "b": field})
+    tags = Tags.parse({"a": value_source, "b": value_source})
 
     assert [
-        tag["KeyAlias"] for tag in tags.to_session_tags("my-claude", user_info)
+        tag["Key"] for tag in tags.to_session_tags("my-claude", user_info)
     ] == ["a", "b"]
 
 
-def test_to_session_tags_keys_every_tag_by_its_alias(user_info: UserInfo):
+def test_to_session_tags_keys_every_tag_by_its_configured_key(
+    user_info: UserInfo,
+):
     tags = Tags.parse(
         {
             "application": "Bedrock.modelId",
@@ -579,22 +617,22 @@ def test_to_session_tags_keys_every_tag_by_its_alias(user_info: UserInfo):
 
     assert tags.to_session_tags("my-claude", user_info) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         },
-        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"},
-        {"Key": "UserInfo.project", "KeyAlias": "project", "Value": "null"},
-        {"Key": "UserInfo.userClaims.id", "KeyAlias": "id", "Value": "15"},
+        {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"},
+        {"Key": "project", "ValueSource": "UserInfo.project", "Value": "null"},
+        {"Key": "id", "ValueSource": "UserInfo.userClaims.id", "Value": "15"},
         {
-            "Key": "UserInfo.userClaims.email",
-            "KeyAlias": "employee",
+            "Key": "employee",
+            "ValueSource": "UserInfo.userClaims.email",
             "Value": "user@example.com",
         },
         # The JSON punctuation isn't allowed by AWS.
         {
-            "Key": "UserInfo.userClaims.map",
-            "KeyAlias": "map",
+            "Key": "map",
+            "ValueSource": "UserInfo.userClaims.map",
             "Value": "__a_: __b___",
         },
     ]
@@ -613,12 +651,12 @@ def test_to_session_tags_puts_the_model_id_first(user_info: UserInfo):
 
     assert tags.to_session_tags("my-claude", user_info) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         },
-        {"Key": "UserInfo.roles.1", "KeyAlias": "second", "Value": "writer"},
-        {"Key": "UserInfo.roles.0", "KeyAlias": "first", "Value": "admin"},
+        {"Key": "second", "ValueSource": "UserInfo.roles.1", "Value": "writer"},
+        {"Key": "first", "ValueSource": "UserInfo.roles.0", "Value": "admin"},
     ]
 
 
@@ -628,7 +666,7 @@ def test_to_session_tags_passes_only_the_configured_tags(user_info: UserInfo):
     tags = Tags.parse({"role": "UserInfo.roles.0"})
 
     assert tags.to_session_tags("my-claude", user_info) == [
-        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"}
+        {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"}
     ]
 
 
@@ -641,8 +679,8 @@ def test_to_session_tags_without_user_info():
 
     assert tags.to_session_tags("my-claude", None) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ]
@@ -656,7 +694,7 @@ def test_to_session_tags_without_a_model_id(user_info: UserInfo):
     )
 
     assert tags.to_session_tags(None, user_info) == [
-        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"}
+        {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"}
     ]
 
 
@@ -684,8 +722,8 @@ async def test_resolve_session_tags_without_an_api_key(
         None, _assume_role_upstream_config(), "my-claude"
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ]
@@ -721,14 +759,14 @@ def test_to_session_tags_keeps_the_model_id_when_capped():
         "my-claude", UserInfo(roles=[f"r{i}" for i in range(60)])
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ] + [
         {
-            "Key": f"UserInfo.roles.{i}",
-            "KeyAlias": f"role_{i}",
+            "Key": f"role_{i}",
+            "ValueSource": f"UserInfo.roles.{i}",
             "Value": f"r{i}",
         }
         for i in range(49)
@@ -740,8 +778,8 @@ def test_to_session_tags_truncates_long_model_ids():
 
     assert tags.to_session_tags("d" * 300, None) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "d" * 256,
         }
     ]
@@ -798,8 +836,8 @@ async def test_resolve_session_tags_without_user_info_tags(
         "key", _assume_role_upstream_config(), "my-claude"
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ]
@@ -824,8 +862,8 @@ async def test_resolve_session_tags_no_dial_client(
         "key", _assume_role_upstream_config(), "my-claude"
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ]
@@ -857,14 +895,14 @@ async def test_resolve_session_tags_returns_tags(
         "key", _assume_role_upstream_config(), "my-claude"
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         },
-        {"Key": "UserInfo.roles.0", "KeyAlias": "role", "Value": "admin"},
+        {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"},
         {
-            "Key": "UserInfo.userClaims.email",
-            "KeyAlias": "employee",
+            "Key": "employee",
+            "ValueSource": "UserInfo.userClaims.email",
             "Value": "user@example.com",
         },
     ]
@@ -891,8 +929,8 @@ async def test_resolve_session_tags_swallows_dial_errors(
         "key", _assume_role_upstream_config(), "my-claude"
     ) == [
         {
-            "Key": "Bedrock.modelId",
-            "KeyAlias": "application",
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
             "Value": "my-claude",
         }
     ]
