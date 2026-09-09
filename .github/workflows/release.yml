@@ -19,7 +19,7 @@ jobs:
     uses: epam/ai-dial-ci/.github/workflows/python_docker_release.yml@4.11.0
     with:
       promote: ${{ github.event_name == 'workflow_dispatch' && inputs.promote }}
-      python-version: "3.11"
-      poetry-version: "2.1.1"
+      python-version: 3.11
+      poetry-version: 2.1.1
       platforms: "linux/amd64,linux/arm64"
     secrets: inherit
