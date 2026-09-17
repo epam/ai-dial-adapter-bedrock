@@ -5,28 +5,25 @@ import os
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
+from anthropic.types.beta.message_create_params import MessageCreateParams
 from fastapi import Request
 from fastapi.responses import Response, StreamingResponse
-from pydantic import ValidationError
 from starlette.datastructures import Headers
 
-from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
-    MessagesRequest,
-)
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     INTERNAL_ERROR_MESSAGE,
     AnthropicErrorType,
     AnthropicHTTPError,
     anthropic_error_response,
-    format_validation_error,
     translator_error_handler,
 )
+from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 NOT_CONFIGURED: str = "translator is not configured (DIAL_URL is not set)"
 
 
-async def parse_request(request: Request) -> MessagesRequest:
+async def parse_request(request: Request) -> MessageCreateParams:
     raw: bytes = await request.body()
     try:
         body: object = json.loads(raw)
@@ -40,12 +37,11 @@ async def parse_request(request: Request) -> MessagesRequest:
             AnthropicErrorType.INVALID_REQUEST,
             "Request body must be a JSON object",
         )
-    try:
-        return MessagesRequest.model_validate(body)
-    except ValidationError as e:
-        raise AnthropicHTTPError(
-            AnthropicErrorType.INVALID_REQUEST, format_validation_error(e)
-        ) from e
+    model = body.get("model")
+    body["model"] = resolve_deployment(
+        request.headers, model if isinstance(model, str) else None
+    )
+    return validate_request(body)
 
 
 def resolve_deployment(headers: Headers, model: str | None) -> str:
