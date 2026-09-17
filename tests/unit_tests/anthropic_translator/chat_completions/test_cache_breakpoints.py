@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from aidial_sdk.chat_completion.request import CacheBreakpoint
@@ -7,15 +8,11 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.cache_breakpoi
     CacheControl,
     cache_breakpoint,
 )
-from aidial_adapter_bedrock.anthropic_translator.translation_log import (
-    TranslationLog,
-)
 
 
 def marker(*controls: dict[str, object]) -> CacheBreakpoint | None:
     return cache_breakpoint(
-        [CacheControl.model_validate(control) for control in controls],
-        TranslationLog("test"),
+        [cast(CacheControl, control) for control in controls],
     )
 
 

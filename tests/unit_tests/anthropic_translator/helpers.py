@@ -6,13 +6,11 @@ from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 from openai.types.completion_usage import CompletionUsage
 
-from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
-    MessagesRequest,
-)
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
     CoreChatCompletionRequest,
     to_chat_completions_request,
 )
+from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
 )
@@ -66,7 +64,7 @@ def convert(
     aliases: ToolNameAliases | None = None,
 ) -> CoreChatCompletionRequest:
     return to_chat_completions_request(
-        MessagesRequest.model_validate({"max_tokens": 100, **body}),
+        validate_request({"model": model, "max_tokens": 100, **body}),
         model,
         aliases if aliases is not None else ToolNameAliases(),
     )

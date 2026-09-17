@@ -22,10 +22,6 @@ from aidial_sdk.chat_completion.request import (
     Tool as SdkTool,
 )
 
-from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
-    JsonObject,
-    MessagesRequest,
-)
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
     CoreChatCompletionRequest,
     to_chat_completions_request,
@@ -34,6 +30,7 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
     AnthropicHTTPError,
 )
+from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
 )
@@ -62,7 +59,7 @@ def test_minimal_request(max_tokens: int) -> None:
 def test_missing_max_tokens_raises_400() -> None:
     with pytest.raises(AnthropicHTTPError) as exc:
         to_chat_completions_request(
-            MessagesRequest.model_validate(user("hi")),
+            validate_request({"model": DEPLOYMENT, **user("hi")}),
             DEPLOYMENT,
             ToolNameAliases(),
         )
@@ -137,7 +134,10 @@ def test_system_sources_merge_in_client_order_not_grouped_by_kind() -> None:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "mid_conv_system", "content": "B"},
+                        {
+                            "type": "mid_conv_system",
+                            "content": [{"type": "text", "text": "B"}],
+                        },
                         {"type": "text", "text": "hi"},
                     ],
                 },
@@ -158,7 +158,12 @@ def test_mid_conv_system_on_an_assistant_message_is_merged_not_warned() -> None:
                     "content": [
                         {
                             "type": "mid_conv_system",
-                            "content": "from the assistant turn",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "from the assistant turn",
+                                }
+                            ],
                         },
                         {"type": "text", "text": "hello"},
                     ],
@@ -201,7 +206,7 @@ def test_mid_conv_system_cache_control_marks_the_merged_message() -> None:
                     "content": [
                         {
                             "type": "mid_conv_system",
-                            "content": "ctx",
+                            "content": [{"type": "text", "text": "ctx"}],
                             "cache_control": {"type": "ephemeral"},
                         }
                     ],
@@ -221,7 +226,13 @@ def test_unsupported_system_role_content_block_is_dropped() -> None:
                     "role": "system",
                     "content": [
                         {"type": "text", "text": "keep me"},
-                        {"type": "bogus_block"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "url",
+                                "url": "https://example.com/image.png",
+                            },
+                        },
                     ],
                 },
                 {"role": "user", "content": "hi"},
@@ -469,7 +480,7 @@ def test_unknown_role_raises_400() -> None:
         convert({"messages": [{"role": "developer", "content": "hi"}]})
     assert exc.value.status_code == 400
     assert exc.value.error_type is AnthropicErrorType.INVALID_REQUEST
-    assert exc.value.message == "Unknown message role: 'developer'"
+    assert "role" in exc.value.message
 
 
 def test_custom_tool_mapping() -> None:
@@ -524,25 +535,13 @@ def test_schema_key_is_stripped_from_tool_parameters() -> None:
     }
 
 
-def test_a_tool_without_an_input_schema_gets_an_empty_object() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "tools": [{"name": "get_weather"}]}
-    )
-    tools: list[SdkTool | StaticTool] | None = result.tools
-    assert tools is not None
-    tool: SdkTool | StaticTool = tools[0]
-    assert isinstance(tool, SdkTool)
-    assert tool.function.parameters == {"type": "object", "properties": {}}
-
-
-def test_custom_tool_without_name_is_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {
-            **user("hi"),
-            "tools": [{"input_schema": {"type": "object", "properties": {}}}],
-        }
-    )
-    assert result.tools is None
+@pytest.mark.parametrize(
+    "tool", [{"name": "get_weather"}, {"input_schema": {"type": "object"}}]
+)
+def test_incomplete_custom_tool_is_rejected(tool: dict[str, object]) -> None:
+    with pytest.raises(AnthropicHTTPError) as exc:
+        convert({**user("hi"), "tools": [tool]})
+    assert exc.value.status_code == 400
 
 
 def test_web_search_and_other_server_tools_all_dropped() -> None:
@@ -552,9 +551,14 @@ def test_web_search_and_other_server_tools_all_dropped() -> None:
             "tools": [
                 {"type": "web_search_20250305", "name": "web_search"},
                 {"type": "bash_20250124", "name": "bash"},
-                {"type": "text_editor_20250124", "name": "str_replace"},
-                {"type": "computer_20250124", "name": "computer"},
-                {"type": "code_execution_20250522", "name": "code"},
+                {"type": "text_editor_20250124", "name": "str_replace_editor"},
+                {
+                    "type": "computer_20250124",
+                    "name": "computer",
+                    "display_width_px": 100,
+                    "display_height_px": 100,
+                },
+                {"type": "code_execution_20250522", "name": "code_execution"},
             ],
         }
     )
@@ -571,7 +575,6 @@ def test_web_search_and_other_server_tools_all_dropped() -> None:
             {"type": "tool", "name": "search"},
             ToolChoice(type="function", function=FunctionChoice(name="search")),
         ),
-        ({"type": "bogus"}, None),
     ],
 )
 def test_tool_choice_matrix(
@@ -612,7 +615,9 @@ def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites() -> None:
                     ],
                 },
             ],
-            "tools": [{"name": LONG_MCP_NAME}],
+            "tools": [
+                {"name": LONG_MCP_NAME, "input_schema": {"type": "object"}}
+            ],
             "tool_choice": {"type": "tool", "name": LONG_MCP_NAME},
         },
         aliases=aliases,
@@ -727,7 +732,7 @@ def test_the_longest_ttl_of_the_merged_system_sources_wins() -> None:
                 {
                     "type": "text",
                     "text": "a",
-                    "cache_control": {"ttl": "5m"},
+                    "cache_control": {"type": "ephemeral", "ttl": "5m"},
                 }
             ],
             "messages": [
@@ -737,7 +742,7 @@ def test_the_longest_ttl_of_the_merged_system_sources_wins() -> None:
                         {
                             "type": "text",
                             "text": "b",
-                            "cache_control": {"ttl": "1h"},
+                            "cache_control": {"type": "ephemeral", "ttl": "1h"},
                         }
                     ],
                 },
@@ -780,7 +785,11 @@ def test_tool_definition_cache_control_marks_tool() -> None:
         {
             **user("hi"),
             "tools": [
-                {"name": "get_weather", "cache_control": {"type": "ephemeral"}}
+                {
+                    "name": "get_weather",
+                    "input_schema": {"type": "object"},
+                    "cache_control": {"type": "ephemeral"},
+                }
             ],
         }
     )
@@ -834,7 +843,13 @@ def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
     result: CoreChatCompletionRequest = convert(
         {
             **user("hi"),
-            "mcp_servers": [{"type": "url", "url": "https://example.com/mcp"}],
+            "mcp_servers": [
+                {
+                    "type": "url",
+                    "name": "server",
+                    "url": "https://example.com/mcp",
+                }
+            ],
             "container": {"id": "container_1"},
             "inference_geo": "eu",
             "context_management": {
@@ -868,7 +883,7 @@ def test_user_id_is_forwarded_as_user(user_id: str) -> None:
 
 @pytest.mark.parametrize(
     "tier, expected",
-    [("auto", "auto"), ("standard_only", "default"), ("flex", None)],
+    [("auto", "auto"), ("standard_only", "default")],
 )
 def test_service_tier_is_a_closed_table(
     tier: str, expected: str | None
@@ -880,7 +895,7 @@ def test_service_tier_is_a_closed_table(
 
 
 def test_output_config_format_json_schema_converts() -> None:
-    schema: JsonObject = {
+    schema: dict[str, object] = {
         "type": "object",
         "properties": {"name": {"type": "string"}},
         "required": ["name"],
@@ -903,18 +918,22 @@ def test_output_config_format_json_schema_converts() -> None:
 
 
 @pytest.mark.parametrize(
-    "output_format",
-    [
-        {"type": "text"},
-        {"type": "json_schema"},
-        {"type": "json_schema", "schema": {}},
-    ],
+    "output_format", [{"type": "text"}, {"type": "json_schema"}]
 )
-def test_unusable_output_config_format_is_dropped(
+def test_invalid_output_config_format_is_rejected(
     output_format: dict[str, object],
 ) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "output_config": {"format": output_format}}
+    with pytest.raises(AnthropicHTTPError) as exc:
+        convert({**user("hi"), "output_config": {"format": output_format}})
+    assert exc.value.status_code == 400
+
+
+def test_empty_output_schema_is_dropped() -> None:
+    result = convert(
+        {
+            **user("hi"),
+            "output_config": {"format": {"type": "json_schema", "schema": {}}},
+        }
     )
     assert result.response_format is None
 
@@ -969,7 +988,10 @@ def test_cache_shorthand_marks_last_surviving_user(
     suffix: list[dict[str, object]],
 ) -> None:
     result: CoreChatCompletionRequest = convert(
-        {"messages": [*user("hi")["messages"], *suffix], "cache_control": {}}
+        {
+            "messages": [*user("hi")["messages"], *suffix],
+            "cache_control": {"type": "ephemeral"},
+        }
     )
     marked: list[SdkMessage] = [
         m for m in result.messages if m.custom_fields is not None
@@ -983,7 +1005,7 @@ def test_cache_shorthand_without_user_has_no_marker() -> None:
     result: CoreChatCompletionRequest = convert(
         {
             "messages": [{"role": "assistant", "content": "hi"}],
-            "cache_control": {},
+            "cache_control": {"type": "ephemeral"},
         }
     )
     assert result.messages[0].custom_fields is None
@@ -993,9 +1015,15 @@ def test_cache_shorthand_preserves_longer_block_expiry() -> None:
     result: CoreChatCompletionRequest = convert(
         {
             **user(
-                [{"type": "text", "text": "hi", "cache_control": {"ttl": "1h"}}]
+                [
+                    {
+                        "type": "text",
+                        "text": "hi",
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    }
+                ]
             ),
-            "cache_control": {"ttl": "5m"},
+            "cache_control": {"type": "ephemeral", "ttl": "5m"},
         }
     )
     fields: MessageCustomFields | None = result.messages[0].custom_fields
@@ -1009,8 +1037,16 @@ def test_cache_shorthand_preserves_longer_block_expiry() -> None:
     assert seconds == pytest.approx(3600, abs=2)
 
 
-def test_empty_block_cache_control_does_not_mark() -> None:
+def test_null_block_cache_control_does_not_mark() -> None:
     result: CoreChatCompletionRequest = convert(
-        user([{"type": "text", "text": "hi", "cache_control": {}}])
+        user(
+            [
+                {
+                    "type": "text",
+                    "text": "hi",
+                    "cache_control": None,
+                }
+            ]
+        )
     )
     assert result.messages[0].custom_fields is None

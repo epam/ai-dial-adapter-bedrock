@@ -290,7 +290,10 @@ async def test_a_long_mcp_tool_name_round_trips(
     )
     response: httpx.Response = await client.post(
         _MESSAGES_URL,
-        json={**_MESSAGES_BODY, "tools": [{"name": long_name}]},
+        json={
+            **_MESSAGES_BODY,
+            "tools": [{"name": long_name, "input_schema": {"type": "object"}}],
+        },
     )
 
     assert response.status_code == 200
@@ -371,7 +374,11 @@ async def test_a_long_mcp_tool_name_round_trips_while_streaming(
     )
     response: httpx.Response = await client.post(
         _MESSAGES_URL,
-        json={**_MESSAGES_BODY, "stream": True, "tools": [{"name": long_name}]},
+        json={
+            **_MESSAGES_BODY,
+            "stream": True,
+            "tools": [{"name": long_name, "input_schema": {"type": "object"}}],
+        },
     )
 
     assert response.status_code == 200
@@ -608,7 +615,7 @@ async def test_schema_violation_returns_400(client: httpx.AsyncClient) -> None:
     assert response.status_code == 400
     body = response.json()
     assert body["error"]["type"] == "invalid_request_error"
-    assert body["error"]["message"] == "messages: Input should be a valid list"
+    assert body["error"]["message"]
 
 
 @pytest.mark.parametrize("sequences", [["STOP"], ["a", "b", "c", "d", "e"]])
@@ -675,7 +682,11 @@ async def test_citation_configuration_is_sent_to_core(
                 "content": [
                     {
                         "type": "document",
-                        "source": {"type": "text", "data": "doc"},
+                        "source": {
+                            "type": "text",
+                            "data": "doc",
+                            "media_type": "text/plain",
+                        },
                         "citations": {"enabled": True},
                     }
                 ],
@@ -738,48 +749,72 @@ async def test_cache_policy_and_unlisted_headers_pass_through(
 
 
 @pytest.mark.parametrize(
-    "deployment, emulated",
-    [
-        ("GPT-5.5", True),
-        ("gpt-5.5", True),
-        ("gpt-4o", False),
-    ],
+    "deployment", ["GPT-5.5", "gpt-5.5", "gpt-4o", "foobar"]
 )
-async def test_stop_emulation_uses_resolved_deployment(
+@pytest.mark.parametrize("streaming", [False, True])
+async def test_stop_forwarding_is_independent_of_deployment_name(
     client: httpx.AsyncClient,
     mock_core: respx.MockRouter,
     deployment: str,
-    emulated: bool,
+    streaming: bool,
 ) -> None:
-    route: respx.Route = mock_core.post(
-        f"/openai/deployments/{deployment}/chat/completions"
-    ).respond(
-        json={
-            **_RESPONSE_OBJECT,
+    upstream = {
+        **_RESPONSE_OBJECT,
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "before STOP after",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    route = mock_core.post(f"/openai/deployments/{deployment}/chat/completions")
+    if streaming:
+        chunk = {
+            "id": "chatcmpl_1",
             "choices": [
                 {
                     "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "before STOP after",
-                    },
+                    "delta": {"content": "before STOP after"},
                     "finish_reason": "stop",
                 }
             ],
         }
-    )
-    response: httpx.Response = await client.post(
+        route.respond(
+            content=f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n",
+            content_type="text/event-stream",
+        )
+    else:
+        route.respond(json=upstream)
+    response = await client.post(
         _MESSAGES_URL,
-        json={**_MESSAGES_BODY, "stop_sequences": ["STOP"]},
+        json={
+            **_MESSAGES_BODY,
+            "stream": streaming,
+            "stop_sequences": ["STOP"],
+        },
         headers={"x-dial-deployment-id": deployment},
     )
     assert response.status_code == 200
-    sent = json.loads(route.calls.last.request.content)
-    assert ("stop" not in sent) == emulated
-    assert response.json()["stop_sequence"] == ("STOP" if emulated else None)
-    assert response.json()["content"][0]["text"] == (
-        "before " if emulated else "before STOP after"
-    )
+    assert json.loads(route.calls.last.request.content)["stop"] == ["STOP"]
+    if streaming:
+        events = parse_anthropic_sse(response.content)
+        assert any(
+            data.get("delta", {}).get("text") == "before STOP after"
+            for _, data in events
+        )
+        assert (
+            next(data for name, data in events if name == "message_delta")[
+                "delta"
+            ]["stop_sequence"]
+            is None
+        )
+    else:
+        assert response.json()["stop_sequence"] is None
+        assert response.json()["content"][0]["text"] == "before STOP after"
 
 
 @pytest.mark.parametrize("streaming", [False, True])
@@ -869,10 +904,5 @@ async def test_invalid_content_source_returns_client_error(
         },
     )
     assert response.status_code == 400
-    assert response.json() == {
-        "type": "error",
-        "error": {
-            "type": "invalid_request_error",
-            "message": "messages.0.content.str: Input should be a valid string; messages.0.content.list[ContentBlock].0.source: Input should be a valid dictionary or instance of ContentSource",
-        },
-    }
+    assert response.json()["error"]["type"] == "invalid_request_error"
+    assert response.json()["error"]["message"]

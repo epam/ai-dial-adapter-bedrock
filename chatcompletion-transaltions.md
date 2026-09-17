@@ -46,7 +46,7 @@ Only the Messages creation endpoint is supported. Unknown paths return an Anthro
 | `output_config.format` | Strict JSON-schema `response_format` |
 | `metadata.user_id` | `user` |
 | `service_tier` | `auto` / `default` |
-| `stop_sequences` | `stop`, or local emulation for `gpt-5.` deployments |
+| `stop_sequences` | `stop` for every deployment |
 | `stream` | `stream` and `stream_options.include_usage` |
 | `cache_control` | DIAL cache-breakpoint `custom_fields` |
 
@@ -62,7 +62,7 @@ Only the Messages creation endpoint is supported. Unknown paths return an Anthro
 | `message.tool_calls` | `tool_use` blocks |
 | Native thinking / reasoning stages | Thinking blocks |
 | URL citations | Synthesized web-search tool-use/result blocks |
-| `finish_reason` and response content | `stop_reason`, optionally `stop_sequence` |
+| `finish_reason` and response content | `stop_reason`; `stop_sequence` is `null` |
 | `prompt_tokens` | `input_tokens`, minus cache reads/writes |
 | `completion_tokens` | `output_tokens` |
 | Cached/cache-write tokens | Cache input-token counters |
@@ -74,13 +74,13 @@ Only the Messages creation endpoint is supported. Unknown paths return an Anthro
 
 ## Request options
 
-`messages` and `max_tokens` are required. Unknown fields are accepted and unused fields are ignored. Recognized fields are validated, including fields within content blocks.
+`messages` and `max_tokens` are required, along with `model` unless the deployment header supplies it. Requests are validated against the pinned Anthropic SDK beta request types, including nested messages, content blocks, tools, and options. Unknown fields are accepted and unused fields are ignored.
 
 | Anthropic option | Chat Completions behavior |
 |---|---|
 | `max_tokens` | Forwarded as `max_completion_tokens`, without clamping |
 | `temperature`, `top_p` | Forwarded when provided |
-| `stop_sequences` | Forwarded as `stop`, except for deployment IDs starting with `gpt-5.` (case-insensitive) |
+| `stop_sequences` | Forwarded as `stop` for every deployment, regardless of its name |
 | `output_config.format` | A `json_schema` format with a nonempty schema requests strict structured output |
 | `service_tier` | `auto` and `standard_only` become `auto` and `default` |
 | `metadata.user_id` | Forwarded whole as `user` when nonempty |
@@ -90,21 +90,15 @@ Options are sent without consulting `x-dial-deployment-features`. The target dep
 
 ### Reasoning
 
-Rules apply in this order:
+`thinking.type: disabled` emits `reasoning_effort: none`. Otherwise, explicit `output_config.effort` is forwarded using the Anthropic SDK's accepted values. The target deployment can reject an effort it does not support.
 
-1. `thinking.type: disabled` emits `reasoning_effort: none`, even when an effort is also supplied.
-2. Explicit `output_config.effort` is forwarded. Accepted values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`; other values return 400.
-3. Without thinking configuration or explicit effort, the deployment default applies.
-4. `thinking.type: adaptive` requests `high`.
-5. Other thinking configurations use `budget_tokens`: zero or negative maps to `none`, up to 8000 to `low`, up to 24000 to `medium`, and larger values to `high`. Without a budget, they request `high`.
+Without an explicit effort, the deployment default applies, including for adaptive or enabled thinking. `thinking.budget_tokens` is not forwarded: a token budget has no protocol-defined conversion to a qualitative reasoning effort.
 
-The budget itself is not forwarded.
+### Stop sequences
 
-### Stop emulation
+Stop sequences are forwarded to the target as `stop`. The translator does not infer capabilities from deployment names or emulate stops locally. Unsupported parameters are handled by the target deployment.
 
-For deployment IDs starting with `gpt-5.` (case-insensitive), the translator omits the `stop` parameter, trims returned text at the first completed requested sequence and reports `stop_reason: stop_sequence` with the matched string. If sequences complete at the same position, the longer match wins.
-
-Streaming matches can span adjacent text deltas. Non-streaming matches are confined to each text block. Content after a match is discarded. Upstream token usage is preserved, and streaming continues to consume the upstream response to obtain final usage.
+Chat Completions does not identify which sequence matched, so responses use `stop_sequence: null`; a normal upstream `stop` finish reason maps to `end_turn`.
 
 ## Conversation content
 
@@ -123,13 +117,13 @@ All system instructions become one leading system message, joined with blank lin
 
 For tool results, text is joined with newlines, images move into residual user content, and `is_error: true` prefixes text with `Error: `. Other nested content is ignored. Empty strings produce no messages.
 
-System relocation and grouping tool results before user content can change the original interleaving. Assistant thinking blocks are omitted from replayed history. Unrecognized content types are dropped with a warning.
+System relocation and grouping tool results before user content can change the original interleaving. Assistant thinking blocks are omitted from replayed history. SDK-defined content types without a supported translation are dropped with a warning. Malformed blocks and types unknown to the SDK return 400.
 
 A top-level document block with `citations.enabled` requests citation output from the deployment.
 
 ## Tools
 
-Named tools with no `type` or `type: custom` become function tools. Descriptions and input schemas are forwarded; the root `$schema` key is removed. Missing schemas default to an empty object schema, and tool definitions use `strict: false`.
+Named tools with no `type` or `type: custom` become function tools. Descriptions and input schemas are forwarded; the root `$schema` key is removed. Custom tools require a name and input schema as defined by the SDK; translated tool definitions use `strict: false`.
 
 | Tool choice | Outgoing behavior |
 |---|---|
@@ -154,9 +148,9 @@ Anthropic cache markers become DIAL `custom_fields.cache_breakpoint` markers:
 | A tool definition | The converted function tool |
 | Top-level request `cache_control` | The last converted user message |
 
-Block and tool markers require nonempty `cache_control`. The top-level shorthand also accepts `{}`. A final tool-only turn or assistant prefill is skipped when locating the last user message. Nested markers inside tool results are not inspected.
+Cache markers require `type: ephemeral`, including the top-level shorthand. A final tool-only turn or assistant prefill is skipped when locating the last user message. Nested markers inside tool results are not inspected.
 
-Positive minute/hour TTLs, such as `5m` or `1h`, become absolute UTC expiry timestamps. When markers merge, the later expiry wins. Invalid TTLs retain the marker with default expiry. Without a TTL, Core/provider defaults apply.
+The SDK-supported TTLs, `5m` and `1h`, become absolute UTC expiry timestamps. When markers merge, the later expiry wins. Invalid request TTLs return 400. Without a TTL, Core/provider defaults apply.
 
 Markers cover message prefixes and are coarser than Anthropic block markers. They are sent without a breakpoint-count limit; usefulness depends on the target deployment's support for DIAL cache markers.
 
@@ -168,7 +162,7 @@ Non-streaming thinking uses the first nonempty native thinking block and its sig
 
 URL citations become a synthesized web-search call/result pair. Non-streaming groups all results in one pair. Streaming groups newly seen URLs per chunk and deduplicates them across chunks.
 
-Stop reasons follow this precedence: an emulated stop match, function tool use, output length limit, refusal/content filter, then `end_turn`.
+Stop reasons follow this precedence: function tool use, output length limit, refusal/content filter, then `end_turn`.
 
 Streaming sends `message_start`, `ping`, content-block events, `message_delta`, and `message_stop`. Interleaved parallel tool calls can leave multiple tool blocks open. A terminal error can interrupt an open block and ends with an `error` event.
 

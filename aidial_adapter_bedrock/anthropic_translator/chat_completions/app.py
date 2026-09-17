@@ -2,19 +2,14 @@ from collections.abc import Awaitable, Callable
 
 from aidial_sdk.chat_completion.request import StreamOptions
 from anthropic.types import Message
+from anthropic.types.beta.message_create_params import MessageCreateParams
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from openai import AsyncOpenAI, AsyncStream, Omit
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
-from aidial_adapter_bedrock.anthropic_translator.anthropic_api import (
-    MessagesRequest,
-)
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
     from_chat_completions,
-)
-from aidial_adapter_bedrock.anthropic_translator.chat_completions.stop_emulation import (
-    emulated_stop_sequences,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.streaming import (
     translate_stream,
@@ -44,10 +39,9 @@ app: FastAPI = FastAPI()
 
 async def _handle_messages(request: Request) -> Response:
     base_url: str = require_base_url()
-    req: MessagesRequest = await parse_request(request)
+    req: MessageCreateParams = await parse_request(request)
 
-    deployment: str = resolve_deployment(request.headers, req.model)
-    stop_sequences: list[str] = emulated_stop_sequences(req, deployment)
+    deployment: str = resolve_deployment(request.headers, req.get("model"))
     aliases: ToolNameAliases = ToolNameAliases()
 
     body: CoreChatCompletionRequest = to_chat_completions_request(
@@ -56,7 +50,7 @@ async def _handle_messages(request: Request) -> Response:
     client: AsyncOpenAI = core_chat_completions_client(base_url, deployment)
     headers: dict[str, str | Omit] = core_headers(request)
 
-    body.stream = bool(req.stream)
+    body.stream = bool(req.get("stream"))
     if body.stream:
         body.stream_options = StreamOptions(include_usage=True)
         events: AsyncStream[ChatCompletionChunk] = await client.post(
@@ -67,9 +61,7 @@ async def _handle_messages(request: Request) -> Response:
             stream=True,
             stream_cls=AsyncStream[ChatCompletionChunk],
         )
-        return stream_response(
-            translate_stream(events, deployment, aliases, stop_sequences)
-        )
+        return stream_response(translate_stream(events, deployment, aliases))
 
     response: ChatCompletion = await client.post(
         "/chat/completions",
@@ -77,9 +69,7 @@ async def _handle_messages(request: Request) -> Response:
         body=body.model_dump(mode="json", exclude_none=True),
         options={"headers": headers},
     )
-    translated: Message = from_chat_completions(
-        response, deployment, aliases, stop_sequences
-    )
+    translated: Message = from_chat_completions(response, deployment, aliases)
     return JSONResponse(content=translated.model_dump(mode="json"))
 
 

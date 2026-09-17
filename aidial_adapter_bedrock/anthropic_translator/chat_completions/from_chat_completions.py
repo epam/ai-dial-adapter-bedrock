@@ -39,16 +39,10 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.dial_extension
     signed_thinking,
     stage_thinking,
 )
-from aidial_adapter_bedrock.anthropic_translator.chat_completions.stop_emulation import (
-    StopMatch,
-    apply_stop_sequences,
-)
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
 )
-from aidial_adapter_bedrock.anthropic_translator.translation_log import (
-    TranslationLog,
-)
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _ARGUMENTS: TypeAdapter[dict[str, object]] = TypeAdapter(dict[str, object])
 
@@ -59,59 +53,34 @@ def from_chat_completions(
     response: ChatCompletion,
     requested_model: str,
     aliases: ToolNameAliases,
-    stop_sequences: list[str] | None = None,
 ) -> Message:
-    tlog: TranslationLog = TranslationLog("Chat Completions→Anthropic response")
-    try:
-        choice: Choice | None = (
-            response.choices[0] if response.choices else None
-        )
-        message: ChatCompletionMessage | None = (
-            choice.message if choice else None
-        )
-        tool_blocks: list[ToolUseBlock] = _tool_use_blocks(
-            message.tool_calls if message else None, aliases, tlog
-        )
-        refusal: str | None = message.refusal if message else None
+    choice: Choice | None = response.choices[0] if response.choices else None
+    message: ChatCompletionMessage | None = choice.message if choice else None
+    tool_blocks: list[ToolUseBlock] = _tool_use_blocks(
+        message.tool_calls if message else None, aliases
+    )
+    refusal: str | None = message.refusal if message else None
 
-        content: list[AnthropicContentBlock] = _content_blocks(
-            message, tool_blocks, tlog
-        )
-        matched: str | None = None
-        for index, block in enumerate(content):
-            if isinstance(block, TextBlock):
-                match: StopMatch = apply_stop_sequences(
-                    block.text, stop_sequences or []
-                )
-                if match.sequence is not None:
-                    block.text = match.text
-                    content = content[: index + 1]
-                    matched = match.sequence
-                    break
-        return Message(
-            id=getattr(response, "id", None) or UNKNOWN_MESSAGE_ID,
-            type="message",
-            role="assistant",
-            model=getattr(response, "model", None) or requested_model,
-            content=content,
-            stop_sequence=matched,
-            stop_reason="stop_sequence"
-            if matched is not None
-            else stop_reason(
-                choice.finish_reason if choice else None,
-                bool(tool_blocks),
-                bool(refusal),
-            ),
-            usage=convert_usage(response.usage),
-        )
-    finally:
-        tlog.flush()
+    content: list[AnthropicContentBlock] = _content_blocks(message, tool_blocks)
+    return Message(
+        id=getattr(response, "id", None) or UNKNOWN_MESSAGE_ID,
+        type="message",
+        role="assistant",
+        model=getattr(response, "model", None) or requested_model,
+        content=content,
+        stop_sequence=None,
+        stop_reason=stop_reason(
+            choice.finish_reason if choice else None,
+            bool(tool_blocks),
+            bool(refusal),
+        ),
+        usage=convert_usage(response.usage),
+    )
 
 
 def _content_blocks(
     message: ChatCompletionMessage | None,
     tool_blocks: list[ToolUseBlock],
-    tlog: TranslationLog,
 ) -> list[AnthropicContentBlock]:
     if message is None:
         return [_empty_text()]
@@ -122,7 +91,7 @@ def _content_blocks(
     if thinking := thinking_block(extras.custom_content):
         content.append(thinking)
 
-    content.extend(citation_blocks(_citations(message.annotations, tlog)))
+    content.extend(citation_blocks(_citations(message.annotations)))
 
     if message.content:
         content.append(TextBlock(type="text", text=message.content))
@@ -153,14 +122,12 @@ def thinking_block(
     return None
 
 
-def _citations(
-    annotations: list[Annotation] | None, tlog: TranslationLog
-) -> list[tuple[str, str]]:
+def _citations(annotations: list[Annotation] | None) -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
     for annotation in annotations or []:
         citation: AnnotationURLCitation = annotation.url_citation
         if annotation.type != "url_citation" or not citation.url:
-            tlog.warning("Skipping malformed annotation: %s", annotation.type)
+            log.warning("Skipping malformed annotation: %s", annotation.type)
             continue
         result.append((citation.url, citation.title or ""))
     return result
@@ -198,13 +165,12 @@ def citation_blocks(
 def _tool_use_blocks(
     tool_calls: list[ChatCompletionMessageToolCallUnion] | None,
     aliases: ToolNameAliases,
-    tlog: TranslationLog,
 ) -> list[ToolUseBlock]:
     blocks: list[ToolUseBlock] = []
     for call in tool_calls or []:
         match call.type:
             case "custom":
-                tlog.warning(
+                log.warning(
                     "Skipping unsupported tool call type: %s", call.type
                 )
                 continue
@@ -213,28 +179,26 @@ def _tool_use_blocks(
             case unexpected:
                 assert_never(unexpected)
         if not call.id or not call.function.name:
-            tlog.warning("Skipping tool call without an id or name")
+            log.warning("Skipping tool call without an id or name")
             continue
         blocks.append(
             ToolUseBlock(
                 type="tool_use",
                 id=call.id,
                 name=aliases.to_client(call.function.name),
-                input=parse_arguments(call.function.arguments, tlog),
+                input=parse_arguments(call.function.arguments),
             )
         )
     return blocks
 
 
-def parse_arguments(
-    arguments: str | None, tlog: TranslationLog
-) -> dict[str, object]:
+def parse_arguments(arguments: str | None) -> dict[str, object]:
     if not arguments:
         return {}
     try:
         return _ARGUMENTS.validate_json(arguments)
     except ValidationError:
-        tlog.warning("Failed to parse function_call arguments as JSON")
+        log.warning("Failed to parse function_call arguments as JSON")
         return {}
 
 
