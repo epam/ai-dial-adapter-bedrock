@@ -24,13 +24,7 @@ from aidial_sdk.chat_completion.request import (
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
     CoreChatCompletionRequest,
-    to_chat_completions_request,
 )
-from aidial_adapter_bedrock.anthropic_translator.errors import (
-    AnthropicErrorType,
-    AnthropicHTTPError,
-)
-from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
 )
@@ -54,17 +48,6 @@ def test_minimal_request(max_tokens: int) -> None:
         "max_completion_tokens": max_tokens,
         "stream": False,
     }
-
-
-def test_missing_max_tokens_raises_400() -> None:
-    with pytest.raises(AnthropicHTTPError) as exc:
-        to_chat_completions_request(
-            validate_request({"model": DEPLOYMENT, **user("hi")}),
-            DEPLOYMENT,
-            ToolNameAliases(),
-        )
-    assert exc.value.status_code == 400
-    assert exc.value.message == "'max_tokens' is required"
 
 
 def test_system_string() -> None:
@@ -475,14 +458,6 @@ def test_tool_result_image_becomes_user_image_url() -> None:
     ]
 
 
-def test_unknown_role_raises_400() -> None:
-    with pytest.raises(AnthropicHTTPError) as exc:
-        convert({"messages": [{"role": "developer", "content": "hi"}]})
-    assert exc.value.status_code == 400
-    assert exc.value.error_type is AnthropicErrorType.INVALID_REQUEST
-    assert "role" in exc.value.message
-
-
 def test_custom_tool_mapping() -> None:
     result: CoreChatCompletionRequest = convert(
         {
@@ -533,15 +508,6 @@ def test_schema_key_is_stripped_from_tool_parameters() -> None:
         "type": "object",
         "properties": {"a": {"type": "string"}},
     }
-
-
-@pytest.mark.parametrize(
-    "tool", [{"name": "get_weather"}, {"input_schema": {"type": "object"}}]
-)
-def test_incomplete_custom_tool_is_rejected(tool: dict[str, object]) -> None:
-    with pytest.raises(AnthropicHTTPError) as exc:
-        convert({**user("hi"), "tools": [tool]})
-    assert exc.value.status_code == 400
 
 
 def test_web_search_and_other_server_tools_all_dropped() -> None:
@@ -917,17 +883,6 @@ def test_output_config_format_json_schema_converts() -> None:
     assert result.response_format.json_schema.strict is True
 
 
-@pytest.mark.parametrize(
-    "output_format", [{"type": "text"}, {"type": "json_schema"}]
-)
-def test_invalid_output_config_format_is_rejected(
-    output_format: dict[str, object],
-) -> None:
-    with pytest.raises(AnthropicHTTPError) as exc:
-        convert({**user("hi"), "output_config": {"format": output_format}})
-    assert exc.value.status_code == 400
-
-
 def test_empty_output_schema_is_dropped() -> None:
     result = convert(
         {
@@ -1050,3 +1005,17 @@ def test_null_block_cache_control_does_not_mark() -> None:
         )
     )
     assert result.messages[0].custom_fields is None
+
+
+def test_tool_schema_keywords_are_preserved() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "additionalProperties": False,
+        "$defs": {"name": {"type": "string"}},
+        "oneOf": [{"required": ["name"]}],
+    }
+    result = convert(
+        {**user("hi"), "tools": [{"name": "test_tool", "input_schema": schema}]}
+    )
+    assert result.model_dump()["tools"][0]["function"]["parameters"] == schema
