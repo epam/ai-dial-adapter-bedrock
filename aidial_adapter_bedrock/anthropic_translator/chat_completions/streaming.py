@@ -34,9 +34,6 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_comp
     convert_usage,
     stop_reason,
 )
-from aidial_adapter_bedrock.anthropic_translator.chat_completions.stop_emulation import (
-    StopSequenceMatcher,
-)
 from aidial_adapter_bedrock.anthropic_translator.sse_stream import (
     AnthropicStreamState,
     ClosableAsyncStream,
@@ -58,7 +55,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         self,
         requested_model: str,
         aliases: ToolNameAliases,
-        stop_sequences: list[str] | None = None,
     ) -> None:
         super().__init__(requested_model, default_message_id=UNKNOWN_MESSAGE_ID)
         self.started: bool = False
@@ -70,9 +66,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         self._reasoning_stages: set[int | None] = set()
         self._seen_citations: set[str] = set()
         self._signed: bool = False
-        self._stop_matcher: StopSequenceMatcher = StopSequenceMatcher(
-            stop_sequences or []
-        )
         self._tools: dict[int, int] = {}
 
     def handle(self, chunk: ChatCompletionChunk) -> list[bytes]:
@@ -106,8 +99,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
 
         if choice.finish_reason:
             self.finish_reason = choice.finish_reason
-        if self._stop_matcher.matched is not None:
-            return events
         events.extend(self._on_custom_content(extras.custom_content))
 
         if text := delta.content:
@@ -116,8 +107,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
             self.saw_refusal = True
             events.extend(self._emit_text(refusal))
 
-        if self._stop_matcher.matched is not None:
-            return events
         citations: list[tuple[str, str]] = []
         for annotation in extras.annotations or []:
             citation: AnnotationURLCitation = annotation.url_citation
@@ -125,7 +114,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
                 self._seen_citations.add(citation.url)
                 citations.append((citation.url, citation.title or ""))
         if citations:
-            events.extend(self._flush_text())
             events.extend(self._close_tools())
             for block in citation_blocks(citations):
                 events.extend(self.open_block(_CITATION_KEY, block))
@@ -158,8 +146,7 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         return events
 
     def _thinking_delta(self, text: str) -> list[bytes]:
-        events: list[bytes] = self._flush_text()
-        events.extend(self._close_tools())
+        events: list[bytes] = self._close_tools()
         if not self.is_open(_THINKING_KEY):
             events.extend(
                 self.open_block(
@@ -184,12 +171,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         return events
 
     def _emit_text(self, text: str) -> list[bytes]:
-        return self._emit_visible_text(self._stop_matcher.push(text))
-
-    def _flush_text(self) -> list[bytes]:
-        return self._emit_visible_text(self._stop_matcher.flush())
-
-    def _emit_visible_text(self, text: str) -> list[bytes]:
         if not text:
             return []
         events: list[bytes] = self._close_tools()
@@ -203,8 +184,7 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
     def _on_tool_call_delta(self, call: ChoiceDeltaToolCall) -> list[bytes]:
         if call.type not in (None, "function"):
             return []
-        events: list[bytes] = self._flush_text()
-        events.extend(self.close_block())
+        events: list[bytes] = self.close_block()
         function: ChoiceDeltaToolCallFunction | None = call.function
         if call.index not in self._tools:
             self.saw_tool_use = True
@@ -258,7 +238,6 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
         events: list[bytes] = []
         if not self.started:
             events.extend(self._start())
-        events.extend(self._flush_text())
         events.extend(self._close_tools())
         if self.next_index == 0:
             events.extend(
@@ -267,15 +246,12 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
 
         events.extend(
             self.final_events(
-                "stop_sequence"
-                if self._stop_matcher.matched is not None
-                else stop_reason(
+                stop_reason(
                     self.finish_reason,
                     self.saw_tool_use,
                     self.saw_refusal,
                 ),
                 convert_usage(self.usage),
-                stop_sequence=self._stop_matcher.matched,
             )
         )
         return events
@@ -285,10 +261,9 @@ async def translate_stream(
     stream: ClosableAsyncStream[ChatCompletionChunk],
     requested_model: str,
     aliases: ToolNameAliases,
-    stop_sequences: list[str] | None = None,
 ) -> AsyncIterator[bytes]:
     state: ChatCompletionsToAnthropicStream = ChatCompletionsToAnthropicStream(
-        requested_model, aliases, stop_sequences
+        requested_model, aliases
     )
 
     async for chunk in run_sse_stream(
