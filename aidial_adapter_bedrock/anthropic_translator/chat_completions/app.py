@@ -21,9 +21,7 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_comple
 from aidial_adapter_bedrock.anthropic_translator.common import (
     build_endpoint,
     not_found,
-    parse_request,
     require_base_url,
-    resolve_deployment,
     stream_response,
 )
 from aidial_adapter_bedrock.anthropic_translator.core_client import (
@@ -39,9 +37,11 @@ app: FastAPI = FastAPI()
 
 async def _handle_messages(request: Request) -> Response:
     base_url: str = require_base_url()
-    req: MessageCreateParams = await parse_request(request)
+    req: MessageCreateParams = await request.json()
 
-    deployment: str = resolve_deployment(request.headers, req.get("model"))
+    deployment: str = (
+        request.headers.get("x-dial-deployment-id") or req["model"]
+    )
     aliases: ToolNameAliases = ToolNameAliases()
 
     body: CoreChatCompletionRequest = to_chat_completions_request(

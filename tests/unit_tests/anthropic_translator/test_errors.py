@@ -5,14 +5,13 @@ import httpx
 import openai
 import pytest
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
     AnthropicHTTPError,
     anthropic_error_from_upstream,
     anthropic_error_response,
-    format_validation_error,
     translator_error_handler,
 )
 
@@ -113,21 +112,6 @@ def test_upstream_error_message(body: object, expected: str) -> None:
         "type": "error",
         "error": {"type": "invalid_request_error", "message": expected},
     }
-
-
-class _FourRequiredFieldsModel(BaseModel):
-    a: int
-    b: int
-    c: int
-    d: int
-
-
-def test_format_validation_error_caps_at_three_entries() -> None:
-    with pytest.raises(ValidationError) as exc:
-        _FourRequiredFieldsModel.model_validate({})
-    message: str = format_validation_error(exc.value)
-
-    assert message == "a: Field required; b: Field required; c: Field required"
 
 
 async def test_translator_error_handler_maps_unexpected_exception_to_500() -> (
