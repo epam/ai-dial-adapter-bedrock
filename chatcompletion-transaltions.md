@@ -74,7 +74,7 @@ Only the Messages creation endpoint is supported. Unknown paths return an Anthro
 
 ## Request options
 
-`messages` and `max_tokens` are required, along with `model` unless the deployment header supplies it. Requests are validated against the pinned Anthropic SDK beta request types, including nested messages, content blocks, tools, and options. Unknown fields are accepted and unused fields are ignored.
+DIAL Core validates requests before forwarding them to the translator. The translator reads the JSON using Anthropic SDK request types for static typing, maps it to Chat Completions, sends it to Core, and translates the response back. It does not perform request-schema validation. Unused fields are ignored.
 
 | Anthropic option | Chat Completions behavior |
 |---|---|
@@ -117,7 +117,7 @@ All system instructions become one leading system message, joined with blank lin
 
 For tool results, text is joined with newlines, images move into residual user content, and `is_error: true` prefixes text with `Error: `. Other nested content is ignored. Empty strings produce no messages.
 
-System relocation and grouping tool results before user content can change the original interleaving. Assistant thinking blocks are omitted from replayed history. SDK-defined content types without a supported translation are dropped with a warning. Malformed blocks and types unknown to the SDK return 400.
+System relocation and grouping tool results before user content can change the original interleaving. Assistant thinking blocks are omitted from replayed history. SDK-defined content types without a supported translation are dropped with a warning.
 
 A top-level document block with `citations.enabled` requests citation output from the deployment.
 
@@ -150,7 +150,7 @@ Anthropic cache markers become DIAL `custom_fields.cache_breakpoint` markers:
 
 Cache markers require `type: ephemeral`, including the top-level shorthand. A final tool-only turn or assistant prefill is skipped when locating the last user message. Nested markers inside tool results are not inspected.
 
-The SDK-supported TTLs, `5m` and `1h`, become absolute UTC expiry timestamps. When markers merge, the later expiry wins. Invalid request TTLs return 400. Without a TTL, Core/provider defaults apply.
+The SDK-supported TTLs, `5m` and `1h`, become absolute UTC expiry timestamps. When markers merge, the later expiry wins. Unreadable TTLs leave the default expiry. Without a TTL, Core/provider defaults apply.
 
 Markers cover message prefixes and are coarser than Anthropic block markers. They are sent without a breakpoint-count limit; usefulness depends on the target deployment's support for DIAL cache markers.
 
@@ -180,7 +180,7 @@ Missing/null counters become zero. Thinking tokens remain included in the output
 
 Errors have the Anthropic envelope `{"type":"error","error":{"type":"...","message":"..."}}`.
 
-Invalid client input returns 400. Upstream error statuses are preserved: 400/422 map to invalid request, 401 to authentication, 403 to permission, 404 to not found, 413 to request too large, 429 to rate limit, and 503/529 to overloaded. Other upstream errors use `api_error`.
+Validation errors returned by Core are translated like other upstream errors. Upstream error statuses are preserved: 400/422 map to invalid request, 401 to authentication, 403 to permission, 404 to not found, 413 to request too large, 429 to rate limit, and 503/529 to overloaded. Other upstream errors use `api_error`.
 
 Connection failures return 502. Missing server configuration and unexpected internal failures return 500 with a generic message; diagnostic details go to server logs. Before streaming starts, errors return JSON with an HTTP status. After streaming starts, errors use a terminal SSE error event.
 

@@ -7,7 +7,6 @@ from typing import Literal, ParamSpec
 
 import openai
 from fastapi.responses import JSONResponse, Response
-from pydantic import ValidationError
 from typing_extensions import TypedDict
 
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
@@ -116,14 +115,6 @@ def anthropic_error_from_upstream(e: openai.APIStatusError) -> JSONResponse:
     return anthropic_error_response(
         error_type, _extract_error_message(e), status_code=e.status_code
     )
-
-
-def format_validation_error(e: ValidationError) -> str:
-    parts: list[str] = []
-    for err in e.errors()[:3]:
-        loc: str = ".".join(str(x) for x in err.get("loc", ()))
-        parts.append(f"{loc}: {err.get('msg')}" if loc else str(err.get("msg")))
-    return "; ".join(parts) or "Invalid request body"
 
 
 def translator_error_handler(

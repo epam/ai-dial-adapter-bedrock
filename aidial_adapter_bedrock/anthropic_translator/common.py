@@ -1,14 +1,11 @@
 import contextlib
-import json
 import logging
 import os
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
-from anthropic.types.beta.message_create_params import MessageCreateParams
 from fastapi import Request
 from fastapi.responses import Response, StreamingResponse
-from starlette.datastructures import Headers
 
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     INTERNAL_ERROR_MESSAGE,
@@ -17,40 +14,9 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
     anthropic_error_response,
     translator_error_handler,
 )
-from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 NOT_CONFIGURED: str = "translator is not configured (DIAL_URL is not set)"
-
-
-async def parse_request(request: Request) -> MessageCreateParams:
-    raw: bytes = await request.body()
-    try:
-        body: object = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise AnthropicHTTPError(
-            AnthropicErrorType.INVALID_REQUEST,
-            f"Request body is not valid JSON: {e}",
-        ) from e
-    if not isinstance(body, dict):
-        raise AnthropicHTTPError(
-            AnthropicErrorType.INVALID_REQUEST,
-            "Request body must be a JSON object",
-        )
-    model = body.get("model")
-    body["model"] = resolve_deployment(
-        request.headers, model if isinstance(model, str) else None
-    )
-    return validate_request(body)
-
-
-def resolve_deployment(headers: Headers, model: str | None) -> str:
-    deployment: str | None = headers.get("x-dial-deployment-id") or model
-    if not deployment:
-        raise AnthropicHTTPError(
-            AnthropicErrorType.INVALID_REQUEST, "'model' is required"
-        )
-    return deployment
 
 
 def require_base_url() -> str:

@@ -445,22 +445,6 @@ async def test_x_dial_deployment_id_header_overrides_body_model(
     assert sent_body["model"] == "actual-deployment"
 
 
-async def test_missing_model_returns_400(
-    client: httpx.AsyncClient, mock_core: respx.MockRouter
-) -> None:
-    response: httpx.Response = await client.post(
-        _MESSAGES_URL,
-        json={
-            "max_tokens": 100,
-            "messages": [{"role": "user", "content": "hi"}],
-        },
-    )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["type"] == "invalid_request_error"
-    assert body["error"]["message"] == "'model' is required"
-
-
 async def test_connection_error_to_core_returns_502(
     client: httpx.AsyncClient, mock_core: respx.MockRouter
 ) -> None:
@@ -592,32 +576,6 @@ async def test_pre_stream_error_returns_json_not_sse(
     assert response.json()["error"]["type"] == "authentication_error"
 
 
-async def test_malformed_json_returns_400(client: httpx.AsyncClient) -> None:
-    response: httpx.Response = await client.post(
-        _MESSAGES_URL,
-        content=b"{not json",
-        headers={"content-type": "application/json"},
-    )
-    assert response.status_code == 400
-    assert response.json()["error"]["type"] == "invalid_request_error"
-
-
-async def test_non_object_body_returns_400(client: httpx.AsyncClient) -> None:
-    response: httpx.Response = await client.post(_MESSAGES_URL, json=[1, 2, 3])
-    assert response.status_code == 400
-    assert response.json()["error"]["type"] == "invalid_request_error"
-
-
-async def test_schema_violation_returns_400(client: httpx.AsyncClient) -> None:
-    response: httpx.Response = await client.post(
-        _MESSAGES_URL, json={**_MESSAGES_BODY, "messages": "not-a-list"}
-    )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["type"] == "invalid_request_error"
-    assert body["error"]["message"]
-
-
 @pytest.mark.parametrize("sequences", [["STOP"], ["a", "b", "c", "d", "e"]])
 async def test_stop_sequences_are_forwarded(
     client: httpx.AsyncClient,
@@ -633,20 +591,6 @@ async def test_stop_sequences_are_forwarded(
     )
     assert response.status_code == 200
     assert json.loads(route.calls.last.request.content)["stop"] == sequences
-
-
-async def test_missing_max_tokens_returns_400(
-    client: httpx.AsyncClient, mock_core: respx.MockRouter
-) -> None:
-    response: httpx.Response = await client.post(
-        _MESSAGES_URL,
-        json={
-            "model": "gpt-5.5",
-            "messages": [{"role": "user", "content": "hi"}],
-        },
-    )
-    assert response.status_code == 400
-    assert response.json()["error"]["type"] == "invalid_request_error"
 
 
 @pytest.mark.parametrize(
@@ -708,17 +652,6 @@ async def test_citation_configuration_is_sent_to_core(
     }
     assert translated["stream"] == streaming
     assert "unused" not in translated
-
-
-async def test_invalid_effort_returns_anthropic_400(
-    client: httpx.AsyncClient,
-) -> None:
-    response: httpx.Response = await client.post(
-        _MESSAGES_URL,
-        json={**_MESSAGES_BODY, "output_config": {"effort": "turbo"}},
-    )
-    assert response.status_code == 400
-    assert response.json()["error"]["type"] == "invalid_request_error"
 
 
 async def test_cache_policy_and_unlisted_headers_pass_through(
@@ -888,21 +821,21 @@ async def test_invalid_upstream_response_returns_generic_server_error(
     assert any(record.exc_info is not None for record in caplog.records)
 
 
-async def test_invalid_content_source_returns_client_error(
-    client: httpx.AsyncClient,
+async def test_dropped_request_options_are_not_schema_validated(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
 ) -> None:
-    response: httpx.Response = await client.post(
+    route = mock_core.post(_CORE_PATH).respond(json=_RESPONSE_OBJECT)
+    response = await client.post(
         _MESSAGES_URL,
         json={
             **_MESSAGES_BODY,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"type": "image", "source": "invalid"}],
-                }
-            ],
+            "thinking": {"type": "enabled"},
+            "mcp_servers": [{"type": "future_server_type"}],
         },
     )
-    assert response.status_code == 400
-    assert response.json()["error"]["type"] == "invalid_request_error"
-    assert response.json()["error"]["message"]
+    assert response.status_code == 200
+    translated = json.loads(route.calls.last.request.content)
+    assert "mcp_servers" not in translated
+    assert "thinking" not in translated
+    assert "reasoning_effort" not in translated
+    assert response.json()["type"] == "message"
