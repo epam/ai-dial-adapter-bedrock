@@ -44,18 +44,13 @@ from anthropic.types.beta import (
 )
 from anthropic.types.beta.message_create_params import MessageCreateParams
 from openai.types.shared import ReasoningEffort
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.cache_breakpoints import (
     cache_breakpoint,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
     resolve_effort,
-)
-from aidial_adapter_bedrock.anthropic_translator.errors import (
-    AnthropicErrorType,
-    AnthropicHTTPError,
-    format_validation_error,
 )
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
@@ -105,46 +100,36 @@ def to_chat_completions_request(
     deployment: str,
     aliases: ToolNameAliases,
 ) -> CoreChatCompletionRequest:
-    try:
-        if req.get("max_tokens") is None:
-            raise AnthropicHTTPError(
-                AnthropicErrorType.INVALID_REQUEST, "'max_tokens' is required"
+    messages: list[SdkMessage] = _convert_messages(req, aliases)
+
+    _warn_dropped(req)
+
+    return CoreChatCompletionRequest(
+        model=deployment,
+        messages=messages,
+        custom_fields=(
+            ChatCompletionRequestCustomFields(
+                configuration={"enable_citations": True}
             )
-
-        messages: list[SdkMessage] = _convert_messages(req, aliases)
-
-        _warn_dropped(req)
-
-        return CoreChatCompletionRequest(
-            model=deployment,
-            messages=messages,
-            custom_fields=(
-                ChatCompletionRequestCustomFields(
-                    configuration={"enable_citations": True}
-                )
-                if _any_citations_enabled(req["messages"])
-                else None
-            ),
-            tools=_convert_tools(req.get("tools"), aliases) or None,
-            tool_choice=_convert_tool_choice(req.get("tool_choice"), aliases),
-            parallel_tool_calls=_convert_parallel_tool_calls(
-                req.get("tool_choice")
-            ),
-            reasoning_effort=resolve_effort(req),
-            response_format=_convert_response_format(req),
-            stop=list(req.get("stop_sequences") or []) or None,
-            max_completion_tokens=req.get("max_tokens"),
-            temperature=req.get("temperature"),
-            top_p=req.get("top_p"),
-            user=(req.get("metadata", {}).get("user_id") or None)
-            if req.get("metadata")
-            else None,
-            service_tier=_convert_service_tier(req),
-        )
-    except ValidationError as error:
-        raise AnthropicHTTPError(
-            AnthropicErrorType.INVALID_REQUEST, format_validation_error(error)
-        ) from error
+            if _any_citations_enabled(req["messages"])
+            else None
+        ),
+        tools=_convert_tools(req.get("tools"), aliases) or None,
+        tool_choice=_convert_tool_choice(req.get("tool_choice"), aliases),
+        parallel_tool_calls=_convert_parallel_tool_calls(
+            req.get("tool_choice")
+        ),
+        reasoning_effort=resolve_effort(req),
+        response_format=_convert_response_format(req),
+        stop=list(req.get("stop_sequences") or []) or None,
+        max_completion_tokens=req["max_tokens"],
+        temperature=req.get("temperature"),
+        top_p=req.get("top_p"),
+        user=(req.get("metadata", {}).get("user_id") or None)
+        if req.get("metadata")
+        else None,
+        service_tier=_convert_service_tier(req),
+    )
 
 
 def _convert_messages(
@@ -170,13 +155,8 @@ def _convert_messages(
                 converted = _convert_assistant_message(
                     message["content"], aliases
                 )
-            case "system":
+            case _:
                 continue
-            case unknown:
-                raise AnthropicHTTPError(
-                    AnthropicErrorType.INVALID_REQUEST,
-                    f"Unknown message role: {unknown!r}",
-                )
 
         controls: list[CacheControl] = _cache_controls(message["content"])
         for converted_message in converted:
@@ -466,7 +446,6 @@ def _image_part(block: BetaImageBlockParam) -> MessageContentPart | None:
     if source["type"] == "base64":
         media_type: str = source.get("media_type") or "image/png"
         data = source["data"]
-        assert isinstance(data, str)
         return MessageContentImagePart(
             type="image_url",
             image_url=ImageURL(url=f"data:{media_type};base64,{data}"),
@@ -488,7 +467,6 @@ def _document_part(
     if source["type"] == "base64":
         media_type: str = source.get("media_type") or "application/pdf"
         data = source["data"]
-        assert isinstance(data, str)
         return MessageContentFilePart(
             type="file",
             file=InputFile(

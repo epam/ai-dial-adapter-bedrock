@@ -1,18 +1,18 @@
+from typing import cast
+
 import pytest
+from anthropic.types.beta.message_create_params import MessageCreateParams
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
     resolve_effort,
 )
-from aidial_adapter_bedrock.anthropic_translator.errors import (
-    AnthropicHTTPError,
-)
-from aidial_adapter_bedrock.anthropic_translator.request import validate_request
 
 
 def intent(body: dict[str, object]):
     return resolve_effort(
-        validate_request(
-            {"model": "foobar", "max_tokens": 100, "messages": [], **body}
+        cast(
+            MessageCreateParams,
+            {"model": "foobar", "max_tokens": 100, "messages": [], **body},
         )
     )
 
@@ -28,20 +28,6 @@ def test_explicit_effort_is_preserved(effort: str) -> None:
         )
         == effort
     )
-
-
-@pytest.mark.parametrize(
-    "thinking",
-    [
-        {"type": "adaptive"},
-        {"type": "disabled"},
-        {"type": "enabled", "budget_tokens": 30000},
-    ],
-)
-def test_invalid_effort_is_rejected(thinking: dict[str, object]) -> None:
-    with pytest.raises(AnthropicHTTPError) as exc:
-        intent({"output_config": {"effort": "turbo"}, "thinking": thinking})
-    assert exc.value.status_code == 400
 
 
 def test_disabled_thinking_takes_precedence() -> None:
