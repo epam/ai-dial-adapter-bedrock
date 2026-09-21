@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 
+from aidial_adapter_anthropic.passthrough import mount_anthropic_api
 from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 from fastapi import FastAPI
 
 from aidial_adapter_bedrock.anthropic_passthrough import (
-    mount_anthropic_passthrough,
+    get_anthropic_client,
 )
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
@@ -57,4 +58,4 @@ app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
 app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
 
-mount_anthropic_passthrough(app, path="/anthropic")
+mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
