@@ -1,5 +1,4 @@
-from aidial_adapter_anthropic.passthrough import mount_anthropic_api
-from fastapi import FastAPI, Request
+from fastapi import Request
 
 from aidial_adapter_bedrock.bedrock import (
     AnthropicClient,
@@ -48,11 +47,7 @@ async def _resolve_session_tags(
     )
 
 
-async def _get_anthropic_client(request: Request) -> AnthropicClient:
+async def get_anthropic_client(request: Request) -> AnthropicClient:
     upstream_config = await parse_upstream_config(request)
     session_tags = await _resolve_session_tags(request, upstream_config)
     return await create_anthropic_client(upstream_config, session_tags)
-
-
-def mount_anthropic_passthrough(app: FastAPI, path: str):
-    mount_anthropic_api(app, _get_anthropic_client, path=path)
