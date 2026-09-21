@@ -1,10 +1,13 @@
-from aidial_sdk.chat_completion import Attachment, CustomContent, Message
-
-from aidial_adapter_bedrock.llm.message import (
+from aidial_adapter_anthropic.dial._message import (
     AIRegularMessage,
     HumanRegularMessage,
     SystemMessage,
+    parse_dial_message,
 )
+from aidial_adapter_anthropic.dial.request import AdapterRequest
+from aidial_sdk.chat_completion import Attachment, CustomContent, Message
+
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 def sys(content: str) -> Message:
@@ -26,3 +29,19 @@ def user_with_image(content: str, image_base64: str) -> Message:
     return HumanRegularMessage(
         content=content, custom_content=custom_content
     ).to_message()
+
+
+def adapter_request(
+    messages: list[Message] | None = None, **kwargs
+) -> AdapterRequest:
+    """Builds an `AdapterRequest` the way `AdapterRequest.create` would.
+
+    The adapters take the messages and the parameters as one object now, so a
+    test that only cares about the parameters still has to supply messages.
+    """
+    return AdapterRequest(
+        messages=ListProjection.create(
+            [parse_dial_message(msg) for msg in messages or []]
+        ),
+        **kwargs,
+    )

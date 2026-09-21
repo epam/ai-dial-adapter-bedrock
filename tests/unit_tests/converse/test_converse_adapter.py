@@ -1,10 +1,11 @@
 from collections.abc import Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pytest
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
-from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial._message import parse_dial_message
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.resource import Resource
 from aidial_adapter_anthropic.dial.tools import ToolsConfig, ToolsMode
 from aidial_sdk.chat_completion import (
@@ -65,6 +66,7 @@ from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
     SAMPLE_DOCUMENT_RESOURCE,
 )
+from tests.utils.messages import adapter_request
 
 
 @dataclass(frozen=True)
@@ -123,9 +125,18 @@ class TestCase:
     supported_document_types: list[ConverseDocumentType] = field(
         default_factory=ConverseDocumentType.all
     )
-    params: ModelParameters = field(default_factory=ModelParameters)
+    params: AdapterRequest = field(default_factory=adapter_request)
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
+
+    @property
+    def request(self) -> AdapterRequest:
+        return replace(
+            self.params,
+            messages=ListProjection.create(
+                [parse_dial_message(msg) for msg in self.messages]
+            ),
+        )
 
     async def get_converse_adapter(self):
         client = await Bedrock.acreate(
@@ -513,7 +524,7 @@ TEST_CASES = [
         messages=[
             Message(role=Role.USER, content="hello"),
         ],
-        params=ModelParameters(
+        params=adapter_request(
             tool_config=ToolsConfig(
                 tools=[
                     Tool(
@@ -568,7 +579,7 @@ TEST_CASES = [
         ],
         expected_error=ExpectedException(
             type=ValidationError,
-            message="System message cannot contain image content parts",
+            message="System message is expected to be a string or a list of text content parts",
         ),
     ),
     TestCase(
@@ -595,7 +606,7 @@ TEST_CASES = [
                 tool_call_id="call_123",
             ),
         ],
-        params=ModelParameters(
+        params=adapter_request(
             tool_config=ToolsConfig(
                 static_tools=[],
                 tools=[
@@ -718,7 +729,7 @@ TEST_CASES = [
                 ],
             ),
         ],
-        params=ModelParameters(temperature=10),
+        params=adapter_request(temperature=10),
         expected_output=ConverseRequestWrapper(
             inferenceConfig=InferenceConfig(temperature=10),
             messages=ListProjection(
@@ -758,19 +769,19 @@ TEST_CASES = [
 )
 async def test_converse_adapter(test_case: TestCase):
     adapter = await test_case.get_converse_adapter()
-    construct_coro = adapter.construct_converse_params(
-        messages=test_case.messages, params=test_case.params
-    )
+
+    async def _construct():
+        return await adapter.construct_converse_params(test_case.request)
 
     if (err := test_case.expected_error) is not None:
         with pytest.raises(err.type) as e:
-            await construct_coro
+            await _construct()
         message = getattr(e.value, "message", None) or getattr(
             e.value, "error_message", None
         )
         assert message == err.message
     else:
-        converse_request = await construct_coro
+        converse_request = await _construct()
         assert converse_request == test_case.expected_output
 
 
@@ -779,18 +790,18 @@ async def test_converse_adapter(test_case: TestCase):
 )
 async def test_converse_prompt_tokenizer(test_case: TestCase):
     adapter = await test_case.get_converse_adapter()
-    construct_coro = adapter.count_prompt_tokens(
-        messages=test_case.messages, params=test_case.params
-    )
+
+    async def _count():
+        return await adapter.count_prompt_tokens(test_case.request)
 
     if (err := test_case.expected_error) is not None:
         with pytest.raises(err.type) as e:
-            await construct_coro
+            await _count()
         message = getattr(e.value, "message", None) or getattr(
             e.value, "error_message", None
         )
         assert message == err.message
 
     else:
-        prompt_tokens = await construct_coro
+        prompt_tokens = await _count()
         assert prompt_tokens > 0
