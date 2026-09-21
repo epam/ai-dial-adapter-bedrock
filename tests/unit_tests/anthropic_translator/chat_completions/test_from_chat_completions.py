@@ -464,6 +464,30 @@ def test_cache_writes_are_recovered_and_subtracted(spelling: str) -> None:
     assert msg.usage.cache_creation_input_tokens == 25
 
 
+@pytest.mark.parametrize("cache_write_tokens", [0, 25])
+def test_typed_cache_writes_take_precedence_over_alias(
+    cache_write_tokens: int,
+) -> None:
+    msg = translate(
+        response(
+            usage=CompletionUsage(
+                prompt_tokens=100,
+                completion_tokens=20,
+                total_tokens=120,
+                prompt_tokens_details=PromptTokensDetails.model_validate(
+                    {
+                        "cached_tokens": 30,
+                        "cache_write_tokens": cache_write_tokens,
+                        "cacheWriteTokens": 50,
+                    }
+                ),
+            )
+        )
+    )
+    assert msg.usage.input_tokens == 70 - cache_write_tokens
+    assert msg.usage.cache_creation_input_tokens == cache_write_tokens
+
+
 def test_reasoning_tokens_become_an_informational_breakdown() -> None:
     msg: Message = translate(
         response(

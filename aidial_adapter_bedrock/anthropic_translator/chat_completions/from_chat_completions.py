@@ -248,6 +248,9 @@ def convert_usage(usage: CompletionUsage | None) -> Usage:
 
 
 def _cache_write_tokens(details: PromptTokensDetails | None) -> int:
+    if details is not None and details.cache_write_tokens is not None:
+        return details.cache_write_tokens
+
     extra: Mapping[str, object] = (
         details.model_extra if details else None
     ) or {}
