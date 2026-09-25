@@ -2,18 +2,25 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logging import DEBUG
 
+from aidial_adapter_anthropic._utils.json import json_dumps_short
+from aidial_adapter_anthropic._utils.list import ListProjection, omit_by_indices
 from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
     ValidationError,
 )
+from aidial_adapter_anthropic.adapter._tokenize import default_tokenize_string
+from aidial_adapter_anthropic.adapter._truncate_prompt import (
+    DiscardedMessages,
+    truncate_prompt,
+)
 from aidial_adapter_anthropic.dial.consumer import Consumer
-from aidial_adapter_anthropic.dial.request import ModelParameters
-from aidial_sdk.chat_completion import Message as DialMessage
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.dial_api.storage import FileStorage
 from aidial_adapter_bedrock.llm.chat_model import (
     keep_last,
+    to_dial_messages,
     turn_based_partitioner,
 )
 from aidial_adapter_bedrock.llm.converse.configuration import (
@@ -42,14 +49,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
     PerformanceConfig,
 )
-from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
-from aidial_adapter_bedrock.llm.truncate_prompt import (
-    DiscardedMessages,
-    truncate_prompt,
-)
-from aidial_adapter_bedrock.utils.json import json_dumps_short, remove_nones
-from aidial_adapter_bedrock.utils.list import omit_by_indices
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
+from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -104,10 +104,8 @@ class ConverseAdapter(ChatCompletionAdapter):
             toolConfig=params.toolConfig,
         )
 
-    async def count_prompt_tokens(
-        self, params: ModelParameters, messages: list[DialMessage]
-    ) -> int:
-        converse_params = await self.construct_converse_params(messages, params)
+    async def count_prompt_tokens(self, request: AdapterRequest) -> int:
+        converse_params = await self.construct_converse_params(request)
         return await self.input_tokenizer_factory(
             self.deployment, self.bedrock, converse_params
         )(converse_params.messages.lst)
@@ -116,28 +114,28 @@ class ConverseAdapter(ChatCompletionAdapter):
         return self.tokenize_text(string)
 
     async def compute_discarded_messages(
-        self, params: ModelParameters, messages: list[DialMessage]
+        self, request: AdapterRequest
     ) -> DiscardedMessages | None:
-        converse_params = await self.construct_converse_params(messages, params)
+        converse_params = await self.construct_converse_params(request)
         discarded_messages, _ = await self._discard_messages(
-            converse_params, params.max_prompt_tokens
+            converse_params, request.max_prompt_tokens
         )
-        return discarded_messages
+        return _to_original_indices(request, discarded_messages)
 
-    def get_tool_config(self, params: ModelParameters) -> ConverseTools | None:
-        if params.tool_config and not self.support_tools:
+    def get_tool_config(self, request: AdapterRequest) -> ConverseTools | None:
+        if request.tool_config and not self.support_tools:
             raise ValidationError("Tools are not supported")
         return to_converse_tools(
-            params.tool_config, self.ensure_non_empty_tool_descriptions
+            request.tool_config, self.ensure_non_empty_tool_descriptions
         )
 
     async def construct_converse_params(
-        self,
-        messages: list[DialMessage],
-        params: ModelParameters,
+        self, request: AdapterRequest
     ) -> ConverseRequestWrapper:
-        configuration = params.parse_configuration(await self.configuration())
-        system_prompt_extraction = extract_converse_system_prompt(messages)
+        configuration = request.parse_configuration(await self.configuration())
+        system_prompt_extraction = extract_converse_system_prompt(
+            to_dial_messages(request.messages)
+        )
         converse_messages = await to_converse_messages(
             system_prompt_extraction.non_system_messages,
             self.storage,
@@ -172,60 +170,71 @@ class ConverseAdapter(ChatCompletionAdapter):
             inferenceConfig=InferenceConfig(
                 **remove_nones(
                     {
-                        "temperature": params.temperature,
-                        "topP": params.top_p,
-                        "maxTokens": params.max_tokens,
-                        "stopSequences": params.stop or None,
+                        "temperature": request.temperature,
+                        "topP": request.top_p,
+                        "maxTokens": request.max_tokens,
+                        "stopSequences": request.stop or None,
                     }
                 )
             )
             or None,
-            toolConfig=self.get_tool_config(params),
+            toolConfig=self.get_tool_config(request),
             performanceConfig=performanceConfig,
             guardrailConfig=guardrailConfig,
         )
 
-    def is_stream(self, params: ModelParameters) -> bool:
-        return params.stream
+    def is_stream(self, request: AdapterRequest) -> bool:
+        return request.stream
 
-    async def chat(
-        self,
-        consumer: Consumer,
-        params: ModelParameters,
-        messages: list[DialMessage],
-    ) -> None:
-        converse_params = await self.construct_converse_params(messages, params)
+    async def chat(self, consumer: Consumer, request: AdapterRequest) -> None:
+        converse_params = await self.construct_converse_params(request)
         discarded_messages, converse_params = await self._discard_messages(
-            converse_params, params.max_prompt_tokens
+            converse_params, request.max_prompt_tokens
         )
         if not converse_params.messages.raw_list:
             raise ValidationError("No messages left after truncation")
 
-        await consumer.set_discarded_messages(discarded_messages)
+        await consumer.set_discarded_messages(
+            _to_original_indices(request, discarded_messages)
+        )
 
-        request = converse_params.to_request()
+        converse_request = converse_params.to_request()
 
         if log.isEnabledFor(DEBUG):
             msg = json_dumps_short(
-                {"deployment": self.deployment, "request": request}
+                {"deployment": self.deployment, "request": converse_request}
             )
             log.debug(f"request: {msg}")
 
-        if self.is_stream(params):
+        if self.is_stream(request):
             await process_streaming(
-                params=params,
+                request=request,
                 stream=(
                     await self.bedrock.aconverse_streaming(
-                        self.deployment, **request
+                        self.deployment, **converse_request
                     )
                 ),
                 consumer=consumer,
             )
         else:
             await process_non_streaming(
-                params=params,
+                request=request,
                 response=await self.bedrock.aconverse_non_streaming(
-                    self.deployment, **request
+                    self.deployment, **converse_request
                 ),
                 consumer=consumer,
             )
+
+
+def _to_original_indices(
+    request: AdapterRequest, discarded: DiscardedMessages | None
+) -> DiscardedMessages | None:
+    """Maps indices of `request.messages` onto the original request's ones.
+
+    The projection carried by `AdapterRequest` accumulates every message the
+    preprocessing merged or dropped, so only the adapter can resolve an index
+    back to what the caller actually sent.
+    """
+    if discarded is None:
+        return None
+    return sorted(request.messages.to_original_indices(discarded))

@@ -5,7 +5,7 @@ from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
     ValidationError,
 )
-from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import (
     Function,
     MessageCustomFields,
@@ -25,6 +25,7 @@ from aidial_adapter_bedrock.llm.converse.caching import get_cache_info
 from aidial_adapter_bedrock.llm.converse.factory import ConverseAdapterFactory
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
+from tests.utils.messages import parse_messages
 
 
 def _message(
@@ -81,11 +82,14 @@ async def adapter() -> ChatCompletionAdapter:
 async def test_top_level_breakpoint_not_supported(
     adapter: ChatCompletionAdapter,
 ):
-    params = ModelParameters(cache_breakpoint=CacheBreakpoint())
+    request = AdapterRequest(
+        messages=parse_messages([_user("hello")]),
+        cache_breakpoint=CacheBreakpoint(),
+    )
     with pytest.raises(
         ValidationError, match="Converse API does not support automatic caching"
     ):
-        await adapter.chat(MagicMock(), params, [_user("hello")])
+        await adapter.chat(MagicMock(), request)
 
 
 def test_sets_headers_for_last_message_breakpoint():

@@ -1,14 +1,14 @@
+from aidial_adapter_anthropic.adapter._truncate_prompt import (
+    DiscardedMessages,
+    TruncatePromptError,
+    _partition_indexer,
+    compute_discarded_messages,
+)
 from aidial_sdk.chat_completion import Message
 
 from aidial_adapter_bedrock.llm.chat_model import (
     keep_last_and_system_messages,
     trivial_partitioner,
-)
-from aidial_adapter_bedrock.llm.truncate_prompt import (
-    DiscardedMessages,
-    TruncatePromptError,
-    _partition_indexer,
-    compute_discarded_messages,
 )
 from tests.utils.messages import ai, sys, user
 

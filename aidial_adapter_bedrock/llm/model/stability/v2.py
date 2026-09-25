@@ -3,15 +3,16 @@ from io import BytesIO
 from typing import Literal, assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter, UserError
+from aidial_adapter_anthropic.adapter._truncate_prompt import DiscardedMessages
 from aidial_adapter_anthropic.dial.consumer import Consumer
-from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.resource import (
     DialResource,
     Resource,
     UnsupportedContentType,
 )
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
-from aidial_sdk.chat_completion import Attachment, Message
+from aidial_sdk.chat_completion import Attachment
 from aidial_sdk.exceptions import (
     InternalServerError,
     InvalidRequestError,
@@ -26,12 +27,12 @@ from aidial_adapter_bedrock.dial_api.storage import (
     FileStorage,
     create_file_storage,
 )
+from aidial_adapter_bedrock.llm.chat_model import to_dial_messages
 from aidial_adapter_bedrock.llm.model.stability.message import (
     parse_message,
     validate_last_message,
 )
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
-from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
@@ -196,18 +197,17 @@ class StabilityV2Adapter(ChatCompletionAdapter):
         return self.spec.configuration_cls
 
     async def compute_discarded_messages(
-        self, params: ModelParameters, messages: list[Message]
+        self, request: AdapterRequest
     ) -> DiscardedMessages | None:
+        messages = to_dial_messages(request.messages)
         validate_last_message(messages)
-        return list(range(len(messages) - 1))
+        return sorted(
+            request.messages.to_original_indices(range(len(messages) - 1))
+        )
 
-    async def chat(
-        self,
-        consumer: Consumer,
-        params: ModelParameters,
-        messages: list[Message],
-    ) -> None:
-        configuration = params.parse_configuration(await self.configuration())
+    async def chat(self, consumer: Consumer, request: AdapterRequest) -> None:
+        messages = to_dial_messages(request.messages)
+        configuration = request.parse_configuration(await self.configuration())
         configuration_dict = (
             {} if configuration is None else configuration.model_dump()
         )
@@ -249,7 +249,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
                     # where 0 means that output will be identical to input image and 1 means that model will ignore input image
                     # Since there is no recommended default value, we use 0.5 as a middle ground
                     "strength": 0.5 if image_resource else None,
-                    "seed": params.seed,
+                    "seed": request.seed,
                     **configuration_dict,
                 }
             ),
@@ -268,9 +268,7 @@ class StabilityV2Adapter(ChatCompletionAdapter):
                 attachment = await save_to_storage(self.storage, attachment)
             await consumer.add_attachment(attachment)
 
-    async def count_prompt_tokens(
-        self, params: ModelParameters, messages: list[Message]
-    ) -> int:
+    async def count_prompt_tokens(self, request: AdapterRequest) -> int:
         raise NotImplementedError()
 
     async def count_completion_tokens(self, string: str) -> int:

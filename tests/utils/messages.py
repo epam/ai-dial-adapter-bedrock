@@ -1,10 +1,12 @@
-from aidial_sdk.chat_completion import Attachment, CustomContent, Message
-
-from aidial_adapter_bedrock.llm.message import (
+from aidial_adapter_anthropic._utils.list import ListProjection
+from aidial_adapter_anthropic.dial._message import (
+    AdapterMessage,
     AIRegularMessage,
     HumanRegularMessage,
     SystemMessage,
+    parse_dial_message,
 )
+from aidial_sdk.chat_completion import Attachment, CustomContent, Message
 
 
 def sys(content: str) -> Message:
@@ -26,3 +28,7 @@ def user_with_image(content: str, image_base64: str) -> Message:
     return HumanRegularMessage(
         content=content, custom_content=custom_content
     ).to_message()
+
+
+def parse_messages(messages: list[Message]) -> ListProjection[AdapterMessage]:
+    return ListProjection.create([parse_dial_message(msg) for msg in messages])

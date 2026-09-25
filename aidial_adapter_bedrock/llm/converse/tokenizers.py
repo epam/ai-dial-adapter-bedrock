@@ -1,13 +1,14 @@
 import json
 from typing import Any
 
+from aidial_adapter_anthropic.adapter._tokenize import default_tokenize_string
+
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDeployment,
     ConverseMessages,
     ConverseRequestWrapper,
 )
-from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
 
 
 def default_converse_tokenizer_factory(

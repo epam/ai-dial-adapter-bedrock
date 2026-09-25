@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal, NotRequired, Required
 
+from aidial_adapter_anthropic._utils.list import ListProjection
 from typing_extensions import TypedDict
 
 from aidial_adapter_bedrock.utils.json import remove_nones
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 class ConverseRole(str, Enum):

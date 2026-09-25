@@ -5,9 +5,7 @@ from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
 from fastapi import FastAPI
 
-from aidial_adapter_bedrock.anthropic_passthrough import (
-    get_anthropic_client,
-)
+from aidial_adapter_bedrock.anthropic_passthrough import get_anthropic_client
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
     create_boto_client,
