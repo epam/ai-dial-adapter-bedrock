@@ -3,6 +3,13 @@ from enum import Enum
 from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
+from aidial_adapter_anthropic.adapter._decorator.base import compose_decorators
+from aidial_adapter_anthropic.adapter._decorator.preprocess import (
+    preprocess_messages_decorator,
+)
+from aidial_adapter_anthropic.adapter._decorator.replicator import (
+    replicator_decorator,
+)
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.bedrock import Bedrock
@@ -21,12 +28,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseMessages,
     ConverseRequestWrapper,
 )
-from aidial_adapter_bedrock.llm.decorator.base import compose_decorators
 from aidial_adapter_bedrock.llm.decorator.caching import caching_decorator
-from aidial_adapter_bedrock.llm.decorator.preprocess_messages import (
-    preprocess_messages_decorator,
-)
-from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.llama.v3 import (
     ConverseAdapterWithStreamingEmulation,
 )

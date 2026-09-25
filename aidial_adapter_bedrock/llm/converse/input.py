@@ -5,7 +5,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from typing import assert_never
 
-from aidial_adapter_anthropic._utils.list import ListProjection
+from aidial_adapter_anthropic._utils.list import ListProjection, group_by
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial._message import is_system_role
 from aidial_adapter_anthropic.dial.request import ToolsConfig
@@ -59,7 +59,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseToolSpec,
     ConverseToolUsePart,
 )
-from aidial_adapter_bedrock.utils.list import group_by
 from aidial_adapter_bedrock.utils.text import capitalize
 
 

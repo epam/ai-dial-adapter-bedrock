@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 
 from aidial_adapter_anthropic.adapter import ValidationError
+from aidial_adapter_anthropic.adapter._decorator.base import (
+    ChatCompletionDecorator,
+    ChatCompletionTransformer,
+)
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 
 from aidial_adapter_bedrock.llm.chat_model import to_dial_messages
 from aidial_adapter_bedrock.llm.converse.caching import (
     get_cache_info,
-)
-from aidial_adapter_bedrock.llm.decorator.base import (
-    ChatCompletionDecorator,
-    ChatCompletionTransformer,
 )
 
 

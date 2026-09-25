@@ -1,6 +1,9 @@
 from typing import assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter
+from aidial_adapter_anthropic.adapter._decorator.replicator import (
+    replicator_decorator,
+)
 from aidial_sdk.chat_completion.request import ChatCompletionRequest
 
 import aidial_adapter_bedrock.llm.model.claude.adapter as anthropic_claude
@@ -30,7 +33,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseDocumentType,
     ConverseImageType,
 )
-from aidial_adapter_bedrock.llm.decorator.replicator import replicator_decorator
 from aidial_adapter_bedrock.llm.model.stability.v2 import StabilityV2Adapter
 from aidial_adapter_bedrock.upstream_config import UpstreamConfig
 from aidial_adapter_bedrock.utils.adapter_deployments import (

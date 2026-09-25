@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from logging import DEBUG
 from typing import Any, assert_never
 
+from aidial_adapter_anthropic._utils.json import json_dumps_short
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
@@ -16,7 +17,6 @@ from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_TO_DIAL_FINISH_REASON,
 )
 from aidial_adapter_bedrock.llm.converse.types import ConverseStopReason
-from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
