@@ -3,6 +3,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pytest
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial._message import parse_dial_message
 from aidial_adapter_anthropic.dial.request import AdapterRequest
@@ -61,7 +62,6 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
 )
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
     SAMPLE_DOCUMENT_RESOURCE,

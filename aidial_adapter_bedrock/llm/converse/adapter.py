@@ -2,6 +2,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logging import DEBUG
 
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
     ValidationError,
@@ -49,7 +50,6 @@ from aidial_adapter_bedrock.llm.truncate_prompt import (
 )
 from aidial_adapter_bedrock.utils.json import json_dumps_short, remove_nones
 from aidial_adapter_bedrock.utils.list import omit_by_indices
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 

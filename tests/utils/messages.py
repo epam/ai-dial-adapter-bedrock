@@ -1,3 +1,4 @@
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.dial._message import (
     AIRegularMessage,
     HumanRegularMessage,
@@ -6,8 +7,6 @@ from aidial_adapter_anthropic.dial._message import (
 )
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import Attachment, CustomContent, Message
-
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 def sys(content: str) -> Message:

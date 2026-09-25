@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.dial._message import AdapterMessage
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
@@ -10,7 +11,6 @@ from aidial_adapter_bedrock.llm.decorator.base import (
     ChatCompletionTransformer,
 )
 from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 OnMessages = Callable[
     [ListProjection[AdapterMessage]], ListProjection[AdapterMessage]

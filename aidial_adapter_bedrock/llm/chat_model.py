@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import ValidationError
 from aidial_adapter_anthropic.dial._message import (
     AdapterMessage,
@@ -11,8 +12,6 @@ from aidial_adapter_anthropic.dial._message import (
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import Message as DialMessage
-
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 
 @dataclass
