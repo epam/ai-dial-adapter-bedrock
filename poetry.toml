@@ -2,16 +2,4 @@
 in-project = true
 
 [installer]
-# Build protobuf from source instead of taking the wheel.
-#
-# protobuf publishes its `upb` C extension as manylinux wheels only. The
-# images are built on `python:3.11-alpine` (musl), so no platform wheel
-# matches and pip silently falls back to `protobuf-*-py3-none-any.whl`, the
-# pure-Python implementation -- roughly 5x slower to serialize.
-#
-# That cost lands on the OTLP span exporter, which is on the hot path for
-# streaming responses. Building from the sdist takes ~35s in the builder
-# stage, which already has `alpine-sdk` and `linux-headers`, and adds ~3MB;
-# the resulting .so links against musl libc only, so the runtime stage needs
-# no extra packages.
 no-binary = ["protobuf"]

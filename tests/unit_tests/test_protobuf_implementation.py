@@ -1,17 +1,3 @@
-"""Guards the protobuf backend the OTLP span exporter runs on.
-
-protobuf publishes its `upb` C extension as manylinux wheels only. The images
-are built on `python:3.11-alpine` (musl), where no platform wheel matches and
-pip silently installs `protobuf-*-py3-none-any.whl` — the pure-Python
-implementation, which serializes roughly 5x slower.
-
-Nothing warns when that happens: the only visible symptom is the OTLP
-exporter thread burning CPU, which for a streaming adapter competes with the
-event loop relaying chunks. `poetry.toml` pins `no-binary = ["protobuf"]` to
-force a source build; this test fails if that is removed, if the sdist stops
-building the extension, or if a base image change reintroduces the fallback.
-"""
-
 from google.protobuf.internal import api_implementation
 
 
