@@ -1,11 +1,11 @@
 from collections.abc import Generator
-from dataclasses import dataclass, field, replace
+from copy import copy
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
 from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
-from aidial_adapter_anthropic.dial._message import parse_dial_message
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.resource import Resource
 from aidial_adapter_anthropic.dial.tools import ToolsConfig, ToolsMode
@@ -66,7 +66,7 @@ from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
     SAMPLE_DOCUMENT_RESOURCE,
 )
-from tests.utils.messages import adapter_request
+from tests.utils.messages import parse_messages
 
 
 @dataclass(frozen=True)
@@ -125,18 +125,17 @@ class TestCase:
     supported_document_types: list[ConverseDocumentType] = field(
         default_factory=ConverseDocumentType.all
     )
-    params: AdapterRequest = field(default_factory=adapter_request)
+    params: AdapterRequest = field(
+        default_factory=lambda: AdapterRequest(messages=ListProjection())
+    )
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
 
     @property
     def request(self) -> AdapterRequest:
-        return replace(
-            self.params,
-            messages=ListProjection.create(
-                [parse_dial_message(msg) for msg in self.messages]
-            ),
-        )
+        request = copy(self.params)
+        request.messages = parse_messages(self.messages)
+        return request
 
     async def get_converse_adapter(self):
         client = await Bedrock.acreate(
@@ -524,7 +523,8 @@ TEST_CASES = [
         messages=[
             Message(role=Role.USER, content="hello"),
         ],
-        params=adapter_request(
+        params=AdapterRequest(
+            messages=ListProjection(),
             tool_config=ToolsConfig(
                 tools=[
                     Tool(
@@ -537,7 +537,7 @@ TEST_CASES = [
                 tool_choice="required",
                 tools_mode=ToolsMode.TOOLS,
                 tool_ids={},
-            )
+            ),
         ),
         expected_output=ConverseRequestWrapper(
             toolConfig={
@@ -606,7 +606,8 @@ TEST_CASES = [
                 tool_call_id="call_123",
             ),
         ],
-        params=adapter_request(
+        params=AdapterRequest(
+            messages=ListProjection(),
             tool_config=ToolsConfig(
                 static_tools=[],
                 tools=[
@@ -620,7 +621,7 @@ TEST_CASES = [
                 ),
                 tools_mode=ToolsMode.TOOLS,
                 tool_ids={},
-            )
+            ),
         ),
         expected_output=ConverseRequestWrapper(
             toolConfig={
@@ -729,7 +730,7 @@ TEST_CASES = [
                 ],
             ),
         ],
-        params=adapter_request(temperature=10),
+        params=AdapterRequest(messages=ListProjection(), temperature=10),
         expected_output=ConverseRequestWrapper(
             inferenceConfig=InferenceConfig(temperature=10),
             messages=ListProjection(
