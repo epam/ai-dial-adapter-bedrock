@@ -1,6 +1,6 @@
 import json
 from asyncio import Lock
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
 from typing import Any, Generic, ParamSpec, Protocol, TypeVar
@@ -65,35 +65,84 @@ class _AsyncCachedFunction(Protocol, Generic[_P, _T_co]):
 
 
 def ttl_cache(
-    func: Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]],
-) -> _AsyncCachedFunction[_P, _T]:
-    _cache: dict[str, tuple[datetime | None, _T]] = {}
-    _locks: dict[str, Lock] = defaultdict(Lock)
+    maxsize: int | None = None,
+    close: Callable[[_T], Coroutine[Any, Any, None]] | None = None,
+) -> Callable[
+    [Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]]],
+    _AsyncCachedFunction[_P, _T],
+]:
+    """
+    Caches the awaited value until the expiration it is returned with.
 
-    class _Wrapper:
-        async def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T:
-            key = _make_key(args, kwargs)
+    `maxsize` bounds the cache, evicting the least recently used entry;
+    leaving it unset makes the cache grow with the number of distinct keys.
+    `close` releases the resources of a value that the cache drops, either
+    because it was evicted or because its expiration passed.
+    """
 
-            async with _locks[key]:
-                expiry, value = _cache.get(key, (None, None))
+    def wrapper(
+        func: Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]],
+    ) -> _AsyncCachedFunction[_P, _T]:
+        _cache: OrderedDict[str, tuple[datetime | None, _T]] = OrderedDict()
+        _locks: dict[str, Lock] = defaultdict(Lock)
 
-                if value is not None:
-                    if expiry is None or ensure_utc(
-                        expiry
-                    ) > now_utc() + timedelta(minutes=1):
-                        return value
-                    else:
-                        log.debug("cache entry has expired")
+        func_name = f"{func.__module__}.{func.__qualname__}"
 
-                expiration, value = await func(*args, **kwargs)
-                _cache[key] = (expiration, value)
-                return value
+        async def _discard(key: str, value: _T) -> None:
+            lock = _locks.get(key)
+            if lock is not None and not lock.locked():
+                del _locks[key]
 
-        def clear(self) -> None:
-            _cache.clear()
-            _locks.clear()
+            if close is None:
+                return
 
-    return _Wrapper()
+            try:
+                await close(value)
+            except Exception as e:
+                log.error(f"Error on closing cached value: {e}")
+
+        class _Wrapper:
+            async def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+                key = _make_key(args, kwargs)
+
+                async with _locks[key]:
+                    expiry, value = _cache.get(key, (None, None))
+
+                    if value is not None:
+                        if expiry is None or ensure_utc(
+                            expiry
+                        ) > now_utc() + timedelta(minutes=1):
+                            _cache.move_to_end(key)
+                            return value
+                        else:
+                            log.debug("cache entry has expired")
+
+                    expiration, new_value = await func(*args, **kwargs)
+                    _cache[key] = (expiration, new_value)
+                    _cache.move_to_end(key)
+
+                    # The expired value is dropped only now, because it stayed
+                    # usable while its replacement was being created.
+                    if value is not None:
+                        await _discard(key, value)
+
+                    while maxsize is not None and len(_cache) > maxsize:
+                        evicted_key, (_, evicted) = _cache.popitem(last=False)
+                        log.debug(
+                            f"Evicting the least recently used entry of "
+                            f"{func_name}, {len(_cache)} entries left"
+                        )
+                        await _discard(evicted_key, evicted)
+
+                    return new_value
+
+            def clear(self) -> None:
+                _cache.clear()
+                _locks.clear()
+
+        return _Wrapper()
+
+    return wrapper
 
 
 def _make_key(args: tuple, kwargs: dict) -> str:

@@ -2,7 +2,10 @@ from dataclasses import dataclass
 
 import pytest
 
-from aidial_adapter_bedrock.bedrock import create_anthropic_client
+from aidial_adapter_bedrock.bedrock import (
+    create_anthropic_client,
+    get_anthropic_http_client,
+)
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
     AWSAssumeRoleCredentials,
@@ -217,3 +220,36 @@ class TestCreateAnthropicClient:
         assert alice_1 is alice_2
         assert alice_1 is not bob_1
         assert calls == 2
+
+    async def test_clients_share_one_http_client(self, monkeypatch):
+        """Per-user clients must not each hold their own connection pool."""
+
+        create_anthropic_client.clear()
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            return None, ClientCredentialArgs()
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            lambda **kwargs: _DummyClient("legacy", kwargs),
+        )
+
+        def _tags(user: str) -> list[SessionTag]:
+            return [
+                {
+                    "Key": "employee",
+                    "ValueSource": "UserInfo.userId",
+                    "Value": user,
+                }
+            ]
+
+        clients = [
+            await create_anthropic_client(_assume_role_config(), _tags(user))
+            for user in ("alice", "bob", "carol")
+        ]
+
+        http_clients = {id(c.kwargs["http_client"]) for c in clients}
+        assert http_clients == {id(get_anthropic_http_client())}

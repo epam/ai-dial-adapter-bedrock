@@ -7,7 +7,6 @@ from functools import cache as functools_cache
 from logging import DEBUG
 from typing import Any, TypedDict, Unpack, assert_never
 
-import boto3
 import botocore
 import httpx
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
@@ -27,6 +26,7 @@ from aidial_adapter_bedrock.upstream_config import (
     SessionTag,
     UpstreamConfig,
 )
+from aidial_adapter_bedrock.utils.boto import create_client
 from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
@@ -47,6 +47,8 @@ BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
     "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
 )
 ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
+
+CLIENT_CACHE_MAX_SIZE = get_env_int("CLIENT_CACHE_MAX_SIZE", 500)
 
 # Same as Anthropic SDK timeouts: anthropic._constants.DEFAULT_TIMEOUT
 DEFAULT_TIMEOUTS = httpx.Timeout(
@@ -88,12 +90,13 @@ AnthropicClient = (
 )
 
 
-@ttl_cache
-async def create_anthropic_client(
-    upstream_config: UpstreamConfig,
-    session_tags: list[SessionTag] | None = None,
-) -> tuple[datetime | None, AnthropicClient]:
-    http_client = httpx.AsyncClient(
+async def _close_http_client(client: httpx.AsyncClient) -> None:
+    await client.aclose()
+
+
+@cache(close=_close_http_client)
+def get_anthropic_http_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
         timeout=get_default_anthropic_timeout(),
         follow_redirects=True,
         limits=httpx.Limits(
@@ -105,6 +108,14 @@ async def create_anthropic_client(
             max_keepalive_connections=ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
         ),
     )
+
+
+@ttl_cache(maxsize=CLIENT_CACHE_MAX_SIZE)
+async def create_anthropic_client(
+    upstream_config: UpstreamConfig,
+    session_tags: list[SessionTag] | None = None,
+) -> tuple[datetime | None, AnthropicClient]:
+    http_client = get_anthropic_http_client()
 
     if isinstance(upstream_config, ApiKeyUpstreamConfig):
         anthropic_client = AsyncAnthropic(
@@ -137,7 +148,11 @@ async def create_anthropic_client(
             assert_never(upstream_config.claude_client)
 
 
-@ttl_cache
+async def _close_boto_client(client: Any) -> None:
+    await make_async(client.close)
+
+
+@ttl_cache(maxsize=CLIENT_CACHE_MAX_SIZE, close=_close_boto_client)
 async def create_boto_client(
     service_name: str,
     upstream_config: CloudUpstreamConfig,
@@ -158,10 +173,8 @@ async def create_boto_client(
         },
     )
 
-    # NOTE: Session isn't thread-safe, but client is.
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/clients.html#caveats
     client = await make_async(
-        lambda: boto3.Session().client(
+        lambda: create_client(
             service_name,
             region_name=upstream_config.region,
             aws_access_key_id=creds.aws_access_key_id,
