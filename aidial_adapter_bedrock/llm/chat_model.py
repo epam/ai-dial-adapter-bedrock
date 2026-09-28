@@ -13,7 +13,6 @@ from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import Message
 
-# The type `AdapterRequest.messages` is expressed in.
 AdapterMessages = ListProjection[AdapterMessage]
 
 
