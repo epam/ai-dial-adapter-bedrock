@@ -10,7 +10,6 @@ from typing import Any, TypedDict, Unpack, assert_never
 import boto3
 import botocore
 import httpx
-from aidial_adapter_anthropic._utils.json import json_dumps_short
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_client import AsyncDialClientPool
 from anthropic import (
@@ -34,6 +33,7 @@ from aidial_adapter_bedrock.utils.concurrency import (
     to_async_iterator,
 )
 from aidial_adapter_bedrock.utils.env import get_env_int
+from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Body = dict

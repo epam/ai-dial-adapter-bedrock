@@ -1,10 +1,8 @@
 from collections.abc import Generator
-from copy import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pytest
-from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.resource import Resource
@@ -62,11 +60,12 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
 )
 from aidial_adapter_bedrock.upstream_config import CloudUpstreamConfig
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from tests.integration_tests.constants import (
     BLUE_PNG_PICTURE,
     SAMPLE_DOCUMENT_RESOURCE,
 )
-from tests.utils.messages import parse_messages
+from tests.utils.messages import adapter_request, to_adapter_messages
 
 
 @dataclass(frozen=True)
@@ -125,17 +124,13 @@ class TestCase:
     supported_document_types: list[ConverseDocumentType] = field(
         default_factory=ConverseDocumentType.all
     )
-    params: AdapterRequest = field(
-        default_factory=lambda: AdapterRequest(messages=ListProjection())
-    )
+    params: AdapterRequest = field(default_factory=adapter_request)
     expected_output: ConverseRequestWrapper | None = None
     expected_error: ExpectedException | None = None
 
     @property
     def request(self) -> AdapterRequest:
-        request = copy(self.params)
-        request.messages = parse_messages(self.messages)
-        return request
+        return replace(self.params, messages=to_adapter_messages(self.messages))
 
     async def get_converse_adapter(self):
         client = await Bedrock.acreate(
@@ -523,8 +518,7 @@ TEST_CASES = [
         messages=[
             Message(role=Role.USER, content="hello"),
         ],
-        params=AdapterRequest(
-            messages=ListProjection(),
+        params=adapter_request(
             tool_config=ToolsConfig(
                 tools=[
                     Tool(
@@ -537,7 +531,7 @@ TEST_CASES = [
                 tool_choice="required",
                 tools_mode=ToolsMode.TOOLS,
                 tool_ids={},
-            ),
+            )
         ),
         expected_output=ConverseRequestWrapper(
             toolConfig={
@@ -606,8 +600,7 @@ TEST_CASES = [
                 tool_call_id="call_123",
             ),
         ],
-        params=AdapterRequest(
-            messages=ListProjection(),
+        params=adapter_request(
             tool_config=ToolsConfig(
                 static_tools=[],
                 tools=[
@@ -621,7 +614,7 @@ TEST_CASES = [
                 ),
                 tools_mode=ToolsMode.TOOLS,
                 tool_ids={},
-            ),
+            )
         ),
         expected_output=ConverseRequestWrapper(
             toolConfig={
@@ -730,7 +723,7 @@ TEST_CASES = [
                 ],
             ),
         ],
-        params=AdapterRequest(messages=ListProjection(), temperature=10),
+        params=adapter_request(temperature=10),
         expected_output=ConverseRequestWrapper(
             inferenceConfig=InferenceConfig(temperature=10),
             messages=ListProjection(

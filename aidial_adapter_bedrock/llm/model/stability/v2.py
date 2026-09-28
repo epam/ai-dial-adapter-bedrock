@@ -3,7 +3,6 @@ from io import BytesIO
 from typing import Literal, assert_never
 
 from aidial_adapter_anthropic.adapter import ChatCompletionAdapter, UserError
-from aidial_adapter_anthropic.adapter._truncate_prompt import DiscardedMessages
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.resource import (
@@ -33,6 +32,7 @@ from aidial_adapter_bedrock.llm.model.stability.message import (
     validate_last_message,
 )
 from aidial_adapter_bedrock.llm.model.stability.storage import save_to_storage
+from aidial_adapter_bedrock.llm.truncate_prompt import DiscardedMessages
 from aidial_adapter_bedrock.utils.adapter_deployment import AdapterDeployment
 from aidial_adapter_bedrock.utils.json import remove_nones
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
@@ -199,14 +199,14 @@ class StabilityV2Adapter(ChatCompletionAdapter):
     async def compute_discarded_messages(
         self, request: AdapterRequest
     ) -> DiscardedMessages | None:
-        messages = to_dial_messages(request.messages)
+        messages = to_dial_messages(request)
         validate_last_message(messages)
         return sorted(
             request.messages.to_original_indices(range(len(messages) - 1))
         )
 
     async def chat(self, consumer: Consumer, request: AdapterRequest) -> None:
-        messages = to_dial_messages(request.messages)
+        messages = to_dial_messages(request)
         configuration = request.parse_configuration(await self.configuration())
         configuration_dict = (
             {} if configuration is None else configuration.model_dump()

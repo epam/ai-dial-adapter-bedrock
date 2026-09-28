@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-from aidial_adapter_anthropic._utils.list import ListProjection
 
 from aidial_adapter_bedrock.bedrock import Bedrock
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as CCD
@@ -16,6 +15,7 @@ from aidial_adapter_bedrock.llm.converse.types import (
     ConverseRole,
     ConverseTextPart,
 )
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 
 # Models whose token counting is delegated to the Bedrock `CountTokens` API.
 # Keep in sync with `_get_tokenizer_factory`.

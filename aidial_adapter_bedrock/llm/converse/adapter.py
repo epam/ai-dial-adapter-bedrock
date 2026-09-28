@@ -2,16 +2,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logging import DEBUG
 
-from aidial_adapter_anthropic._utils.json import json_dumps_short
-from aidial_adapter_anthropic._utils.list import ListProjection, omit_by_indices
 from aidial_adapter_anthropic.adapter import (
     ChatCompletionAdapter,
     ValidationError,
-)
-from aidial_adapter_anthropic.adapter._tokenize import default_tokenize_string
-from aidial_adapter_anthropic.adapter._truncate_prompt import (
-    DiscardedMessages,
-    truncate_prompt,
 )
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
@@ -49,7 +42,14 @@ from aidial_adapter_bedrock.llm.converse.types import (
     InferenceConfig,
     PerformanceConfig,
 )
-from aidial_adapter_bedrock.utils.json import remove_nones
+from aidial_adapter_bedrock.llm.tokenize import default_tokenize_string
+from aidial_adapter_bedrock.llm.truncate_prompt import (
+    DiscardedMessages,
+    truncate_prompt,
+)
+from aidial_adapter_bedrock.utils.json import json_dumps_short, remove_nones
+from aidial_adapter_bedrock.utils.list import omit_by_indices
+from aidial_adapter_bedrock.utils.list_projection import ListProjection
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 
@@ -134,7 +134,7 @@ class ConverseAdapter(ChatCompletionAdapter):
     ) -> ConverseRequestWrapper:
         configuration = request.parse_configuration(await self.configuration())
         system_prompt_extraction = extract_converse_system_prompt(
-            to_dial_messages(request.messages)
+            to_dial_messages(request)
         )
         converse_messages = await to_converse_messages(
             system_prompt_extraction.non_system_messages,
