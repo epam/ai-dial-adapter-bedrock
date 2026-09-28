@@ -19,6 +19,7 @@ from aidial_sdk.chat_completion.request import (
     ResponseFormatJsonSchema,
     ResponseFormatJsonSchemaObject,
     Role,
+    StaticFunction,
     StaticTool,
     StreamOptions,
     ToolCall,
@@ -37,6 +38,7 @@ from anthropic.types.beta import (
     BetaJSONOutputFormatParam,
     BetaMessageParam,
     BetaRequestDocumentBlockParam,
+    BetaSearchResultBlockParam,
     BetaToolChoiceParam,
     BetaToolParam,
     BetaToolResultBlockParam,
@@ -52,6 +54,13 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.cache_breakpoi
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.reasoning import (
     resolve_effort,
 )
+from aidial_adapter_bedrock.anthropic_translator.chat_completions.system_turns import (
+    visible_messages,
+)
+from aidial_adapter_bedrock.anthropic_translator.errors import (
+    AnthropicErrorType,
+    AnthropicHTTPError,
+)
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
 )
@@ -61,16 +70,20 @@ _JSON_SCHEMA_NAME: str = "response"
 
 _SERVICE_TIERS: dict[str, str] = {"auto": "auto", "standard_only": "default"}
 
+_FILES_API_UNREADABLE: str = (
+    "Files API uploads can't be read by another provider"
+)
+
 
 class CoreChatCompletionRequest(BaseModel):
     model: str
     messages: list[SdkMessage]
-    max_completion_tokens: int
+    max_completion_tokens: int | None
     custom_fields: ChatCompletionRequestCustomFields | None
     tools: list[SdkTool | StaticTool] | None
     tool_choice: Literal["auto", "none", "required"] | SdkToolChoice | None
     parallel_tool_calls: bool | None
-    reasoning_effort: ReasoningEffort | Literal["max"]
+    reasoning_effort: ReasoningEffort
     response_format: ResponseFormat | None
     stop: list[str] | None
     temperature: float | None
@@ -121,8 +134,8 @@ def to_chat_completions_request(
         ),
         reasoning_effort=resolve_effort(req),
         response_format=_convert_response_format(req),
-        stop=list(req.get("stop_sequences") or []) or None,
-        max_completion_tokens=req["max_tokens"],
+        stop=_convert_stop(req),
+        max_completion_tokens=req.get("max_tokens"),
         temperature=req.get("temperature"),
         top_p=req.get("top_p"),
         user=(req.get("metadata", {}).get("user_id") or None)
@@ -155,8 +168,13 @@ def _convert_messages(
                 converted = _convert_assistant_message(
                     message["content"], aliases
                 )
-            case _:
+            case "system":
                 continue
+            case unsupported:
+                raise AnthropicHTTPError(
+                    AnthropicErrorType.INVALID_REQUEST,
+                    f"Unsupported message role: {unsupported}",
+                )
 
         controls: list[CacheControl] = _cache_controls(message["content"])
         for converted_message in converted:
@@ -165,7 +183,7 @@ def _convert_messages(
 
     if (control := req.get("cache_control")) is not None:
         for message in reversed(messages):
-            if message.role == Role.USER:
+            if message.role in (Role.USER, Role.TOOL):
                 _mark_message(message, [control])
                 break
     return messages
@@ -174,6 +192,8 @@ def _convert_messages(
 def _warn_dropped(req: MessageCreateParams) -> None:
     if req.get("top_k") is not None:
         log.debug("Dropping unsupported 'top_k' parameter")
+    if req.get("compaction"):
+        log.warning("Dropping 'compaction': no Chat Completions equivalent")
     if req.get("mcp_servers"):
         log.warning("Dropping 'mcp_servers': no Chat Completions equivalent")
     if req.get("container"):
@@ -189,7 +209,13 @@ def _warn_dropped(req: MessageCreateParams) -> None:
 def _convert_service_tier(req: MessageCreateParams) -> str | None:
     if (tier := req.get("service_tier")) is None:
         return None
-    return _SERVICE_TIERS[tier]
+    return _SERVICE_TIERS.get(tier)
+
+
+def _convert_stop(req: MessageCreateParams) -> list[str] | None:
+    if (stop_sequences := req.get("stop_sequences")) is None:
+        return None
+    return list(stop_sequences)
 
 
 def _convert_response_format(req: MessageCreateParams) -> ResponseFormat | None:
@@ -298,8 +324,8 @@ def _system_text(content: object) -> SystemPrompt:
 def _collect_system(req: MessageCreateParams) -> SystemPrompt:
     system: SystemPrompt = _system_text(req.get("system"))
 
-    for message in req["messages"]:
-        if message.get("role") == "system":
+    for message in visible_messages(req["messages"]):
+        if message["role"] == "system":
             system.extend(_system_text(message["content"]))
 
         for block in _blocks(message["content"]):
@@ -331,7 +357,7 @@ def _convert_user_message(
         match block["type"]:
             case "tool_result":
                 tool_messages.append(_tool_result_message(block))
-                parts.extend(_tool_result_images(block.get("content")))
+                parts.extend(_tool_result_parts(block.get("content")))
             case "text":
                 if block.get("text"):
                     parts.append(
@@ -343,8 +369,16 @@ def _convert_user_message(
                 if part := _image_part(block):
                     parts.append(part)
             case "document":
-                if part := _document_part(block):
-                    parts.append(part)
+                parts.extend(_document_parts(block))
+            case "search_result":
+                parts.append(
+                    MessageContentTextPart(
+                        type="text", text=_search_result_text(block)
+                    )
+                )
+            case "compaction":
+                if text := block.get("content"):
+                    parts.append(MessageContentTextPart(type="text", text=text))
             case "mid_conv_system":
                 continue
             case unsupported:
@@ -378,14 +412,25 @@ def _tool_result_text(content: object) -> str:
     )
 
 
-def _tool_result_images(content: object) -> list[MessageContentPart]:
-    return [
-        part
-        for sub in _blocks(content)
-        if isinstance(sub, dict)
-        and sub["type"] == "image"
-        and (part := _image_part(sub))
-    ]
+def _tool_result_parts(content: object) -> list[MessageContentPart]:
+    parts: list[MessageContentPart] = []
+    for sub in _blocks(content):
+        if not isinstance(sub, dict):
+            continue
+        match sub["type"]:
+            case "image":
+                if part := _image_part(sub):
+                    parts.append(part)
+            case "document":
+                parts.extend(_document_parts(sub))
+    return parts
+
+
+def _search_result_text(block: BetaSearchResultBlockParam) -> str:
+    text: str = "\n".join(
+        sub["text"] for sub in block["content"] if sub.get("text")
+    )
+    return f"{block['title']}\n{block['source']}\n\n{text}"
 
 
 def _convert_assistant_message(
@@ -409,6 +454,9 @@ def _convert_assistant_message(
             case "text":
                 if block.get("text"):
                     text_parts.append(block.get("text"))
+            case "compaction":
+                if text := block.get("content"):
+                    text_parts.append(text)
             case "tool_use":
                 tool_calls.append(
                     ToolCall(
@@ -454,31 +502,80 @@ def _image_part(block: BetaImageBlockParam) -> MessageContentPart | None:
         return MessageContentImagePart(
             type="image_url", image_url=ImageURL(url=url)
         )
+    if source["type"] == "file":
+        raise AnthropicHTTPError(
+            AnthropicErrorType.INVALID_REQUEST,
+            f"Unsupported image source type 'file': {_FILES_API_UNREADABLE}",
+        )
     log.warning("Dropping image block with source type: %s", stype)
     return None
 
 
-def _document_part(
+def _document_parts(
     block: BetaRequestDocumentBlockParam,
-) -> MessageContentPart | None:
+) -> list[MessageContentPart]:
     source = block["source"]
-    stype: str | None = source.get("type")
     filename: str = block.get("title") or "document.pdf"
-    if source["type"] == "base64":
-        media_type: str = source.get("media_type") or "application/pdf"
-        data = source["data"]
-        return MessageContentFilePart(
-            type="file",
-            file=InputFile(
-                filename=filename,
-                file_data=f"data:{media_type};base64,{data}",
-            ),
-        )
-    if source["type"] == "text" and (text_data := source["data"]):
-        return MessageContentTextPart(type="text", text=text_data)
+    match source["type"]:
+        case "base64":
+            media_type: str = source.get("media_type") or "application/pdf"
+            data = source["data"]
+            return [
+                MessageContentFilePart(
+                    type="file",
+                    file=InputFile(
+                        filename=filename,
+                        file_data=f"data:{media_type};base64,{data}",
+                    ),
+                )
+            ]
+        case "text":
+            if not (text_data := source["data"]):
+                return []
+            return [MessageContentTextPart(type="text", text=text_data)]
+        case "content":
+            return _document_content_parts(source["content"])
+        case "url":
+            raise AnthropicHTTPError(
+                AnthropicErrorType.INVALID_REQUEST,
+                "Unsupported document source type 'url': "
+                "a Chat Completions file part has no URL field",
+            )
+        case "file":
+            raise AnthropicHTTPError(
+                AnthropicErrorType.INVALID_REQUEST,
+                "Unsupported document source type 'file': "
+                f"{_FILES_API_UNREADABLE}",
+            )
+        case unsupported:
+            log.warning(
+                "Dropping document block with source type: %s", unsupported
+            )
+            return []
 
-    log.warning("Dropping document block with source type: %s", stype)
-    return None
+
+def _document_content_parts(content: object) -> list[MessageContentPart]:
+    if isinstance(content, str):
+        return (
+            [MessageContentTextPart(type="text", text=content)]
+            if content
+            else []
+        )
+
+    parts: list[MessageContentPart] = []
+    for sub in _blocks(content):
+        if not isinstance(sub, dict):
+            continue
+        match sub["type"]:
+            case "text":
+                if sub.get("text"):
+                    parts.append(
+                        MessageContentTextPart(type="text", text=sub["text"])
+                    )
+            case "image":
+                if part := _image_part(sub):
+                    parts.append(part)
+    return parts
 
 
 def _convert_tools(
@@ -489,28 +586,45 @@ def _convert_tools(
         return []
     result: list[SdkTool | StaticTool] = []
     for tool in tools:
-        ttype: str | None = tool.get("type")
-        if ttype and ttype != "custom":
-            log.warning("Dropping unsupported tool type: %s", ttype)
-        elif not tool.get("name"):
-            log.warning("Dropping custom tool without a name")
+        if tool.get("type") in (None, "custom"):
+            result.append(_function_tool(cast(BetaToolParam, tool), aliases))
         else:
-            tool = cast(BetaToolParam, tool)
-            sdk_tool: SdkTool = SdkTool(
-                type="function",
-                function=SdkFunction(
-                    name=aliases.to_upstream(tool.get("name")),
-                    description=tool.get("description") or None,
-                    parameters=_parameters(tool),
-                    strict=False,
-                ),
-            )
-            _mark_tool(
-                sdk_tool,
-                [control] if (control := tool.get("cache_control")) else [],
-            )
-            result.append(sdk_tool)
+            result.append(_static_tool(tool))
     return result
+
+
+def _function_tool(tool: BetaToolParam, aliases: ToolNameAliases) -> SdkTool:
+    sdk_tool: SdkTool = SdkTool(
+        type="function",
+        function=SdkFunction(
+            name=aliases.to_upstream(tool["name"]),
+            description=tool.get("description") or None,
+            parameters=_parameters(tool),
+            strict=bool(tool.get("strict")),
+        ),
+    )
+    _mark_tool(
+        sdk_tool,
+        [control] if (control := tool.get("cache_control")) else [],
+    )
+    return sdk_tool
+
+
+def _static_tool(tool: BetaToolUnionParam) -> StaticTool:
+    return StaticTool(
+        type="static_function",
+        static_function=StaticFunction(
+            name=_static_tool_name(tool), configuration=dict(tool)
+        ),
+    )
+
+
+def _static_tool_name(tool: BetaToolUnionParam) -> str:
+    match tool:
+        case {"name": str() as name} | {"mcp_server_name": str() as name}:
+            return name
+        case _:
+            return ""
 
 
 def _parameters(tool: BetaToolParam) -> dict[str, object]:

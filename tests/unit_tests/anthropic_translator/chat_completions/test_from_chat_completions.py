@@ -11,6 +11,7 @@ from anthropic.types import (
     WebSearchToolResultBlock,
 )
 from anthropic.types.content_block import ContentBlock as AnthropicContentBlock
+from anthropic.types.output_tokens_details import OutputTokensDetails
 from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message import ChatCompletionMessage
@@ -317,6 +318,19 @@ def test_an_aliased_tool_name_is_restored() -> None:
     assert block.name == LONG_MCP_NAME
 
 
+@pytest.mark.parametrize(
+    "finish_reason, expected",
+    [("length", "max_tokens"), ("content_filter", "refusal")],
+)
+def test_a_cut_off_or_filtered_finish_wins_over_tool_calls(
+    finish_reason: FinishReason, expected: str
+) -> None:
+    msg: Message = translate(
+        response(message(tool_calls=[tool_call()]), finish_reason=finish_reason)
+    )
+    assert msg.stop_reason == expected
+
+
 def test_tool_calls_win_the_stop_reason_over_the_finish_reason() -> None:
     msg: Message = translate(
         response(message(tool_calls=[tool_call()]), finish_reason="stop")
@@ -422,18 +436,22 @@ def test_usage_without_cache_details() -> None:
     assert msg.usage.cache_creation_input_tokens == 0
 
 
-def test_input_tokens_are_floored_at_zero() -> None:
+def test_cache_counters_are_capped_at_prompt_tokens() -> None:
     msg: Message = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=5,
                 completion_tokens=1,
                 total_tokens=6,
-                prompt_tokens_details=PromptTokensDetails(cached_tokens=9),
+                prompt_tokens_details=PromptTokensDetails.model_validate(
+                    {"cached_tokens": 4, "cache_write_tokens": 3}
+                ),
             )
         )
     )
     assert msg.usage.input_tokens == 0
+    assert msg.usage.cache_read_input_tokens == 4
+    assert msg.usage.cache_creation_input_tokens == 1
 
 
 def test_missing_usage_is_zeroed_not_an_error() -> None:
@@ -442,7 +460,7 @@ def test_missing_usage_is_zeroed_not_an_error() -> None:
     usage: Usage = translate(completion).usage
     assert usage.input_tokens == 0
     assert usage.output_tokens == 0
-    assert usage.output_tokens_details is None
+    assert usage.output_tokens_details == OutputTokensDetails(thinking_tokens=0)
 
 
 @pytest.mark.parametrize("spelling", ["cache_write_tokens", "cacheWriteTokens"])
@@ -502,11 +520,12 @@ def test_reasoning_tokens_become_an_informational_breakdown() -> None:
         )
     )
     assert msg.usage.output_tokens == 50
-    assert msg.usage.output_tokens_details is not None
-    assert msg.usage.output_tokens_details.thinking_tokens == 40
+    assert msg.usage.output_tokens_details == OutputTokensDetails(
+        thinking_tokens=40
+    )
 
 
-def test_zero_reasoning_tokens_emit_no_breakdown() -> None:
+def test_zero_reasoning_tokens_emit_a_zero_breakdown() -> None:
     msg: Message = translate(
         response(
             usage=CompletionUsage(
@@ -519,7 +538,9 @@ def test_zero_reasoning_tokens_emit_no_breakdown() -> None:
             )
         )
     )
-    assert msg.usage.output_tokens_details is None
+    assert msg.usage.output_tokens_details == OutputTokensDetails(
+        thinking_tokens=0
+    )
 
 
 def test_full_block_order() -> None:

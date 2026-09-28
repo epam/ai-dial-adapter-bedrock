@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator, Callable, Hashable
 from typing import Literal, Protocol, TypeVar
 
+import openai
 from anthropic.types import (
     Message,
     RawContentBlockDeltaEvent,
@@ -24,6 +25,7 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
     INTERNAL_ERROR_MESSAGE,
     AnthropicErrorType,
     ErrorDetail,
+    anthropic_error_type_from_stream,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -38,11 +40,11 @@ class ClosableAsyncStream(Protocol[T_co]):
 
 
 class PingEvent(BaseModel):
-    type: Literal["ping"] = "ping"
+    type: Literal["ping"]
 
 
 class ErrorEvent(BaseModel):
-    type: Literal["error"] = "error"
+    type: Literal["error"]
     error: ErrorDetail
 
 
@@ -59,7 +61,8 @@ AnthropicSSEEvent = (
 
 
 def format_sse(event: AnthropicSSEEvent) -> bytes:
-    return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n".encode()
+    data: str = event.model_dump_json(exclude_unset=True)
+    return f"event: {event.type}\ndata: {data}\n\n".encode()
 
 
 class AnthropicStreamState:
@@ -137,7 +140,7 @@ class AnthropicStreamState:
             format_sse(
                 RawMessageStartEvent(type="message_start", message=message)
             ),
-            format_sse(PingEvent()),
+            format_sse(PingEvent(type="ping")),
         ]
 
     def final_events(
@@ -178,7 +181,10 @@ class AnthropicStreamState:
         self.terminated = True
         return [
             format_sse(
-                ErrorEvent(error={"type": error_type.code, "message": message})
+                ErrorEvent(
+                    type="error",
+                    error={"type": error_type.code, "message": message},
+                )
             )
         ]
 
@@ -198,6 +204,12 @@ async def run_sse_stream(
         if on_finalize is not None:
             for chunk in on_finalize():
                 yield chunk
+    except openai.APIError as e:
+        log.warning(f"DIAL Core reported an error in the {log_context} stream")
+        for chunk in state.emit_error(
+            anthropic_error_type_from_stream(e), e.message
+        ):
+            yield chunk
     except Exception:
         log.exception(f"Error while translating the {log_context} SSE stream")
         for chunk in state.emit_error(

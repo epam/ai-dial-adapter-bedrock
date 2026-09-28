@@ -1,6 +1,6 @@
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Literal
+from typing import Literal, cast
 
 import pytest
 from aidial_sdk.chat_completion.request import (
@@ -21,9 +21,15 @@ from aidial_sdk.chat_completion.request import Message as SdkMessage
 from aidial_sdk.chat_completion.request import (
     Tool as SdkTool,
 )
+from anthropic.types.beta.message_create_params import MessageCreateParams
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
     CoreChatCompletionRequest,
+    to_chat_completions_request,
+)
+from aidial_adapter_bedrock.anthropic_translator.errors import (
+    AnthropicErrorType,
+    AnthropicHTTPError,
 )
 from aidial_adapter_bedrock.anthropic_translator.tool_names import (
     ToolNameAliases,
@@ -297,18 +303,103 @@ def test_pdf_document_base64() -> None:
     )
 
 
-def test_document_url_has_no_equivalent_and_is_dropped() -> None:
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"type": "url", "url": "https://x/y.pdf"},
+        {"type": "file", "file_id": "f1"},
+    ],
+)
+def test_document_url_or_file_source_is_rejected(
+    source: dict[str, object],
+) -> None:
+    with pytest.raises(AnthropicHTTPError) as error:
+        convert(user([{"type": "document", "source": source}]))
+    assert error.value.error_type == AnthropicErrorType.INVALID_REQUEST
+
+
+def test_document_content_source_becomes_its_text_and_image_parts() -> None:
     result: CoreChatCompletionRequest = convert(
         user(
             [
                 {
                     "type": "document",
-                    "source": {"type": "url", "url": "https://x/y.pdf"},
+                    "source": {
+                        "type": "content",
+                        "content": [
+                            {"type": "text", "text": "page one"},
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "url",
+                                    "url": "https://x/p.png",
+                                },
+                            },
+                        ],
+                    },
                 }
             ]
         )
     )
-    assert result.messages == []
+    assert result.messages[0].content == [
+        MessageContentTextPart(type="text", text="page one"),
+        MessageContentImagePart(
+            type="image_url", image_url=ImageURL(url="https://x/p.png")
+        ),
+    ]
+
+
+def test_search_result_becomes_a_text_part() -> None:
+    result: CoreChatCompletionRequest = convert(
+        user(
+            [
+                {
+                    "type": "search_result",
+                    "title": "Cats",
+                    "source": "https://e.com/cats",
+                    "content": [
+                        {"type": "text", "text": "Cats purr."},
+                        {"type": "text", "text": "Cats nap."},
+                    ],
+                }
+            ]
+        )
+    )
+    assert result.messages[0].content == [
+        MessageContentTextPart(
+            type="text",
+            text="Cats\nhttps://e.com/cats\n\nCats purr.\nCats nap.",
+        )
+    ]
+
+
+def test_replayed_compaction_becomes_its_summary_text() -> None:
+    result: CoreChatCompletionRequest = convert(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "compaction", "content": "earlier summary"},
+                        {"type": "text", "text": "go on"},
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "compaction", "content": "assistant summary"},
+                        {"type": "compaction", "content": None},
+                        {"type": "text", "text": "ok"},
+                    ],
+                },
+            ]
+        }
+    )
+    assert result.messages[0].content == [
+        MessageContentTextPart(type="text", text="earlier summary"),
+        MessageContentTextPart(type="text", text="go on"),
+    ]
+    assert result.messages[1].content == "assistant summary\nok"
 
 
 def test_document_text_source_becomes_text_part() -> None:
@@ -333,12 +424,14 @@ def test_document_text_source_becomes_text_part() -> None:
     )
 
 
-def test_unsupported_image_source_type_is_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
-        user([{"type": "image", "source": {"type": "file", "file_id": "f1"}}])
-    )
-
-    assert result.messages == []
+def test_image_file_source_is_rejected() -> None:
+    with pytest.raises(AnthropicHTTPError) as error:
+        convert(
+            user(
+                [{"type": "image", "source": {"type": "file", "file_id": "f1"}}]
+            )
+        )
+    assert error.value.error_type == AnthropicErrorType.INVALID_REQUEST
 
 
 def test_assistant_tool_use_and_text_combine_into_one_message() -> None:
@@ -458,6 +551,41 @@ def test_tool_result_image_becomes_user_image_url() -> None:
     ]
 
 
+def test_tool_result_document_moves_to_the_following_user_message() -> None:
+    result: CoreChatCompletionRequest = convert(
+        user(
+            [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "t",
+                    "content": [
+                        {"type": "text", "text": "see file"},
+                        {
+                            "type": "document",
+                            "title": "a.pdf",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": "UERG",
+                            },
+                        },
+                    ],
+                }
+            ]
+        )
+    )
+    assert result.messages[0].role == Role.TOOL
+    assert result.messages[0].content == "see file"
+    assert result.messages[1].content == [
+        MessageContentFilePart(
+            type="file",
+            file=InputFile(
+                filename="a.pdf", file_data="data:application/pdf;base64,UERG"
+            ),
+        )
+    ]
+
+
 def test_custom_tool_mapping() -> None:
     result: CoreChatCompletionRequest = convert(
         {
@@ -482,6 +610,22 @@ def test_custom_tool_mapping() -> None:
     assert tool.function.strict is False
     assert tool.function.description == "weather"
     assert tool.custom_fields is None
+
+
+def test_custom_tool_strict_is_forwarded() -> None:
+    result: CoreChatCompletionRequest = convert(
+        {
+            **user("hi"),
+            "tools": [
+                {
+                    "name": "get_weather",
+                    "input_schema": {"type": "object"},
+                    "strict": True,
+                }
+            ],
+        }
+    )
+    assert result.model_dump(mode="json")["tools"][0]["function"]["strict"]
 
 
 def test_schema_key_is_stripped_from_tool_parameters() -> None:
@@ -510,25 +654,36 @@ def test_schema_key_is_stripped_from_tool_parameters() -> None:
     }
 
 
-def test_web_search_and_other_server_tools_all_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
+def test_provider_tools_become_static_functions_as_sent() -> None:
+    provider_tools: list[dict[str, object]] = [
         {
-            **user("hi"),
-            "tools": [
-                {"type": "web_search_20250305", "name": "web_search"},
-                {"type": "bash_20250124", "name": "bash"},
-                {"type": "text_editor_20250124", "name": "str_replace_editor"},
-                {
-                    "type": "computer_20250124",
-                    "name": "computer",
-                    "display_width_px": 100,
-                    "display_height_px": 100,
-                },
-                {"type": "code_execution_20250522", "name": "code_execution"},
-            ],
-        }
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 3,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {"type": "bash_20250124", "name": "bash"},
+        {
+            "type": "computer_20250124",
+            "name": "computer",
+            "display_width_px": 100,
+            "display_height_px": 100,
+        },
+        {"type": "mcp_toolset", "mcp_server_name": "docs"},
+    ]
+    result: CoreChatCompletionRequest = convert(
+        {**user("hi"), "tools": provider_tools}
     )
-    assert result.tools is None
+    assert result.model_dump(mode="json", exclude_none=True)["tools"] == [
+        {
+            "type": "static_function",
+            "static_function": {
+                "name": tool.get("name") or tool["mcp_server_name"],
+                "configuration": tool,
+            },
+        }
+        for tool in provider_tools
+    ]
 
 
 @pytest.mark.parametrize(
@@ -817,6 +972,7 @@ def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
                 }
             ],
             "container": {"id": "container_1"},
+            "compaction": {"enabled": True},
             "inference_geo": "eu",
             "context_management": {
                 "edits": [{"type": "clear_tool_uses_20250919"}]
@@ -828,6 +984,7 @@ def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
     dumped: str = json.dumps(result.model_dump(mode="json", exclude_none=True))
     for dropped in (
         "mcp_servers",
+        "compaction",
         "container",
         "inference_geo",
         "context_management",
@@ -849,7 +1006,7 @@ def test_user_id_is_forwarded_as_user(user_id: str) -> None:
 
 @pytest.mark.parametrize(
     "tier, expected",
-    [("auto", "auto"), ("standard_only", "default")],
+    [("auto", "auto"), ("standard_only", "default"), ("priority", None)],
 )
 def test_service_tier_is_a_closed_table(
     tier: str, expected: str | None
@@ -913,34 +1070,79 @@ def test_citations_enabled_sets_custom_fields() -> None:
     assert result.custom_fields.configuration == {"enable_citations": True}
 
 
-def test_stop_sequences_map_to_stop() -> None:
+@pytest.mark.parametrize("stop", [["STOP"], []])
+def test_stop_sequences_map_to_stop_as_is(stop: list[str]) -> None:
     result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "stop_sequences": ["STOP"]}
+        {**user("hi"), "stop_sequences": stop}
     )
-    assert result.stop == ["STOP"]
+    assert result.model_dump(mode="json", exclude_none=True)["stop"] == stop
+
+
+def test_absent_max_tokens_sends_no_cap_and_zero_is_sent() -> None:
+    absent: CoreChatCompletionRequest = to_chat_completions_request(
+        cast(MessageCreateParams, {"model": DEPLOYMENT, **user("hi")}),
+        DEPLOYMENT,
+        ToolNameAliases(),
+    )
+    assert "max_completion_tokens" not in absent.model_dump(exclude_none=True)
+    assert convert({**user("hi"), "max_tokens": 0}).max_completion_tokens == 0
+
+
+def test_an_unknown_role_is_rejected() -> None:
+    with pytest.raises(AnthropicHTTPError) as error:
+        convert({"messages": [{"role": "developer", "content": "hi"}]})
+    assert error.value.error_type == AnthropicErrorType.INVALID_REQUEST
+
+
+def test_a_system_turn_cleared_at_the_next_user_message() -> None:
+    result: CoreChatCompletionRequest = convert(
+        {
+            "messages": [
+                {"role": "user", "content": "one"},
+                {
+                    "role": "system",
+                    "content": "cleared",
+                    "clear_at": "next_user_message",
+                },
+                {"role": "system", "content": "kept", "clear_at": "never"},
+                {"role": "user", "content": "two"},
+                {
+                    "role": "system",
+                    "content": "still visible",
+                    "clear_at": "next_user_message",
+                },
+            ]
+        }
+    )
+    assert result.messages[0].role == Role.SYSTEM
+    assert result.messages[0].content == "kept\n\nstill visible"
 
 
 @pytest.mark.parametrize(
-    "suffix",
+    "suffix, role, content",
     [
-        [],
-        [{"role": "assistant", "content": "prefill"}],
-        [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": "call",
-                        "content": "done",
-                    }
-                ],
-            }
-        ],
+        ([], Role.USER, "hi"),
+        ([{"role": "assistant", "content": "prefill"}], Role.USER, "hi"),
+        (
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call",
+                            "content": "done",
+                        }
+                    ],
+                }
+            ],
+            Role.TOOL,
+            "done",
+        ),
     ],
 )
-def test_cache_shorthand_marks_last_surviving_user(
-    suffix: list[dict[str, object]],
+def test_cache_shorthand_marks_the_last_user_or_tool_message(
+    suffix: list[dict[str, object]], role: Role, content: str
 ) -> None:
     result: CoreChatCompletionRequest = convert(
         {
@@ -952,8 +1154,8 @@ def test_cache_shorthand_marks_last_surviving_user(
         m for m in result.messages if m.custom_fields is not None
     ]
     assert len(marked) == 1
-    assert marked[0].role == "user"
-    assert marked[0].content == "hi"
+    assert marked[0].role == role
+    assert marked[0].content == content
 
 
 def test_cache_shorthand_without_user_has_no_marker() -> None:
