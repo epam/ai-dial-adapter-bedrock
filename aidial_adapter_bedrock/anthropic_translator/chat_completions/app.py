@@ -70,7 +70,9 @@ async def _handle_messages(request: Request) -> Response:
         options={"headers": headers},
     )
     translated: Message = from_chat_completions(response, deployment, aliases)
-    return JSONResponse(content=translated.model_dump(mode="json"))
+    return JSONResponse(
+        content=translated.model_dump(mode="json", exclude_unset=True)
+    )
 
 
 _messages: Callable[[Request], Awaitable[Response]] = build_endpoint(

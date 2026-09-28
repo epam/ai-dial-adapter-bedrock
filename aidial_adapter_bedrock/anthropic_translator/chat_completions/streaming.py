@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 
+from aidial_sdk.utils.merge_chunks import merge
 from anthropic.types import (
     RawContentBlockDeltaEvent,
     RawContentBlockStartEvent,
@@ -82,9 +83,7 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
             events.extend(self._on_choice(chunk.choices[0]))
 
         if chunk.usage is not None:
-            self.usage = chunk.usage
-            if not chunk.choices or self.finish_reason is not None:
-                events.extend(self.finalize())
+            self.usage = _merge_usage(self.usage, chunk.usage)
 
         return events
 
@@ -255,6 +254,16 @@ class ChatCompletionsToAnthropicStream(AnthropicStreamState):
             )
         )
         return events
+
+
+def _merge_usage(
+    current: CompletionUsage | None, update: CompletionUsage
+) -> CompletionUsage:
+    if current is None:
+        return update
+    return CompletionUsage.model_validate(
+        merge(current.model_dump(), update.model_dump())
+    )
 
 
 async def translate_stream(

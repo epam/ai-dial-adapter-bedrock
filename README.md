@@ -878,7 +878,7 @@ Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chun
 
 ### Translation limitations
 
-Supported inputs include text, images, inline/text documents, and custom function tools. System instructions move to the front, assistant thinking is omitted on replay, and text/tool interleaving can change. Token counting and output-cap clamping are outside the supported API.
+Supported inputs include text, images, inline/text/content documents, search results, and custom function tools. Provider tools (web search, bash, text editor, …) are sent as DIAL static functions, so only a deployment that understands them can run them. System instructions move to the front, assistant thinking is omitted on replay, and text/tool interleaving can change. Files API sources, document URLs, and unknown message roles are rejected with `400`. Token counting and output-cap clamping are outside the supported API.
 
 See the [translation guide](chatcompletion-transaltions.md) for the complete behavior and limitations.
 

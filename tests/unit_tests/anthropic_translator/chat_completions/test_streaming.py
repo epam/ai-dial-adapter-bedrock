@@ -115,11 +115,7 @@ async def test_plain_text_stream() -> None:
     assert events[0][1]["message"]["id"] == "chatcmpl_1"
     assert events[0][1]["message"]["stop_reason"] is None
 
-    assert events[2][1]["content_block"] == {
-        "type": "text",
-        "text": "",
-        "citations": None,
-    }
+    assert events[2][1]["content_block"] == {"type": "text", "text": ""}
     assert text_of(events) == "Hello world"
 
     message_delta = events[6][1]
@@ -127,8 +123,6 @@ async def test_plain_text_stream() -> None:
     assert message_delta["delta"] == {
         "stop_reason": "end_turn",
         "stop_sequence": None,
-        "container": None,
-        "stop_details": None,
     }
 
     assert (
@@ -194,7 +188,6 @@ async def test_tool_call_stream() -> None:
         "id": "call_1",
         "name": "get_weather",
         "input": {},
-        "caller": None,
     }
     partials = [
         data["delta"]["partial_json"]
@@ -489,16 +482,32 @@ async def test_usage_on_a_content_chunk_does_not_truncate() -> None:
     assert message_delta["usage"]["output_tokens"] == 2
 
 
-async def test_content_after_the_terminal_usage_chunk_is_ignored() -> None:
+async def test_usage_split_across_chunks_is_merged() -> None:
     events = await translate(
         [
-            chunk(ChoiceDelta(content="hi"), finish_reason="stop"),
-            usage_chunk(),
-            chunk(ChoiceDelta(content=" more")),
+            chunk(
+                ChoiceDelta(content="hi"),
+                usage=CompletionUsage(
+                    prompt_tokens=100,
+                    completion_tokens=0,
+                    total_tokens=100,
+                    prompt_tokens_details=PromptTokensDetails(cached_tokens=30),
+                ),
+            ),
+            chunk(ChoiceDelta(), finish_reason="stop"),
+            chunk(
+                choices=[],
+                usage=CompletionUsage(
+                    prompt_tokens=100, completion_tokens=7, total_tokens=107
+                ),
+            ),
         ]
     )
     assert_block_discipline(events)
-    assert text_of(events) == "hi"
+    usage = next(d for name, d in events if name == "message_delta")["usage"]
+    assert usage["input_tokens"] == 70
+    assert usage["cache_read_input_tokens"] == 30
+    assert usage["output_tokens"] == 7
 
 
 async def test_stream_without_usage_chunk_still_finalizes() -> None:
@@ -527,11 +536,7 @@ async def test_an_upstream_yielding_no_chunks_still_emits_message_start() -> (
         "message_stop",
     ]
     assert_block_discipline(events)
-    assert events[2][1]["content_block"] == {
-        "type": "text",
-        "text": "",
-        "citations": None,
-    }
+    assert events[2][1]["content_block"] == {"type": "text", "text": ""}
 
 
 async def test_a_stream_with_no_content_gets_the_zero_block_guard() -> None:
@@ -583,7 +588,6 @@ async def test_streaming_usage_accounts_for_cache_and_reasoning_tokens() -> (
         "cache_read_input_tokens": 30,
         "cache_creation_input_tokens": 25,
         "output_tokens_details": {"thinking_tokens": 40},
-        "server_tool_use": None,
     }
 
 

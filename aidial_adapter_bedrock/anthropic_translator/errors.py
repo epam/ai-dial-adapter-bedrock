@@ -108,6 +108,19 @@ def _extract_error_message(e: openai.APIStatusError) -> str:
     return e.message
 
 
+_STREAM_ERROR_TYPES: dict[str, AnthropicErrorType] = {
+    "invalid_request_error": AnthropicErrorType.INVALID_REQUEST,
+    "rate_limit_exceeded": AnthropicErrorType.RATE_LIMIT,
+}
+
+
+def anthropic_error_type_from_stream(e: openai.APIError) -> AnthropicErrorType:
+    for kind in (e.type, e.code):
+        if kind is not None and kind in _STREAM_ERROR_TYPES:
+            return _STREAM_ERROR_TYPES[kind]
+    return AnthropicErrorType.API
+
+
 def anthropic_error_from_upstream(e: openai.APIStatusError) -> JSONResponse:
     error_type: AnthropicErrorType = AnthropicErrorType.from_status_code(
         e.status_code

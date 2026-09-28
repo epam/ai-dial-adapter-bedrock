@@ -80,7 +80,14 @@ async def test_non_streaming_happy_path(
     assert body["role"] == "assistant"
     assert body["content"][0]["text"] == "hi there"
     assert body["stop_reason"] == "end_turn"
-    assert body["usage"]["input_tokens"] == 7
+    assert body["stop_sequence"] is None
+    assert body["usage"] == {
+        "input_tokens": 7,
+        "output_tokens": 3,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens_details": {"thinking_tokens": 0},
+    }
 
 
 async def test_request_shape_and_headers_not_leaked(
@@ -576,6 +583,80 @@ async def test_pre_stream_error_returns_json_not_sse(
     assert response.json()["error"]["type"] == "authentication_error"
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"output_config": {"effort": "extreme"}},
+        {"messages": [{"role": "developer", "content": "hi"}]},
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "file", "file_id": "f1"},
+                        }
+                    ],
+                }
+            ]
+        },
+    ],
+    ids=["effort", "role", "file-source"],
+)
+async def test_untranslatable_requests_return_400_without_calling_core(
+    client: httpx.AsyncClient,
+    mock_core: respx.MockRouter,
+    body: dict[str, object],
+) -> None:
+    route: respx.Route = mock_core.post(_CORE_PATH).respond(
+        json=_RESPONSE_OBJECT
+    )
+    response: httpx.Response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, **body}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_request_error"
+    assert not route.called
+
+
+@pytest.mark.parametrize(
+    "error, expected_type",
+    [
+        ({"type": "invalid_request_error"}, "invalid_request_error"),
+        (
+            {"type": "requests", "code": "rate_limit_exceeded"},
+            "rate_limit_error",
+        ),
+        ({"type": "rate_limit_exceeded"}, "rate_limit_error"),
+        ({"type": "runtime_error"}, "api_error"),
+    ],
+)
+async def test_an_error_core_writes_into_the_stream_keeps_its_kind(
+    client: httpx.AsyncClient,
+    mock_core: respx.MockRouter,
+    error: dict[str, object],
+    expected_type: str,
+) -> None:
+    upstream_sse: bytes = (
+        b'data: {"id": "chatcmpl_1", "model": "gpt-5.5", "choices": '
+        b'[{"index": 0, "delta": {"content": "Hi"}, "finish_reason": null}]}'
+        b"\n\n"
+        + f"data: {json.dumps({'error': {'message': 'nope', **error}})}\n\n".encode()
+    )
+    mock_core.post(_CORE_PATH).respond(
+        content=upstream_sse, content_type="text/event-stream"
+    )
+    response: httpx.Response = await client.post(
+        _MESSAGES_URL, json={**_MESSAGES_BODY, "stream": True}
+    )
+    events = parse_anthropic_sse(response.content)
+    assert events[-1] == (
+        "error",
+        {"type": "error", "error": {"type": expected_type, "message": "nope"}},
+    )
+
+
 @pytest.mark.parametrize("sequences", [["STOP"], ["a", "b", "c", "d", "e"]])
 async def test_stop_sequences_are_forwarded(
     client: httpx.AsyncClient,
@@ -766,7 +847,7 @@ async def test_stop_forwarding_is_independent_of_deployment_name(
                     "cacheWriteTokens": 2,
                 },
             },
-            2,
+            0,
         ),
     ],
 )

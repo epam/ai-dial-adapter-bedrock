@@ -207,11 +207,13 @@ def stop_reason(
     saw_tool_use: bool,
     saw_refusal: bool,
 ) -> StopReason:
-    if saw_tool_use:
-        return "tool_use"
     if finish_reason == "length":
         return "max_tokens"
-    if finish_reason == "content_filter" or saw_refusal:
+    if finish_reason == "content_filter":
+        return "refusal"
+    if saw_tool_use:
+        return "tool_use"
+    if saw_refusal:
         return "refusal"
     return "end_turn"
 
@@ -223,11 +225,16 @@ def convert_usage(usage: CompletionUsage | None) -> Usage:
     prompt_details: PromptTokensDetails | None = (
         usage.prompt_tokens_details if usage else None
     )
-    cache_read: int = (
-        prompt_details.cached_tokens if prompt_details else 0
-    ) or 0
-    cache_write: int = _cache_write_tokens(prompt_details)
     prompt_tokens: int = getattr(usage, "prompt_tokens", 0) or 0
+    # DIAL Core bills prompt_tokens, so the three input counters must add up
+    # to it even when the reported breakdown exceeds the total.
+    cache_read: int = min(
+        (prompt_details.cached_tokens if prompt_details else 0) or 0,
+        prompt_tokens,
+    )
+    cache_write: int = min(
+        _cache_write_tokens(prompt_details), prompt_tokens - cache_read
+    )
 
     completion_details: CompletionTokensDetails | None = (
         usage.completion_tokens_details if usage else None
@@ -237,13 +244,11 @@ def convert_usage(usage: CompletionUsage | None) -> Usage:
     ) or 0
 
     return Usage(
-        input_tokens=max(prompt_tokens - cache_read - cache_write, 0),
+        input_tokens=prompt_tokens - cache_read - cache_write,
         output_tokens=getattr(usage, "completion_tokens", 0) or 0,
         cache_read_input_tokens=cache_read,
         cache_creation_input_tokens=cache_write,
-        output_tokens_details=(
-            OutputTokensDetails(thinking_tokens=thinking) if thinking else None
-        ),
+        output_tokens_details=OutputTokensDetails(thinking_tokens=thinking),
     )
 
 
