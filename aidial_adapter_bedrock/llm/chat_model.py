@@ -4,18 +4,16 @@ from typing import Any
 
 from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import ValidationError
-from aidial_adapter_anthropic.dial._message import AdapterMessage
+from aidial_adapter_anthropic.dial._message import (
+    AdapterMessage,
+    SystemMessage,
+    is_system_role,
+)
 from aidial_adapter_anthropic.dial.consumer import Consumer
 from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import Message
 
-from aidial_adapter_bedrock.llm.message import (
-    collect_text_content,
-    is_system_role,
-)
-
-# The type `AdapterRequest.messages` is expressed in. Both of its constituents
-# are private to the library, so the import is confined to this module.
+# The type `AdapterRequest.messages` is expressed in.
 AdapterMessages = ListProjection[AdapterMessage]
 
 
@@ -48,11 +46,7 @@ def to_dial_messages(request: AdapterRequest) -> list[Message]:
 
 def default_preprocess_messages(messages: AdapterMessages) -> AdapterMessages:
     def _is_empty_system_message(msg: AdapterMessage) -> bool:
-        message = msg.to_message()
-        return (
-            is_system_role(message.role)
-            and collect_text_content(message.content).strip() == ""
-        )
+        return isinstance(msg, SystemMessage) and msg.text_content.strip() == ""
 
     ret: list[tuple[AdapterMessage, set[int]]] = []
     idx: set[int] = set()
