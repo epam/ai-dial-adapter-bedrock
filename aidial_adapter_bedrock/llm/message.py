@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Self
 
 from aidial_adapter_anthropic.adapter import ValidationError
-from aidial_adapter_anthropic.dial.request import (
+from aidial_adapter_anthropic.dial._message import (
     collect_text_content,
     is_plain_text_content,
     is_system_role,
