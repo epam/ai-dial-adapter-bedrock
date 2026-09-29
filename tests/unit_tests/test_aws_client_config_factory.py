@@ -13,8 +13,17 @@ from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
     SessionTag,
     _get_role_session_name,
+    get_sts_client,
     parse_upstream_config,
 )
+
+
+@pytest.fixture(autouse=True)
+async def clear_sts_client_cache():
+    """The STS clients are cached per region for the lifetime of the process."""
+    await get_sts_client.clear()
+    yield
+    await get_sts_client.clear()
 
 
 @pytest.mark.parametrize(
@@ -287,13 +296,9 @@ class TestAWSClientConfigFactory:
                     }
                 }
 
-        class _Session:
-            def client(self, *args, **kwargs):
-                return _Sts()
-
         monkeypatch.setattr(
-            "aidial_adapter_bedrock.upstream_config.boto3.Session",
-            lambda: _Session(),
+            "aidial_adapter_bedrock.upstream_config.create_client",
+            lambda *args, **kwargs: _Sts(),
         )
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
@@ -328,13 +333,9 @@ class TestAWSClientConfigFactory:
                     }
                 }
 
-        class _Session:
-            def client(self, *args, **kwargs):
-                return _Sts()
-
         monkeypatch.setattr(
-            "aidial_adapter_bedrock.upstream_config.boto3.Session",
-            lambda: _Session(),
+            "aidial_adapter_bedrock.upstream_config.create_client",
+            lambda *args, **kwargs: _Sts(),
         )
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")
@@ -365,13 +366,9 @@ class TestAWSClientConfigFactory:
                     }
                 }
 
-        class _Session:
-            def client(self, *args, **kwargs):
-                return _Sts()
-
         monkeypatch.setattr(
-            "aidial_adapter_bedrock.upstream_config.boto3.Session",
-            lambda: _Session(),
+            "aidial_adapter_bedrock.upstream_config.create_client",
+            lambda *args, **kwargs: _Sts(),
         )
 
         creds_config = AWSAssumeRoleCredentials(aws_assume_role_arn="arn")

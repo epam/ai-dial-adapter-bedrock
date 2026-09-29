@@ -11,12 +11,14 @@ from aidial_adapter_bedrock.anthropic_passthrough import (
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
     create_boto_client,
+    get_anthropic_http_client,
     get_dial_client_pool,
 )
 from aidial_adapter_bedrock.chat_completion import BedrockChatCompletion
 from aidial_adapter_bedrock.dial_api.response import ModelObject, ModelsResponse
 from aidial_adapter_bedrock.embeddings import BedrockEmbeddings
 from aidial_adapter_bedrock.server.exceptions import dial_exception_decorator
+from aidial_adapter_bedrock.upstream_config import get_sts_client
 from aidial_adapter_bedrock.utils.adapter_deployments import (
     get_static_deployments,
 )
@@ -26,8 +28,10 @@ from aidial_adapter_bedrock.utils.log_config import configure_loggers
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    create_anthropic_client.clear()
-    create_boto_client.clear()
+    await create_anthropic_client.clear()
+    await create_boto_client.clear()
+    await get_sts_client.clear()
+    await get_anthropic_http_client.clear()
     await get_dial_client_pool.clear()
 
 
