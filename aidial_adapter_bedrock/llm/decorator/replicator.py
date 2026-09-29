@@ -1,8 +1,8 @@
 import asyncio
+from dataclasses import replace
 
 from aidial_adapter_anthropic.dial.consumer import Consumer
-from aidial_adapter_anthropic.dial.request import ModelParameters
-from aidial_sdk.chat_completion import Message
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 
 from aidial_adapter_bedrock.llm.decorator.base import (
     ChatCompletionDecorator,
@@ -15,17 +15,11 @@ def replicator_decorator() -> ChatCompletionTransformer:
 
 
 class ReplicatorDecorator(ChatCompletionDecorator):
-    async def chat(
-        self,
-        consumer: Consumer,
-        params: ModelParameters,
-        messages: list[Message],
-    ) -> None:
-        params1 = params.model_copy()
-        params1.n = 1
+    async def chat(self, consumer: Consumer, request: AdapterRequest) -> None:
+        single = replace(request, n=1)
 
         async def _chat(root_consumer: Consumer):
             async with root_consumer.fork() as consumer:
-                await self.adapter.chat(consumer, params1, messages)
+                await self.adapter.chat(consumer, single)
 
-        await asyncio.gather(*(_chat(consumer) for _ in range(params.n)))
+        await asyncio.gather(*(_chat(consumer) for _ in range(request.n)))

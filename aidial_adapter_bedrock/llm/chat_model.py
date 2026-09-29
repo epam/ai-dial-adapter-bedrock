@@ -2,28 +2,30 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from aidial_adapter_anthropic._utils.list import ListProjection
 from aidial_adapter_anthropic.adapter import ValidationError
-from aidial_adapter_anthropic.dial.consumer import Consumer
-from aidial_adapter_anthropic.dial.request import (
-    ModelParameters,
-    collect_text_content,
+from aidial_adapter_anthropic.dial._message import (
+    AdapterMessage,
+    SystemMessage,
     is_system_role,
 )
+from aidial_adapter_anthropic.dial.consumer import Consumer
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import Message
 
-from aidial_adapter_bedrock.utils.list_projection import ListProjection
+AdapterMessages = ListProjection[AdapterMessage]
 
 
 @dataclass
 class TextCompletionAdapter(ABC):
     @abstractmethod
     async def predict(
-        self, consumer: Consumer, params: ModelParameters, prompt: str
+        self, consumer: Consumer, params: AdapterRequest, prompt: str
     ) -> None:
         pass
 
     async def count_prompt_tokens(
-        self, params: ModelParameters, prompt: str
+        self, params: AdapterRequest, prompt: str
     ) -> int:
         raise NotImplementedError()
 
@@ -31,20 +33,26 @@ class TextCompletionAdapter(ABC):
         raise NotImplementedError()
 
 
-def default_preprocess_messages(
-    messages: list[Message],
-) -> ListProjection[Message]:
-    def _is_empty_system_message(msg: Message) -> bool:
-        return (
-            is_system_role(msg.role)
-            and collect_text_content(msg.content).strip() == ""
-        )
+def to_dial_messages(request: AdapterRequest) -> list[Message]:
+    """Unwraps the parsed messages back into the raw DIAL ones.
 
-    ret: list[tuple[Message, set[int]]] = []
+    `AdapterRequest` hands over the messages already parsed, while the adapters
+    below still speak the raw DIAL ones. The round-trip is 1:1, so an index
+    into the result is an index into `request.messages`.
+    """
+    return [msg.to_message() for msg in request.messages.raw_list]
+
+
+def default_preprocess_messages(messages: AdapterMessages) -> AdapterMessages:
+    def _is_empty_system_message(msg: AdapterMessage) -> bool:
+        return isinstance(msg, SystemMessage) and msg.text_content.strip() == ""
+
+    ret: list[tuple[AdapterMessage, set[int]]] = []
     idx: set[int] = set()
 
-    for i, msg in enumerate(messages):
-        idx.add(i)
+    # A dropped message is attributed to the message that follows it.
+    for msg, indices in messages.lst:
+        idx |= indices
         if _is_empty_system_message(msg):
             continue
         ret.append((msg, idx))

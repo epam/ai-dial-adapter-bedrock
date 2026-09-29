@@ -6,7 +6,7 @@ from aidial_adapter_anthropic.adapter import (
     ValidationError,
 )
 from aidial_adapter_anthropic.dial.consumer import ChoiceConsumer
-from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_sdk.chat_completion import (
     ChatCompletion,
     ConfigurationRequest,
@@ -90,11 +90,11 @@ class BedrockChatCompletion(ChatCompletion):
         response.set_model(deployment.upstream_deployment_id)
 
         model = await self._get_model(request)
-        params = ModelParameters.create(request)
+        adapter_request = AdapterRequest.create(request)
 
         async with ChoiceConsumer(response) as consumer:
             try:
-                await model.chat(consumer, params, request.messages)
+                await model.chat(consumer, adapter_request)
             except UserError as e:
                 await e.report_usage(consumer.choice)
                 await response.aflush()
@@ -138,11 +138,9 @@ class BedrockChatCompletion(ChatCompletion):
     async def _tokenize_request(
         self, model: ChatCompletionAdapter, request: ChatCompletionRequest
     ) -> TokenizeOutput:
-        params = ModelParameters.create(request)
-
         try:
             token_count = await model.count_prompt_tokens(
-                params, request.messages
+                AdapterRequest.create(request)
             )
             return TokenizeSuccess(token_count=token_count)
         except NotImplementedError:
@@ -167,13 +165,13 @@ class BedrockChatCompletion(ChatCompletion):
         self, model: ChatCompletionAdapter, request: ChatCompletionRequest
     ) -> TruncatePromptResult:
         try:
-            params = ModelParameters.create(request)
+            adapter_request = AdapterRequest.create(request)
 
-            if params.max_prompt_tokens is None:
+            if adapter_request.max_prompt_tokens is None:
                 raise ValidationError("max_prompt_tokens is required")
 
             discarded_messages = await model.compute_discarded_messages(
-                params, request.messages
+                adapter_request
             )
 
             return TruncatePromptSuccess(
