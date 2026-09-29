@@ -96,8 +96,6 @@ class AWSAssumeRoleCredentials(BaseModel):
         region: str,
         session_tags: list[SessionTag] | None = None,
     ) -> tuple[datetime, ClientCredentialArgs]:
-        sts_client = await make_async(lambda: get_sts_client(region))
-
         assume_role_params: dict = {
             "RoleArn": self.aws_assume_role_arn,
             "RoleSessionName": _get_role_session_name(session_tags),
@@ -109,7 +107,7 @@ class AWSAssumeRoleCredentials(BaseModel):
             ]
 
         response = await make_async(
-            lambda: sts_client.assume_role(**assume_role_params)
+            lambda: get_sts_client(region).assume_role(**assume_role_params)
         )
 
         creds = response["Credentials"]
