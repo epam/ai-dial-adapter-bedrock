@@ -35,13 +35,6 @@ class _SyncCachedFunction(Protocol, Generic[_P, _T_co]):
 def cache(
     close: _Close | None = None,
 ) -> Callable[[Callable[_P, _T]], _SyncCachedFunction[_P, _T]]:
-    """
-    Caches the value for as long as the process lives.
-
-    `close` releases the resources of a value that the cache drops, which
-    happens on `clear` only.
-    """
-
     def wrapper(
         func: Callable[_P, _T],
     ) -> _SyncCachedFunction[_P, _T]:
@@ -84,15 +77,6 @@ def ttl_cache(
     [Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]]],
     _AsyncCachedFunction[_P, _T],
 ]:
-    """
-    Caches the awaited value until the expiration it is returned with.
-
-    `maxsize` bounds the cache, evicting the least recently used entry;
-    leaving it unset makes the cache grow with the number of distinct keys.
-    `close` releases the resources of a value that the cache drops, be it on
-    eviction, on expiration or on `clear`.
-    """
-
     def wrapper(
         func: Callable[_P, Coroutine[Any, Any, tuple[datetime | None, _T]]],
     ) -> _AsyncCachedFunction[_P, _T]:
