@@ -1,9 +1,8 @@
 import os
 import re
 from datetime import datetime
-from typing import ClassVar, Optional, TypedDict, assert_never
+from typing import Any, ClassVar, Optional, TypedDict, assert_never
 
-import boto3
 import fastapi
 from pydantic import (
     BaseModel,
@@ -11,6 +10,8 @@ from pydantic import (
     Field,
 )
 
+from aidial_adapter_bedrock.utils.boto import close_client, create_client
+from aidial_adapter_bedrock.utils.cache import cache
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import (
     AWSClaudeClient,
@@ -82,6 +83,11 @@ class AWSClientCredentials(BaseModel):
         )
 
 
+@cache(close=close_client)
+def get_sts_client(region: str) -> Any:
+    return create_client("sts", region_name=region)
+
+
 class AWSAssumeRoleCredentials(BaseModel):
     aws_assume_role_arn: str
 
@@ -90,10 +96,6 @@ class AWSAssumeRoleCredentials(BaseModel):
         region: str,
         session_tags: list[SessionTag] | None = None,
     ) -> tuple[datetime, ClientCredentialArgs]:
-        sts_client = await make_async(
-            lambda: boto3.Session().client("sts", region_name=region)
-        )
-
         assume_role_params: dict = {
             "RoleArn": self.aws_assume_role_arn,
             "RoleSessionName": _get_role_session_name(session_tags),
@@ -104,7 +106,9 @@ class AWSAssumeRoleCredentials(BaseModel):
                 for tag in session_tags
             ]
 
-        response = sts_client.assume_role(**assume_role_params)
+        response = await make_async(
+            lambda: get_sts_client(region).assume_role(**assume_role_params)
+        )
 
         creds = response["Credentials"]
 
