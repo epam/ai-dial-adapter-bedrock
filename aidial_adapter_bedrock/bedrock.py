@@ -26,7 +26,7 @@ from aidial_adapter_bedrock.upstream_config import (
     SessionTag,
     UpstreamConfig,
 )
-from aidial_adapter_bedrock.utils.boto import create_client
+from aidial_adapter_bedrock.utils.boto import close_client, create_client
 from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
     make_async,
@@ -48,7 +48,7 @@ BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
 )
 ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
 
-CLIENT_CACHE_MAX_SIZE = get_env_int("CLIENT_CACHE_MAX_SIZE", 500)
+CLIENT_CACHE_MAX_SIZE = get_env_int("CLIENT_CACHE_MAX_SIZE", 512)
 
 # Same as Anthropic SDK timeouts: anthropic._constants.DEFAULT_TIMEOUT
 DEFAULT_TIMEOUTS = httpx.Timeout(
@@ -148,11 +148,7 @@ async def create_anthropic_client(
             assert_never(upstream_config.claude_client)
 
 
-async def _close_boto_client(client: Any) -> None:
-    await make_async(client.close)
-
-
-@ttl_cache(maxsize=CLIENT_CACHE_MAX_SIZE, close=_close_boto_client)
+@ttl_cache(maxsize=CLIENT_CACHE_MAX_SIZE, close=close_client)
 async def create_boto_client(
     service_name: str,
     upstream_config: CloudUpstreamConfig,

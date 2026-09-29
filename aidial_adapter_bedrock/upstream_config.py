@@ -10,7 +10,7 @@ from pydantic import (
     Field,
 )
 
-from aidial_adapter_bedrock.utils.boto import create_client
+from aidial_adapter_bedrock.utils.boto import close_client, create_client
 from aidial_adapter_bedrock.utils.cache import cache
 from aidial_adapter_bedrock.utils.concurrency import make_async
 from aidial_adapter_bedrock.utils.env import (
@@ -83,8 +83,8 @@ class AWSClientCredentials(BaseModel):
         )
 
 
-@cache()
-def _get_sts_client(region: str) -> Any:
+@cache(close=close_client)
+def get_sts_client(region: str) -> Any:
     return create_client("sts", region_name=region)
 
 
@@ -96,7 +96,7 @@ class AWSAssumeRoleCredentials(BaseModel):
         region: str,
         session_tags: list[SessionTag] | None = None,
     ) -> tuple[datetime, ClientCredentialArgs]:
-        sts_client = await make_async(lambda: _get_sts_client(region))
+        sts_client = await make_async(lambda: get_sts_client(region))
 
         assume_role_params: dict = {
             "RoleArn": self.aws_assume_role_arn,

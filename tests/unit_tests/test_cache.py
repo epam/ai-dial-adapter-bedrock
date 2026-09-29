@@ -281,6 +281,35 @@ async def test_close_failure_does_not_break_caching():
     assert await cached(2) == 2
 
 
+async def test_clear_closes_every_cached_value():
+    closed = []
+
+    async def func(x):
+        return (None, x)
+
+    cached = ttl_cache(close=lambda v: _record(closed, v))(func)
+
+    await cached(1)
+    await cached(2)
+    await cached(3)
+    await cached.clear()
+
+    assert sorted(closed) == [1, 2, 3]
+
+    calls = []
+
+    async def counting(x):
+        calls.append(x)
+        return (None, x)
+
+    cached = ttl_cache()(counting)
+    await cached(1)
+    await cached.clear()
+    await cached(1)
+
+    assert calls == [1, 1]
+
+
 async def _record(sink: list, value) -> None:
     sink.append(value)
 

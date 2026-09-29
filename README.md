@@ -501,16 +501,6 @@ The adapter fits the tags to the AWS constraints for
 [session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations),
 logging every adjustment it makes.
 
-> [!IMPORTANT]
-> A distinct set of tag *values* requires a distinct `AssumeRole` call, so the
-> adapter caches one AWS client per distinct set. The number of clients it
-> keeps therefore grows with the cardinality of the sources you configure: a
-> per-user source such as `UserInfo.userId` yields a client per user and model,
-> while `UserInfo.project` yields one per project and model. The caches are
-> bounded by [`CLIENT_CACHE_MAX_SIZE`](#resource-limits); prefer the
-> lowest-cardinality source that satisfies your IAM policies, and raise the
-> bound if the set of concurrently active users exceeds it.
-
 #### The Bedrock source
 
 `Bedrock.modelId` holds the deployment id the request was addressed to, as it
@@ -578,7 +568,6 @@ The following environment variables reveal adapter's implementation details and 
 |ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
-|CLIENT_CACHE_MAX_SIZE|[Anthropic SDK](#implementation-basis), [Bedrock API & Conserve API](#implementation-basis)|500|The maximum number of AWS clients kept in each client cache. The caches are keyed by the [session tags](#session-tags) among other things, so their size grows with the number of distinct users and models seen; once the bound is reached, the least recently used client is evicted and its connection pool closed. Raise it if the set of *concurrently active* users is larger than the bound, which would make the adapter call `AssumeRole` more often than necessary.|
 
 ### Default `max_tokens` for Claude models
 

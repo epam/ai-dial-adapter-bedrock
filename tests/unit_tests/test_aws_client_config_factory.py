@@ -13,7 +13,7 @@ from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
     SessionTag,
     _get_role_session_name,
-    _get_sts_client,
+    get_sts_client,
     parse_upstream_config,
 )
 
@@ -21,9 +21,9 @@ from aidial_adapter_bedrock.upstream_config import (
 @pytest.fixture(autouse=True)
 async def clear_sts_client_cache():
     """The STS clients are cached per region for the lifetime of the process."""
-    await _get_sts_client.clear()
+    await get_sts_client.clear()
     yield
-    await _get_sts_client.clear()
+    await get_sts_client.clear()
 
 
 @pytest.mark.parametrize(

@@ -31,7 +31,7 @@ def _assume_role_config() -> CloudUpstreamConfig:
 
 class TestCreateAnthropicClient:
     async def test_api_key_path_uses_async_anthropic(self, monkeypatch):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_async_anthropic(**kwargs):
             return _DummyClient("api-key", kwargs)
@@ -50,7 +50,7 @@ class TestCreateAnthropicClient:
         assert client.kwargs["api_key"] == "test-key"
 
     async def test_cloud_path_uses_legacy_client_by_default(self, monkeypatch):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_legacy_client(**kwargs):
             return _DummyClient("legacy", kwargs)
@@ -71,7 +71,7 @@ class TestCreateAnthropicClient:
     async def test_cloud_path_uses_mantle_client_when_selected(
         self, monkeypatch
     ):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_mantle_client(**kwargs):
             return _DummyClient("mantle", kwargs)
@@ -90,7 +90,7 @@ class TestCreateAnthropicClient:
         assert client.kwargs["aws_region"] == "us-east-1"
 
     async def test_cloud_path_rejects_boto_client(self):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         with pytest.raises(ValueError) as exc_info:
             await create_anthropic_client(
@@ -107,7 +107,7 @@ class TestCreateAnthropicClient:
     async def test_cache_key_differs_between_legacy_and_mantle(
         self, monkeypatch
     ):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         calls = {"legacy": 0, "mantle": 0}
 
@@ -149,7 +149,7 @@ class TestCreateAnthropicClient:
     async def test_cloud_path_passes_session_tags_to_assume_role(
         self, monkeypatch
     ):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
         captured: list = []
 
         async def _fake_get_credentials(self, region, session_tags=None):
@@ -179,7 +179,7 @@ class TestCreateAnthropicClient:
     async def test_cache_key_separates_session_tags(self, monkeypatch):
         """Two users must never share one set of assumed-role credentials."""
 
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
         calls = 0
 
         async def _fake_get_credentials(self, region, session_tags=None):
@@ -224,7 +224,7 @@ class TestCreateAnthropicClient:
     async def test_clients_share_one_http_client(self, monkeypatch):
         """Per-user clients must not each hold their own connection pool."""
 
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         async def _fake_get_credentials(self, region, session_tags=None):
             return None, ClientCredentialArgs()
@@ -251,5 +251,11 @@ class TestCreateAnthropicClient:
             for user in ("alice", "bob", "carol")
         ]
 
-        http_clients = {id(c.kwargs["http_client"]) for c in clients}
+        assert all(isinstance(client, _DummyClient) for client in clients)
+
+        http_clients = {
+            id(client.kwargs["http_client"])
+            for client in clients
+            if isinstance(client, _DummyClient)
+        }
         assert http_clients == {id(get_anthropic_http_client())}
