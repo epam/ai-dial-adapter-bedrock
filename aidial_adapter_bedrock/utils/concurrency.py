@@ -7,12 +7,14 @@ from aidial_adapter_bedrock.utils.constants import THREAD_POOL_SIZE
 
 _T = TypeVar("_T")
 
-# A single shared pool for all blocking operations including boto call.
+# A single shared pool for all blocking operations including all boto calls.
 #
-# Every boto call holds a thread for its whole duration, and
-# `to_async_iterator` holds one for the whole stream -- so the default has to
-# be well above `min(32, cpu_count + 4)`, which would cap concurrent streams
-# at single digits on a small pod.
+# A thread is held per blocking call, not per request, but `next()` on a
+# Botocore event stream blocks until the next chunk arrives -- most of a
+# stream's wall time -- so demand stays close to the number of streams in
+# flight. Beyond the pool size requests still all progress, each chunk waiting
+# its turn for a thread, so this caps throughput rather than concurrency.
+# Hence a size far above the `min(32, cpu_count + 4)` default.
 _THREAD_POOL = ThreadPoolExecutor(max_workers=THREAD_POOL_SIZE)
 
 
