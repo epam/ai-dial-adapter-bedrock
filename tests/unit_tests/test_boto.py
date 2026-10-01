@@ -50,3 +50,49 @@ async def test_close_client_is_repeatable():
     await close_client(client)
 
     assert _open_pools(client) == 0
+
+
+def test_botocore_own_clients_get_the_control_plane_timeouts():
+    """
+    A credential refresh calls STS through a client botocore builds itself,
+    passing only a signature version -- and it does so while holding
+    `RefreshableCredentials._refresh_lock`, which every signing thread blocks
+    on in the mandatory refresh window. The session default is the only way to
+    keep it off botocore's 60s defaults.
+    """
+    from botocore import UNSIGNED
+    from botocore.client import Config
+    from botocore.utils import create_nested_client
+
+    from aidial_adapter_bedrock.utils.boto import _botocore_session
+    from aidial_adapter_bedrock.utils.constants import (
+        _BOTOCORE_CONTROL_PLANE_READ_TIMEOUT,
+        CONNECT_TIMEOUT,
+    )
+
+    refresh_client = create_nested_client(
+        _botocore_session,
+        "sts",
+        region_name="us-east-1",
+        config=Config(signature_version=UNSIGNED),
+    )
+
+    assert (
+        refresh_client.meta.config.read_timeout
+        == _BOTOCORE_CONTROL_PLANE_READ_TIMEOUT
+    )
+    assert refresh_client.meta.config.connect_timeout == CONNECT_TIMEOUT
+
+
+def test_an_explicit_config_overrides_the_session_default():
+    """`GENERATION_CONFIG`'s long read timeout must survive the merge."""
+
+    from aidial_adapter_bedrock.utils.constants import (
+        GENERATION_CONFIG,
+        READ_TIMEOUT,
+    )
+
+    client = create_client(
+        "bedrock-runtime", config=GENERATION_CONFIG, **_CREDS
+    )
+    assert client.meta.config.read_timeout == READ_TIMEOUT
