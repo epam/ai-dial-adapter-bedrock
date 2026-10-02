@@ -4,7 +4,7 @@ from logging import DEBUG
 from typing import Any, assert_never
 
 from aidial_adapter_anthropic.dial.consumer import Consumer
-from aidial_adapter_anthropic.dial.request import ModelParameters
+from aidial_adapter_anthropic.dial.request import AdapterRequest
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_adapter_anthropic.dial.tools import ToolsMode
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
@@ -44,7 +44,7 @@ def to_dial_usage(
 
 
 async def process_streaming(
-    params: ModelParameters,
+    request: AdapterRequest,
     stream: AsyncIterator[Any],
     consumer: Consumer,
 ) -> None:
@@ -89,7 +89,7 @@ async def process_streaming(
 
         elif event.get("contentBlockStop"):
             if current_tool_use:
-                match params.tools_mode:
+                match request.tools_mode:
                     case ToolsMode.TOOLS:
                         await consumer.create_function_tool_call(
                             call=DialToolCall(
@@ -115,7 +115,7 @@ async def process_streaming(
                             "Tool use received without tools mode"
                         )
                     case _:
-                        assert_never(params.tools_mode)
+                        assert_never(request.tools_mode)
                 current_tool_use = None
 
         elif (message_stop := event.get("messageStop")) and (
@@ -127,7 +127,7 @@ async def process_streaming(
 
 
 async def process_non_streaming(
-    params: ModelParameters,
+    request: AdapterRequest,
     response: dict[str, Any],
     consumer: Consumer,
 ) -> None:
@@ -151,7 +151,7 @@ async def process_non_streaming(
             thinking_stage.append_content(text)
 
         if tool_use := content_block.get("toolUse"):
-            match params.tools_mode:
+            match request.tools_mode:
                 case ToolsMode.TOOLS:
                     await consumer.create_function_tool_call(
                         call=DialToolCall(
@@ -175,7 +175,7 @@ async def process_non_streaming(
                 case None:
                     raise RuntimeError("Tool use received without tools mode")
                 case _:
-                    assert_never(params.tools_mode)
+                    assert_never(request.tools_mode)
 
     thinking_stage.close()
 

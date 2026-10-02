@@ -1,41 +1,14 @@
 ---
+analyzer:
+  skip_excluded: true
 excludes:
   scopes:
-  - pattern: "dev"
-    reason: "DEV_DEPENDENCY_OF"
-    comment: "Packages for development only."
-  - pattern: "lint"
-    reason: "DEV_DEPENDENCY_OF"
-    comment: "Packages for static code analysis only."
-  - pattern: "test"
-    reason: "TEST_DEPENDENCY_OF"
-    comment: "Packages for testing only."
-resolutions:
-  rule_violations:
-    - message: ".*PyPI::setuptools:78\\.1\\.1.*"
-      reason: "CANT_FIX_EXCEPTION"
-      comment: "BSD 3-Clause New or Revised License: https://github.com/pypa/setuptools/blob/v78.1.1/LICENSE"
-    - message: ".*PyPI::httpx:0\\.28\\.1.*"
-      reason: 'CANT_FIX_EXCEPTION'
-      comment: 'BSD 3-Clause "New" or "Revised" License: https://github.com/encode/httpx/blob/0.28.1/LICENSE.md'
-    - message: ".*PyPI::httpcore:1\\.0\\.9.*"
-      reason: 'CANT_FIX_EXCEPTION'
-      comment: 'BSD 3-Clause "New" or "Revised" License: https://github.com/encode/httpcore/blob/1.0.9/LICENSE.md'
-    - message: ".*PyPI::werkzeug:3\\.0\\.1.*"
-      reason: 'CANT_FIX_EXCEPTION'
-      comment: 'BSD 3-Clause "New" or "Revised" License: https://github.com/pallets/werkzeug/blob/3.0.1/LICENSE.rst'
-    - message: ".*PyPI::numpy:2\\.0\\.0.*"
-      reason: 'CANT_FIX_EXCEPTION'
-      comment: 'BSD License: https://github.com/numpy/numpy/blob/v2.0.0/LICENSE.txt'
-    - message: ".*PyPI::urllib3:2\\.7\\.0.*"
-      reason: "CANT_FIX_EXCEPTION"
-      comment: "MIT License: https://github.com/urllib3/urllib3/blob/2.7.0/LICENSE.txt"
-    - message: ".*PyPI::anyio:4\\.12\\.0.*"
-      reason: "CANT_FIX_EXCEPTION"
-      comment: "MIT License: https://github.com/agronholm/anyio/blob/4.12.0/LICENSE"
-    - message: ".*PyPI::typing-extensions:4\\.15\\.0.*"
-      reason: "CANT_FIX_EXCEPTION"
-      comment: "Same as CPython: https://github.com/python/typing_extensions/blob/4.15.0/LICENSE"
-    - message: ".*PyPI::(opentelemetry|pillow|aidial-sdk|aidial-adapter-anthropic|idna|starlette|fastapi|typing-inspection|aidial-client).*"
-      reason: "CANT_FIX_EXCEPTION"
-      comment: "ORT cannot pickup license"
+    - pattern: "dev"
+      reason: "DEV_DEPENDENCY_OF"
+      comment: "Packages for development only."
+    - pattern: "lint"
+      reason: "DEV_DEPENDENCY_OF"
+      comment: "Packages for static code analysis only."
+    - pattern: "test"
+      reason: "TEST_DEPENDENCY_OF"
+      comment: "Packages for testing only."

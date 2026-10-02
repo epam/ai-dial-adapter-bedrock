@@ -1,8 +1,8 @@
 import os
+import re
 from datetime import datetime
-from typing import ClassVar, Optional, TypedDict, assert_never
+from typing import Any, ClassVar, Optional, TypedDict, assert_never
 
-import boto3
 import fastapi
 from pydantic import (
     BaseModel,
@@ -10,7 +10,9 @@ from pydantic import (
     Field,
 )
 
-from aidial_adapter_bedrock.utils.concurrency import make_async
+from aidial_adapter_bedrock.utils.boto import close_client, create_client
+from aidial_adapter_bedrock.utils.cache import cache
+from aidial_adapter_bedrock.utils.concurrency import run_in_threadpool
 from aidial_adapter_bedrock.utils.env import (
     AWSClaudeClient,
     get_aws_default_region,
@@ -20,10 +22,46 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 _UPSTREAM_CONFIG_HEADER_NAME = "x-upstream-extra-data"
 
+_DEFAULT_ROLE_SESSION_NAME = "BedrockAccessSession"
+
+# The value source of the session tag naming the user project. When such a
+# tag is passed, the project names the role session instead of the default
+# above.
+_PROJECT_VALUE_SOURCE = "UserInfo.project"
+# The marker goes in front, so that it survives the truncation of a long
+# project and groups the adapter sessions together in the AWS logs.
+_PROJECT_ROLE_SESSION_NAME_PREFIX = "Project_"
+
+# AWS STS RoleSessionName constraints:
+# https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+_MAX_ROLE_SESSION_NAME_LEN = 64
+_INVALID_ROLE_SESSION_NAME_CHARS = re.compile(r"[^\w+=,.@-]")
+
 
 class SessionTag(TypedDict):
     Key: str
+    ValueSource: str
     Value: str
+
+
+def _get_role_session_name(session_tags: list[SessionTag] | None) -> str:
+    project = next(
+        (
+            tag["Value"]
+            for tag in session_tags or []
+            if tag["ValueSource"] == _PROJECT_VALUE_SOURCE
+        ),
+        None,
+    )
+
+    # A user without a project is resolved to the JSON "null" by the session
+    # tags, which makes for a meaningless session name.
+    if project is None or project in {"", "null"}:
+        return _DEFAULT_ROLE_SESSION_NAME
+
+    project = f"{_PROJECT_ROLE_SESSION_NAME_PREFIX}{project}"
+    project = _INVALID_ROLE_SESSION_NAME_CHARS.sub("_", project)
+    return project[:_MAX_ROLE_SESSION_NAME_LEN]
 
 
 class ClientCredentialArgs(BaseModel):
@@ -45,6 +83,11 @@ class AWSClientCredentials(BaseModel):
         )
 
 
+@cache(close=close_client)
+def get_sts_client(region: str) -> Any:
+    return create_client("sts", region_name=region)
+
+
 class AWSAssumeRoleCredentials(BaseModel):
     aws_assume_role_arn: str
 
@@ -53,18 +96,19 @@ class AWSAssumeRoleCredentials(BaseModel):
         region: str,
         session_tags: list[SessionTag] | None = None,
     ) -> tuple[datetime, ClientCredentialArgs]:
-        sts_client = await make_async(
-            lambda: boto3.Session().client("sts", region_name=region)
-        )
-
         assume_role_params: dict = {
             "RoleArn": self.aws_assume_role_arn,
-            "RoleSessionName": "BedrockAccessSession",
+            "RoleSessionName": _get_role_session_name(session_tags),
         }
         if session_tags:
-            assume_role_params["Tags"] = session_tags
+            assume_role_params["Tags"] = [
+                {"Key": tag["Key"], "Value": tag["Value"]}
+                for tag in session_tags
+            ]
 
-        response = sts_client.assume_role(**assume_role_params)
+        response = await run_in_threadpool(
+            lambda: get_sts_client(region).assume_role(**assume_role_params)
+        )
 
         creds = response["Credentials"]
 

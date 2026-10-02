@@ -48,7 +48,7 @@ async def test_basic_caching(get_now):
         calls += 1
         return (get_now() + timedelta(minutes=5), x * 2)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
 
     result1 = await cached(2)
     result2 = await cached(2)
@@ -66,7 +66,7 @@ async def test_no_expiry():
         calls += 1
         return (None, x + 1)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
 
     r1 = await cached(1)
     r2 = await cached(1)
@@ -88,7 +88,7 @@ async def test_expiry_refresh(get_now):
             return (get_now() + timedelta(seconds=30), "first")
         return (get_now() + timedelta(minutes=5), "second")
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
 
     v1 = await cached(3)
     v2 = await cached(3)
@@ -107,7 +107,7 @@ async def test_different_args_and_kwargs(get_now):
         calls.append((a, b))
         return (get_now() + timedelta(minutes=5), a + b)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
 
     r1 = await cached(1, b=2)
     r2 = await cached(1, b=3)
@@ -130,7 +130,7 @@ async def test_model_arg_serialization(get_now):
         calls += 1
         return (get_now() + timedelta(minutes=5), m.x)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
 
     m1 = M(x=5)
     m2 = M(x=5)
@@ -153,7 +153,7 @@ async def test_different_keys():
         calls.append(x)
         return (None, x)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
     res1 = await cached(1)
     res2 = await cached(2)
 
@@ -169,7 +169,7 @@ async def test_args_kwargs_separate_keys():
         calls.append(x)
         return (None, x)
 
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
     res1 = await cached(1)
     res2 = await cached(x=1)
 
@@ -188,10 +188,130 @@ async def test_concurrent_requests(get_now):
         return (get_now() + timedelta(minutes=5), x)
 
     n = 100
-    cached = ttl_cache(func)
+    cached = ttl_cache()(func)
     results = await asyncio.gather(*[cached(7) for _ in range(n)])
     assert results == [7] * n
     assert calls == 1
+
+
+async def test_maxsize_evicts_least_recently_used():
+    closed = []
+
+    async def func(x):
+        return (None, x)
+
+    cached = ttl_cache(maxsize=2, close=lambda v: _record(closed, v))(func)
+
+    await cached(1)
+    await cached(2)
+    await cached(1)  # makes 2 the least recently used one
+    await cached(3)
+
+    assert closed == [2]
+
+    calls = []
+
+    async def counting(x):
+        calls.append(x)
+        return (None, x)
+
+    cached = ttl_cache(maxsize=2)(counting)
+    await cached(1)
+    await cached(2)
+    await cached(1)
+    await cached(3)
+    await cached(1)  # still cached
+    await cached(2)  # was evicted, so recomputed
+
+    assert calls == [1, 2, 3, 2]
+
+
+async def test_unbounded_by_default():
+    async def func(x):
+        return (None, x)
+
+    cached = ttl_cache()(func)
+    for i in range(50):
+        await cached(i)
+
+    calls = []
+
+    async def counting(x):
+        calls.append(x)
+        return (None, x)
+
+    cached = ttl_cache()(counting)
+    for i in range(50):
+        await cached(i)
+    for i in range(50):
+        await cached(i)
+
+    assert calls == list(range(50))
+
+
+async def test_expired_value_is_closed_on_refresh(get_now):
+    closed = []
+    calls = 0
+
+    async def func(x):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return (get_now() + timedelta(seconds=30), "first")
+        return (get_now() + timedelta(minutes=5), "second")
+
+    cached = ttl_cache(close=lambda v: _record(closed, v))(func)
+
+    assert await cached(1) == "first"
+    assert closed == []
+    assert await cached(1) == "second"
+    assert closed == ["first"]
+
+
+async def test_close_failure_does_not_break_caching():
+    async def failing_close(value):
+        raise RuntimeError("boom")
+
+    async def func(x):
+        return (None, x)
+
+    cached = ttl_cache(maxsize=1, close=failing_close)(func)
+
+    await cached(1)
+    assert await cached(2) == 2
+
+
+async def test_clear_closes_every_cached_value():
+    closed = []
+
+    async def func(x):
+        return (None, x)
+
+    cached = ttl_cache(close=lambda v: _record(closed, v))(func)
+
+    await cached(1)
+    await cached(2)
+    await cached(3)
+    await cached.clear()
+
+    assert sorted(closed) == [1, 2, 3]
+
+    calls = []
+
+    async def counting(x):
+        calls.append(x)
+        return (None, x)
+
+    cached = ttl_cache()(counting)
+    await cached(1)
+    await cached.clear()
+    await cached(1)
+
+    assert calls == [1, 1]
+
+
+async def _record(sink: list, value) -> None:
+    sink.append(value)
 
 
 def test_make_key_order_independence():

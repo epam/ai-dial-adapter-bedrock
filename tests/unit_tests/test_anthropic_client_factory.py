@@ -2,10 +2,16 @@ from dataclasses import dataclass
 
 import pytest
 
-from aidial_adapter_bedrock.bedrock import create_anthropic_client
+from aidial_adapter_bedrock.bedrock import (
+    create_anthropic_client,
+    get_anthropic_http_client,
+)
 from aidial_adapter_bedrock.upstream_config import (
     ApiKeyUpstreamConfig,
+    AWSAssumeRoleCredentials,
+    ClientCredentialArgs,
     CloudUpstreamConfig,
+    SessionTag,
 )
 
 
@@ -15,9 +21,17 @@ class _DummyClient:
     kwargs: dict
 
 
+def _assume_role_config() -> CloudUpstreamConfig:
+    return CloudUpstreamConfig(
+        region="us-east-1",
+        claude_client="legacy",
+        credentials=AWSAssumeRoleCredentials(aws_assume_role_arn="arn"),
+    )
+
+
 class TestCreateAnthropicClient:
     async def test_api_key_path_uses_async_anthropic(self, monkeypatch):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_async_anthropic(**kwargs):
             return _DummyClient("api-key", kwargs)
@@ -36,7 +50,7 @@ class TestCreateAnthropicClient:
         assert client.kwargs["api_key"] == "test-key"
 
     async def test_cloud_path_uses_legacy_client_by_default(self, monkeypatch):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_legacy_client(**kwargs):
             return _DummyClient("legacy", kwargs)
@@ -57,7 +71,7 @@ class TestCreateAnthropicClient:
     async def test_cloud_path_uses_mantle_client_when_selected(
         self, monkeypatch
     ):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         def _fake_mantle_client(**kwargs):
             return _DummyClient("mantle", kwargs)
@@ -76,7 +90,7 @@ class TestCreateAnthropicClient:
         assert client.kwargs["aws_region"] == "us-east-1"
 
     async def test_cloud_path_rejects_boto_client(self):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         with pytest.raises(ValueError) as exc_info:
             await create_anthropic_client(
@@ -93,7 +107,7 @@ class TestCreateAnthropicClient:
     async def test_cache_key_differs_between_legacy_and_mantle(
         self, monkeypatch
     ):
-        create_anthropic_client.clear()
+        await create_anthropic_client.clear()
 
         calls = {"legacy": 0, "mantle": 0}
 
@@ -131,3 +145,117 @@ class TestCreateAnthropicClient:
         assert mantle_1 is mantle_2
         assert legacy_1 is not mantle_1
         assert calls == {"legacy": 1, "mantle": 1}
+
+    async def test_cloud_path_passes_session_tags_to_assume_role(
+        self, monkeypatch
+    ):
+        await create_anthropic_client.clear()
+        captured: list = []
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            captured.append(session_tags)
+            return None, ClientCredentialArgs()
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            lambda **kwargs: _DummyClient("legacy", kwargs),
+        )
+
+        tags: list[SessionTag] = [
+            {
+                "Key": "application",
+                "ValueSource": "Bedrock.modelId",
+                "Value": "anthropic.claude-opus-5",
+            }
+        ]
+
+        await create_anthropic_client(_assume_role_config(), tags)
+
+        assert captured == [tags]
+
+    async def test_cache_key_separates_session_tags(self, monkeypatch):
+        """Two users must never share one set of assumed-role credentials."""
+
+        await create_anthropic_client.clear()
+        calls = 0
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            return None, ClientCredentialArgs()
+
+        def _fake_legacy_client(**kwargs):
+            nonlocal calls
+            calls += 1
+            return _DummyClient("legacy", kwargs)
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            _fake_legacy_client,
+        )
+
+        alice: list[SessionTag] = [
+            {
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
+                "Value": "alice@example.com",
+            }
+        ]
+        bob: list[SessionTag] = [
+            {
+                "Key": "employee",
+                "ValueSource": "UserInfo.userClaims.email",
+                "Value": "bob@example.com",
+            }
+        ]
+
+        alice_1 = await create_anthropic_client(_assume_role_config(), alice)
+        alice_2 = await create_anthropic_client(_assume_role_config(), alice)
+        bob_1 = await create_anthropic_client(_assume_role_config(), bob)
+
+        assert alice_1 is alice_2
+        assert alice_1 is not bob_1
+        assert calls == 2
+
+    async def test_clients_share_one_http_client(self, monkeypatch):
+        """Per-user clients must not each hold their own connection pool."""
+
+        await create_anthropic_client.clear()
+
+        async def _fake_get_credentials(self, region, session_tags=None):
+            return None, ClientCredentialArgs()
+
+        monkeypatch.setattr(
+            AWSAssumeRoleCredentials, "get_credentials", _fake_get_credentials
+        )
+        monkeypatch.setattr(
+            "aidial_adapter_bedrock.bedrock.AsyncAnthropicBedrock",
+            lambda **kwargs: _DummyClient("legacy", kwargs),
+        )
+
+        def _tags(user: str) -> list[SessionTag]:
+            return [
+                {
+                    "Key": "employee",
+                    "ValueSource": "UserInfo.userId",
+                    "Value": user,
+                }
+            ]
+
+        clients = [
+            await create_anthropic_client(_assume_role_config(), _tags(user))
+            for user in ("alice", "bob", "carol")
+        ]
+
+        assert all(isinstance(client, _DummyClient) for client in clients)
+
+        http_clients = {
+            id(client.kwargs["http_client"])
+            for client in clients
+            if isinstance(client, _DummyClient)
+        }
+        assert http_clients == {id(get_anthropic_http_client())}
