@@ -1,5 +1,4 @@
 import json
-import os
 from abc import ABC
 from collections.abc import Mapping
 from datetime import datetime
@@ -7,7 +6,6 @@ from functools import cache as functools_cache
 from logging import DEBUG
 from typing import Any, TypedDict, Unpack, assert_never
 
-import botocore
 import httpx
 from aidial_adapter_anthropic.dial.token_usage import TokenUsage
 from aidial_client import AsyncDialClientPool
@@ -29,31 +27,22 @@ from aidial_adapter_bedrock.upstream_config import (
 from aidial_adapter_bedrock.utils.boto import close_client, create_client
 from aidial_adapter_bedrock.utils.cache import cache, ttl_cache
 from aidial_adapter_bedrock.utils.concurrency import (
-    make_async,
+    run_in_threadpool,
     to_async_iterator,
 )
-from aidial_adapter_bedrock.utils.env import get_env_int
+from aidial_adapter_bedrock.utils.constants import (
+    ANTHROPIC_MAX_CONNECTIONS,
+    ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
+    ANTHROPIC_MAX_RETRY_ATTEMPTS,
+    CLIENT_CACHE_MAX_SIZE,
+    DEFAULT_TIMEOUTS,
+    GENERATION_CONFIG,
+)
 from aidial_adapter_bedrock.utils.json import json_dumps_short
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
 Body = dict
 Headers = Mapping[str, str]
-
-ANTHROPIC_MAX_CONNECTIONS = get_env_int("ANTHROPIC_MAX_CONNECTIONS", 1000)
-ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS = get_env_int(
-    "ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS", 100
-)
-BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS = get_env_int(
-    "BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS", 1000
-)
-ANTHROPIC_MAX_RETRY_ATTEMPTS = get_env_int("ANTHROPIC_MAX_RETRY_ATTEMPTS", 0)
-
-CLIENT_CACHE_MAX_SIZE = 512
-
-# Same as Anthropic SDK timeouts: anthropic._constants.DEFAULT_TIMEOUT
-DEFAULT_TIMEOUTS = httpx.Timeout(
-    timeout=get_env_int("REQUEST_TIMEOUT_SECONDS", 10 * 60), connect=5.0
-)
 
 
 class _BedrockClientParams(TypedDict):
@@ -63,14 +52,6 @@ class _BedrockClientParams(TypedDict):
     aws_session_token: str | None
     http_client: httpx.AsyncClient
     max_retries: int
-
-
-def _get_botocore_max_retry_attempts():
-    if (value := os.getenv("BOTOCORE_MAX_RETRY_ATTEMPTS")) is not None:
-        return int(value)
-    if (value := os.getenv("AWS_MAX_ATTEMPTS")) is not None:
-        return int(value) - 1
-    return 0
 
 
 @functools_cache
@@ -156,27 +137,14 @@ async def create_boto_client(
 ) -> tuple[datetime | None, Any]:
     expiration, creds = await upstream_config.get_credentials(session_tags)
 
-    config = botocore.client.Config(  # type: ignore
-        # The max number of connections to the same upstream that are persisted (saved to a connection pool).
-        # Greater number of connections *don't block* each other.
-        max_pool_connections=BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS,
-        # Overriding Botocore default read timeout of 60s,
-        # which is too short for non-streaming Converse API requests.
-        read_timeout=DEFAULT_TIMEOUTS.read,
-        retries={
-            "mode": "standard",
-            "total_max_attempts": 1 + _get_botocore_max_retry_attempts(),
-        },
-    )
-
-    client = await make_async(
+    client = await run_in_threadpool(
         lambda: create_client(
             service_name,
             region_name=upstream_config.region,
             aws_access_key_id=creds.aws_access_key_id,
             aws_secret_access_key=creds.aws_secret_access_key,
             aws_session_token=creds.aws_session_token,
-            config=config,
+            config=GENERATION_CONFIG,
         )
     )
     return (expiration, client)
@@ -216,7 +184,7 @@ class Bedrock:
     async def aconverse_non_streaming(
         self, model: str, **params: Unpack[ConverseRequest]
     ):
-        response = await make_async(
+        response = await run_in_threadpool(
             lambda: self.client.converse(modelId=model, **params)
         )
         return response
@@ -224,7 +192,7 @@ class Bedrock:
     async def aconverse_streaming(
         self, model: str, **params: Unpack[ConverseRequest]
     ):
-        response = await make_async(
+        response = await run_in_threadpool(
             lambda: self.client.converse_stream(modelId=model, **params)
         )
 
@@ -233,7 +201,7 @@ class Bedrock:
     async def acount_tokens(
         self, model: str, **params: Unpack[ConverseRequest]
     ) -> int:
-        response = await make_async(
+        response = await run_in_threadpool(
             lambda: self.client.count_tokens(
                 modelId=model, input={"converse": params}
             )
@@ -257,13 +225,15 @@ class Bedrock:
             )
 
         params = self._create_invoke_params(model, args)
-        response = await make_async(lambda: self.client.invoke_model(**params))
+        response = await run_in_threadpool(
+            lambda: self.client.invoke_model(**params)
+        )
 
         if log.isEnabledFor(DEBUG):
             log.debug(f"response: {json_dumps_short(response)}")
 
         body: StreamingBody = response["body"]
-        body_dict = json.loads(await make_async(lambda: body.read()))
+        body_dict = json.loads(await run_in_threadpool(lambda: body.read()))
 
         response_headers = response.get("ResponseMetadata", {}).get(
             "HTTPHeaders", {}
