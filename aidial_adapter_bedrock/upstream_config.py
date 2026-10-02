@@ -12,7 +12,7 @@ from pydantic import (
 
 from aidial_adapter_bedrock.utils.boto import close_client, create_client
 from aidial_adapter_bedrock.utils.cache import cache
-from aidial_adapter_bedrock.utils.concurrency import make_async
+from aidial_adapter_bedrock.utils.concurrency import run_in_threadpool
 from aidial_adapter_bedrock.utils.env import (
     AWSClaudeClient,
     get_aws_default_region,
@@ -106,7 +106,7 @@ class AWSAssumeRoleCredentials(BaseModel):
                 for tag in session_tags
             ]
 
-        response = await make_async(
+        response = await run_in_threadpool(
             lambda: get_sts_client(region).assume_role(**assume_role_params)
         )
 
