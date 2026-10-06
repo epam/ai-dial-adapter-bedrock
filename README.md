@@ -513,8 +513,6 @@ are ignored for static AWS credentials and Anthropic API key upstreams.
 
 Failing to retrieve a tag never fails the request: the failure is logged as a
 warning and the tag is ignored, while the remaining tags are still passed.
-A path into `userClaims` or `project`, which the DIAL API declares optional,
-is skipped without a warning when the user doesn't have that field.
 
 The adapter fits the tags to the AWS constraints for
 [session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations),
