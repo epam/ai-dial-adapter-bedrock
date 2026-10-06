@@ -37,6 +37,9 @@ _ALLOWED_TAG_CATEGORIES = frozenset("LZN")
 _ALLOWED_TAG_CHARS = frozenset("_.:/=+-@")
 _TAG_CHAR_PLACEHOLDER = "_"
 
+# The DIAL user info fields declared optional by the DIAL API
+_OPTIONAL_FIELDS = frozenset({"userClaims", "project"})
+
 
 def is_enabled(upstream_config: UpstreamConfig) -> bool:
     return (
@@ -57,6 +60,11 @@ def _get_element_at_path(node: Any, path: str) -> Any:
     return node
 
 
+def _is_unset_optional_field(data: dict[str, Any], path: str) -> bool:
+    field = path.split(".", 1)[0]
+    return field in _OPTIONAL_FIELDS and data.get(field) is None
+
+
 def resolve_paths(
     data: dict[str, Any], paths: list[str] | None = None
 ) -> dict[str, str]:
@@ -70,6 +78,8 @@ def resolve_paths(
         try:
             element = _get_element_at_path(data, path)
         except (KeyError, IndexError, TypeError, ValueError) as exc:
+            if _is_unset_optional_field(data, path):
+                continue
             log.warning(
                 f"Skipping unresolved AWS STS session tags path "
                 f"{path!r}: {type(exc).__name__}: {exc}"

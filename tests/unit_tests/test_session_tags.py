@@ -175,6 +175,43 @@ def test_resolve_paths_logs_unresolved_path_error(caplog, jwt_auth: dict):
 
 
 @pytest.mark.parametrize(
+    "data",
+    [
+        {"userClaims": None, "project": None},
+        {},
+    ],
+)
+def test_resolve_paths_skips_unset_optional_fields_silently(caplog, data: dict):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+
+    assert (
+        session_tags.resolve_paths(
+            data, _paths("userClaims.email,project.name")
+        )
+        == {}
+    )
+    assert caplog.messages == []
+
+
+def test_resolve_paths_warns_on_missing_key_of_set_optional_field(caplog):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+
+    assert (
+        session_tags.resolve_paths(
+            {"userClaims": {}, "roles": None},
+            _paths("userClaims.email,roles.0"),
+        )
+        == {}
+    )
+    assert caplog.messages == [
+        "Skipping unresolved AWS STS session tags path "
+        "'userClaims.email': KeyError: 'email'",
+        "Skipping unresolved AWS STS session tags path "
+        "'roles.0': TypeError: cannot index into NoneType",
+    ]
+
+
+@pytest.mark.parametrize(
     ("config", "expected"),
     [
         ({}, False),
