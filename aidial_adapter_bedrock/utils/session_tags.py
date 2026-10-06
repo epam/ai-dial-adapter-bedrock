@@ -1,7 +1,7 @@
 import json
 import unicodedata
 from collections.abc import Container
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Self
 
 from aidial_client import UserInfo
@@ -58,7 +58,9 @@ def _get_element_at_path(node: Any, path: str) -> Any:
 
 
 def resolve_paths(
-    data: dict[str, Any], paths: list[str] | None = None
+    data: dict[str, Any],
+    paths: list[str] | None = None,
+    optional_paths: Container[str] = (),
 ) -> dict[str, str]:
     if not paths:
         return {}
@@ -70,10 +72,11 @@ def resolve_paths(
         try:
             element = _get_element_at_path(data, path)
         except (KeyError, IndexError, TypeError, ValueError) as exc:
-            log.warning(
-                f"Skipping unresolved AWS STS session tags path "
-                f"{path!r}: {type(exc).__name__}: {exc}"
-            )
+            if path not in optional_paths:
+                log.warning(
+                    f"Skipping unresolved AWS STS session tags path "
+                    f"{path!r}: {type(exc).__name__}: {exc}"
+                )
             continue
         result[path] = (
             element if isinstance(element, str) else json.dumps(element)
@@ -189,22 +192,29 @@ def _sanitize_session_tags(tags: list[SessionTag]) -> list[SessionTag]:
 class Tags:
     bedrock_model_id: list[str]
     user_info_paths: list[tuple[str, str]]
+    optional_user_info_paths: set[str] = field(default_factory=set)
 
     _BEDROCK_MODEL_ID: ClassVar[str] = "Bedrock.modelId"
     _USER_INFO_PREFIX: ClassVar[str] = "UserInfo."
+    _OPTIONAL_PREFIX: ClassVar[str] = "*"
 
     @classmethod
     def parse(cls, tags: dict[str, str]) -> Self:
         bedrock_model_id: list[str] = []
         user_info_paths: list[tuple[str, str]] = []
+        optional_paths: set[str] = set()
+        required_paths: set[str] = set()
 
         for tag_key, value_source in tags.items():
+            optional = value_source.startswith(cls._OPTIONAL_PREFIX)
+            value_source = value_source.removeprefix(cls._OPTIONAL_PREFIX)
+
             if value_source == cls._BEDROCK_MODEL_ID:
                 bedrock_model_id.append(tag_key)
             elif value_source.startswith(cls._USER_INFO_PREFIX):
-                user_info_paths.append(
-                    (tag_key, value_source.removeprefix(cls._USER_INFO_PREFIX))
-                )
+                path = value_source.removeprefix(cls._USER_INFO_PREFIX)
+                user_info_paths.append((tag_key, path))
+                (optional_paths if optional else required_paths).add(path)
             else:
                 log.warning(
                     f"Skipping AWS STS session tag {tag_key!r}: unknown value "
@@ -215,6 +225,7 @@ class Tags:
         return cls(
             bedrock_model_id=bedrock_model_id,
             user_info_paths=user_info_paths,
+            optional_user_info_paths=optional_paths - required_paths,
         )
 
     @property
@@ -240,6 +251,7 @@ class Tags:
             resolved = resolve_paths(
                 user_info.model_dump(mode="json"),
                 [path for _, path in self.user_info_paths],
+                self.optional_user_info_paths,
             )
             session_tags.extend(
                 {

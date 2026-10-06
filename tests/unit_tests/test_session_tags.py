@@ -556,6 +556,83 @@ def test_tags_parse(config: dict[str, str], expected: Tags):
 
 
 @pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (
+            {"application": "*Bedrock.modelId"},
+            Tags(bedrock_model_id=["application"], user_info_paths=[]),
+        ),
+        (
+            {"employee": "*UserInfo.userClaims.email"},
+            Tags(
+                bedrock_model_id=[],
+                user_info_paths=[("employee", "userClaims.email")],
+                optional_user_info_paths={"userClaims.email"},
+            ),
+        ),
+        # A path stays required while any tag requires it.
+        (
+            {"x": "*UserInfo.project", "y": "UserInfo.project"},
+            Tags(
+                bedrock_model_id=[],
+                user_info_paths=[("x", "project"), ("y", "project")],
+            ),
+        ),
+        ({"a": "*Nope.project"}, Tags(bedrock_model_id=[], user_info_paths=[])),
+    ],
+)
+def test_tags_parse_optional_value_sources(
+    config: dict[str, str], expected: Tags
+):
+    assert Tags.parse(config) == expected
+
+
+def test_to_session_tags_skips_unresolved_optional_paths_silently(
+    caplog, user_info: UserInfo
+):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+    tags = Tags.parse(
+        {
+            "application": "*Bedrock.modelId",
+            "employee": "*UserInfo.userClaims.email",
+            "missing": "*UserInfo.userClaims.nope",
+            "role": "UserInfo.roles.0",
+        }
+    )
+
+    # Optional tags that do resolve are passed under their plain value source.
+    assert tags.to_session_tags("my-claude", user_info) == [
+        {
+            "Key": "application",
+            "ValueSource": "Bedrock.modelId",
+            "Value": "my-claude",
+        },
+        {
+            "Key": "employee",
+            "ValueSource": "UserInfo.userClaims.email",
+            "Value": "user@example.com",
+        },
+        {"Key": "role", "ValueSource": "UserInfo.roles.0", "Value": "admin"},
+    ]
+    assert caplog.messages == []
+
+
+def test_to_session_tags_still_warns_on_unresolved_required_paths(
+    caplog, user_info: UserInfo
+):
+    caplog.set_level(logging.WARNING, logger="bedrock")
+    tags = Tags.parse(
+        {"a": "*UserInfo.userClaims.nope", "b": "UserInfo.userClaims.nope"}
+    )
+
+    assert tags.to_session_tags(None, user_info) == []
+    assert (
+        "Skipping unresolved AWS STS session tags path "
+        "'userClaims.nope': KeyError: 'nope'"
+    ) in caplog.messages
+
+
+@pytest.mark.parametrize(
     "source", ["project", "Nope.project", "Bedrock.region", "UserInfoProject"]
 )
 def test_tags_parse_logs_unknown_value_sources(caplog, source: str):

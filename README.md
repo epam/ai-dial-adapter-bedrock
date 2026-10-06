@@ -503,6 +503,13 @@ policies expect. The **value source** names where the value comes from:
 Entries whose value source is unknown (`Nope.project`, `Bedrock.region`, or an
 unprefixed `project`) are skipped with a warning.
 
+Prefix a value source with `*` to make the tag optional: a tag that doesn't
+resolve is then skipped without a warning:
+
+```ini
+AWS_SESSION_TAGS={"application":"*Bedrock.modelId","project":"UserInfo.project","employee":"*UserInfo.userClaims.email"}
+```
+
 The tags apply to every AWS Bedrock client the adapter creates — the Converse
 API and embedding clients, the Claude clients of the Anthropic SDK, and the
 clients of the [Anthropic API passthrough](#anthropic-api-passthrough).
@@ -512,7 +519,8 @@ Session tags are only used for the assume-role credentials path
 are ignored for static AWS credentials and Anthropic API key upstreams.
 
 Failing to retrieve a tag never fails the request: the failure is logged as a
-warning and the tag is ignored, while the remaining tags are still passed.
+warning (unless the tag is optional) and the tag is ignored, while the
+remaining tags are still passed.
 
 The adapter fits the tags to the AWS constraints for
 [session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_operations),
