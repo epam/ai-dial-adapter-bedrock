@@ -462,7 +462,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
-|REQUEST_TIMEOUT_SECONDS|600|The request timeout in seconds (read, write and pool) for the requests to AWS Bedrock.|
+|REQUEST_TIMEOUT_SECONDS|600|The request timeout in seconds (read and write) for the requests to AWS Bedrock.|
 
 ### Keep-alive timeout
 
@@ -584,6 +584,7 @@ The following environment variables reveal adapter's implementation details and 
 |---|---|---|---|
 |ANTHROPIC_MAX_CONNECTIONS|[Anthropic SDK](#implementation-basis)|1000|The maximum number of concurrent requests. Corresponds to `max_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
 |ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS|[Anthropic SDK](#implementation-basis)|100|The maximum number of idle connections kept in a connection pool. Corresponds to the `max_keepalive_connections` [parameter](https://www.python-httpx.org/advanced/resource-limits/) of the HTTPX client.|
+|ANTHROPIC_POOL_TIMEOUT|[Anthropic SDK](#implementation-basis)|10|How long in seconds a request waits for a free connection when `ANTHROPIC_MAX_CONNECTIONS` is reached. On timeout the adapter returns 503. Corresponds to the `pool` [timeout](https://www.python-httpx.org/advanced/timeouts/) of the HTTPX client.|
 |BOTOCORE_CLIENT_MAX_POOL_CONNECTIONS|[Bedrock API & Conserve API](#implementation-basis)|1000|The maximum number of connections kept in a connection pool.|
 |THREAD_POOL_SIZE|[Bedrock API & Conserve API](#implementation-basis)|512|The size of the thread pool running the blocking requests, e.g. the AWS SDK calls.|
 
