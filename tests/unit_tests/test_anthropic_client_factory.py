@@ -13,6 +13,7 @@ from aidial_adapter_bedrock.upstream_config import (
     CloudUpstreamConfig,
     SessionTag,
 )
+from aidial_adapter_bedrock.utils.constants import ANTHROPIC_POOL_TIMEOUT
 
 
 @dataclass
@@ -259,3 +260,7 @@ class TestCreateAnthropicClient:
             if isinstance(client, _DummyClient)
         }
         assert http_clients == {id(get_anthropic_http_client())}
+
+
+def test_anthropic_http_client_uses_configured_pool_timeout():
+    assert get_anthropic_http_client().timeout.pool == ANTHROPIC_POOL_TIMEOUT

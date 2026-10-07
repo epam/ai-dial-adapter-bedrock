@@ -34,6 +34,7 @@ from aidial_adapter_bedrock.utils.constants import (
     ANTHROPIC_MAX_CONNECTIONS,
     ANTHROPIC_MAX_KEEPALIVE_CONNECTIONS,
     ANTHROPIC_MAX_RETRY_ATTEMPTS,
+    ANTHROPIC_POOL_TIMEOUT,
     CLIENT_CACHE_MAX_SIZE,
     DEFAULT_TIMEOUTS,
     GENERATION_CONFIG,
@@ -63,6 +64,9 @@ def get_default_anthropic_timeout() -> httpx.Timeout:
 
     timeout = DEFAULT_TIMEOUTS.as_dict()
     timeout["connect"] *= 1.0001  # type: ignore
+    # Fail fast when the connection pool is exhausted instead of queueing
+    # for the whole request timeout.
+    timeout["pool"] = ANTHROPIC_POOL_TIMEOUT
     return httpx.Timeout(**timeout)
 
 
