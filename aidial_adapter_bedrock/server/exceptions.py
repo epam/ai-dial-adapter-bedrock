@@ -25,6 +25,7 @@ from typing import assert_never
 
 import anthropic
 import fastapi
+import httpx
 from aidial_adapter_anthropic.adapter import UserError, ValidationError
 from aidial_sdk.exceptions import (
     DeploymentNotFoundError,
@@ -35,6 +36,7 @@ from aidial_sdk.exceptions import (
 from aidial_sdk.exceptions import HTTPException as DialException
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from aidial_adapter_bedrock.utils.constants import ANTHROPIC_MAX_CONNECTIONS
 from aidial_adapter_bedrock.utils.log_config import app_logger as log
 
 
@@ -196,6 +198,16 @@ def _get_content_filter_error(response: dict) -> DialException | None:
 
 
 def to_dial_exception(e: Exception) -> DialException:
+    # Anthropic SDK wraps httpx.PoolTimeout into anthropic.APITimeoutError
+    if isinstance(e, httpx.PoolTimeout) or isinstance(
+        e.__cause__, httpx.PoolTimeout
+    ):
+        return _create_error(
+            503,
+            "No free upstream connection: the adapter connection pool "
+            f"is exhausted (ANTHROPIC_MAX_CONNECTIONS={ANTHROPIC_MAX_CONNECTIONS})",
+        )
+
     if (
         isinstance(e, BotocoreClientError)
         and hasattr(e, "response")
