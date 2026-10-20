@@ -262,6 +262,19 @@ def supports_tools(deployment: D) -> bool:
     ]
 
 
+def is_stable_with_vacuous_tool_definition(deployment: D) -> bool:
+    # Opus 5 is unstable when a tool declares no parameters or no description:
+    # it either invents a placeholder argument ({"___dummy": null}) or
+    # replies with a textual pseudo-call instead of a tool call.
+    return deployment != D.ANTHROPIC_CLAUDE_V5_OPUS
+
+
+_vacuous_tool_definition_deployments = select(
+    pred(supports_tools) & pred(is_stable_with_vacuous_tool_definition),
+    deployments,
+)
+
+
 def supports_forced_tool_choice(deployment: D) -> bool:
     return supports_tools(deployment) and is_claude(deployment)
 
@@ -852,7 +865,7 @@ async def test_tool_choice_none(
         assert "4" in response.content
 
 
-@_deployment_spec(select(pred(supports_tools), deployments))
+@_deployment_spec(_vacuous_tool_definition_deployments)
 async def test_tool_call_zero_parameters(chat: Chat):
     response = await chat(
         messages=[user("What time is it?")],
@@ -1067,7 +1080,7 @@ async def test_tool_call_with_empty_message(
         assert str(temp) in response.content
 
 
-@_deployment_spec(select(pred(supports_tools), deployments))
+@_deployment_spec(_vacuous_tool_definition_deployments)
 @pytest.mark.parametrize("stream", [True], ids=["stream"])
 @pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
 @pytest.mark.parametrize(
