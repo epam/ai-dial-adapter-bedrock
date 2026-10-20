@@ -9,14 +9,23 @@ _DEPLOYMENT = ChatCompletionDeployment.ANTHROPIC_CLAUDE_V3_7_SONNET.US
 _REGION = "us-east-1"
 
 
-@respx.mock
-@pytest.mark.parametrize("streaming", [False, True])
-async def test_anthropic_error_immediate(get_openai_client, streaming: bool):
+@pytest.fixture
+def client(get_openai_client) -> openai.AsyncAzureOpenAI:
     client: openai.AsyncAzureOpenAI = get_openai_client(
-        _DEPLOYMENT.value, region=_REGION
+        _DEPLOYMENT.value,
+        region=_REGION,
+        # respx mocks the bedrock-runtime endpoint the legacy client calls
+        extra_headers={"claude_client": "legacy"},
     )
     client.max_retries = 0
+    return client
 
+
+@respx.mock
+@pytest.mark.parametrize("streaming", [False, True])
+async def test_anthropic_error_immediate(
+    client: openai.AsyncAzureOpenAI, streaming: bool
+):
     endpoint = "invoke-with-response-stream" if streaming else "invoke"
 
     respx.post(
@@ -35,12 +44,9 @@ async def test_anthropic_error_immediate(get_openai_client, streaming: bool):
 
 @respx.mock
 @pytest.mark.parametrize("streaming", [True])
-async def test_anthropic_error_streaming(get_openai_client, streaming: bool):
-    client: openai.AsyncAzureOpenAI = get_openai_client(
-        _DEPLOYMENT.value, region=_REGION
-    )
-    client.max_retries = 0
-
+async def test_anthropic_error_streaming(
+    client: openai.AsyncAzureOpenAI, streaming: bool
+):
     endpoint = "invoke-with-response-stream" if streaming else "invoke"
 
     respx.post(
@@ -70,14 +76,9 @@ async def test_anthropic_error_streaming(get_openai_client, streaming: bool):
 @respx.mock
 @pytest.mark.parametrize("streaming", [False, True])
 async def test_anthropic_error_rate_limit(
-    get_openai_client,
+    client: openai.AsyncAzureOpenAI,
     streaming: bool,
 ):
-    client: openai.AsyncAzureOpenAI = get_openai_client(
-        _DEPLOYMENT.value, region=_REGION
-    )
-    client.max_retries = 0
-
     endpoint = "invoke-with-response-stream" if streaming else "invoke"
 
     respx.post(

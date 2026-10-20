@@ -337,10 +337,22 @@ def supports_stop_sequence(deployment: D) -> bool:
     return not is_minimax(deployment)
 
 
+def is_claude_5(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
+    ]
+
+
 def is_reasoning_model(deployment: D) -> bool:
     # The models with reasoning feature enabled by default
     # and no way to disable it.
-    return is_deepseek(deployment) or is_minimax(deployment)
+    return (
+        is_deepseek(deployment)
+        or is_minimax(deployment)
+        or is_claude_5(deployment)
+    )
 
 
 @dataclass
@@ -370,6 +382,17 @@ def _supported_claude_client_types(
     if support_mantle_claude_client(deployment.origin):
         ret.append("mantle")
     return tuple(ret)
+
+
+def claude_client_type(deployment: Deployment) -> str | None:
+    """
+    The Claude client to pin for the tests that aren't parametrized
+    by the client. None for the non-Claude deployments.
+    """
+    client_types = _supported_claude_client_types(
+        deployment, with_converse=False
+    )
+    return client_types[0] if client_types else None
 
 
 def _deployment_specs(deployments: list[Deployment], with_converse: bool):
@@ -721,13 +744,14 @@ async def test_vision_single_turn_with_system(
 
 
 async def _run_test_vision(
-    deployment: D,
+    deployment: Deployment,
     chat: Chat,
     messages,
     expected: str | list[str] | ExpectedException,
 ):
     async def _run():
-        return await chat(max_tokens=100, messages=messages)
+        max_tokens = 100 if not is_reasoning_model(deployment.origin) else 1024
+        return await chat(messages=messages, max_tokens=max_tokens)
 
     if isinstance(expected, ExpectedException):
         async with expected_exception(expected):
@@ -789,31 +813,9 @@ async def test_llama_many_system_messages(chat: Chat):
 async def test_tool_choice_none(
     deployment: D, optimized_latency: bool, chat: Chat
 ):
-    origin = deployment.origin
-
-    if (
-        origin
-        in [
-            D.ANTHROPIC_CLAUDE_V4_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_6_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_7_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_8_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_SONNET,
-            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
-            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_6_SONNET,
-        ]
-        and not optimized_latency
-    ):
+    # The Anthropic API supports `tool_choice: none`, the Converse API doesn't.
+    if is_claude(deployment.origin) and not optimized_latency:
         exc = None
-    elif is_claude(origin) and not optimized_latency:
-        exc = ExpectedException(
-            type=BadRequestError,
-            message="(none is not a valid enum value, please reformat your input and try again|tool_choice: Input tag 'none' found using 'type' does not match any of the expected tags)",
-            status_code=400,
-        )
     else:
         exc = ExpectedException(
             type=UnprocessableEntityError,
@@ -1282,10 +1284,12 @@ async def test_reject_extra_message_fields(chat: Chat):
 
 async def test_compatible_deployment_id(get_openai_client, stream: bool):
     deployment = D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US
-    upstream_config = {"compatible_model_id": deployment.value}
     openai_client = get_openai_client(
         "xxx",
-        extra_headers={"x-upstream-extra-data": json.dumps(upstream_config)},
+        extra_headers={
+            "compatible_model_id": deployment.value,
+            "claude_client": "legacy",
+        },
     )
 
     msg = "The provided model identifier is invalid."

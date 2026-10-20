@@ -14,6 +14,7 @@ from tests.integration_tests.test_chat_completion import (
     _request_deployment_id,
     deployments,
     is_claude,
+    is_reasoning_model,
     select,
 )
 from tests.utils.selector import pred
@@ -81,7 +82,14 @@ def messages(
     anthropic_client: anthropic.AsyncAnthropic,
     stream: bool,
 ) -> Messages:
-    async def _inner(msgs: list, max_tokens: int = 100, **kwargs: Any) -> str:
+    model = D.from_string(deployment)
+    # A reasoning model spends most of the completion budget on thinking.
+    default_max_tokens = 1024 if model and is_reasoning_model(model) else 100
+
+    async def _inner(
+        msgs: list, max_tokens: int | None = None, **kwargs: Any
+    ) -> str:
+        max_tokens = max_tokens or default_max_tokens
         if stream:
             async with anthropic_client.messages.stream(
                 model=deployment,

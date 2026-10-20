@@ -335,6 +335,7 @@ async def truncate_prompt(
     model: str,
     messages: list[ChatCompletionMessageParam],
     max_prompt_tokens: int | None,
+    extra_headers: dict[str, str] | None = None,
 ) -> dict:
     request: dict = {"messages": messages}
     if max_prompt_tokens is not None:
@@ -345,7 +346,7 @@ async def truncate_prompt(
     response = await client.post(
         url=f"/openai/deployments/{model}/truncate_prompt",
         json=request,
-        headers={"api-key": "dummy"},
+        headers={"api-key": "dummy", **(extra_headers or {})},
     )
 
     response.raise_for_status()
@@ -356,6 +357,7 @@ async def tokenize(
     client: httpx.AsyncClient,
     model: str,
     messages: list[ChatCompletionMessageParam],
+    extra_headers: dict[str, str] | None = None,
 ) -> dict:
     request = {
         "inputs": [
@@ -369,7 +371,7 @@ async def tokenize(
     response = await client.post(
         url=f"/openai/deployments/{model}/tokenize",
         json=request,
-        headers={"api-key": "dummy"},
+        headers={"api-key": "dummy", **(extra_headers or {})},
     )
 
     response.raise_for_status()
