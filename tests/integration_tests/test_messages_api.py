@@ -9,13 +9,13 @@ import pytest
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment as D
 from tests.integration_tests.test_chat_completion import (
     _DEPLOYMENT_TO_REGION,
-    Deployment,
     DeploymentSpec,
+    _deployment_spec,
+    _request_deployment_id,
     deployments,
     is_claude,
     select,
 )
-from tests.utils.openai import sanitize_test_name
 from tests.utils.selector import pred
 
 _claude_deployments = select(pred(is_claude), deployments)
@@ -32,30 +32,21 @@ def _anthropic_text(response: anthropic.types.Message) -> str:
     )
 
 
-def _deployment_spec(deps: list[Deployment]):
-    specs = [
-        DeploymentSpec(
-            region=_DEPLOYMENT_TO_REGION[dep],
-            deployment=dep,
-            optimized_latency=False,
-        )
-        for dep in deps
-    ]
-    return pytest.mark.parametrize(
-        "deployment_spec",
-        specs,
-        ids=lambda x: sanitize_test_name(x.deployment.value),
-    )
-
-
 @pytest.fixture
 def deployment(deployment_spec: DeploymentSpec) -> str:
-    return deployment_spec.deployment.value
+    return _request_deployment_id(
+        deployment_spec.deployment, deployment_spec.bedrock_client_type
+    )
 
 
 @pytest.fixture
 def region(deployment_spec: DeploymentSpec) -> str:
     return deployment_spec.region
+
+
+@pytest.fixture
+def claude_client(deployment_spec: DeploymentSpec) -> str | None:
+    return deployment_spec.bedrock_client_type
 
 
 @pytest.fixture(params=[True, False], ids=["stream", "block"])
@@ -64,15 +55,19 @@ def stream(request) -> bool:
 
 
 @pytest.fixture
-async def anthropic_client(test_http_client: httpx.AsyncClient, region: str):
+async def anthropic_client(
+    test_http_client: httpx.AsyncClient, region: str, claude_client: str | None
+):
+    extra_data = {"region": region}
+    if claude_client is not None:
+        extra_data["claude_client"] = claude_client
+
     async with anthropic.AsyncAnthropic(
         api_key="dummy-key",
         base_url="http://test-app.com/anthropic",
         http_client=test_http_client,
         max_retries=0,
-        default_headers={
-            "x-upstream-extra-data": json.dumps({"region": region})
-        },
+        default_headers={"x-upstream-extra-data": json.dumps(extra_data)},
     ) as client:
         yield client
 
@@ -122,6 +117,10 @@ class TestUnknownDeployment:
     def region(self) -> str:
         return "us-east-1"
 
+    @pytest.fixture
+    def claude_client(self) -> str:
+        return "legacy"
+
     async def test_unknown_deployment(self, messages: Messages):
         with pytest.raises(
             anthropic.BadRequestError,
@@ -134,7 +133,7 @@ class TestUnknownDeployment:
     "client, model, default_client",
     [
         ("legacy", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
-        ("mantle", D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, None),
+        ("mantle", D.ANTHROPIC_CLAUDE_V4_7_OPUS.value, None),
         (None, D.ANTHROPIC_CLAUDE_V4_7_OPUS.US.value, "legacy"),
     ],
     ids=["legacy", "mantle", "default_from_env"],
