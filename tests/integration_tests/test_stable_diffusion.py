@@ -68,7 +68,11 @@ def mock_storage():
 
 @pytest.fixture
 def vision_model(get_openai_client):
-    return get_openai_client(VISION_MODEL.value, region=_WEST)
+    return get_openai_client(
+        VISION_MODEL.value,
+        region=_WEST,
+        extra_headers={"claude_client": "legacy"},
+    )
 
 
 @pytest.mark.parametrize("deployment, region", TEXT_TO_IMAGE_SUPPORTED_MODELS)

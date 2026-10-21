@@ -10,7 +10,11 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.utils.region_deployment import RegionDeployment
-from tests.integration_tests.test_chat_completion import deployments
+from tests.integration_tests.test_chat_completion import (
+    _request_deployment_id,
+    claude_client_type,
+    deployments,
+)
 from tests.utils.json import match_objects
 from tests.utils.openai import (
     ai,
@@ -200,6 +204,16 @@ def get_test_cases(deployment: RegionDeployment) -> list[TestCase]:
 async def test_truncate_prompt(
     test_http_client: httpx.AsyncClient, test: TestCase
 ):
+    # Pin the Claude client, so that the test doesn't depend on
+    # the AWS_CLAUDE_DEFAULT_CLIENT environment variable.
+    claude_client = claude_client_type(test.deployment)
+    deployment_id = _request_deployment_id(test.deployment, claude_client)
+    extra_headers = (
+        {"x-upstream-extra-data": json.dumps({"claude_client": claude_client})}
+        if claude_client
+        else None
+    )
+
     async def run_truncate_prompt() -> dict:
         if test.max_prompt_tokens is None:
             max_prompt_tokens = None
@@ -211,7 +225,7 @@ async def test_truncate_prompt(
                 messages: list[ChatCompletionMessageParam],
             ) -> int:
                 resp = await tokenize(
-                    test_http_client, test.deployment.value, messages
+                    test_http_client, deployment_id, messages, extra_headers
                 )
                 return resp["outputs"][0]["token_count"]
 
@@ -221,9 +235,10 @@ async def test_truncate_prompt(
 
         return await truncate_prompt(
             test_http_client,
-            test.deployment.value,
+            deployment_id,
             test.messages,
             max_prompt_tokens,
+            extra_headers,
         )
 
     if isinstance(test.expected, ExpectedException):
