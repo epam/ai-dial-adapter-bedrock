@@ -23,7 +23,7 @@ Repository = "https://github.com/epam/ai-dial-adapter-bedrock/"
 package-mode = false
 
 [tool.poetry.dependencies]
-aidial-adapter-anthropic = { "version" = "0.19.0", extras = ["bedrock"] }
+aidial-adapter-anthropic = { "version" = "0.20.0", extras = ["bedrock"] }
 boto3 = "1.43.56"
 botocore = "1.43.56"
 aidial-sdk = { version = "0.45.0", extras = ["telemetry"] }
@@ -32,7 +32,7 @@ fastapi = "0.136.3"
 uvicorn = { version = "0.23.2", extras = ["standard"] }
 pydantic = "2.11.2"
 numpy = "2.0.0"
-pillow = "12.3.0"
+pillow = "13.0.0"
 openai = "2.48.0"
 aidial-client = "^0.14.0"
 
@@ -61,7 +61,6 @@ pre-commit = "^4.5.1"
 [tool.pytest.ini_options]
 addopts = "-n=auto --asyncio-mode=auto --self-contained-html --html=pytest.html --alluredir=allure-results --clean-alluredir --timeout=120"
 env = ["PYDANTIC_V2=1"]
-generate_report_on_test = true
 env_override_existing_values = 1
 testpaths = ["tests"]
 filterwarnings = [
