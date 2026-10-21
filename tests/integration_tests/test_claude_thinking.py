@@ -9,7 +9,11 @@ from openai.types.chat import (
 )
 
 from aidial_adapter_bedrock.deployments import ChatCompletionDeployment
-from tests.integration_tests.test_chat_completion import Deployment
+from tests.integration_tests.test_chat_completion import (
+    Deployment,
+    _request_deployment_id,
+    claude_client_type,
+)
 from tests.utils.openai import (
     GET_WEATHER_FUNCTION,
     chat_completion,
@@ -23,7 +27,6 @@ _EAST = "us-east-1"
 chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_1_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_OPUS.US: _EAST,
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_HAIKU.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_5_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_6_SONNET.US: _EAST,
@@ -61,12 +64,6 @@ _ADAPTIVE_THINKING_DEPLOYMENTS = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
 }
 
-# Specific Data Retention cloud configuration required
-# https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5.html#model-card-anthropic-claude-fable-5-data-retention
-_MANTLE_CLIENT_DEPLOYMENTS = {
-    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
-}
-
 
 @dataclass
 class TestCase:
@@ -87,16 +84,17 @@ class TestCase:
         return _EXTENDED_THINKING_CONFIGURATION
 
     @property
-    def extra_headers(self):
-        if self.deployment.origin in _MANTLE_CLIENT_DEPLOYMENTS:
-            return {"claude_client": "mantle"}
-        return None
+    def claude_client(self) -> str | None:
+        return claude_client_type(self.deployment)
+
+    @property
+    def extra_headers(self) -> dict[str, str] | None:
+        client = self.claude_client
+        return {"claude_client": client} if client else None
 
     @property
     def request_deployment_id(self) -> str:
-        if self.deployment.origin in _MANTLE_CLIENT_DEPLOYMENTS:
-            return self.deployment.origin.value
-        return self.deployment.value
+        return _request_deployment_id(self.deployment, self.claude_client)
 
     def assert_claude_message_content(self, state: MessageState):
         if self.deployment.origin in _ADAPTIVE_THINKING_DEPLOYMENTS:
