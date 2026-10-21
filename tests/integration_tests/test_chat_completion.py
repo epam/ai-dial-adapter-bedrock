@@ -95,11 +95,20 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
 
 
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html
-def support_legacy_claude_client(deployment: D) -> bool:
-    legacy_client_not_supported = {D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE}
-    return (
-        is_claude(deployment) and deployment not in legacy_client_not_supported
-    )
+def support_bedrock_runtime_claude_client(deployment: D) -> bool:
+    """
+    Models reachable through the bedrock-runtime data plane,
+    i.e. via the legacy (InvokeModel) and the Converse clients.
+    """
+    not_supported = {
+        # The Mantle-only deployment name isn't a valid bedrock-runtime model id
+        D.ANTHROPIC_CLAUDE_V4_5_HAIKU_MANTLE,
+        # Fable 5 rejects the `default` data retention mode, which only the
+        # Mantle endpoint is able to override:
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
+    }
+    return is_claude(deployment) and deployment not in not_supported
 
 
 def support_mantle_claude_client(deployment: D) -> bool:
@@ -115,16 +124,22 @@ def support_mantle_claude_client(deployment: D) -> bool:
 
 def is_retired_model(deployment: D) -> bool:
     # Keep at least one model on the list to test how the adapter handles retired models in streaming and non-streaming modes
-    # Retired models: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html#versions-for-eol
+    # Retired models: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle-legacy.html#versions-for-legacy-and-eol-legacy
     return deployment in {
         D.STABILITY_STABLE_IMAGE_ULTRA_V1,
+        D.ANTHROPIC_CLAUDE_V3_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET,
         D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2,
         D.ANTHROPIC_CLAUDE_V3_7_SONNET,
+        D.ANTHROPIC_CLAUDE_V4_SONNET,
         D.ANTHROPIC_CLAUDE_V4_OPUS,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
+        D.COHERE_COMMAND_R_V1,
+        D.COHERE_COMMAND_R_PLUS_V1,
+        D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        D.META_LLAMA3_2_3B_INSTRUCT_V1,
         D.META_LLAMA3_2_11B_INSTRUCT_V1,
+        D.META_LLAMA3_2_90B_INSTRUCT_V1,
     }
 
 
@@ -132,12 +147,8 @@ def is_legacy_model(deployment: D) -> bool:
     # Legacy but not yet completely retired models
     # return 404 when are being unused for 30 days.
     return deployment in {
-        D.COHERE_COMMAND_R_PLUS_V1,
-        D.COHERE_COMMAND_R_V1,
-        D.META_LLAMA3_2_3B_INSTRUCT_V1,
-        D.META_LLAMA3_2_11B_INSTRUCT_V1,
-        D.META_LLAMA3_2_90B_INSTRUCT_V1,
-        D.META_LLAMA3_1_405B_INSTRUCT_V1,
+        D.AI21_JAMBA_1_5_LARGE_V1,
+        D.AI21_JAMBA_1_5_MINI_V1,
     }
 
 
@@ -251,6 +262,19 @@ def supports_tools(deployment: D) -> bool:
     ]
 
 
+def is_stable_with_vacuous_tool_definition(deployment: D) -> bool:
+    # Opus 5 is unstable when a tool declares no parameters or no description:
+    # it either invents a placeholder argument ({"___dummy": null}) or
+    # replies with a textual pseudo-call instead of a tool call.
+    return deployment != D.ANTHROPIC_CLAUDE_V5_OPUS
+
+
+_vacuous_tool_definition_deployments = select(
+    pred(supports_tools) & pred(is_stable_with_vacuous_tool_definition),
+    deployments,
+)
+
+
 def supports_forced_tool_choice(deployment: D) -> bool:
     return supports_tools(deployment) and is_claude(deployment)
 
@@ -326,10 +350,22 @@ def supports_stop_sequence(deployment: D) -> bool:
     return not is_minimax(deployment)
 
 
+def is_claude_5(deployment: D) -> bool:
+    return deployment in [
+        D.ANTHROPIC_CLAUDE_V5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_FABLE,
+    ]
+
+
 def is_reasoning_model(deployment: D) -> bool:
     # The models with reasoning feature enabled by default
     # and no way to disable it.
-    return is_deepseek(deployment) or is_minimax(deployment)
+    return (
+        is_deepseek(deployment)
+        or is_minimax(deployment)
+        or is_claude_5(deployment)
+    )
 
 
 @dataclass
@@ -348,16 +384,31 @@ class DeploymentSpec:
         return ret
 
 
-def _supported_claude_client_types(deployment: Deployment) -> tuple[str, ...]:
+def _supported_claude_client_types(
+    deployment: Deployment, with_converse: bool
+) -> tuple[str, ...]:
     ret = []
-    if support_legacy_claude_client(deployment.origin):
+    if support_bedrock_runtime_claude_client(deployment.origin):
         ret.append("legacy")
+        if with_converse:
+            ret.append("converse")
     if support_mantle_claude_client(deployment.origin):
         ret.append("mantle")
     return tuple(ret)
 
 
-def _deployment_specs(deployments: list[Deployment]):
+def claude_client_type(deployment: Deployment) -> str | None:
+    """
+    The Claude client to pin for the tests that aren't parametrized
+    by the client. None for the non-Claude deployments.
+    """
+    client_types = _supported_claude_client_types(
+        deployment, with_converse=False
+    )
+    return client_types[0] if client_types else None
+
+
+def _deployment_specs(deployments: list[Deployment], with_converse: bool):
     for deployment in deployments:
         region = _DEPLOYMENT_TO_REGION.get(deployment)
         if region is None:
@@ -375,7 +426,7 @@ def _deployment_specs(deployments: list[Deployment]):
             latencies.append(True)
 
         bedrock_client_types: tuple[str | None, ...] = (
-            _supported_claude_client_types(deployment)
+            _supported_claude_client_types(deployment, with_converse)
             if is_claude(deployment.origin)
             else (None,)
         )
@@ -390,10 +441,12 @@ def _deployment_specs(deployments: list[Deployment]):
                 )
 
 
-def _deployment_spec(deployments: list[Deployment]):
+def _deployment_spec(
+    deployments: list[Deployment], with_converse: bool = False
+):
     return pytest.mark.parametrize(
         "deployment_spec",
-        list(_deployment_specs(deployments)),
+        list(_deployment_specs(deployments, with_converse)),
         ids=lambda x: x.get_id(),
     )
 
@@ -435,8 +488,8 @@ def create_message_with_image(request) -> Callable:
 
 
 @pytest.fixture
-def bedrock_client_type(request, deployment_spec: DeploymentSpec) -> str | None:
-    return getattr(request, "param", deployment_spec.bedrock_client_type)
+def bedrock_client_type(deployment_spec: DeploymentSpec) -> str | None:
+    return deployment_spec.bedrock_client_type
 
 
 def _request_deployment_id(
@@ -539,16 +592,8 @@ async def test_model_field(
     )
 
 
-@_deployment_spec(deployments)
-@pytest.mark.parametrize(
-    "bedrock_client_type",
-    ["legacy", "mantle", "converse"],
-    ids=["legacy_client", "mantle_client", "converse_client"],
-    indirect=True,
-)
-async def test_2_plus_3(
-    deployment: Deployment, bedrock_client_type: str, chat: Chat
-):
+@_deployment_spec(deployments, with_converse=True)
+async def test_2_plus_3(chat: Chat):
     response = await chat(messages=[user("compute (2+3)")])
     assert "5" in response.content
 
@@ -712,13 +757,14 @@ async def test_vision_single_turn_with_system(
 
 
 async def _run_test_vision(
-    deployment: D,
+    deployment: Deployment,
     chat: Chat,
     messages,
     expected: str | list[str] | ExpectedException,
 ):
     async def _run():
-        return await chat(max_tokens=100, messages=messages)
+        max_tokens = 100 if not is_reasoning_model(deployment.origin) else 1024
+        return await chat(messages=messages, max_tokens=max_tokens)
 
     if isinstance(expected, ExpectedException):
         async with expected_exception(expected):
@@ -780,31 +826,9 @@ async def test_llama_many_system_messages(chat: Chat):
 async def test_tool_choice_none(
     deployment: D, optimized_latency: bool, chat: Chat
 ):
-    origin = deployment.origin
-
-    if (
-        origin
-        in [
-            D.ANTHROPIC_CLAUDE_V4_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_1_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_6_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_7_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_8_OPUS,
-            D.ANTHROPIC_CLAUDE_V4_SONNET,
-            D.ANTHROPIC_CLAUDE_V3_7_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
-            D.ANTHROPIC_CLAUDE_V4_5_SONNET,
-            D.ANTHROPIC_CLAUDE_V4_6_SONNET,
-        ]
-        and not optimized_latency
-    ):
+    # The Anthropic API supports `tool_choice: none`, the Converse API doesn't.
+    if is_claude(deployment.origin) and not optimized_latency:
         exc = None
-    elif is_claude(origin) and not optimized_latency:
-        exc = ExpectedException(
-            type=BadRequestError,
-            message="(none is not a valid enum value, please reformat your input and try again|tool_choice: Input tag 'none' found using 'type' does not match any of the expected tags)",
-            status_code=400,
-        )
     else:
         exc = ExpectedException(
             type=UnprocessableEntityError,
@@ -841,7 +865,7 @@ async def test_tool_choice_none(
         assert "4" in response.content
 
 
-@_deployment_spec(select(pred(supports_tools), deployments))
+@_deployment_spec(_vacuous_tool_definition_deployments)
 async def test_tool_call_zero_parameters(chat: Chat):
     response = await chat(
         messages=[user("What time is it?")],
@@ -1056,7 +1080,7 @@ async def test_tool_call_with_empty_message(
         assert str(temp) in response.content
 
 
-@_deployment_spec(select(pred(supports_tools), deployments))
+@_deployment_spec(_vacuous_tool_definition_deployments)
 @pytest.mark.parametrize("stream", [True], ids=["stream"])
 @pytest.mark.parametrize("optimized_latency", [False], ids=["std"])
 @pytest.mark.parametrize(
@@ -1273,10 +1297,12 @@ async def test_reject_extra_message_fields(chat: Chat):
 
 async def test_compatible_deployment_id(get_openai_client, stream: bool):
     deployment = D.ANTHROPIC_CLAUDE_V3_5_SONNET_V2.US
-    upstream_config = {"compatible_model_id": deployment.value}
     openai_client = get_openai_client(
         "xxx",
-        extra_headers={"x-upstream-extra-data": json.dumps(upstream_config)},
+        extra_headers={
+            "compatible_model_id": deployment.value,
+            "claude_client": "legacy",
+        },
     )
 
     msg = "The provided model identifier is invalid."
