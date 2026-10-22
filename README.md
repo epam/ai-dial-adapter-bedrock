@@ -47,7 +47,7 @@
   - [Anthropic API Passthrough](#anthropic-api-passthrough)
     - [Using Claude Code with the adapter](#using-claude-code-with-the-adapter)
   - [Anthropic Messages to Chat Completions translator](#anthropic-messages-to-chat-completions-translator)
-    - [Translation options](#translation-options)
+    - [Translation details](#translation-details)
     - [Translation limitations](#translation-limitations)
   - [Development](#development)
     - [Development Environment](#development-environment)
@@ -465,7 +465,6 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
-|DIAL_API_VERSION|2025-01-01-preview|The `api-version` query parameter the [translator](#anthropic-messages-to-chat-completions-translator) sends to DIAL Core, required by some deployments|
 |REQUEST_TIMEOUT_SECONDS|600|The request timeout in seconds (read and write) for the requests to AWS Bedrock.|
 
 ### Keep-alive timeout
@@ -851,19 +850,16 @@ claude --model us.anthropic.claude-opus-4-8
 
 ## Anthropic Messages to Chat Completions translator
 
-Where the [passthrough](#anthropic-api-passthrough) forwards Anthropic requests to a Claude model unchanged, the translator lets an Anthropic-native client talk to a model that only speaks the [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat). It accepts an Anthropic Messages request at the `/to-chat-completions/anthropic` path, converts it to a Chat Completions request, and sends it back to DIAL Core at `{DIAL_URL}/openai/deployments/{deployment}/chat/completions`, converting the answer — streaming or not — back into Anthropic Messages shape.
+Where the [passthrough](#anthropic-api-passthrough) forwards Anthropic requests to a Claude model unchanged, the translator lets an Anthropic-native client talk to a model that only speaks the [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat). It accepts an Anthropic Messages request at the `/openaiChatCompletions/anthropic` path, converts it to a Chat Completions request, and sends it back to DIAL Core at `{DIAL_URL}/openai/v1/chat/completions`, converting the answer — streaming or not — back into Anthropic Messages shape.
 
 This path never touches AWS Bedrock: it is a pure protocol translator, and the model it targets is whatever DIAL Core routes the inner request to. `DIAL_URL` must be set, otherwise the endpoints answer `500`.
 
 |Method|Endpoint|Translated into|
 |---|---|---|
-|`POST`|/to-chat-completions/anthropic/v1/messages|`POST {DIAL_URL}/openai/deployments/{deployment}/chat/completions`|
+|`POST`|`/openaiChatCompletions/anthropic/v1/messages`|`POST {DIAL_URL}/openai/v1/chat/completions`|
+|`POST`|`/openaiChatCompletions/anthropic/v1/messages/count_tokens`|`404`|
 
-There is no `count_tokens` endpoint: Chat Completions has no token-counting API, so that path (and any other unknown one) returns an Anthropic-shaped `404`.
-
-The model is taken from the `x-dial-deployment-id` header that DIAL Core sets, falling back to the `model` field of the request body. Core's per-request credential is forwarded as `api-key`, together with distributed-tracing headers. Inbound `authorization`, `x-api-key`, and Anthropic protocol headers are excluded.
-
-To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthropicMessages` interface to its DIAL Core config, pointing `base_url` at this adapter's `/to-chat-completions` path:
+To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthropicMessages` interface to its DIAL Core config, pointing `base_url` at this adapter's `/openaiChatCompletions` path:
 
 ```json
 {
@@ -872,10 +868,10 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
       "type": "chat",
       "interfaces": {
         "openaiChatCompletions": {
-          "base_url": "http://adapter-dial-openai:5000"
+          "base_url": "${ADAPTER_ORIGIN}"
         },
         "anthropicMessages": {
-          "base_url": "${ADAPTER_ORIGIN}/to-chat-completions"
+          "base_url": "${ADAPTER_ORIGIN}/openaiChatCompletions"
         }
       },
       "upstreams": [
@@ -889,9 +885,9 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
 }
 ```
 
-### Translation options
+### Translation details
 
-See the [translation guide](chatcompletion-transaltions.md) for request options, content mapping, tools, caching, usage, and errors. Options are forwarded without capability negotiation; the target deployment can reject unsupported options.
+See the [translation guide](docs/chatcompletion-translations.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
 
 Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the project's `bedrock` logger.
 
@@ -899,7 +895,7 @@ Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chun
 
 Supported inputs include text, images, inline/text/content documents, search results, and custom function tools. Provider tools (web search, bash, text editor, …) are sent as DIAL static functions, so only a deployment that understands them can run them. System instructions move to the front, assistant thinking is omitted on replay, and text/tool interleaving can change. Files API sources, document URLs, and unknown message roles are rejected with `400`. Token counting and output-cap clamping are outside the supported API.
 
-See the [translation guide](chatcompletion-transaltions.md) for the complete behavior and limitations.
+See the [translation guide](docs/chatcompletion-translations.md) for the complete behavior and limitations.
 
 ---
 

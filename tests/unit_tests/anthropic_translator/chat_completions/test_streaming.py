@@ -16,8 +16,8 @@ from openai.types.completion_usage import (
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.streaming import (
     translate_stream,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 from tests.unit_tests.anthropic_translator.helpers import (
     FakeStream,
@@ -25,20 +25,20 @@ from tests.unit_tests.anthropic_translator.helpers import (
     parse_anthropic_sse,
 )
 
-LONG_MCP_NAME: str = "mcp__" + "s" * 60 + "__do_the_thing"
+LONG_MCP_NAME = "mcp__" + "s" * 60 + "__do_the_thing"
 
 
 async def translate(
     chunks: list[ChatCompletionChunk],
     model: str = "gpt-5.5",
-    aliases: ToolNameAliases | None = None,
+    translation_state: TranslationState | None = None,
 ):
-    stream: FakeStream[ChatCompletionChunk] = FakeStream(chunks)
-    collected: bytes = b""
+    stream = FakeStream(chunks)
+    collected = b""
     async for event_bytes in translate_stream(
         stream,
         model,
-        aliases or ToolNameAliases(),
+        translation_state or TranslationState(),
     ):
         collected += event_bytes
     assert stream.closed
@@ -74,7 +74,7 @@ def assert_block_discipline(events) -> None:
     for position, (name, data) in enumerate(events):
         if name == "content_block_start":
             assert data["index"] not in open_blocks
-            block_type: str = data["content_block"]["type"]
+            block_type = data["content_block"]["type"]
             assert not open_blocks or (
                 block_type == "tool_use"
                 and all(kind == "tool_use" for kind in open_blocks.values())
@@ -103,7 +103,6 @@ async def test_plain_text_stream() -> None:
     )
     assert [name for name, _ in events] == [
         "message_start",
-        "ping",
         "content_block_start",
         "content_block_delta",
         "content_block_delta",
@@ -115,10 +114,10 @@ async def test_plain_text_stream() -> None:
     assert events[0][1]["message"]["id"] == "chatcmpl_1"
     assert events[0][1]["message"]["stop_reason"] is None
 
-    assert events[2][1]["content_block"] == {"type": "text", "text": ""}
+    assert events[1][1]["content_block"] == {"type": "text", "text": ""}
     assert text_of(events) == "Hello world"
 
-    message_delta = events[6][1]
+    message_delta = events[5][1]
 
     assert message_delta["delta"] == {
         "stop_reason": "end_turn",
@@ -183,7 +182,7 @@ async def test_tool_call_stream() -> None:
     )
     assert_block_discipline(events)
 
-    assert events[2][1]["content_block"] == {
+    assert events[1][1]["content_block"] == {
         "type": "tool_use",
         "id": "call_1",
         "name": "get_weather",
@@ -199,8 +198,8 @@ async def test_tool_call_stream() -> None:
 
 
 async def test_an_aliased_tool_name_is_restored() -> None:
-    aliases: ToolNameAliases = ToolNameAliases()
-    alias: str = aliases.to_upstream(LONG_MCP_NAME)
+    translation_state = TranslationState()
+    alias = translation_state.to_upstream_tool_name(LONG_MCP_NAME)
     events = await translate(
         [
             chunk(
@@ -218,7 +217,7 @@ async def test_an_aliased_tool_name_is_restored() -> None:
             ),
             usage_chunk(),
         ],
-        aliases=aliases,
+        translation_state=translation_state,
     )
     start = next(d for name, d in events if name == "content_block_start")
     assert start["content_block"]["name"] == LONG_MCP_NAME
@@ -268,10 +267,10 @@ async def test_reasoning_stages_become_a_thinking_block() -> None:
         ]
     )
     assert_block_discipline(events)
-    start = events[2]
+    start = events[1]
     assert start[0] == "content_block_start"
     assert start[1]["content_block"]["type"] == "thinking"
-    thinking: str = "".join(
+    thinking = "".join(
         data["delta"]["thinking"]
         for name, data in events
         if name == "content_block_delta"
@@ -342,8 +341,8 @@ async def test_a_signature_closes_the_thinking_block(
         ]
     )
     assert_block_discipline(events)
-    names: list[str] = [name for name, _ in events]
-    signature_at: int = next(
+    names = [name for name, _ in events]
+    signature_at = next(
         i
         for i, (name, data) in enumerate(events)
         if name == "content_block_delta"
@@ -474,7 +473,7 @@ async def test_usage_on_a_content_chunk_does_not_truncate() -> None:
             usage_chunk(prompt=5, completion=2),
         ]
     )
-    names: list[str] = [name for name, _ in events]
+    names = [name for name, _ in events]
     assert names.count("message_stop") == 1
     assert names[-1] == "message_stop"
     assert text_of(events) == "Hello world"
@@ -529,14 +528,13 @@ async def test_an_upstream_yielding_no_chunks_still_emits_message_start() -> (
     events = await translate([])
     assert [name for name, _ in events] == [
         "message_start",
-        "ping",
         "content_block_start",
         "content_block_stop",
         "message_delta",
         "message_stop",
     ]
     assert_block_discipline(events)
-    assert events[2][1]["content_block"] == {"type": "text", "text": ""}
+    assert events[1][1]["content_block"] == {"type": "text", "text": ""}
 
 
 async def test_a_stream_with_no_content_gets_the_zero_block_guard() -> None:
@@ -565,12 +563,12 @@ async def test_cached_tokens_are_subtracted_in_streaming_too() -> None:
 async def test_streaming_usage_accounts_for_cache_and_reasoning_tokens() -> (
     None
 ):
-    usage: CompletionUsage = CompletionUsage(
+    usage = CompletionUsage(
         prompt_tokens=100,
         completion_tokens=50,
         total_tokens=150,
         prompt_tokens_details=PromptTokensDetails.model_validate(
-            {"cached_tokens": 30, "cacheWriteTokens": 25}
+            {"cached_tokens": 30, "cache_write_tokens": 25}
         ),
         completion_tokens_details=CompletionTokensDetails(reasoning_tokens=40),
     )
@@ -634,7 +632,7 @@ async def test_parallel_tool_fragments_keep_their_original_indices() -> None:
     starts = [e for e in result if e["type"] == "content_block_start"]
     assert len(starts) == 2
     for i, expected in enumerate([{"a": 1}, {"b": 2}]):
-        args: str = "".join(
+        args = "".join(
             e["delta"]["partial_json"]
             for e in result
             if e["type"] == "content_block_delta" and e["index"] == i

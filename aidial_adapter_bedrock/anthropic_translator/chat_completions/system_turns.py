@@ -15,7 +15,7 @@ def visible_messages(
     messages: Iterable[BetaMessageParam],
 ) -> list[MessageParam]:
     visible: list[MessageParam] = []
-    later_user: bool = False
+    later_user = False
     for message in reversed(cast(list[MessageParam], list(messages))):
         if message["role"] == "user":
             later_user = True

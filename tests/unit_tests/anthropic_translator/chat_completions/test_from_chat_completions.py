@@ -7,10 +7,8 @@ from anthropic.types import (
     TextBlock,
     ThinkingBlock,
     ToolUseBlock,
-    Usage,
     WebSearchToolResultBlock,
 )
-from anthropic.types.content_block import ContentBlock as AnthropicContentBlock
 from anthropic.types.output_tokens_details import OutputTokensDetails
 from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion import Choice
@@ -30,18 +28,18 @@ from openai.types.completion_usage import (
 )
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
-    from_chat_completions,
-    stop_reason,
+    to_anthropic_response,
+    to_anthropic_stop_reason,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 
 FinishReason = Literal[
     "stop", "length", "tool_calls", "content_filter", "function_call"
 ]
 
-LONG_MCP_NAME: str = "mcp__" + "s" * 60 + "__do_the_thing"
+LONG_MCP_NAME = "mcp__" + "s" * 60 + "__do_the_thing"
 
 
 def message(**fields: object) -> ChatCompletionMessage:
@@ -77,12 +75,12 @@ def response(
 
 def translate(
     completion: ChatCompletion,
-    aliases: ToolNameAliases | None = None,
+    translation_state: TranslationState | None = None,
 ) -> Message:
-    return from_chat_completions(
+    return to_anthropic_response(
         completion,
         "requested-model",
-        aliases or ToolNameAliases(),
+        translation_state or TranslationState(),
     )
 
 
@@ -97,11 +95,11 @@ def tool_call(
 
 
 def test_text_output() -> None:
-    msg: Message = translate(response(message(content="hello")))
+    msg = translate(response(message(content="hello")))
     assert msg.id == "chatcmpl_abc"
     assert msg.type == "message"
     assert msg.role == "assistant"
-    assert msg.model == "gpt-5.5"
+    assert msg.model == "requested-model"
     assert msg.content == [TextBlock(type="text", text="hello")]
     assert msg.stop_reason == "end_turn"
     assert msg.stop_sequence is None
@@ -112,7 +110,7 @@ def test_model_falls_back_to_requested() -> None:
 
 
 def test_only_first_choice_translated() -> None:
-    completion: ChatCompletion = response(message(content="first"))
+    completion = response(message(content="first"))
     completion.choices.append(
         Choice(
             index=1,
@@ -146,7 +144,7 @@ def test_an_empty_completion_yields_one_empty_text_block(
 
 
 def test_signed_thinking_from_state_leads_the_content() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="the answer",
@@ -171,7 +169,7 @@ def test_signed_thinking_from_state_leads_the_content() -> None:
 
 
 def test_thinking_from_reasoning_stages_has_an_empty_signature() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="answer",
@@ -192,7 +190,7 @@ def test_thinking_from_reasoning_stages_has_an_empty_signature() -> None:
 
 
 def test_state_thinking_is_preferred_over_stages() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 custom_content={
@@ -221,7 +219,7 @@ def test_state_thinking_is_preferred_over_stages() -> None:
     "name", ["Thinking", "thought process", "Reasoning", "REASON", "Thoughts"]
 )
 def test_a_reasoning_stage_is_recognised_by_substring(name: str) -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 custom_content={
@@ -236,7 +234,7 @@ def test_a_reasoning_stage_is_recognised_by_substring(name: str) -> None:
 
 
 def test_custom_content_without_reasoning_adds_no_thinking_block() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="hi",
@@ -252,9 +250,7 @@ def test_custom_content_without_reasoning_adds_no_thinking_block() -> None:
 
 
 def test_malformed_custom_content_is_ignored() -> None:
-    msg: Message = translate(
-        response(message(content="hi", custom_content="nonsense"))
-    )
+    msg = translate(response(message(content="hi", custom_content="nonsense")))
     assert msg.content == [TextBlock(type="text", text="hi")]
 
 
@@ -263,7 +259,7 @@ def test_malformed_custom_content_is_ignored() -> None:
     [["https://example.com"], ["https://example.com", "https://second.com"]],
 )
 def test_url_citations_become_a_server_tool_use_pair(urls: list[str]) -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="answer",
@@ -296,10 +292,10 @@ def test_url_citations_become_a_server_tool_use_pair(urls: list[str]) -> None:
 
 
 def test_tool_call_becomes_tool_use() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(message(tool_calls=[tool_call()]), finish_reason="tool_calls")
     )
-    block: AnthropicContentBlock = msg.content[0]
+    block = msg.content[0]
     assert isinstance(block, ToolUseBlock)
     assert block.id == "toolu_1"
     assert block.name == "search"
@@ -308,12 +304,12 @@ def test_tool_call_becomes_tool_use() -> None:
 
 
 def test_an_aliased_tool_name_is_restored() -> None:
-    aliases: ToolNameAliases = ToolNameAliases()
-    alias: str = aliases.to_upstream(LONG_MCP_NAME)
-    msg: Message = translate(
-        response(message(tool_calls=[tool_call(name=alias)])), aliases
+    translation_state = TranslationState()
+    alias = translation_state.to_upstream_tool_name(LONG_MCP_NAME)
+    msg = translate(
+        response(message(tool_calls=[tool_call(name=alias)])), translation_state
     )
-    block: AnthropicContentBlock = msg.content[0]
+    block = msg.content[0]
     assert isinstance(block, ToolUseBlock)
     assert block.name == LONG_MCP_NAME
 
@@ -325,14 +321,14 @@ def test_an_aliased_tool_name_is_restored() -> None:
 def test_a_cut_off_or_filtered_finish_wins_over_tool_calls(
     finish_reason: FinishReason, expected: str
 ) -> None:
-    msg: Message = translate(
+    msg = translate(
         response(message(tool_calls=[tool_call()]), finish_reason=finish_reason)
     )
     assert msg.stop_reason == expected
 
 
 def test_tool_calls_win_the_stop_reason_over_the_finish_reason() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(message(tool_calls=[tool_call()]), finish_reason="stop")
     )
     assert msg.stop_reason == "tool_use"
@@ -340,16 +336,16 @@ def test_tool_calls_win_the_stop_reason_over_the_finish_reason() -> None:
 
 @pytest.mark.parametrize("arguments", ["[1, 2, 3]", "{not json", ""])
 def test_unusable_tool_arguments_become_an_empty_input(arguments: str) -> None:
-    msg: Message = translate(
+    msg = translate(
         response(message(tool_calls=[tool_call(arguments=arguments)]))
     )
-    block: AnthropicContentBlock = msg.content[0]
+    block = msg.content[0]
     assert isinstance(block, ToolUseBlock)
     assert block.input == {}
 
 
 def test_a_non_function_tool_call_is_skipped() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="hi",
@@ -365,15 +361,8 @@ def test_a_non_function_tool_call_is_skipped() -> None:
     assert msg.stop_reason == "end_turn"
 
 
-def test_a_tool_call_without_a_name_is_skipped() -> None:
-    msg: Message = translate(
-        response(message(content="hi", tool_calls=[tool_call(name="")]))
-    )
-    assert msg.content == [TextBlock(type="text", text="hi")]
-
-
 def test_refusal_sets_stop_reason_refusal() -> None:
-    msg: Message = translate(response(message(refusal="no")))
+    msg = translate(response(message(refusal="no")))
     assert msg.content == [TextBlock(type="text", text="no")]
     assert msg.stop_reason == "refusal"
 
@@ -389,9 +378,7 @@ def test_refusal_sets_stop_reason_refusal() -> None:
 def test_stop_reason_mapping(
     finish_reason: FinishReason, expected: str
 ) -> None:
-    msg: Message = translate(
-        response(message(content="x"), finish_reason=finish_reason)
-    )
+    msg = translate(response(message(content="x"), finish_reason=finish_reason))
 
     assert msg.stop_reason == expected
 
@@ -401,13 +388,15 @@ def test_an_unrecognised_finish_reason_falls_back_to_end_turn(
     finish_reason: str | None,
 ) -> None:
     assert (
-        stop_reason(finish_reason, saw_tool_use=False, saw_refusal=False)
+        to_anthropic_stop_reason(
+            finish_reason, has_tool_call=False, is_refusal=False
+        )
         == "end_turn"
     )
 
 
 def test_cached_tokens_are_subtracted_from_input_tokens() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=100,
@@ -424,7 +413,7 @@ def test_cached_tokens_are_subtracted_from_input_tokens() -> None:
 
 
 def test_usage_without_cache_details() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=10, completion_tokens=5, total_tokens=15
@@ -437,7 +426,7 @@ def test_usage_without_cache_details() -> None:
 
 
 def test_cache_counters_are_capped_at_prompt_tokens() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=5,
@@ -455,24 +444,22 @@ def test_cache_counters_are_capped_at_prompt_tokens() -> None:
 
 
 def test_missing_usage_is_zeroed_not_an_error() -> None:
-    completion: ChatCompletion = response()
+    completion = response()
     completion.usage = None
-    usage: Usage = translate(completion).usage
+    usage = translate(completion).usage
     assert usage.input_tokens == 0
     assert usage.output_tokens == 0
-    assert usage.output_tokens_details == OutputTokensDetails(thinking_tokens=0)
 
 
-@pytest.mark.parametrize("spelling", ["cache_write_tokens", "cacheWriteTokens"])
-def test_cache_writes_are_recovered_and_subtracted(spelling: str) -> None:
-    msg: Message = translate(
+def test_cache_writes_are_recovered_and_subtracted() -> None:
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=100,
                 completion_tokens=20,
                 total_tokens=120,
                 prompt_tokens_details=PromptTokensDetails.model_validate(
-                    {"cached_tokens": 30, spelling: 25}
+                    {"cached_tokens": 30, "cache_write_tokens": 25}
                 ),
             )
         )
@@ -482,32 +469,8 @@ def test_cache_writes_are_recovered_and_subtracted(spelling: str) -> None:
     assert msg.usage.cache_creation_input_tokens == 25
 
 
-@pytest.mark.parametrize("cache_write_tokens", [0, 25])
-def test_typed_cache_writes_take_precedence_over_alias(
-    cache_write_tokens: int,
-) -> None:
-    msg = translate(
-        response(
-            usage=CompletionUsage(
-                prompt_tokens=100,
-                completion_tokens=20,
-                total_tokens=120,
-                prompt_tokens_details=PromptTokensDetails.model_validate(
-                    {
-                        "cached_tokens": 30,
-                        "cache_write_tokens": cache_write_tokens,
-                        "cacheWriteTokens": 50,
-                    }
-                ),
-            )
-        )
-    )
-    assert msg.usage.input_tokens == 70 - cache_write_tokens
-    assert msg.usage.cache_creation_input_tokens == cache_write_tokens
-
-
 def test_reasoning_tokens_become_an_informational_breakdown() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=10,
@@ -526,7 +489,7 @@ def test_reasoning_tokens_become_an_informational_breakdown() -> None:
 
 
 def test_zero_reasoning_tokens_emit_a_zero_breakdown() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             usage=CompletionUsage(
                 prompt_tokens=10,
@@ -544,7 +507,7 @@ def test_zero_reasoning_tokens_emit_a_zero_breakdown() -> None:
 
 
 def test_full_block_order() -> None:
-    msg: Message = translate(
+    msg = translate(
         response(
             message(
                 content="text",

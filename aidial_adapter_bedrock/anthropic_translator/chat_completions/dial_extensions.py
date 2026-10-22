@@ -4,11 +4,10 @@ from collections.abc import Mapping
 from openai.types.chat.chat_completion_message import Annotation
 from pydantic import ValidationError
 
+from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 from aidial_adapter_bedrock.utils.pydantic import ExtraAllowModel
 
-_REASONING_STAGE: re.Pattern[str] = re.compile(
-    r"think|thought|reason", re.IGNORECASE
-)
+_REASONING_STAGE = re.compile(r"think|thought|reason", re.IGNORECASE)
 
 
 class ClaudeMessageBlock(ExtraAllowModel):
@@ -40,7 +39,8 @@ class DialExtras(ExtraAllowModel):
 def parse_extras(model_extra: Mapping[str, object] | None) -> DialExtras:
     try:
         return DialExtras.model_validate(model_extra or {})
-    except ValidationError:
+    except ValidationError as e:
+        log.error(f"Failed to parse DIAL extension fields: {e}")
         return DialExtras()
 
 
@@ -48,19 +48,17 @@ def is_reasoning_stage(name: str | None) -> bool:
     return name is not None and bool(_REASONING_STAGE.search(name))
 
 
-def signed_thinking(
+def get_claude_thinking_block(
     custom_content: CustomContent | None,
 ) -> ClaudeMessageBlock | None:
-    state: MessageState | None = (
-        custom_content.state if custom_content else None
-    )
+    state = custom_content.state if custom_content else None
     for block in (state.claude_message_content if state else None) or []:
         if block.type == "thinking" and block.thinking:
             return block
     return None
 
 
-def stage_thinking(custom_content: CustomContent | None) -> str:
+def get_dial_reasoning_content(custom_content: CustomContent | None) -> str:
     return "".join(
         stage.content or ""
         for stage in (custom_content.stages if custom_content else None) or []

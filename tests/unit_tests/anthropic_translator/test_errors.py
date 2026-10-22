@@ -4,7 +4,6 @@ from typing import Never
 import httpx
 import openai
 import pytest
-from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from aidial_adapter_bedrock.anthropic_translator.errors import (
@@ -19,9 +18,7 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
 def _status_error(
     status: int, body: object | None, message: str
 ) -> openai.APIStatusError:
-    request: httpx.Request = httpx.Request(
-        "POST", "http://core/openai/v1/responses"
-    )
+    request = httpx.Request("POST", "http://core/openai/v1/responses")
     return openai.APIStatusError(
         message, response=httpx.Response(status, request=request), body=body
     )
@@ -47,7 +44,7 @@ def _status_error(
 def test_upstream_error_preserves_status_and_maps_type(
     status: int, expected: str
 ) -> None:
-    response: JSONResponse = anthropic_error_from_upstream(
+    response = anthropic_error_from_upstream(
         _status_error(status, {"message": "upstream failure"}, "fallback")
     )
     assert response.status_code == status
@@ -73,13 +70,11 @@ def test_upstream_error_preserves_status_and_maps_type(
 def test_local_error_uses_enum_default_status(
     error_type: AnthropicErrorType, status: int, code: str
 ) -> None:
-    error: AnthropicHTTPError = AnthropicHTTPError(error_type, "local failure")
+    error = AnthropicHTTPError(error_type, "local failure")
     assert error.status_code == status
     assert error.error_type is error_type
     assert str(error) == "local failure"
-    response: JSONResponse = anthropic_error_response(
-        error.error_type, error.message
-    )
+    response = anthropic_error_response(error.error_type, error.message)
     assert response.status_code == status
     assert json.loads(bytes(response.body)) == {
         "type": "error",
@@ -104,7 +99,7 @@ def test_local_error_uses_enum_default_status(
     ],
 )
 def test_upstream_error_message(body: object, expected: str) -> None:
-    response: JSONResponse = anthropic_error_from_upstream(
+    response = anthropic_error_from_upstream(
         _status_error(400, body, "SDK fallback")
     )
     assert response.status_code == 400
@@ -121,7 +116,7 @@ async def test_translator_error_handler_maps_unexpected_exception_to_500() -> (
     async def _handler() -> Never:
         raise RuntimeError("totally unexpected")
 
-    response: Response = await _handler()
+    response = await _handler()
 
     assert response.status_code == 500
     body = json.loads(bytes(response.body))
@@ -139,7 +134,7 @@ async def test_internal_pydantic_validation_error_is_a_500() -> None:
         _StrictIntModel.model_validate({"x": "not-an-int"})
         raise AssertionError("model_validate should have raised")
 
-    response: Response = await _handler()
+    response = await _handler()
 
     assert response.status_code == 500
     body = json.loads(bytes(response.body))

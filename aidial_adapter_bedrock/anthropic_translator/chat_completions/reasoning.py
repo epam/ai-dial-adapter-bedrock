@@ -3,7 +3,6 @@ from openai.types.shared import ReasoningEffort
 from pydantic import TypeAdapter, ValidationError
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.system_turns import (
-    MessageParam,
     visible_messages,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
@@ -12,7 +11,7 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-_EFFORT: TypeAdapter[ReasoningEffort] = TypeAdapter(ReasoningEffort)
+_EFFORT = TypeAdapter(ReasoningEffort)
 
 
 def resolve_effort(req: MessageCreateParams) -> ReasoningEffort:
@@ -25,20 +24,21 @@ def resolve_effort(req: MessageCreateParams) -> ReasoningEffort:
         )
     # Token budgets and qualitative effort levels have no protocol-defined
     # conversion. Leave the target's default unless effort is explicit.
-    effort: str | None = _system_turn_effort(req) or (
-        req.get("output_config") or {}
-    ).get("effort")
+    effort = _system_turn_effort(req) or (req.get("output_config") or {}).get(
+        "effort"
+    )
     try:
         return _EFFORT.validate_python(effort)
     except ValidationError:
         raise AnthropicHTTPError(
             AnthropicErrorType.INVALID_REQUEST,
-            f"Unsupported output_config.effort: {effort}",
+            f"Cannot convert Anthropic Messages API reasoning effort {effort} "
+            "to OpenAI Chat Completions API reasoning effort",
         ) from None
 
 
 def _system_turn_effort(req: MessageCreateParams) -> str | None:
-    system_turns: list[MessageParam] = [
+    system_turns = [
         message
         for message in visible_messages(req["messages"])
         if message["role"] == "system"

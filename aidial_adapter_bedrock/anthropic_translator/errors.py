@@ -11,9 +11,9 @@ from typing_extensions import TypedDict
 
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-INTERNAL_ERROR_MESSAGE: str = "Internal server error"
-CONNECTION_ERROR_MESSAGE: str = "Failed to reach DIAL Core"
-P = ParamSpec("P")
+INTERNAL_ERROR_MESSAGE = "Internal server error"
+CONNECTION_ERROR_MESSAGE = "Failed to reach DIAL Core"
+_P = ParamSpec("_P")
 
 
 class AnthropicErrorType(Enum):
@@ -29,11 +29,8 @@ class AnthropicErrorType(Enum):
     def __init__(
         self, code: str, status_code: int, *alternate_status_codes: int
     ) -> None:
-        self.code: str = code
-        self.status_codes: tuple[int, ...] = (
-            status_code,
-            *alternate_status_codes,
-        )
+        self.code = code
+        self.status_codes = (status_code, *alternate_status_codes)
 
     @property
     def status_code(self) -> int:
@@ -60,8 +57,8 @@ class ErrorResponse(TypedDict):
 class AnthropicHTTPError(Exception):
     def __init__(self, error_type: AnthropicErrorType, message: str) -> None:
         super().__init__(message)
-        self.error_type: AnthropicErrorType = error_type
-        self.message: str = message
+        self.error_type = error_type
+        self.message = message
 
     @property
     def status_code(self) -> int:
@@ -92,9 +89,9 @@ def anthropic_error_response(
 
 
 def _extract_error_message(e: openai.APIStatusError) -> str:
-    body: object | None = e.body
+    body = e.body
     if isinstance(body, dict):
-        error: object = body.get("error")
+        error = body.get("error")
         if isinstance(error, dict) and isinstance(error.get("message"), str):
             return error["message"]
         if isinstance(error, str) and error:
@@ -108,7 +105,7 @@ def _extract_error_message(e: openai.APIStatusError) -> str:
     return e.message
 
 
-_STREAM_ERROR_TYPES: dict[str, AnthropicErrorType] = {
+_STREAM_ERROR_TYPES = {
     "invalid_request_error": AnthropicErrorType.INVALID_REQUEST,
     "rate_limit_exceeded": AnthropicErrorType.RATE_LIMIT,
 }
@@ -122,28 +119,26 @@ def anthropic_error_type_from_stream(e: openai.APIError) -> AnthropicErrorType:
 
 
 def anthropic_error_from_upstream(e: openai.APIStatusError) -> JSONResponse:
-    error_type: AnthropicErrorType = AnthropicErrorType.from_status_code(
-        e.status_code
-    )
     return anthropic_error_response(
-        error_type, _extract_error_message(e), status_code=e.status_code
+        AnthropicErrorType.from_status_code(e.status_code),
+        _extract_error_message(e),
+        status_code=e.status_code,
     )
 
 
 def translator_error_handler(
-    func: Callable[P, Awaitable[Response]],
-) -> Callable[P, Awaitable[Response]]:
+    func: Callable[_P, Awaitable[Response]],
+) -> Callable[_P, Awaitable[Response]]:
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Response:
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Response:
         try:
             return await func(*args, **kwargs)
         except AnthropicHTTPError as e:
             return anthropic_error_response(e.error_type, e.message)
         except openai.APIStatusError as e:
-            log.warning("DIAL Core returned status %s", e.status_code)
             return anthropic_error_from_upstream(e)
-        except openai.APIConnectionError:
-            log.exception("Failed to reach DIAL Core from the translator")
+        except openai.APIConnectionError as e:
+            log.error(f"Failed to reach DIAL Core from the translator: {e}")
             return anthropic_error_response(
                 AnthropicErrorType.API,
                 CONNECTION_ERROR_MESSAGE,

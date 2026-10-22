@@ -1,5 +1,5 @@
+import json
 import uuid
-from collections.abc import Mapping
 from typing import assert_never
 
 from anthropic.types import (
@@ -16,129 +16,119 @@ from anthropic.types.content_block import ContentBlock as AnthropicContentBlock
 from anthropic.types.output_tokens_details import OutputTokensDetails
 from anthropic.types.web_search_result_block import WebSearchResultBlock
 from openai.types.chat import ChatCompletion
-from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message import (
     Annotation,
-    AnnotationURLCitation,
     ChatCompletionMessage,
 )
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCallUnion,
 )
-from openai.types.completion_usage import (
-    CompletionTokensDetails,
-    CompletionUsage,
-    PromptTokensDetails,
-)
-from pydantic import TypeAdapter, ValidationError
+from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.dial_extensions import (
     CustomContent,
-    DialExtras,
+    get_claude_thinking_block,
+    get_dial_reasoning_content,
     parse_extras,
-    signed_thinking,
-    stage_thinking,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-_ARGUMENTS: TypeAdapter[dict[str, object]] = TypeAdapter(dict[str, object])
 
-UNKNOWN_MESSAGE_ID: str = "chatcmpl_unknown"
-
-
-def from_chat_completions(
+def to_anthropic_response(
     response: ChatCompletion,
     requested_model: str,
-    aliases: ToolNameAliases,
+    translation_state: TranslationState,
 ) -> Message:
-    choice: Choice | None = response.choices[0] if response.choices else None
-    message: ChatCompletionMessage | None = choice.message if choice else None
-    tool_blocks: list[ToolUseBlock] = _tool_use_blocks(
-        message.tool_calls if message else None, aliases
+    if len(response.choices) > 1:
+        log.warning(
+            f"Ignoring {len(response.choices) - 1} choices after the first one"
+        )
+    choice = response.choices[0] if response.choices else None
+    message = choice.message if choice else None
+    tool_blocks = _to_anthropic_tool_use_blocks(
+        message.tool_calls if message else None, translation_state
     )
-    refusal: str | None = message.refusal if message else None
 
-    content: list[AnthropicContentBlock] = _content_blocks(message, tool_blocks)
     return Message(
-        id=getattr(response, "id", None) or UNKNOWN_MESSAGE_ID,
+        id=response.id,
         type="message",
         role="assistant",
-        model=getattr(response, "model", None) or requested_model,
-        content=content,
+        model=requested_model,
+        content=_to_anthropic_content_blocks(message, tool_blocks),
+        # Set explicitly: the response is dumped with exclude_unset, and the
+        # Messages API always returns this field.
         stop_sequence=None,
-        stop_reason=stop_reason(
+        stop_reason=to_anthropic_stop_reason(
             choice.finish_reason if choice else None,
             bool(tool_blocks),
-            bool(refusal),
+            bool(message and message.refusal),
         ),
-        usage=convert_usage(response.usage),
+        usage=to_anthropic_usage(response.usage),
     )
 
 
-def _content_blocks(
+def _to_anthropic_content_blocks(
     message: ChatCompletionMessage | None,
     tool_blocks: list[ToolUseBlock],
 ) -> list[AnthropicContentBlock]:
     if message is None:
-        return [_empty_text()]
+        return [_text_block("")]
 
     content: list[AnthropicContentBlock] = []
 
-    extras: DialExtras = parse_extras(message.model_extra)
-    if thinking := thinking_block(extras.custom_content):
+    extras = parse_extras(message.model_extra)
+    if thinking := to_anthropic_thinking_block(extras.custom_content):
         content.append(thinking)
 
-    content.extend(citation_blocks(_citations(message.annotations)))
+    content.extend(
+        to_anthropic_web_search_blocks(_citations(message.annotations))
+    )
 
     if message.content:
-        content.append(TextBlock(type="text", text=message.content))
+        content.append(_text_block(message.content))
 
     if message.refusal:
-        content.append(TextBlock(type="text", text=message.refusal))
+        content.append(_text_block(message.refusal))
 
     content.extend(tool_blocks)
 
-    return content or [_empty_text()]
+    return content or [_text_block("")]
 
 
-def _empty_text() -> TextBlock:
-    return TextBlock(type="text", text="")
+def _text_block(text: str) -> TextBlock:
+    return TextBlock(type="text", text=text)
 
 
-def thinking_block(
+def to_anthropic_thinking_block(
     custom_content: CustomContent | None,
 ) -> ThinkingBlock | None:
-    if block := signed_thinking(custom_content):
+    if block := get_claude_thinking_block(custom_content):
         return ThinkingBlock(
             type="thinking",
             thinking=block.thinking or "",
             signature=block.signature or "",
         )
-    if text := stage_thinking(custom_content):
+    if text := get_dial_reasoning_content(custom_content):
         return ThinkingBlock(type="thinking", thinking=text, signature="")
     return None
 
 
 def _citations(annotations: list[Annotation] | None) -> list[tuple[str, str]]:
-    result: list[tuple[str, str]] = []
-    for annotation in annotations or []:
-        citation: AnnotationURLCitation = annotation.url_citation
-        if annotation.type != "url_citation" or not citation.url:
-            log.warning("Skipping malformed annotation: %s", annotation.type)
-            continue
-        result.append((citation.url, citation.title or ""))
-    return result
+    return [
+        (annotation.url_citation.url, annotation.url_citation.title)
+        for annotation in annotations or []
+    ]
 
 
-def citation_blocks(
+def to_anthropic_web_search_blocks(
     citations: list[tuple[str, str]],
 ) -> list[AnthropicContentBlock]:
     if not citations:
         return []
-    tool_use_id: str = f"srvtoolu_{uuid.uuid4().hex}"
+    tool_use_id = f"srvtoolu_{uuid.uuid4().hex}"
     return [
         ServerToolUseBlock(
             type="server_tool_use",
@@ -162,90 +152,82 @@ def citation_blocks(
     ]
 
 
-def _tool_use_blocks(
+def _to_anthropic_tool_use_blocks(
     tool_calls: list[ChatCompletionMessageToolCallUnion] | None,
-    aliases: ToolNameAliases,
+    translation_state: TranslationState,
 ) -> list[ToolUseBlock]:
     blocks: list[ToolUseBlock] = []
     for call in tool_calls or []:
         match call.type:
             case "custom":
-                log.warning(
-                    "Skipping unsupported tool call type: %s", call.type
-                )
+                log.warning(f"Skipping unsupported tool call type: {call.type}")
                 continue
             case "function":
                 pass
             case unexpected:
                 assert_never(unexpected)
-        if not call.id or not call.function.name:
-            log.warning("Skipping tool call without an id or name")
-            continue
         blocks.append(
             ToolUseBlock(
                 type="tool_use",
                 id=call.id,
-                name=aliases.to_client(call.function.name),
-                input=parse_arguments(call.function.arguments),
+                name=translation_state.to_client_tool_name(call.function.name),
+                input=_parse_arguments(call.function.arguments),
             )
         )
     return blocks
 
 
-def parse_arguments(arguments: str | None) -> dict[str, object]:
-    if not arguments:
-        return {}
+def _parse_arguments(arguments: str) -> dict[str, object]:
     try:
-        return _ARGUMENTS.validate_json(arguments)
-    except ValidationError:
-        log.warning("Failed to parse function_call arguments as JSON")
+        parsed = json.loads(arguments) if arguments else {}
+    except json.JSONDecodeError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        log.warning("Failed to parse function_call arguments as a JSON object")
         return {}
+    return parsed
 
 
-def stop_reason(
+def to_anthropic_stop_reason(
     finish_reason: str | None,
-    saw_tool_use: bool,
-    saw_refusal: bool,
+    has_tool_call: bool,
+    is_refusal: bool,
 ) -> StopReason:
     if finish_reason == "length":
         return "max_tokens"
     if finish_reason == "content_filter":
         return "refusal"
-    if saw_tool_use:
+    if has_tool_call:
         return "tool_use"
-    if saw_refusal:
+    if is_refusal:
         return "refusal"
     return "end_turn"
 
 
-_CACHE_WRITE_KEYS: tuple[str, ...] = ("cache_write_tokens", "cacheWriteTokens")
+def to_anthropic_usage(usage: CompletionUsage | None) -> Usage:
+    if usage is None:
+        return Usage(input_tokens=0, output_tokens=0)
 
-
-def convert_usage(usage: CompletionUsage | None) -> Usage:
-    prompt_details: PromptTokensDetails | None = (
-        usage.prompt_tokens_details if usage else None
-    )
-    prompt_tokens: int = getattr(usage, "prompt_tokens", 0) or 0
-    # DIAL Core bills prompt_tokens, so the three input counters must add up
-    # to it even when the reported breakdown exceeds the total.
-    cache_read: int = min(
+    prompt_tokens = usage.prompt_tokens or 0
+    prompt_details = usage.prompt_tokens_details
+    # Anthropic's input_tokens excludes cache reads and writes, which
+    # prompt_tokens includes: cap the breakdown so the counters add up.
+    cache_read = min(
         (prompt_details.cached_tokens if prompt_details else 0) or 0,
         prompt_tokens,
     )
-    cache_write: int = min(
+    cache_write = min(
         _cache_write_tokens(prompt_details), prompt_tokens - cache_read
     )
 
-    completion_details: CompletionTokensDetails | None = (
-        usage.completion_tokens_details if usage else None
-    )
-    thinking: int = (
+    completion_details = usage.completion_tokens_details
+    thinking = (
         completion_details.reasoning_tokens if completion_details else 0
     ) or 0
 
     return Usage(
         input_tokens=prompt_tokens - cache_read - cache_write,
-        output_tokens=getattr(usage, "completion_tokens", 0) or 0,
+        output_tokens=usage.completion_tokens or 0,
         cache_read_input_tokens=cache_read,
         cache_creation_input_tokens=cache_write,
         output_tokens_details=OutputTokensDetails(thinking_tokens=thinking),
@@ -253,13 +235,6 @@ def convert_usage(usage: CompletionUsage | None) -> Usage:
 
 
 def _cache_write_tokens(details: PromptTokensDetails | None) -> int:
-    if details is not None and details.cache_write_tokens is not None:
-        return details.cache_write_tokens
-
-    extra: Mapping[str, object] = (
-        details.model_extra if details else None
-    ) or {}
-    for key in _CACHE_WRITE_KEYS:
-        if isinstance(value := extra.get(key), int):
-            return value
-    return 0
+    if details is None:
+        return 0
+    return details.cache_write_tokens or 0

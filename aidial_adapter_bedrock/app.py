@@ -12,9 +12,6 @@ from aidial_adapter_bedrock.anthropic_passthrough import (
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.app import (
     app as chat_completions_translator_app,
 )
-from aidial_adapter_bedrock.anthropic_translator.core_client import (
-    close_http_client,
-)
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
     create_boto_client,
@@ -41,7 +38,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await create_boto_client.clear()
         await get_sts_client.clear()
         await get_anthropic_http_client.clear()
-        await close_http_client()
         await get_dial_client_pool.clear()
 
 
@@ -75,7 +71,7 @@ app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
 
 app.mount(
-    path="/to-chat-completions/anthropic",
+    path="/openaiChatCompletions/anthropic",
     app=chat_completions_translator_app,
     name="Anthropic Messages to Chat Completions translator",
 )

@@ -1,6 +1,5 @@
 import contextlib
 import logging
-import os
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from functools import wraps
 
@@ -8,32 +7,11 @@ from fastapi import Request
 from fastapi.responses import Response, StreamingResponse
 
 from aidial_adapter_bedrock.anthropic_translator.errors import (
-    INTERNAL_ERROR_MESSAGE,
     AnthropicErrorType,
-    AnthropicHTTPError,
     anthropic_error_response,
     translator_error_handler,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
-
-NOT_CONFIGURED: str = "translator is not configured (DIAL_URL is not set)"
-
-
-def require_base_url() -> str:
-    url: str | None = os.getenv("DIAL_URL")
-    if not url:
-        log.error(NOT_CONFIGURED)
-        raise AnthropicHTTPError(AnthropicErrorType.API, INTERNAL_ERROR_MESSAGE)
-
-    return url.rstrip("/")
-
-
-def stream_response(chunks: AsyncIterator[bytes]) -> StreamingResponse:
-    return StreamingResponse(
-        chunks,
-        media_type="text/event-stream",
-        headers={"cache-control": "no-cache"},
-    )
 
 
 async def not_found(request: Request) -> Response:
@@ -71,7 +49,7 @@ def with_debug_logging(
         with contextlib.suppress(Exception):
             log.debug(f"request: {one_line(_as_text(await request.body()))}")
 
-        response: Response = await func(request)
+        response = await func(request)
 
         if isinstance(response, StreamingResponse):
             response.body_iterator = _log_stream_chunks(response.body_iterator)

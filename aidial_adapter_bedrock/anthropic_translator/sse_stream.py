@@ -1,4 +1,11 @@
-from collections.abc import AsyncIterator, Callable, Hashable
+import uuid
+from collections.abc import (
+    AsyncIterator,
+    Callable,
+    Hashable,
+    Iterable,
+    Iterator,
+)
 from typing import Literal, Protocol, TypeVar
 
 import openai
@@ -29,21 +36,17 @@ from aidial_adapter_bedrock.anthropic_translator.errors import (
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-T = TypeVar("T")
-T_co = TypeVar("T_co", covariant=True)
+_T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
 
 
-class ClosableAsyncStream(Protocol[T_co]):
-    def __aiter__(self) -> AsyncIterator[T_co]: ...
+class ClosableAsyncStream(Protocol[_T_co]):
+    def __aiter__(self) -> AsyncIterator[_T_co]: ...
 
     async def close(self) -> None: ...
 
 
-class PingEvent(BaseModel):
-    type: Literal["ping"]
-
-
-class ErrorEvent(BaseModel):
+class _ErrorEvent(BaseModel):
     type: Literal["error"]
     error: ErrorDetail
 
@@ -55,23 +58,21 @@ AnthropicSSEEvent = (
     | RawContentBlockStopEvent
     | RawMessageDeltaEvent
     | RawMessageStopEvent
-    | PingEvent
-    | ErrorEvent
+    | _ErrorEvent
 )
 
 
 def format_sse(event: AnthropicSSEEvent) -> bytes:
-    data: str = event.model_dump_json(exclude_unset=True)
+    data = event.model_dump_json(exclude_unset=True)
     return f"event: {event.type}\ndata: {data}\n\n".encode()
 
 
 class AnthropicStreamState:
-    def __init__(self, requested_model: str, default_message_id: str) -> None:
-        self.requested_model: str = requested_model
-        self.model: str = requested_model
-        self.message_id: str = default_message_id
-        self.next_index: int = 0
-        self.terminated: bool = False
+    def __init__(self, model: str) -> None:
+        self.model = model
+        self.message_id = str(uuid.uuid4())
+        self.next_index = 0
+        self.terminated = False
 
         self._open: tuple[Hashable, int] | None = None
 
@@ -80,120 +81,108 @@ class AnthropicStreamState:
 
     def open_block(
         self, key: Hashable, content_block: AnthropicContentBlock
-    ) -> list[bytes]:
-        events: list[bytes] = self.close_block()
-        index: int = self.next_index
+    ) -> Iterator[bytes]:
+        yield from self.close_block()
+        index = self.next_index
         self.next_index += 1
         self._open = (key, index)
-        events.append(
-            format_sse(
-                RawContentBlockStartEvent(
-                    type="content_block_start",
-                    index=index,
-                    content_block=content_block,
-                )
+        yield format_sse(
+            RawContentBlockStartEvent(
+                type="content_block_start",
+                index=index,
+                content_block=content_block,
             )
         )
-        return events
 
-    def delta(self, delta: RawContentBlockDelta) -> list[bytes]:
+    def delta(self, delta: RawContentBlockDelta) -> Iterator[bytes]:
         if self._open is None:
-            return []
-        return [
-            format_sse(
-                RawContentBlockDeltaEvent(
-                    type="content_block_delta",
-                    index=self._open[1],
-                    delta=delta,
-                )
+            log.warning(
+                "Delta event has arrived before open event for a content block"
             )
-        ]
+            return
+        yield format_sse(
+            RawContentBlockDeltaEvent(
+                type="content_block_delta", index=self._open[1], delta=delta
+            )
+        )
 
-    def close_block(self) -> list[bytes]:
+    def close_block(self) -> Iterator[bytes]:
         if self._open is None:
-            return []
+            return
         _, index = self._open
         self._open = None
-        return [
-            format_sse(
-                RawContentBlockStopEvent(type="content_block_stop", index=index)
-            )
-        ]
-
-    def message_start_events(self) -> list[bytes]:
-        message: Message = Message(
-            id=self.message_id,
-            type="message",
-            role="assistant",
-            model=self.model,
-            content=[],
-            stop_reason=None,
-            stop_sequence=None,
-            usage=Usage(
-                input_tokens=0,
-                output_tokens=0,
-                cache_creation_input_tokens=0,
-                cache_read_input_tokens=0,
-            ),
+        yield format_sse(
+            RawContentBlockStopEvent(type="content_block_stop", index=index)
         )
-        return [
-            format_sse(
-                RawMessageStartEvent(type="message_start", message=message)
-            ),
-            format_sse(PingEvent(type="ping")),
-        ]
+
+    def message_start_events(self) -> Iterator[bytes]:
+        yield format_sse(
+            RawMessageStartEvent(
+                type="message_start",
+                message=Message(
+                    id=self.message_id,
+                    type="message",
+                    role="assistant",
+                    model=self.model,
+                    content=[],
+                    stop_reason=None,
+                    stop_sequence=None,
+                    usage=Usage(
+                        input_tokens=0,
+                        output_tokens=0,
+                        cache_creation_input_tokens=0,
+                        cache_read_input_tokens=0,
+                    ),
+                ),
+            )
+        )
 
     def final_events(
         self,
         stop_reason: StopReason,
         usage: Usage,
         stop_sequence: str | None = None,
-    ) -> list[bytes]:
+    ) -> Iterator[bytes]:
         if self.terminated:
-            return []
+            return
         self.terminated = True
-        events: list[bytes] = self.close_block()
-        events.append(
-            format_sse(
-                RawMessageDeltaEvent(
-                    type="message_delta",
-                    delta=Delta(
-                        stop_reason=stop_reason, stop_sequence=stop_sequence
-                    ),
-                    usage=MessageDeltaUsage(
-                        input_tokens=usage.input_tokens,
-                        output_tokens=usage.output_tokens,
-                        cache_creation_input_tokens=usage.cache_creation_input_tokens,
-                        cache_read_input_tokens=usage.cache_read_input_tokens,
-                        output_tokens_details=usage.output_tokens_details,
-                    ),
-                )
+        yield from self.close_block()
+        yield format_sse(
+            RawMessageDeltaEvent(
+                type="message_delta",
+                delta=Delta(
+                    stop_reason=stop_reason, stop_sequence=stop_sequence
+                ),
+                usage=MessageDeltaUsage(
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    cache_creation_input_tokens=usage.cache_creation_input_tokens,
+                    cache_read_input_tokens=usage.cache_read_input_tokens,
+                    output_tokens_details=usage.output_tokens_details,
+                ),
             )
         )
-        events.append(format_sse(RawMessageStopEvent(type="message_stop")))
-        return events
+        yield format_sse(RawMessageStopEvent(type="message_stop"))
 
     def emit_error(
         self, error_type: AnthropicErrorType, message: str
-    ) -> list[bytes]:
+    ) -> Iterator[bytes]:
         if self.terminated:
-            return []
+            return
         self.terminated = True
-        return [
-            format_sse(
-                ErrorEvent(
-                    type="error",
-                    error={"type": error_type.code, "message": message},
-                )
+        yield format_sse(
+            _ErrorEvent(
+                type="error",
+                error={"type": error_type.code, "message": message},
             )
-        ]
+        )
 
 
 async def run_sse_stream(
-    stream: ClosableAsyncStream[T],
+    stream: ClosableAsyncStream[_T],
     state: AnthropicStreamState,
-    on_item: Callable[[T], list[bytes]],
-    on_finalize: Callable[[], list[bytes]] | None = None,
+    on_item: Callable[[_T], Iterable[bytes]],
+    on_finalize: Callable[[], Iterable[bytes]] | None = None,
     *,
     log_context: str,
 ) -> AsyncIterator[bytes]:

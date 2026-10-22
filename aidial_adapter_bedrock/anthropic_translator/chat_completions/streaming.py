@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 
 from aidial_sdk.utils.merge_chunks import merge
 from anthropic.types import (
@@ -14,26 +14,18 @@ from anthropic.types.signature_delta import SignatureDelta
 from anthropic.types.text_delta import TextDelta
 from anthropic.types.thinking_delta import ThinkingDelta
 from openai.types.chat import ChatCompletionChunk
-from openai.types.chat.chat_completion_chunk import (
-    Choice,
-    ChoiceDelta,
-    ChoiceDeltaToolCall,
-    ChoiceDeltaToolCallFunction,
-)
-from openai.types.chat.chat_completion_message import AnnotationURLCitation
+from openai.types.chat.chat_completion_chunk import Choice, ChoiceDeltaToolCall
 from openai.types.completion_usage import CompletionUsage
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.dial_extensions import (
     CustomContent,
-    DialExtras,
     is_reasoning_stage,
     parse_extras,
 )
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.from_chat_completions import (
-    UNKNOWN_MESSAGE_ID,
-    citation_blocks,
-    convert_usage,
-    stop_reason,
+    to_anthropic_stop_reason,
+    to_anthropic_usage,
+    to_anthropic_web_search_blocks,
 )
 from aidial_adapter_bedrock.anthropic_translator.sse_stream import (
     AnthropicStreamState,
@@ -41,219 +33,189 @@ from aidial_adapter_bedrock.anthropic_translator.sse_stream import (
     format_sse,
     run_sse_stream,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
-_TEXT_KEY: str = "text"
-_THINKING_KEY: str = "thinking"
-_CITATION_KEY: str = "citation"
+_TEXT_KEY = "text"
+_THINKING_KEY = "thinking"
+_CITATION_KEY = "citation"
 
 
 class ChatCompletionsToAnthropicStream(AnthropicStreamState):
     def __init__(
         self,
         requested_model: str,
-        aliases: ToolNameAliases,
+        translation_state: TranslationState,
     ) -> None:
-        super().__init__(requested_model, default_message_id=UNKNOWN_MESSAGE_ID)
-        self.started: bool = False
+        super().__init__(requested_model)
+        self.started = False
         self.finish_reason: str | None = None
         self.usage: CompletionUsage | None = None
-        self.saw_refusal: bool = False
-        self.saw_tool_use: bool = False
-        self._aliases: ToolNameAliases = aliases
+        self.is_refusal = False
+        self.has_tool_call = False
+        self._translation_state = translation_state
         self._reasoning_stages: set[int | None] = set()
         self._seen_citations: set[str] = set()
-        self._signed: bool = False
+        self._signed = False
         self._tools: dict[int, int] = {}
 
-    def handle(self, chunk: ChatCompletionChunk) -> list[bytes]:
+    def handle(self, chunk: ChatCompletionChunk) -> Iterator[bytes]:
         if self.terminated:
-            return []
+            return
 
-        events: list[bytes] = []
         if not self.started:
-            self.message_id = getattr(chunk, "id", None) or self.message_id
-            self.model = getattr(chunk, "model", None) or self.requested_model
-            events.extend(self._start())
+            self.message_id = chunk.id
+            yield from self._start()
 
         if chunk.choices:
-            events.extend(self._on_choice(chunk.choices[0]))
+            yield from self._on_choice(chunk.choices[0])
 
         if chunk.usage is not None:
             self.usage = _merge_usage(self.usage, chunk.usage)
 
-        return events
-
-    def _start(self) -> list[bytes]:
+    def _start(self) -> Iterator[bytes]:
         self.started = True
-        return self.message_start_events()
+        yield from self.message_start_events()
 
-    def _on_choice(self, choice: Choice) -> list[bytes]:
-        events: list[bytes] = []
-        delta: ChoiceDelta = choice.delta
-        extras: DialExtras = parse_extras(delta.model_extra)
+    def _on_choice(self, choice: Choice) -> Iterator[bytes]:
+        delta = choice.delta
+        extras = parse_extras(delta.model_extra)
 
         if choice.finish_reason:
             self.finish_reason = choice.finish_reason
-        events.extend(self._on_custom_content(extras.custom_content))
+        yield from self._on_custom_content(extras.custom_content)
 
         if text := delta.content:
-            events.extend(self._emit_text(text))
+            yield from self._emit_text(text)
         if refusal := delta.refusal:
-            self.saw_refusal = True
-            events.extend(self._emit_text(refusal))
+            self.is_refusal = True
+            yield from self._emit_text(refusal)
 
         citations: list[tuple[str, str]] = []
         for annotation in extras.annotations or []:
-            citation: AnnotationURLCitation = annotation.url_citation
-            if citation.url and citation.url not in self._seen_citations:
+            citation = annotation.url_citation
+            if citation.url not in self._seen_citations:
                 self._seen_citations.add(citation.url)
-                citations.append((citation.url, citation.title or ""))
+                citations.append((citation.url, citation.title))
         if citations:
-            events.extend(self._close_tools())
-            for block in citation_blocks(citations):
-                events.extend(self.open_block(_CITATION_KEY, block))
-                events.extend(self.close_block())
+            yield from self._close_tools()
+            for block in to_anthropic_web_search_blocks(citations):
+                yield from self.open_block(_CITATION_KEY, block)
+                yield from self.close_block()
         for call in delta.tool_calls or []:
-            events.extend(self._on_tool_call_delta(call))
-
-        return events
+            yield from self._on_tool_call_delta(call)
 
     def _on_custom_content(
         self, custom_content: CustomContent | None
-    ) -> list[bytes]:
+    ) -> Iterator[bytes]:
         if custom_content is None:
-            return []
+            return
 
-        events: list[bytes] = []
         for stage in custom_content.stages or []:
             if is_reasoning_stage(stage.name):
                 self._reasoning_stages.add(stage.index)
             if stage.index in self._reasoning_stages and stage.content:
-                events.extend(self._thinking_delta(stage.content))
+                yield from self._thinking_delta(stage.content)
 
         if self._signed or custom_content.state is None:
-            return events
+            return
         for block in custom_content.state.claude_message_content or []:
             if block.type == "thinking" and block.signature:
                 self._signed = True
-                events.extend(self._signature_delta(block.signature))
+                yield from self._signature_delta(block.signature)
                 break
-        return events
 
-    def _thinking_delta(self, text: str) -> list[bytes]:
-        events: list[bytes] = self._close_tools()
+    def _thinking_delta(self, text: str) -> Iterator[bytes]:
+        yield from self._close_tools()
         if not self.is_open(_THINKING_KEY):
-            events.extend(
-                self.open_block(
-                    _THINKING_KEY,
-                    ThinkingBlock(type="thinking", thinking="", signature=""),
-                )
+            yield from self.open_block(
+                _THINKING_KEY,
+                ThinkingBlock(type="thinking", thinking="", signature=""),
             )
-        events.extend(
-            self.delta(ThinkingDelta(type="thinking_delta", thinking=text))
+        yield from self.delta(
+            ThinkingDelta(type="thinking_delta", thinking=text)
         )
-        return events
 
-    def _signature_delta(self, signature: str) -> list[bytes]:
+    def _signature_delta(self, signature: str) -> Iterator[bytes]:
         if not self.is_open(_THINKING_KEY):
             log.warning("Thinking signature arrived after the block closed")
-            return []
+            return
 
-        events: list[bytes] = self.delta(
+        yield from self.delta(
             SignatureDelta(type="signature_delta", signature=signature)
         )
-        events.extend(self.close_block())
-        return events
+        yield from self.close_block()
 
-    def _emit_text(self, text: str) -> list[bytes]:
-        if not text:
-            return []
-        events: list[bytes] = self._close_tools()
+    def _emit_text(self, text: str) -> Iterator[bytes]:
+        yield from self._close_tools()
         if not self.is_open(_TEXT_KEY):
-            events.extend(
-                self.open_block(_TEXT_KEY, TextBlock(type="text", text=""))
+            yield from self.open_block(
+                _TEXT_KEY, TextBlock(type="text", text="")
             )
-        events.extend(self.delta(TextDelta(type="text_delta", text=text)))
-        return events
+        yield from self.delta(TextDelta(type="text_delta", text=text))
 
-    def _on_tool_call_delta(self, call: ChoiceDeltaToolCall) -> list[bytes]:
+    def _on_tool_call_delta(self, call: ChoiceDeltaToolCall) -> Iterator[bytes]:
         if call.type not in (None, "function"):
-            return []
-        events: list[bytes] = self.close_block()
-        function: ChoiceDeltaToolCallFunction | None = call.function
+            return
+        yield from self.close_block()
+        function = call.function
         if call.index not in self._tools:
-            self.saw_tool_use = True
+            self.has_tool_call = True
             self._tools[call.index] = self.next_index
             self.next_index += 1
-            events.append(
-                format_sse(
-                    RawContentBlockStartEvent(
-                        type="content_block_start",
-                        index=self._tools[call.index],
-                        content_block=ToolUseBlock(
-                            type="tool_use",
-                            id=call.id or "",
-                            name=self._aliases.to_client(
-                                (function.name if function else None) or ""
-                            ),
-                            input={},
+            yield format_sse(
+                RawContentBlockStartEvent(
+                    type="content_block_start",
+                    index=self._tools[call.index],
+                    content_block=ToolUseBlock(
+                        type="tool_use",
+                        id=call.id or "",
+                        name=self._translation_state.to_client_tool_name(
+                            (function.name if function else None) or ""
                         ),
-                    )
+                        input={},
+                    ),
                 )
             )
         if function and function.arguments:
-            events.append(
-                format_sse(
-                    RawContentBlockDeltaEvent(
-                        type="content_block_delta",
-                        index=self._tools[call.index],
-                        delta=InputJSONDelta(
-                            type="input_json_delta",
-                            partial_json=function.arguments,
-                        ),
-                    )
+            yield format_sse(
+                RawContentBlockDeltaEvent(
+                    type="content_block_delta",
+                    index=self._tools[call.index],
+                    delta=InputJSONDelta(
+                        type="input_json_delta",
+                        partial_json=function.arguments,
+                    ),
                 )
             )
-        return events
 
-    def _close_tools(self) -> list[bytes]:
-        events: list[bytes] = [
-            format_sse(
+    def _close_tools(self) -> Iterator[bytes]:
+        for index in self._tools.values():
+            yield format_sse(
                 RawContentBlockStopEvent(type="content_block_stop", index=index)
             )
-            for index in self._tools.values()
-        ]
         self._tools.clear()
-        return events
 
-    def finalize(self) -> list[bytes]:
+    def finalize(self) -> Iterator[bytes]:
         if self.terminated:
-            return []
+            return
 
-        events: list[bytes] = []
         if not self.started:
-            events.extend(self._start())
-        events.extend(self._close_tools())
+            yield from self._start()
+        yield from self._close_tools()
         if self.next_index == 0:
-            events.extend(
-                self.open_block(_TEXT_KEY, TextBlock(type="text", text=""))
+            yield from self.open_block(
+                _TEXT_KEY, TextBlock(type="text", text="")
             )
 
-        events.extend(
-            self.final_events(
-                stop_reason(
-                    self.finish_reason,
-                    self.saw_tool_use,
-                    self.saw_refusal,
-                ),
-                convert_usage(self.usage),
-            )
+        yield from self.final_events(
+            to_anthropic_stop_reason(
+                self.finish_reason, self.has_tool_call, self.is_refusal
+            ),
+            to_anthropic_usage(self.usage),
         )
-        return events
 
 
 def _merge_usage(
@@ -269,11 +231,9 @@ def _merge_usage(
 async def translate_stream(
     stream: ClosableAsyncStream[ChatCompletionChunk],
     requested_model: str,
-    aliases: ToolNameAliases,
+    translation_state: TranslationState,
 ) -> AsyncIterator[bytes]:
-    state: ChatCompletionsToAnthropicStream = ChatCompletionsToAnthropicStream(
-        requested_model, aliases
-    )
+    state = ChatCompletionsToAnthropicStream(requested_model, translation_state)
 
     async for chunk in run_sse_stream(
         stream,

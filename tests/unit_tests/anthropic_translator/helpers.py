@@ -8,11 +8,11 @@ from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 from openai.types.completion_usage import CompletionUsage
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
-    CoreChatCompletionRequest,
+    DialChatCompletionsRequest,
     to_chat_completions_request,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 
 
@@ -38,9 +38,9 @@ class FakeStream(Generic[T]):
     def __init__(
         self, items: Iterable[T], raise_after: Exception | None = None
     ) -> None:
-        self._items: Iterable[T] = items
-        self._raise_after: Exception | None = raise_after
-        self.closed: bool = False
+        self._items = items
+        self._raise_after = raise_after
+        self.closed = False
 
     async def __aiter__(self) -> AsyncIterator[T]:
         for item in self._items:
@@ -52,7 +52,7 @@ class FakeStream(Generic[T]):
         self.closed = True
 
 
-DEPLOYMENT: str = "gpt-4o"
+DEPLOYMENT = "gpt-4o"
 FinishReason = Literal[
     "stop", "length", "tool_calls", "content_filter", "function_call"
 ]
@@ -61,12 +61,14 @@ FinishReason = Literal[
 def convert(
     body: Mapping[str, object],
     model: str = DEPLOYMENT,
-    aliases: ToolNameAliases | None = None,
-) -> CoreChatCompletionRequest:
+    translation_state: TranslationState | None = None,
+) -> DialChatCompletionsRequest:
     return to_chat_completions_request(
         cast(MessageCreateParams, {"model": model, "max_tokens": 100, **body}),
         model,
-        aliases if aliases is not None else ToolNameAliases(),
+        translation_state
+        if translation_state is not None
+        else TranslationState(),
     )
 
 

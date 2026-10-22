@@ -27,9 +27,9 @@ def _usage() -> Usage:
 async def test_stream_dispatches_items_finalizes_and_closes(
     finalize: bool,
 ) -> None:
-    stream: FakeStream[str] = FakeStream(["a", "b"])
-    state: AnthropicStreamState = AnthropicStreamState("m", "id_unknown")
-    chunks: list[bytes] = [
+    stream = FakeStream(["a", "b"])
+    state = AnthropicStreamState("m")
+    chunks = [
         chunk
         async for chunk in run_sse_stream(
             stream,
@@ -44,11 +44,9 @@ async def test_stream_dispatches_items_finalizes_and_closes(
 
 
 async def test_run_sse_stream_turns_exception_into_error_event() -> None:
-    stream: FakeStream[str] = FakeStream(
-        ["a"], raise_after=RuntimeError("boom")
-    )
-    state: AnthropicStreamState = AnthropicStreamState("m", "id_unknown")
-    chunks: list[bytes] = [
+    stream = FakeStream(["a"], raise_after=RuntimeError("boom"))
+    state = AnthropicStreamState("m")
+    chunks = [
         chunk
         async for chunk in run_sse_stream(
             stream,
@@ -76,10 +74,10 @@ async def test_run_sse_stream_turns_exception_into_error_event() -> None:
 
 @pytest.mark.parametrize("failed", [False, True])
 def test_terminal_stream_emits_no_more_events(failed: bool) -> None:
-    state: AnthropicStreamState = AnthropicStreamState("m", "id")
+    state = AnthropicStreamState("m")
     if failed:
-        state.emit_error(AnthropicErrorType.API, "Internal server error")
+        list(state.emit_error(AnthropicErrorType.API, "Internal server error"))
     else:
-        state.final_events("end_turn", _usage())
-    assert state.final_events("end_turn", _usage()) == []
-    assert state.emit_error(AnthropicErrorType.API, "another error") == []
+        list(state.final_events("end_turn", _usage()))
+    assert list(state.final_events("end_turn", _usage())) == []
+    assert list(state.emit_error(AnthropicErrorType.API, "another error")) == []

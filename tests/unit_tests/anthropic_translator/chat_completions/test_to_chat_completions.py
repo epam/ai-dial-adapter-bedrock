@@ -1,38 +1,33 @@
 import json
-from datetime import UTC, datetime, timedelta
-from typing import Literal, cast
+from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from aidial_sdk.chat_completion.request import (
+    CacheBreakpoint,
     FunctionChoice,
     ImageURL,
     InputFile,
     MessageContentFilePart,
     MessageContentImagePart,
-    MessageContentPart,
     MessageContentTextPart,
-    MessageCustomFields,
     Role,
-    StaticTool,
-    ToolCall,
     ToolChoice,
 )
-from aidial_sdk.chat_completion.request import Message as SdkMessage
 from aidial_sdk.chat_completion.request import (
     Tool as SdkTool,
 )
 from anthropic.types.beta.message_create_params import MessageCreateParams
 
 from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_completions import (
-    CoreChatCompletionRequest,
     to_chat_completions_request,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
     AnthropicHTTPError,
 )
-from aidial_adapter_bedrock.anthropic_translator.tool_names import (
-    ToolNameAliases,
+from aidial_adapter_bedrock.anthropic_translator.translation_state import (
+    TranslationState,
 )
 from tests.unit_tests.anthropic_translator.helpers import (
     DEPLOYMENT,
@@ -40,14 +35,12 @@ from tests.unit_tests.anthropic_translator.helpers import (
     user,
 )
 
-LONG_MCP_NAME: str = "mcp__" + "s" * 60 + "__do_the_thing"
+LONG_MCP_NAME = "mcp__" + "s" * 60 + "__do_the_thing"
 
 
 @pytest.mark.parametrize("max_tokens", [100, 999999])
 def test_minimal_request(max_tokens: int) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hello"), "max_tokens": max_tokens}
-    )
+    result = convert({**user("hello"), "max_tokens": max_tokens})
     assert result.model_dump(mode="json", exclude_none=True) == {
         "model": DEPLOYMENT,
         "messages": [{"role": "user", "content": "hello"}],
@@ -57,15 +50,13 @@ def test_minimal_request(max_tokens: int) -> None:
 
 
 def test_system_string() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {"system": "be nice", **user("hi")}
-    )
+    result = convert({"system": "be nice", **user("hi")})
     assert result.messages[0].role == Role.SYSTEM
     assert result.messages[0].content == "be nice"
 
 
 def test_system_blocks_joined_and_cache_control_stripped() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "system": [
                 {
@@ -88,7 +79,7 @@ def test_system_blocks_joined_and_cache_control_stripped() -> None:
 
 
 def test_all_three_system_sources_merge_into_one_leading_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "system": "be nice",
             "messages": [
@@ -106,16 +97,14 @@ def test_all_three_system_sources_merge_into_one_leading_message() -> None:
             ],
         }
     )
-    system_messages: list[SdkMessage] = [
-        m for m in result.messages if m.role == Role.SYSTEM
-    ]
+    system_messages = [m for m in result.messages if m.role == Role.SYSTEM]
     assert len(system_messages) == 1
     assert system_messages[0].content == "be nice\n\nhook context\n\ninjected"
     assert system_messages[0] is result.messages[0]
 
 
 def test_system_sources_merge_in_client_order_not_grouped_by_kind() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "system": "TOP",
             "messages": [
@@ -138,7 +127,7 @@ def test_system_sources_merge_in_client_order_not_grouped_by_kind() -> None:
 
 
 def test_mid_conv_system_on_an_assistant_message_is_merged_not_warned() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "hi"},
@@ -166,7 +155,7 @@ def test_mid_conv_system_on_an_assistant_message_is_merged_not_warned() -> None:
 
 
 def test_mid_conv_system_inside_a_system_role_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {
@@ -187,7 +176,7 @@ def test_mid_conv_system_inside_a_system_role_message() -> None:
 
 
 def test_mid_conv_system_cache_control_marks_the_merged_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {
@@ -208,7 +197,7 @@ def test_mid_conv_system_cache_control_marks_the_merged_message() -> None:
 
 
 def test_unsupported_system_role_content_block_is_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {
@@ -228,15 +217,13 @@ def test_unsupported_system_role_content_block_is_dropped() -> None:
             ]
         }
     )
-    system_messages: list[SdkMessage] = [
-        m for m in result.messages if m.role == Role.SYSTEM
-    ]
+    system_messages = [m for m in result.messages if m.role == Role.SYSTEM]
     assert len(system_messages) == 1
     assert system_messages[0].content == "keep me"
 
 
 def test_base64_image() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -250,7 +237,7 @@ def test_base64_image() -> None:
             ]
         )
     )
-    content: str | list[MessageContentPart] | None = result.messages[0].content
+    content = result.messages[0].content
     assert isinstance(content, list)
     assert content[0] == MessageContentImagePart(
         type="image_url",
@@ -259,7 +246,7 @@ def test_base64_image() -> None:
 
 
 def test_url_image() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -269,7 +256,7 @@ def test_url_image() -> None:
             ]
         )
     )
-    content: str | list[MessageContentPart] | None = result.messages[0].content
+    content = result.messages[0].content
     assert isinstance(content, list)
     assert content[0] == MessageContentImagePart(
         type="image_url", image_url=ImageURL(url="https://x/y.png")
@@ -277,7 +264,7 @@ def test_url_image() -> None:
 
 
 def test_pdf_document_base64() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -292,7 +279,7 @@ def test_pdf_document_base64() -> None:
             ]
         )
     )
-    content: str | list[MessageContentPart] | None = result.messages[0].content
+    content = result.messages[0].content
     assert isinstance(content, list)
     assert content[0] == MessageContentFilePart(
         type="file",
@@ -319,7 +306,7 @@ def test_document_url_or_file_source_is_rejected(
 
 
 def test_document_content_source_becomes_its_text_and_image_parts() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -350,7 +337,7 @@ def test_document_content_source_becomes_its_text_and_image_parts() -> None:
 
 
 def test_search_result_becomes_a_text_part() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -374,7 +361,7 @@ def test_search_result_becomes_a_text_part() -> None:
 
 
 def test_replayed_compaction_becomes_its_summary_text() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {
@@ -403,7 +390,7 @@ def test_replayed_compaction_becomes_its_summary_text() -> None:
 
 
 def test_document_text_source_becomes_text_part() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -417,7 +404,7 @@ def test_document_text_source_becomes_text_part() -> None:
             ]
         )
     )
-    content: str | list[MessageContentPart] | None = result.messages[0].content
+    content = result.messages[0].content
     assert isinstance(content, list)
     assert content[0] == MessageContentTextPart(
         type="text", text="inline document text"
@@ -435,7 +422,7 @@ def test_image_file_source_is_rejected() -> None:
 
 
 def test_assistant_tool_use_and_text_combine_into_one_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "search"},
@@ -465,10 +452,10 @@ def test_assistant_tool_use_and_text_combine_into_one_message() -> None:
             ]
         }
     )
-    messages: list[SdkMessage] = result.messages
+    messages = result.messages
     assert messages[1].role == Role.ASSISTANT
     assert messages[1].content == "let me look"
-    tool_calls: list[ToolCall] | None = messages[1].tool_calls
+    tool_calls = messages[1].tool_calls
     assert tool_calls is not None
     assert len(tool_calls) == 1
     assert tool_calls[0].id == "toolu_1"
@@ -486,7 +473,7 @@ def test_assistant_tool_use_and_text_combine_into_one_message() -> None:
 
 
 def test_tool_result_only_turn_emits_no_user_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -504,7 +491,7 @@ def test_tool_result_only_turn_emits_no_user_message() -> None:
 
 
 def test_tool_result_is_error_prefixes_output() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -520,7 +507,7 @@ def test_tool_result_is_error_prefixes_output() -> None:
 
 
 def test_tool_result_image_becomes_user_image_url() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -552,7 +539,7 @@ def test_tool_result_image_becomes_user_image_url() -> None:
 
 
 def test_tool_result_document_moves_to_the_following_user_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -587,7 +574,7 @@ def test_tool_result_document_moves_to_the_following_user_message() -> None:
 
 
 def test_custom_tool_mapping() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "tools": [
@@ -599,9 +586,9 @@ def test_custom_tool_mapping() -> None:
             ],
         }
     )
-    tools: list[SdkTool | StaticTool] | None = result.tools
+    tools = result.tools
     assert tools is not None
-    tool: SdkTool | StaticTool = tools[0]
+    tool = tools[0]
     assert isinstance(tool, SdkTool)
     assert tool.type == "function"
     assert tool.function.name == "get_weather"
@@ -613,7 +600,7 @@ def test_custom_tool_mapping() -> None:
 
 
 def test_custom_tool_strict_is_forwarded() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "tools": [
@@ -629,7 +616,7 @@ def test_custom_tool_strict_is_forwarded() -> None:
 
 
 def test_schema_key_is_stripped_from_tool_parameters() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "tools": [
@@ -644,9 +631,9 @@ def test_schema_key_is_stripped_from_tool_parameters() -> None:
             ],
         }
     )
-    tools: list[SdkTool | StaticTool] | None = result.tools
+    tools = result.tools
     assert tools is not None
-    tool: SdkTool | StaticTool = tools[0]
+    tool = tools[0]
     assert isinstance(tool, SdkTool)
     assert tool.function.parameters == {
         "type": "object",
@@ -671,9 +658,7 @@ def test_provider_tools_become_static_functions_as_sent() -> None:
         },
         {"type": "mcp_toolset", "mcp_server_name": "docs"},
     ]
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "tools": provider_tools}
-    )
+    result = convert({**user("hi"), "tools": provider_tools})
     assert result.model_dump(mode="json", exclude_none=True)["tools"] == [
         {
             "type": "static_function",
@@ -701,14 +686,12 @@ def test_provider_tools_become_static_functions_as_sent() -> None:
 def test_tool_choice_matrix(
     tool_choice: dict[str, object], expected: str | ToolChoice | None
 ) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "tool_choice": tool_choice}
-    )
+    result = convert({**user("hi"), "tool_choice": tool_choice})
     assert result.tool_choice == expected
 
 
 def test_disable_parallel_tool_use_inverts() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "tool_choice": {"type": "auto", "disable_parallel_tool_use": True},
@@ -719,8 +702,8 @@ def test_disable_parallel_tool_use_inverts() -> None:
 
 
 def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites() -> None:
-    aliases: ToolNameAliases = ToolNameAliases()
-    result: CoreChatCompletionRequest = convert(
+    translation_state = TranslationState()
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "hi"},
@@ -741,37 +724,33 @@ def test_a_long_mcp_name_is_aliased_identically_at_all_three_sites() -> None:
             ],
             "tool_choice": {"type": "tool", "name": LONG_MCP_NAME},
         },
-        aliases=aliases,
+        translation_state=translation_state,
     )
-    tools: list[SdkTool | StaticTool] | None = result.tools
+    tools = result.tools
     assert tools is not None
-    tool: SdkTool | StaticTool = tools[0]
+    tool = tools[0]
     assert isinstance(tool, SdkTool)
-    alias: str = tool.function.name
+    alias = tool.function.name
 
     assert alias != LONG_MCP_NAME
     assert len(alias) <= 64
-    tool_choice: Literal["auto", "none", "required"] | ToolChoice | None = (
-        result.tool_choice
-    )
+    tool_choice = result.tool_choice
     assert isinstance(tool_choice, ToolChoice)
     assert tool_choice.function.name == alias
-    tool_calls: list[ToolCall] | None = result.messages[1].tool_calls
+    tool_calls = result.messages[1].tool_calls
     assert tool_calls is not None
     assert tool_calls[0].function.name == alias
 
-    assert aliases.to_client(alias) == LONG_MCP_NAME
+    assert translation_state.to_client_tool_name(alias) == LONG_MCP_NAME
 
 
 def test_no_cache_control_omits_cache_breakpoint() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {"system": "be nice", **user("hi")}
-    )
+    result = convert({"system": "be nice", **user("hi")})
     assert result.messages[0].custom_fields is None
 
 
 def test_user_message_cache_control_marks_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -787,7 +766,7 @@ def test_user_message_cache_control_marks_message() -> None:
 
 
 def test_assistant_message_cache_control_marks_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "hi"},
@@ -809,7 +788,7 @@ def test_assistant_message_cache_control_marks_message() -> None:
 
 
 def test_tool_result_turn_cache_control_marks_all_split_messages() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -829,7 +808,7 @@ def test_tool_result_turn_cache_control_marks_all_split_messages() -> None:
 
 
 def test_a_block_ttl_reaches_the_marker_as_an_absolute_instant() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -840,14 +819,14 @@ def test_a_block_ttl_reaches_the_marker_as_an_absolute_instant() -> None:
             ]
         )
     )
-    custom_fields: MessageCustomFields | None = result.messages[0].custom_fields
+    custom_fields = result.messages[0].custom_fields
     assert custom_fields is not None
     assert custom_fields.cache_breakpoint is not None
     assert custom_fields.cache_breakpoint.expire_at is not None
 
 
 def test_the_longest_ttl_of_the_merged_system_sources_wins() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "system": [
                 {
@@ -871,17 +850,17 @@ def test_the_longest_ttl_of_the_merged_system_sources_wins() -> None:
             ],
         }
     )
-    custom_fields: MessageCustomFields | None = result.messages[0].custom_fields
+    custom_fields = result.messages[0].custom_fields
     assert custom_fields is not None
     assert custom_fields.cache_breakpoint is not None
-    expire_at: str | None = custom_fields.cache_breakpoint.expire_at
+    expire_at = custom_fields.cache_breakpoint.expire_at
     assert expire_at is not None
-    remaining: timedelta = datetime.fromisoformat(expire_at) - datetime.now(UTC)
+    remaining = datetime.fromisoformat(expire_at) - datetime.now(UTC)
     assert remaining.total_seconds() == pytest.approx(3600, abs=5)
 
 
 def test_cache_control_nested_inside_a_tool_result_is_not_seen() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -902,7 +881,7 @@ def test_cache_control_nested_inside_a_tool_result_is_not_seen() -> None:
 
 
 def test_tool_definition_cache_control_marks_tool() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "tools": [
@@ -914,24 +893,22 @@ def test_tool_definition_cache_control_marks_tool() -> None:
             ],
         }
     )
-    tools: list[SdkTool | StaticTool] | None = result.tools
+    tools = result.tools
     assert tools is not None
-    tool: SdkTool | StaticTool = tools[0]
+    tool = tools[0]
     assert isinstance(tool, SdkTool)
     assert tool.custom_fields is not None
     assert tool.custom_fields.cache_breakpoint is not None
 
 
 def test_temperature_and_top_p_pass_through() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "temperature": 0.5, "top_p": 0.9}
-    )
+    result = convert({**user("hi"), "temperature": 0.5, "top_p": 0.9})
     assert result.temperature == 0.5
     assert result.top_p == 0.9
 
 
 def test_top_k_and_thinking_history_are_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {
@@ -953,7 +930,7 @@ def test_top_k_and_thinking_history_are_dropped() -> None:
             "top_k": 5,
         }
     )
-    dumped: str = json.dumps(result.model_dump(mode="json", exclude_none=True))
+    dumped = json.dumps(result.model_dump(mode="json", exclude_none=True))
     assert "top_k" not in dumped
     assert "secret" not in dumped
     assert result.messages[0].role == Role.ASSISTANT
@@ -961,7 +938,7 @@ def test_top_k_and_thinking_history_are_dropped() -> None:
 
 
 def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "mcp_servers": [
@@ -981,7 +958,7 @@ def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
             "cache_control": {"type": "ephemeral"},
         }
     )
-    dumped: str = json.dumps(result.model_dump(mode="json", exclude_none=True))
+    dumped = json.dumps(result.model_dump(mode="json", exclude_none=True))
     for dropped in (
         "mcp_servers",
         "compaction",
@@ -998,9 +975,7 @@ def test_fields_with_no_chat_completions_counterpart_are_dropped() -> None:
 
 @pytest.mark.parametrize("user_id", ["u1", "u" * 65])
 def test_user_id_is_forwarded_as_user(user_id: str) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "metadata": {"user_id": user_id}}
-    )
+    result = convert({**user("hi"), "metadata": {"user_id": user_id}})
     assert result.user == user_id
 
 
@@ -1011,9 +986,7 @@ def test_user_id_is_forwarded_as_user(user_id: str) -> None:
 def test_service_tier_is_a_closed_table(
     tier: str, expected: str | None
 ) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "service_tier": tier}
-    )
+    result = convert({**user("hi"), "service_tier": tier})
     assert result.service_tier == expected
 
 
@@ -1024,7 +997,7 @@ def test_output_config_format_json_schema_converts() -> None:
         "required": ["name"],
         "additionalProperties": False,
     }
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             **user("hi"),
             "output_config": {
@@ -1051,7 +1024,7 @@ def test_empty_output_schema_is_dropped() -> None:
 
 
 def test_citations_enabled_sets_custom_fields() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {
@@ -1072,17 +1045,15 @@ def test_citations_enabled_sets_custom_fields() -> None:
 
 @pytest.mark.parametrize("stop", [["STOP"], []])
 def test_stop_sequences_map_to_stop_as_is(stop: list[str]) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {**user("hi"), "stop_sequences": stop}
-    )
+    result = convert({**user("hi"), "stop_sequences": stop})
     assert result.model_dump(mode="json", exclude_none=True)["stop"] == stop
 
 
 def test_absent_max_tokens_sends_no_cap_and_zero_is_sent() -> None:
-    absent: CoreChatCompletionRequest = to_chat_completions_request(
+    absent = to_chat_completions_request(
         cast(MessageCreateParams, {"model": DEPLOYMENT, **user("hi")}),
         DEPLOYMENT,
-        ToolNameAliases(),
+        TranslationState(),
     )
     assert "max_completion_tokens" not in absent.model_dump(exclude_none=True)
     assert convert({**user("hi"), "max_tokens": 0}).max_completion_tokens == 0
@@ -1095,7 +1066,7 @@ def test_an_unknown_role_is_rejected() -> None:
 
 
 def test_a_system_turn_cleared_at_the_next_user_message() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         {
             "messages": [
                 {"role": "user", "content": "one"},
@@ -1118,84 +1089,38 @@ def test_a_system_turn_cleared_at_the_next_user_message() -> None:
     assert result.messages[0].content == "kept\n\nstill visible"
 
 
-@pytest.mark.parametrize(
-    "suffix, role, content",
-    [
-        ([], Role.USER, "hi"),
-        ([{"role": "assistant", "content": "prefill"}], Role.USER, "hi"),
-        (
-            [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": "call",
-                            "content": "done",
-                        }
-                    ],
-                }
+def test_top_level_cache_control_becomes_the_request_breakpoint() -> None:
+    result = convert(
+        {
+            "messages": [
+                *user("hi")["messages"],
+                {"role": "assistant", "content": "prefill"},
             ],
-            Role.TOOL,
-            "done",
-        ),
-    ],
-)
-def test_cache_shorthand_marks_the_last_user_or_tool_message(
-    suffix: list[dict[str, object]], role: Role, content: str
-) -> None:
-    result: CoreChatCompletionRequest = convert(
-        {
-            "messages": [*user("hi")["messages"], *suffix],
             "cache_control": {"type": "ephemeral"},
         }
     )
-    marked: list[SdkMessage] = [
-        m for m in result.messages if m.custom_fields is not None
-    ]
-    assert len(marked) == 1
-    assert marked[0].role == role
-    assert marked[0].content == content
+    assert all(m.custom_fields is None for m in result.messages)
+    assert result.custom_fields is not None
+    assert result.custom_fields.cache_breakpoint == CacheBreakpoint()
 
 
-def test_cache_shorthand_without_user_has_no_marker() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {
-            "messages": [{"role": "assistant", "content": "hi"}],
-            "cache_control": {"type": "ephemeral"},
-        }
+def test_top_level_cache_control_ttl_sets_the_request_expiry() -> None:
+    result = convert(
+        {**user("hi"), "cache_control": {"type": "ephemeral", "ttl": "5m"}}
     )
-    assert result.messages[0].custom_fields is None
-
-
-def test_cache_shorthand_preserves_longer_block_expiry() -> None:
-    result: CoreChatCompletionRequest = convert(
-        {
-            **user(
-                [
-                    {
-                        "type": "text",
-                        "text": "hi",
-                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
-                    }
-                ]
-            ),
-            "cache_control": {"type": "ephemeral", "ttl": "5m"},
-        }
-    )
-    fields: MessageCustomFields | None = result.messages[0].custom_fields
+    fields = result.custom_fields
     assert (
         fields and fields.cache_breakpoint and fields.cache_breakpoint.expire_at
     )
-    seconds: float = (
+    seconds = (
         datetime.fromisoformat(fields.cache_breakpoint.expire_at)
         - datetime.now(UTC)
     ).total_seconds()
-    assert seconds == pytest.approx(3600, abs=2)
+    assert seconds == pytest.approx(300, abs=2)
 
 
 def test_null_block_cache_control_does_not_mark() -> None:
-    result: CoreChatCompletionRequest = convert(
+    result = convert(
         user(
             [
                 {

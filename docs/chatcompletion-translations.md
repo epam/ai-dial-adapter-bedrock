@@ -1,46 +1,82 @@
-# v1/messages → /chat/completions Parameter Mapping
+# Anthropic Messages to OpenAI Chat Completions request/response mapping
 
 When DIAL Core serves a Chat Completions deployment under the Anthropic Messages API, it sends `/v1/messages` to this translator. The translator calls the deployment's Chat Completions endpoint on Core and converts the reply back. This page documents how every parameter is translated in both directions.
 
 | Client calls | Translator calls on DIAL Core |
 |---|---|
-| `POST /to-chat-completions/anthropic/v1/messages` | `POST {DIAL_URL}/openai/deployments/{deployment}/chat/completions?api-version={DIAL_API_VERSION}` |
+| `POST /openaiChatCompletions/anthropic/v1/messages` | `POST {DIAL_URL}/openai/v1/chat/completions` |
+| `POST /openaiChatCompletions/anthropic/v1/messages/count_tokens` | — (404: Chat Completions has no token-counting API) |
 
-There is no `count_tokens` endpoint: Chat Completions has nothing to forward it to, so that path, like any other unknown path, returns an Anthropic-shaped 404.
+Any other path also returns an Anthropic-shaped 404.
 
-The transformation lives in `aidial_adapter_bedrock/anthropic_translator/chat_completions/`: `to_chat_completions.py` (request), `reasoning.py` (effort), `system_turns.py` (system-turn visibility), `from_chat_completions.py` (response) and `streaming.py` (SSE).
+## Flow
+
+**Use case:** an Anthropic-native client (e.g. Claude Code) calls `/anthropic/v1/messages` for a model that serves only the OpenAI Chat Completions API, e.g. `gpt-5.5`.
+
+- Core receives `POST /anthropic/v1/messages` with `body.model = gpt-5.5`.
+- The deployment declares an `anthropicMessages` interface whose `base_url` points at the translator, so Core forwards the request to `{base_url}/anthropic/v1/messages` and adds these headers:
+    - `api-key`: Core's per-request key. The translator forwards it on its call back to Core.
+    - `x-dial-deployment-id`: the called deployment. The translator sends it as the Chat Completions `model`.
+    - `x-upstream-endpoint`, `x-upstream-key`: upstream settings. The translator drops them.
+- The translator converts the request into a Chat Completions body and sends a new request to Core at `{DIAL_URL}/openai/v1/chat/completions`. Core resolves the deployment from the body's `model` and serves it through the deployment's `openaiChatCompletions` interface like any other Chat Completions request, so no translator-specific logic is needed in Core.
+- The model's adapter calls the upstream and returns the Chat Completions response. Core collects usage for limits and analytics and passes the response back to the translator.
+- The translator converts the response, streaming or not, back into Anthropic Messages shape, and Core returns it to the client.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Client (Claude Code)
+    participant Core as DIAL Core
+    participant TA as Translator: bedrock-adapter
+    participant OA as openai-adapter
+    participant OM as OpenAI upstream
+
+    U->>Core: POST /anthropic/v1/messages, body.model = gpt-5.5
+    Note over Core: gpt-5.5 config → interfaces.anthropicMessages.base_url
+    Core->>TA: POST http://adapter-dial-bedrock:5000/openaiChatCompletions/anthropic/v1/messages<br/>-H api-key, x-dial-deployment-id = gpt-5.5, x-upstream-*
+    Note over TA: translate Anthropic /v1/messages → OpenAI /chat/completions<br/>forward api-key, drop x-upstream-*
+    TA->>Core: POST {DIAL_URL}/openai/v1/chat/completions, body.model = gpt-5.5
+    Note over Core: re-enter: gpt-5.5 config → interfaces.openaiChatCompletions.base_url
+    Core->>OA: POST http://adapter-dial-openai:5000/openai/v1/chat/completions<br/>-H api-key, x-dial-deployment-id = gpt-5.5, x-upstream-*
+    OA->>OM: OpenAI call (Chat Completions)
+    OM-->>OA: model output
+    OA-->>Core: 200 Chat Completions payload (JSON or SSE)
+    Note over Core: collect usage → limits & analytics
+    Core-->>TA: 200 Chat Completions payload (JSON or SSE)
+    Note over TA: translate OpenAI /chat/completions → Anthropic /v1/messages
+    TA-->>Core: 200 Anthropic Messages payload (JSON or SSE)
+    Core-->>U: 200 Anthropic Messages response
+```
 
 
 ## Setup
 
-See the [DIAL Core configuration example](README.md#anthropic-messages-to-chat-completions-translator) and [environment variables](README.md#environment-variables).
+See the [DIAL Core configuration example](../README.md#anthropic-messages-to-chat-completions-translator) and [environment variables](../README.md#environment-variables).
 
 | Setting | Default | Purpose |
 |---|---|---|
 | `DIAL_URL` | Unset | DIAL Core base URL. Required: without it every request fails with 500 |
-| `DIAL_API_VERSION` | `2025-01-01-preview` | `api-version` sent to Core |
 | `LOG_LEVEL` | `INFO` | `DEBUG` logs inbound request bodies and outgoing responses or SSE chunks |
 
-| Inbound header | Outgoing hop |
-|---|---|
-| `x-dial-deployment-id` | Selects the deployment; the body's `model` is the fallback. Not forwarded |
-| `api-key` | Forwarded: Core's per-request credential |
-| `traceparent`, `tracestate`, `x-dial-cache-policy` and other unlisted headers | Forwarded |
-| `authorization`, `x-api-key`, `x-upstream-endpoint`, `x-upstream-key` | Not forwarded |
-| `anthropic-version`, `anthropic-beta` | Not forwarded |
-| `x-dial-deployment-features`, `x-dial-override-name`, `x-dial-cache-breakpoint-path` | Not forwarded |
-| `user-agent` | Replaced with `anthropicMessages-to-openaiChatCompletions-translator` |
+The deployment is taken from the `x-dial-deployment-id` header that DIAL Core sets, falling back to the body's `model`.
+
+Inbound headers are forwarded to Core (including `api-key`, Core's per-request credential, and tracing headers such as `traceparent`), except these:
+
+- `authorization`, `x-api-key`, `x-upstream-endpoint`, `x-upstream-key`
+- `x-dial-deployment-id`, `x-dial-deployment-features`, `x-dial-override-name`, `x-dial-cache-breakpoint-path`
+- `anthropic-version`, `anthropic-beta`
+- `host`, `user-agent`, `accept`, `accept-encoding`, `content-type`, `content-length`, `content-encoding` and hop-by-hop headers
 
 
 ## Request: Anthropic → Chat Completions
 
-DIAL Core validates the request body before it reaches the translator, so the translator doesn't validate it again. It only rejects input it cannot translate (see Errors).
+Neither DIAL Core nor the translator validates the request body against a schema. The translator rejects a body it can't read (invalid JSON, a missing or mistyped field) and input it cannot translate with 400 (see Errors); fields it doesn't read are never checked.
 
 ### Top-level parameters
 
 | Anthropic (`/v1/messages`) | Chat Completions | Notes |
 |---|---|---|
-| `model` | `model`, and the URL path | The `x-dial-deployment-id` header takes precedence over the body |
+| `model` | `model` | The `x-dial-deployment-id` header takes precedence over the body |
 | `messages` | `messages` | Structurally transformed; see the messages section below |
 | `system` (string) | Leading `{"role": "system", "content": "..."}` | An empty string sends nothing |
 | `system` (list of content blocks) | Leading `{"role": "system", "content": "..."}` | Text blocks are joined with `\n\n`; other blocks are dropped with a warning |
@@ -57,11 +93,10 @@ DIAL Core validates the request body before it reaches the translator, so the tr
 | `cache_control` | `custom_fields.cache_breakpoint` | See the cache_control section below |
 | `document` block with `citations.enabled` | `custom_fields.configuration.enable_citations: true` | |
 | `stream` | `stream`, `stream_options: {"include_usage": true}` | |
-| `top_k` | — | Dropped |
-| `compaction`, `context_management`, `mcp_servers`, `container`, `inference_geo` | — | Dropped with a warning |
-| — | `store` | Never sent: strict adapters reject it |
+| `top_k`, `compaction`, `context_management`, `mcp_servers`, `container`, `inference_geo` | — | Dropped with a warning |
+| — | `store` | Never sent: the management of the state is the responsibility of DIAL Core, so we don't proxy any state-related parameters |
 
-Options are forwarded without checking `x-dial-deployment-features`: the target deployment rejects what it doesn't support.
+Parameters are forwarded without checking `x-dial-deployment-features`: the target deployment rejects what it doesn't support.
 
 
 ### How messages get converted
@@ -88,13 +123,13 @@ All system text is merged into **one leading system message**: the top-level `sy
 | `text` | `{"type": "text", "text": "..."}` part | In an assistant turn, joined with `\n` into `content` |
 | `image`, `base64` source | `{"type": "image_url", "image_url": {"url": "data:<media_type>;base64,<data>"}}` | |
 | `image`, `url` source | `{"type": "image_url", "image_url": {"url": "<url>"}}` | |
-| `image`, `file` source | — | 400 `invalid_request_error`: Files API uploads can't be read by another provider |
+| `image`, `file` source | — | 400 `invalid_request_error`: files uploaded via Anthropic Files API aren't supported |
 | `document`, `base64` source | `{"type": "file", "file": {"filename": "<title>", "file_data": "data:..."}}` | Defaults: `document.pdf`, `application/pdf` |
 | `document`, `text` source | `{"type": "text", "text": "..."}` | |
 | `document`, `content` source | Its text and image blocks as parts | |
-| `document`, `url` or `file` source | — | 400 `invalid_request_error`: the `file` part has no URL field, and Files API uploads can't be read by another provider |
+| `document`, `url` or `file` source | — | 400 `invalid_request_error`: the `file` part has no URL field, and files uploaded via Anthropic Files API aren't supported |
 | `search_result` | `{"type": "text", "text": "<title>\n<source>\n\n<text>"}` | Text blocks are joined with `\n`; citation metadata is lost |
-| `tool_result` | `{"role": "tool", "tool_call_id": "...", "content": "..."}` | Text joined with `\n`; `is_error` prefixes `Error: `. Images and documents move to the following user message; other nested blocks are ignored |
+| `tool_result` | `{"role": "tool", "tool_call_id": "...", "content": "..."}` | Text joined with `\n`; `is_error` prefixes `Error: `. Images and documents move to the following user message; other nested blocks are dropped with a warning |
 | `tool_use` | `tool_calls[]`: `{"id": "...", "type": "function", "function": {"name": "...", "arguments": "<JSON string>"}}` | |
 | `compaction` (replayed) | Its summary text | A failed compaction (`content: null`) sends nothing |
 | `mid_conv_system` | Merged into the leading system message | |
@@ -115,7 +150,7 @@ No tool is ever dropped: a tool the deployment can't run fails the request with 
 - `strict` is always sent: `true` only when the tool says so.
 - `parameters` drops the schema's root `$schema` key.
 - `static_function` is DIAL's slot for provider tools. Only `aidial-adapter-anthropic` reads the Anthropic definition as-is. Its `name` is the tool's `name`, or `mcp_server_name` for `mcp_toolset`.
-- A function name that doesn't match `^[a-zA-Z_][a-zA-Z0-9_-]{2,63}$` (for example a long `mcp__…` name) is sent as `<head>_<8 hex of sha256>` in `tools`, `tool_choice` and replayed `tool_calls`, and restored in the response. The translator remembers the last 4096 aliases per process, so a very old alias may come back unrestored.
+- A function name that doesn't match `^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$` (for example a long `mcp__…` name) is sent as `<head>_<8 hex of sha256>` in `tools`, `tool_choice` and replayed `tool_calls`, and restored in the response to the same request.
 
 
 ### tool_choice
@@ -145,36 +180,36 @@ A `system` turn is visible unless it has `clear_at: next_user_message` and a lat
 
 ### cache_control
 
-A marker is DIAL's `"custom_fields": {"cache_breakpoint": {}}` on a message or tool.
+A breakpoint is DIAL's `"custom_fields": {"cache_breakpoint": {}}` on a message, a tool or the request.
 
-| Anthropic | Marked in Chat Completions |
+| Anthropic | Breakpoint in Chat Completions |
 |---|---|
 | `cache_control` on a `system` block, visible `system`-role turn or `mid_conv_system` block | The merged system message |
 | `cache_control` on a block of a user or assistant turn | Every message produced from that turn |
 | `cache_control` on a custom tool | That function tool |
 | `cache_control` on any other tool | Kept inside the `static_function` configuration |
-| Top-level `cache_control` | The last `user` or `tool` message |
-| `cache_control.ttl` (`5m`, `1h`) | `cache_breakpoint.expire_at`: now + ttl, in UTC. The longest wins when markers merge |
+| Top-level `cache_control` | The request's top-level `custom_fields.cache_breakpoint` |
+| `cache_control.ttl` (`5m`, `1h`) | `cache_breakpoint.expire_at`: now + ttl, in UTC. The longest wins when breakpoints merge |
 
-- Markers nested inside a `tool_result` are not inspected.
+- Breakpoints nested inside a `tool_result` are not inspected.
 - An unreadable `ttl` is logged and leaves `expire_at` unset. Without a `ttl`, the Core or provider default applies.
-- Markers are sent without a breakpoint-count limit. A marker covers a whole message, so it is coarser than an Anthropic block marker.
+- Breakpoints are sent without a count limit. A breakpoint covers a whole message, so it is coarser than an Anthropic block breakpoint.
 
 
 ## Response: Chat Completions → Anthropic
 
-Only `choices[0]` is translated. Content blocks come out in the order below.
+Only `choices[0]` is translated; other choices are dropped with a warning. Content blocks come out in the order below.
 
 | Chat Completions field | Anthropic response field | Notes |
 |---|---|---|
-| `id` | `id` | Falls back to `chatcmpl_unknown` |
-| `model` | `model` | Falls back to the requested deployment |
+| `id` | `id` | A stream that ends before its first chunk gets a generated UUID |
+| — | `model` | Always the requested deployment: the upstream's `model` is not exposed |
 | `message.custom_content.state.claude_message_content[]` thinking | `{"type": "thinking", "thinking": "...", "signature": "..."}` | DIAL's native Claude reasoning, with its signature |
 | otherwise `message.custom_content.stages[]` named like `think`/`thought`/`reason` | `{"type": "thinking", "thinking": "...", "signature": ""}` | |
 | `message.annotations[].url_citation` | `server_tool_use` + `web_search_tool_result` | One pair with every cited URL; `query` is `""` |
 | `message.content` | `{"type": "text", "text": "..."}` | |
 | `message.refusal` | `{"type": "text", "text": "..."}` | |
-| `message.tool_calls[]` | `{"type": "tool_use", "id": "...", "name": "...", "input": {...}}` | `arguments` is JSON-parsed; invalid or non-object JSON becomes `{}`. Calls without an id or name, and `custom` calls, are skipped with a warning |
+| `message.tool_calls[]` | `{"type": "tool_use", "id": "...", "name": "...", "input": {...}}` | `arguments` is JSON-parsed; invalid or non-object JSON becomes `{}`. `custom` calls are skipped with a warning |
 | No content at all | `{"type": "text", "text": ""}` | The SDKs index `content[0]` |
 | *(hardcoded)* | `type: "message"`, `role: "assistant"` | |
 | *(hardcoded)* | `stop_sequence: null` | Chat Completions never says which sequence matched |
@@ -195,27 +230,27 @@ Only `choices[0]` is translated. Content blocks come out in the order below.
 
 ### usage
 
-Anthropic's three input counters add up to `prompt_tokens`, which is how DIAL Core bills the response.
+Anthropic's `input_tokens` excludes cache reads and writes, which `prompt_tokens` includes, so the three input counters add up to `prompt_tokens`.
 
 | Anthropic `usage` | Chat Completions `usage` |
 |---|---|
 | `input_tokens` | `prompt_tokens` − cache read − cache write |
 | `cache_read_input_tokens` | `prompt_tokens_details.cached_tokens` |
-| `cache_creation_input_tokens` | `prompt_tokens_details.cache_write_tokens` (or `cacheWriteTokens`) |
+| `cache_creation_input_tokens` | `prompt_tokens_details.cache_write_tokens` |
 | `output_tokens` | `completion_tokens` (includes reasoning) |
-| `output_tokens_details.thinking_tokens` | `completion_tokens_details.reasoning_tokens`; always sent, `0` when absent |
+| `output_tokens_details.thinking_tokens` | `completion_tokens_details.reasoning_tokens`; `0` when absent |
 | `server_tool_use`, `service_tier`, `cache_creation` | Not sent |
 
-Missing or `null` counters count as zero. If the breakdown exceeds the total, it is capped so the sum still equals `prompt_tokens`.
+Missing or `null` counters count as zero; a response without `usage` reports only zero `input_tokens` and `output_tokens`. If the breakdown exceeds the total, it is capped so the sum still equals `prompt_tokens`.
 
 
 ## Streaming: Chat Completions chunks → Anthropic SSE
 
-The client gets `message_start → ping → (content_block_start → delta* → content_block_stop)* → message_delta → message_stop`.
+The client gets `message_start → (content_block_start → delta* → content_block_stop)* → message_delta → message_stop`.
 
 | Chat Completions chunk | Anthropic events |
 |---|---|
-| First chunk | `message_start` (zero usage) + `ping` |
+| First chunk | `message_start` (zero usage) |
 | `delta.custom_content.stages[]` thinking text | `thinking` block, `thinking_delta` |
 | `delta.custom_content.state.claude_message_content[].signature` | `signature_delta`, then the thinking block closes. A signature after the block closed is dropped with a warning |
 | `delta.content`, `delta.refusal` | `text` block, `text_delta` |
@@ -236,7 +271,7 @@ Every error is Anthropic-shaped: `{"type": "error", "error": {"type": "...", "me
 
 | Failure | HTTP status | `error.type` |
 |---|---|---|
-| Unknown role, bad effort, `image` with a `file` source, `document` with a `url` or `file` source | 400 | `invalid_request_error` |
+| Malformed body (invalid JSON, a missing or mistyped field), unknown role, bad effort, `image` with a `file` source, `document` with a `url` or `file` source | 400 | `invalid_request_error` |
 | Upstream 400/422, 401, 403, 404, 413, 429 | Same | `invalid_request_error`, `authentication_error`, `permission_error`, `not_found_error`, `request_too_large`, `rate_limit_error` |
 | Upstream 503 or 529 | Same | `overloaded_error` |
 | Other upstream errors | Same | `api_error` |
@@ -244,6 +279,5 @@ Every error is Anthropic-shaped: `{"type": "error", "error": {"type": "...", "me
 | `DIAL_URL` unset, or an unexpected exception | 500 | `api_error` |
 
 - Upstream error messages are passed through. A 500 carries a generic message; the details go to the server log.
-- A body Core should have rejected is not re-validated: it fails like any unexpected exception.
 - Before streaming starts, errors are JSON with an HTTP status. Once a stream has started, a failure becomes a final `error` event.
 - An error object Core writes into the stream keeps its kind (by its `type` or `code`): `invalid_request_error` stays `invalid_request_error`, `rate_limit_exceeded` becomes `rate_limit_error`, and anything else is `api_error`. A failure inside the translator is `api_error` with a generic message.
