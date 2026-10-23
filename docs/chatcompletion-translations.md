@@ -5,9 +5,10 @@ When DIAL Core serves a Chat Completions deployment under the Anthropic Messages
 | Client calls | Translator calls on DIAL Core |
 |---|---|
 | `POST /openaiChatCompletions/anthropic/v1/messages` | `POST {DIAL_URL}/openai/v1/chat/completions` |
-| `POST /openaiChatCompletions/anthropic/v1/messages/count_tokens` | — (404: Chat Completions has no token-counting API) |
+| `POST /openaiChatCompletions/legacy/anthropic/v1/messages` | `POST {DIAL_URL}/openai/deployments/{deployment}/chat/completions?api-version={DIAL_API_VERSION}` |
+| `POST /openaiChatCompletions/anthropic/v1/messages/count_tokens`, `POST /openaiChatCompletions/legacy/anthropic/v1/messages/count_tokens` | — (404: Chat Completions has no token-counting API) |
 
-Any other path also returns an Anthropic-shaped 404.
+Any other path also returns an Anthropic-shaped 404. The two `messages` endpoints translate identically and differ only in the Core API they call: the first uses the Azure OpenAI v1 API, which takes the deployment from the body's `model`, and the second uses the legacy API with the deployment in the path.
 
 ## Flow
 
@@ -18,7 +19,7 @@ Any other path also returns an Anthropic-shaped 404.
     - `api-key`: Core's per-request key. The translator forwards it on its call back to Core.
     - `x-dial-deployment-id`: the called deployment. The translator sends it as the Chat Completions `model`.
     - `x-upstream-endpoint`, `x-upstream-key`: upstream settings. The translator drops them.
-- The translator converts the request into a Chat Completions body and sends a new request to Core at `{DIAL_URL}/openai/v1/chat/completions`. Core resolves the deployment from the body's `model` and serves it through the deployment's `openaiChatCompletions` interface like any other Chat Completions request, so no translator-specific logic is needed in Core.
+- The translator converts the request into a Chat Completions body and sends a new request to Core at `{DIAL_URL}/openai/v1/chat/completions`. Core resolves the deployment from the body's `model` and serves it through the deployment's `openaiChatCompletions` interface like any other Chat Completions request, so no translator-specific logic is needed in Core. The legacy endpoint calls `{DIAL_URL}/openai/deployments/{deployment}/chat/completions` instead, with the deployment taken from the `x-dial-deployment-id` header.
 - The model's adapter calls the upstream and returns the Chat Completions response. Core collects usage for limits and analytics and passes the response back to the translator.
 - The translator converts the response, streaming or not, back into Anthropic Messages shape, and Core returns it to the client.
 
@@ -56,16 +57,20 @@ See the [DIAL Core configuration example](../README.md#anthropic-messages-to-cha
 | Setting | Default | Purpose |
 |---|---|---|
 | `DIAL_URL` | Unset | DIAL Core base URL. Required: without it every request fails with 500 |
+| `DIAL_API_VERSION` | `2025-01-01-preview` | `api-version` sent to Core by the legacy endpoint only |
 | `LOG_LEVEL` | `INFO` | `DEBUG` logs inbound request bodies and outgoing responses or SSE chunks |
 
 The deployment is taken from the `x-dial-deployment-id` header that DIAL Core sets, falling back to the body's `model`.
 
-Inbound headers are forwarded to Core (including `api-key`, Core's per-request credential, and tracing headers such as `traceparent`), except these:
+Only these inbound headers are forwarded to Core, the rest are not:
 
-- `authorization`, `x-api-key`, `x-upstream-endpoint`, `x-upstream-key`
-- `x-dial-deployment-id`, `x-dial-deployment-features`, `x-dial-override-name`, `x-dial-cache-breakpoint-path`
-- `anthropic-version`, `anthropic-beta`
-- `host`, `user-agent`, `accept`, `accept-encoding`, `content-type`, `content-length`, `content-encoding` and hop-by-hop headers
+| Header | Why |
+|---|---|
+| `api-key` | Core's per-request key that authenticates the call back to Core |
+| `x-dial-cache-policy` | The prompt caching policy of the request |
+| `x-upstream-id` | Pins the request to the same upstream |
+| `traceparent`, `tracestate` | W3C trace context: keeps both calls to Core in one trace |
+| `x-claude-code-session-id`, `x-session-id`, `x-dial-client-channel-id`, `x-conversation-id`, `x-job-title` | The session and job ids that Core reads for tracing and analytics. A session header that is not listed here has to be added to the whitelist |
 
 
 ## Request: Anthropic → Chat Completions
@@ -212,7 +217,7 @@ Only `choices[0]` is translated; other choices are dropped with a warning. Conte
 | `message.tool_calls[]` | `{"type": "tool_use", "id": "...", "name": "...", "input": {...}}` | `arguments` is JSON-parsed; invalid or non-object JSON becomes `{}`. `custom` calls are skipped with a warning |
 | No content at all | `{"type": "text", "text": ""}` | The SDKs index `content[0]` |
 | *(hardcoded)* | `type: "message"`, `role: "assistant"` | |
-| *(hardcoded)* | `stop_sequence: null` | Chat Completions never says which sequence matched |
+| — | `stop_sequence` | Not set: Chat Completions never says which sequence matched |
 
 `thinking.display` is ignored: thinking text is returned even with `"omitted"`. Omitting it wouldn't make the answer any faster, because the deployment generates and streams the reasoning anyway. Nor is the signature needed, because replayed thinking blocks are dropped. Fields the translator doesn't set are omitted rather than sent as `null`.
 

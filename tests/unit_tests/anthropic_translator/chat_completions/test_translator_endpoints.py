@@ -18,6 +18,7 @@ _CORE = "http://dial-core"
 
 
 _CORE_PATH = "/openai/v1/chat/completions"
+_CORE_DEPLOYMENT_PATH = "/openai/deployments/gpt-5.5/chat/completions"
 
 _RESPONSE_OBJECT: dict[str, object] = {
     "id": "chatcmpl_1",
@@ -78,7 +79,7 @@ async def test_non_streaming_happy_path(
     assert body["role"] == "assistant"
     assert body["content"][0]["text"] == "hi there"
     assert body["stop_reason"] == "end_turn"
-    assert body["stop_sequence"] is None
+    assert "stop_sequence" not in body
     assert body["usage"] == {
         "input_tokens": 7,
         "output_tokens": 3,
@@ -117,7 +118,7 @@ async def test_request_shape_and_headers_not_leaked(
     assert "authorization" not in sent.headers
 
 
-async def test_attribution_headers_are_forwarded(
+async def test_tracing_and_session_headers_are_forwarded(
     client: httpx.AsyncClient, mock_core: respx.MockRouter
 ) -> None:
     route = mock_core.post(_CORE_PATH).respond(
@@ -691,20 +692,24 @@ async def test_stop_sequences_are_forwarded(
 
 
 @pytest.mark.parametrize(
-    "path", ["/v1/messages/count_tokens", "/v1/messages/batches"]
+    "path",
+    [
+        "/anthropic/v1/messages/count_tokens",
+        "/anthropic/v1/messages/batches",
+        "/legacy/anthropic/v1/messages/count_tokens",
+        "/legacy/anthropic/v1/messages/batches",
+    ],
 )
 async def test_unsupported_endpoint_returns_anthropic_404(
     client: httpx.AsyncClient, path: str
 ) -> None:
-    response = await client.post(
-        "/openaiChatCompletions/anthropic" + path, json={}
-    )
+    response = await client.post("/openaiChatCompletions" + path, json={})
     assert response.status_code == 404
     assert response.json() == {
         "type": "error",
         "error": {
             "type": "not_found_error",
-            "message": f"Unknown endpoint: /openaiChatCompletions/anthropic{path}",
+            "message": f"Unknown endpoint: /openaiChatCompletions{path}",
         },
     }
 
@@ -751,7 +756,7 @@ async def test_citation_configuration_is_sent_to_core(
     assert "unused" not in translated
 
 
-async def test_cache_policy_and_unlisted_headers_pass_through(
+async def test_only_whitelisted_headers_are_forwarded(
     client: httpx.AsyncClient, mock_core: respx.MockRouter
 ) -> None:
     route = mock_core.post(_CORE_PATH).respond(json=_RESPONSE_OBJECT)
@@ -759,7 +764,9 @@ async def test_cache_policy_and_unlisted_headers_pass_through(
         _MESSAGES_URL,
         json=_MESSAGES_BODY,
         headers={
-            "x-dial-cache-policy": "unknown-policy",
+            "x-dial-cache-policy": "cache-priority",
+            "x-upstream-id": "upstream-1",
+            "x-conversation-id": "conversation-1",
             "x-dial-extra": "value",
             "x-dial-cache-breakpoint-path": "inbound-path",
             "x-custom-header": "custom",
@@ -767,10 +774,14 @@ async def test_cache_policy_and_unlisted_headers_pass_through(
     )
     sent = route.calls.last.request
     assert "api-version" not in sent.url.params
-    assert sent.headers["x-dial-cache-policy"] == "unknown-policy"
-    assert sent.headers["x-dial-extra"] == "value"
-    assert sent.headers["x-custom-header"] == "custom"
+    assert sent.headers["api-key"] == "dummy-key"
+    assert sent.headers["x-dial-cache-policy"] == "cache-priority"
+    assert sent.headers["x-upstream-id"] == "upstream-1"
+    assert sent.headers["x-conversation-id"] == "conversation-1"
+    assert "x-dial-extra" not in sent.headers
     assert "x-dial-cache-breakpoint-path" not in sent.headers
+    assert "x-custom-header" not in sent.headers
+    assert "authorization" not in sent.headers
 
 
 @pytest.mark.parametrize(
@@ -840,7 +851,7 @@ async def test_stop_forwarding_is_independent_of_deployment_name(
             is None
         )
     else:
-        assert response.json()["stop_sequence"] is None
+        assert "stop_sequence" not in response.json()
         assert response.json()["content"][0]["text"] == "before STOP after"
 
 
@@ -930,3 +941,79 @@ async def test_dropped_request_options_are_not_schema_validated(
     assert "thinking" not in translated
     assert "reasoning_effort" not in translated
     assert response.json()["type"] == "message"
+
+
+_LEGACY_MESSAGES_URL = "/openaiChatCompletions/legacy/anthropic/v1/messages"
+_LEGACY_CORE_PATH = "/openai/deployments/actual-deployment/chat/completions"
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+async def test_legacy_endpoint_calls_the_deployment_path_of_core(
+    client: httpx.AsyncClient,
+    mock_core: respx.MockRouter,
+    monkeypatch: pytest.MonkeyPatch,
+    streaming: bool,
+) -> None:
+    monkeypatch.setenv("DIAL_API_VERSION", "custom-version")
+    route = mock_core.post(_LEGACY_CORE_PATH)
+    if streaming:
+        route.respond(
+            content=b'data: {"id": "chatcmpl_1", "choices": [{"index": 0, '
+            b'"delta": {"content": "hi"}, "finish_reason": "stop"}]}\n\n'
+            b"data: [DONE]\n\n",
+            content_type="text/event-stream",
+        )
+    else:
+        route.respond(json=_RESPONSE_OBJECT)
+
+    response = await client.post(
+        _LEGACY_MESSAGES_URL,
+        json={**_MESSAGES_BODY, "stream": streaming},
+        headers={"x-dial-deployment-id": "actual-deployment"},
+    )
+
+    assert response.status_code == 200
+    sent = route.calls.last.request
+    assert sent.url.params["api-version"] == "custom-version"
+    assert json.loads(sent.content)["model"] == "actual-deployment"
+    assert sent.headers["api-key"] == "dummy-key"
+    if streaming:
+        assert '"text":"hi"' in response.text
+    else:
+        assert response.json()["content"][0]["text"] == "hi there"
+
+
+async def test_legacy_endpoint_defaults_the_api_version_and_the_body_model(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+) -> None:
+    route = mock_core.post(_CORE_DEPLOYMENT_PATH).respond(json=_RESPONSE_OBJECT)
+    response = await client.post(_LEGACY_MESSAGES_URL, json=_MESSAGES_BODY)
+
+    assert response.status_code == 200
+    assert route.calls.last.request.url.params["api-version"] == (
+        "2025-01-01-preview"
+    )
+
+
+async def test_legacy_endpoint_escapes_the_deployment_in_the_path(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+) -> None:
+    route = mock_core.post(
+        url__regex=r"/openai/deployments/a%2Fb%3Fc/chat/completions"
+    ).respond(json=_RESPONSE_OBJECT)
+    response = await client.post(
+        _LEGACY_MESSAGES_URL,
+        json=_MESSAGES_BODY,
+        headers={"x-dial-deployment-id": "a/b?c"},
+    )
+
+    assert response.status_code == 200
+    assert route.called
+
+
+async def test_the_v1_endpoint_sends_no_api_version(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter
+) -> None:
+    route = mock_core.post(_CORE_PATH).respond(json=_RESPONSE_OBJECT)
+    await client.post(_MESSAGES_URL, json=_MESSAGES_BODY)
+    assert "api-version" not in route.calls.last.request.url.params

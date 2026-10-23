@@ -58,9 +58,6 @@ def to_anthropic_response(
         role="assistant",
         model=requested_model,
         content=_to_anthropic_content_blocks(message, tool_blocks),
-        # Set explicitly: the response is dumped with exclude_unset, and the
-        # Messages API always returns this field.
-        stop_sequence=None,
         stop_reason=to_anthropic_stop_reason(
             choice.finish_reason if choice else None,
             bool(tool_blocks),

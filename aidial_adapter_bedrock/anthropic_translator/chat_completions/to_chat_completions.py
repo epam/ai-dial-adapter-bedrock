@@ -79,6 +79,9 @@ _Block = TypeVar("_Block")
 
 
 class DialChatCompletionsRequest(BaseModel):
+    # Not the DIAL SDK request model: it validates the values and would reject
+    # what the translator passes through (e.g. `reasoning_effort` of `xhigh` and
+    # `max`, more than 4 `stop` sequences), turning them into a 400 or a 500.
     model: str
     messages: list[SdkMessage]
     max_completion_tokens: int | None

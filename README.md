@@ -465,6 +465,7 @@ Copy `.env.example` to `.env` and customize it for your environment:
 |CLAUDE_DEFAULT_MAX_TOKENS|1536|The default value of `max_tokens` chat completion parameter if it is not provided in the request.<br>**:warning: Using the variable is discouraged**.<br>Consider configuring the default in the DIAL Core Config instead as demonstrated in the [example below](#default-max_tokens-for-claude-models).|
 |BOTOCORE_MAX_RETRY_ATTEMPTS|0|How many times to retry chat model requests made via the Bedrock API or Converse API when the provider returns a retriable error|
 |ANTHROPIC_MAX_RETRY_ATTEMPTS|0|How many times to retry Anthropic chat model requests when the provider returns a retriable error|
+|DIAL_API_VERSION|2025-01-01-preview|The `api-version` query parameter that the [translator](#anthropic-messages-to-chat-completions-translator) sends to DIAL Core on its legacy `/openaiChatCompletions/legacy` endpoint|
 |REQUEST_TIMEOUT_SECONDS|600|The request timeout in seconds (read and write) for the requests to AWS Bedrock.|
 
 ### Keep-alive timeout
@@ -857,9 +858,11 @@ This path never touches AWS Bedrock: it is a pure protocol translator, and the m
 |Method|Endpoint|Translated into|
 |---|---|---|
 |`POST`|`/openaiChatCompletions/anthropic/v1/messages`|`POST {DIAL_URL}/openai/v1/chat/completions`|
+|`POST`|`/openaiChatCompletions/legacy/anthropic/v1/messages`|`POST {DIAL_URL}/openai/deployments/{deployment}/chat/completions`|
 |`POST`|`/openaiChatCompletions/anthropic/v1/messages/count_tokens`|`404`|
+|`POST`|`/openaiChatCompletions/legacy/anthropic/v1/messages/count_tokens`|`404`|
 
-To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthropicMessages` interface to its DIAL Core config, pointing `base_url` at this adapter's `/openaiChatCompletions` path:
+To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthropicMessages` interface to its DIAL Core config, pointing `base_url` at this adapter's `/openaiChatCompletions` path (or `/openaiChatCompletions/legacy` to call DIAL Core's legacy per-deployment endpoint):
 
 ```json
 {

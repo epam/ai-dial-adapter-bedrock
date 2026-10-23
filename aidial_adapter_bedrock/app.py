@@ -71,7 +71,7 @@ app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
 
 app.mount(
-    path="/openaiChatCompletions/anthropic",
+    path="/openaiChatCompletions",
     app=chat_completions_translator_app,
     name="Anthropic Messages to Chat Completions translator",
 )

@@ -21,8 +21,9 @@ from aidial_adapter_bedrock.anthropic_translator.common import (
     not_found,
 )
 from aidial_adapter_bedrock.anthropic_translator.core_client import (
-    core_chat_completions_client,
     core_headers,
+    core_legacy_client,
+    core_v1_client,
 )
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
@@ -37,7 +38,7 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 app = FastAPI()
 
 
-async def _handle_messages(request: Request) -> Response:
+async def _handle_messages(request: Request, legacy: bool) -> Response:
     dial_url = get_dial_url()
     translation_state = TranslationState()
 
@@ -66,7 +67,11 @@ async def _handle_messages(request: Request) -> Response:
     if log.isEnabledFor(logging.DEBUG):
         log.debug(f"Translated request to Core: {json.dumps(body)}")
 
-    client = core_chat_completions_client(dial_url)
+    client = (
+        core_legacy_client(dial_url, deployment)
+        if legacy
+        else core_v1_client(dial_url)
+    )
     headers = core_headers(request)
 
     if chat_request.stream:
@@ -95,8 +100,23 @@ async def _handle_messages(request: Request) -> Response:
     )
 
 
+async def _handle_v1_messages(request: Request) -> Response:
+    return await _handle_messages(request, legacy=False)
+
+
+async def _handle_legacy_messages(request: Request) -> Response:
+    return await _handle_messages(request, legacy=True)
+
+
 app.add_api_route(
-    "/v1/messages", build_endpoint(_handle_messages), methods=["POST"]
+    "/anthropic/v1/messages",
+    build_endpoint(_handle_v1_messages),
+    methods=["POST"],
+)
+app.add_api_route(
+    "/legacy/anthropic/v1/messages",
+    build_endpoint(_handle_legacy_messages),
+    methods=["POST"],
 )
 
 

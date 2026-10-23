@@ -2,8 +2,10 @@ import hashlib
 import re
 from functools import lru_cache
 
-# The strictest rule among the targets: OpenAI allows `^[a-zA-Z0-9_-]{1,64}$`,
-# and Gemini on Vertex AI also requires a leading letter or underscore.
+# OpenAI allows `^[a-zA-Z0-9_-]{1,64}$`, but Gemini on Vertex AI also requires a
+# leading letter or underscore, and the DIAL Vertex adapter doesn't alias such
+# names yet: https://github.com/epam/ai-dial-adapter-vertexai/issues/576
+# Once it does, use OpenAI's rule here and drop the `t_` prefix below.
 _CONFORMING_TOOL_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$")
 _DISALLOWED_CHAR = re.compile(r"[^a-zA-Z0-9_-]")
 _ALLOWED_LEAD = re.compile(r"^[a-zA-Z_]")
