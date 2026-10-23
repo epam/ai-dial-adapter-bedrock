@@ -69,13 +69,11 @@ Only these inbound headers are forwarded to Core, the rest are not:
 | `api-key` | Core's per-request key that authenticates the call back to Core |
 | `x-dial-cache-policy` | The prompt caching policy of the request |
 | `x-upstream-id` | Pins the request to the same upstream |
-| `traceparent`, `tracestate` | W3C trace context: keeps both calls to Core in one trace |
-| `x-claude-code-session-id`, `x-session-id`, `x-dial-client-channel-id`, `x-conversation-id`, `x-job-title` | The session and job ids that Core reads for tracing and analytics. A session header that is not listed here has to be added to the whitelist |
 
 
 ## Request: Anthropic → Chat Completions
 
-Neither DIAL Core nor the translator validates the request body against a schema. The translator rejects a body it can't read (invalid JSON, a missing or mistyped field) and input it cannot translate with 400 (see Errors); fields it doesn't read are never checked.
+Neither DIAL Core nor the translator validates the request body against a schema. The translator returns 400 for invalid JSON and for input it cannot translate (see Errors). It doesn't detect any other malformed body, for example a missing or mistyped field: such a request fails with 500. Fields it doesn't read are never checked.
 
 ### Top-level parameters
 
@@ -276,12 +274,12 @@ Every error is Anthropic-shaped: `{"type": "error", "error": {"type": "...", "me
 
 | Failure | HTTP status | `error.type` |
 |---|---|---|
-| Malformed body (invalid JSON, a missing or mistyped field), unknown role, bad effort, `image` with a `file` source, `document` with a `url` or `file` source | 400 | `invalid_request_error` |
+| Invalid JSON, unknown role, bad effort, `image` with a `file` source, `document` with a `url` or `file` source | 400 | `invalid_request_error` |
 | Upstream 400/422, 401, 403, 404, 413, 429 | Same | `invalid_request_error`, `authentication_error`, `permission_error`, `not_found_error`, `request_too_large`, `rate_limit_error` |
 | Upstream 503 or 529 | Same | `overloaded_error` |
 | Other upstream errors | Same | `api_error` |
 | Core unreachable | 502 | `api_error` |
-| `DIAL_URL` unset, or an unexpected exception | 500 | `api_error` |
+| `DIAL_URL` unset, or an unexpected exception (including a body with a missing or mistyped field) | 500 | `api_error` |
 
 - Upstream error messages are passed through. A 500 carries a generic message; the details go to the server log.
 - Before streaming starts, errors are JSON with an HTTP status. Once a stream has started, a failure becomes a final `error` event.

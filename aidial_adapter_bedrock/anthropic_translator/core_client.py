@@ -17,15 +17,6 @@ _FORWARDED_HEADERS = {
     "x-dial-cache-policy",
     # Pins the request to the same upstream
     "x-upstream-id",
-    # W3C trace context: keeps both calls to Core in one trace
-    "traceparent",
-    "tracestate",
-    # Session ids that Core reads for tracing and analytics
-    "x-claude-code-session-id",
-    "x-session-id",
-    "x-dial-client-channel-id",
-    "x-conversation-id",
-    "x-job-title",
 }
 
 

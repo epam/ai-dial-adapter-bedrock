@@ -17,8 +17,8 @@ from aidial_adapter_bedrock.anthropic_translator.chat_completions.to_chat_comple
     to_chat_completions_request,
 )
 from aidial_adapter_bedrock.anthropic_translator.common import (
-    build_endpoint,
     not_found,
+    with_debug_logging,
 )
 from aidial_adapter_bedrock.anthropic_translator.core_client import (
     core_headers,
@@ -28,6 +28,7 @@ from aidial_adapter_bedrock.anthropic_translator.core_client import (
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
     AnthropicHTTPError,
+    translator_error_handler,
 )
 from aidial_adapter_bedrock.anthropic_translator.settings import get_dial_url
 from aidial_adapter_bedrock.anthropic_translator.translation_state import (
@@ -42,26 +43,18 @@ async def _handle_messages(request: Request, legacy: bool) -> Response:
     dial_url = get_dial_url()
     translation_state = TranslationState()
 
-    # The body isn't schema-validated, so a malformed one fails while it is
-    # read; report that as the client's error rather than a 500.
     try:
         req: MessageCreateParams = await request.json()
-        deployment = request.headers.get("x-dial-deployment-id") or req["model"]
-        chat_request = to_chat_completions_request(
-            req, deployment, translation_state
-        )
-    except (
-        AssertionError,
-        AttributeError,
-        KeyError,
-        TypeError,
-        ValueError,
-    ) as e:
-        log.warning(f"Rejecting a malformed request body: {e!r}", exc_info=True)
+    except ValueError as e:
         raise AnthropicHTTPError(
             AnthropicErrorType.INVALID_REQUEST,
-            f"Malformed request body: {type(e).__name__}: {e}",
+            f"Request body is not valid JSON: {e}",
         ) from e
+
+    deployment = request.headers.get("x-dial-deployment-id") or req["model"]
+    chat_request = to_chat_completions_request(
+        req, deployment, translation_state
+    )
 
     body = chat_request.model_dump(mode="json", exclude_none=True)
     if log.isEnabledFor(logging.DEBUG):
@@ -100,24 +93,18 @@ async def _handle_messages(request: Request, legacy: bool) -> Response:
     )
 
 
+@app.post("/anthropic/v1/messages")
+@with_debug_logging
+@translator_error_handler
 async def _handle_v1_messages(request: Request) -> Response:
     return await _handle_messages(request, legacy=False)
 
 
+@app.post("/legacy/anthropic/v1/messages")
+@with_debug_logging
+@translator_error_handler
 async def _handle_legacy_messages(request: Request) -> Response:
     return await _handle_messages(request, legacy=True)
-
-
-app.add_api_route(
-    "/anthropic/v1/messages",
-    build_endpoint(_handle_v1_messages),
-    methods=["POST"],
-)
-app.add_api_route(
-    "/legacy/anthropic/v1/messages",
-    build_endpoint(_handle_legacy_messages),
-    methods=["POST"],
-)
 
 
 app.add_api_route(

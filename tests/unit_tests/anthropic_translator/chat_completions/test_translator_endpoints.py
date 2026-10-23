@@ -118,30 +118,6 @@ async def test_request_shape_and_headers_not_leaked(
     assert "authorization" not in sent.headers
 
 
-async def test_tracing_and_session_headers_are_forwarded(
-    client: httpx.AsyncClient, mock_core: respx.MockRouter
-) -> None:
-    route = mock_core.post(_CORE_PATH).respond(
-        json=_RESPONSE_OBJECT, content_type="application/json"
-    )
-    await client.post(
-        _MESSAGES_URL,
-        json=_MESSAGES_BODY,
-        headers={
-            "traceparent": "00-trace-span-01",
-            "tracestate": "vendor=value",
-            "x-claude-code-session-id": "session-1",
-            "user-agent": "claude-cli/2.0.0",
-        },
-    )
-    sent = route.calls.last.request
-    assert sent.headers["traceparent"] == "00-trace-span-01"
-    assert sent.headers["tracestate"] == "vendor=value"
-    assert sent.headers["x-claude-code-session-id"] == "session-1"
-
-    assert sent.headers["user-agent"] != "claude-cli/2.0.0"
-
-
 async def test_cores_own_routing_headers_do_not_travel_on(
     client: httpx.AsyncClient, mock_core: respx.MockRouter
 ) -> None:
@@ -597,45 +573,40 @@ async def test_untranslatable_requests_return_400_without_calling_core(
 
 
 @pytest.mark.parametrize(
-    "content, headers",
-    [
-        (b'{"foo": "boo"}', {}),
-        (b'{"foo": "boo"}', {"x-dial-deployment-id": "gpt-5.5"}),
-        (b"not json", {}),
-        (b"[]", {}),
-        (b'{"model": "gpt-5.5", "messages": "hi"}', {}),
-        (b'{"model": "gpt-5.5", "messages": [{"role": "user"}]}', {}),
-        (
-            b'{"model": "gpt-5.5", "messages": [], "tools": [{"type": "x"}]}',
-            {},
-        ),
-    ],
-    ids=[
-        "no-fields",
-        "no-messages",
-        "invalid-json",
-        "not-an-object",
-        "messages-not-a-list",
-        "no-content",
-        "unnamed-tool",
-    ],
+    "content", [b"not json", b"", b'{"model": "gpt-5.5"', b"\xff\xfe"]
 )
-async def test_malformed_bodies_return_400_without_calling_core(
-    client: httpx.AsyncClient,
-    mock_core: respx.MockRouter,
-    content: bytes,
-    headers: dict[str, str],
+async def test_invalid_json_returns_400_without_calling_core(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter, content: bytes
 ) -> None:
     route = mock_core.post(_CORE_PATH).respond(json=_RESPONSE_OBJECT)
     response = await client.post(
         _MESSAGES_URL,
         content=content,
-        headers={"content-type": "application/json", **headers},
+        headers={"content-type": "application/json"},
     )
     assert response.status_code == 400
     error = response.json()["error"]
     assert error["type"] == "invalid_request_error"
-    assert error["message"].startswith("Malformed request body: ")
+    assert error["message"].startswith("Request body is not valid JSON: ")
+    assert not route.called
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b'{"foo": "boo"}', b"[]", b'{"model": "gpt-5.5", "messages": "hi"}'],
+    ids=["no-fields", "not-an-object", "messages-not-a-list"],
+)
+async def test_a_valid_json_the_translator_cannot_read_is_not_a_client_error(
+    client: httpx.AsyncClient, mock_core: respx.MockRouter, content: bytes
+) -> None:
+    route = mock_core.post(_CORE_PATH).respond(json=_RESPONSE_OBJECT)
+    response = await client.post(
+        _MESSAGES_URL,
+        content=content,
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 500
+    assert response.json()["error"]["type"] == "api_error"
     assert not route.called
 
 
@@ -767,6 +738,7 @@ async def test_only_whitelisted_headers_are_forwarded(
             "x-dial-cache-policy": "cache-priority",
             "x-upstream-id": "upstream-1",
             "x-conversation-id": "conversation-1",
+            "x-claude-code-session-id": "session-1",
             "x-dial-extra": "value",
             "x-dial-cache-breakpoint-path": "inbound-path",
             "x-custom-header": "custom",
@@ -777,7 +749,8 @@ async def test_only_whitelisted_headers_are_forwarded(
     assert sent.headers["api-key"] == "dummy-key"
     assert sent.headers["x-dial-cache-policy"] == "cache-priority"
     assert sent.headers["x-upstream-id"] == "upstream-1"
-    assert sent.headers["x-conversation-id"] == "conversation-1"
+    assert "x-conversation-id" not in sent.headers
+    assert "x-claude-code-session-id" not in sent.headers
     assert "x-dial-extra" not in sent.headers
     assert "x-dial-cache-breakpoint-path" not in sent.headers
     assert "x-custom-header" not in sent.headers

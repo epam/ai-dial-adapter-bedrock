@@ -9,7 +9,6 @@ from fastapi.responses import Response, StreamingResponse
 from aidial_adapter_bedrock.anthropic_translator.errors import (
     AnthropicErrorType,
     anthropic_error_response,
-    translator_error_handler,
 )
 from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 
@@ -60,9 +59,3 @@ def with_debug_logging(
         return response
 
     return wrapper
-
-
-def build_endpoint(
-    handler: Callable[[Request], Awaitable[Response]],
-) -> Callable[[Request], Awaitable[Response]]:
-    return with_debug_logging(translator_error_handler(handler))
