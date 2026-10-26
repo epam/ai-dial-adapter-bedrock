@@ -22,8 +22,8 @@ FROM python:3.11-alpine AS server
 RUN apk update && apk upgrade --no-cache libcrypto3 libssl3
 # fix CVE-2023-52425
 RUN apk upgrade --no-cache libexpat
-# fix CVE-2026-23949
-RUN pip install setuptools==83.0.0
+# fix CVE-2026-23949 and GHSA-xmj3-9gf7-h52w
+RUN pip install setuptools==84.1.0
 # fix CVE-2026-24049
 RUN pip install wheel==0.46.2
 # pip is not needed at runtime; removing it fixes all pip CVEs, incl. those in its
