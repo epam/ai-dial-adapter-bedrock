@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from aidial_adapter_anthropic.passthrough import mount_anthropic_api
@@ -7,6 +8,9 @@ from fastapi import FastAPI
 
 from aidial_adapter_bedrock.anthropic_passthrough import (
     get_anthropic_client,
+)
+from aidial_adapter_bedrock.anthropic_translator.chat_completions.app import (
+    app as chat_completions_translator_app,
 )
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
@@ -26,13 +30,15 @@ from aidial_adapter_bedrock.utils.log_config import configure_loggers
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    await create_anthropic_client.clear()
-    await create_boto_client.clear()
-    await get_sts_client.clear()
-    await get_anthropic_http_client.clear()
-    await get_dial_client_pool.clear()
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    try:
+        yield
+    finally:
+        await create_anthropic_client.clear()
+        await create_boto_client.clear()
+        await get_sts_client.clear()
+        await get_anthropic_http_client.clear()
+        await get_dial_client_pool.clear()
 
 
 app = DIALApp(
@@ -63,3 +69,9 @@ app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
 
 mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
+
+app.mount(
+    path="/openaiChatCompletions",
+    app=chat_completions_translator_app,
+    name="Anthropic Messages to Chat Completions translator",
+)
