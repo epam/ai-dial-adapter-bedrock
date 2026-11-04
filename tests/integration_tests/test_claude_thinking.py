@@ -33,6 +33,9 @@ chat_deployments: Mapping[Deployment, str] = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_HAIKU.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_OPUS.US: _EAST,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_SONNET.US: _EAST,
 }
 
 
@@ -62,6 +65,9 @@ _ADAPTIVE_THINKING_DEPLOYMENTS = {
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_SONNET,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_SONNET,
 }
 
 
