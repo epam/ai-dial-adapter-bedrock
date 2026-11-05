@@ -81,6 +81,9 @@ async def get_bedrock_adapter(
             | CCD.ANTHROPIC_CLAUDE_V5_SONNET
             | CCD.ANTHROPIC_CLAUDE_V5_OPUS
             | CCD.ANTHROPIC_CLAUDE_V5_FABLE
+            | CCD.ANTHROPIC_CLAUDE_V5_5_HAIKU
+            | CCD.ANTHROPIC_CLAUDE_V5_5_OPUS
+            | CCD.ANTHROPIC_CLAUDE_V5_5_SONNET
         ):
             if has_converse_api_configuration(request, upstream_config):
                 return await converse_adapter.create(
@@ -130,6 +133,29 @@ async def get_bedrock_adapter(
                 tools_support=ToolsSupport.ALWAYS,
                 supported_image_types=ConverseImageType.all(),
                 supported_document_types=ConverseDocumentType.all(),
+            )
+        case (
+            CCD.DEEPSEEK_V3_2
+            | CCD.MINIMAX_M21
+            | CCD.MISTRAL_DEVSTRAL_2_123B
+            | CCD.NVIDIA_NEMOTRON_NANO_9B_V2
+            | CCD.NVIDIA_NEMOTRON_NANO_3_30B
+            | CCD.NVIDIA_NEMOTRON_SUPER_3_120B
+            | CCD.OPENAI_GPT_OSS_20B
+            | CCD.OPENAI_GPT_OSS_120B
+            | CCD.OPENAI_GPT_OSS_SAFEGUARD_20B
+            | CCD.OPENAI_GPT_OSS_SAFEGUARD_120B
+            | CCD.ZAI_GLM_4_7
+            | CCD.ZAI_GLM_4_7_FLASH
+            | CCD.ZAI_GLM_5
+        ):
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
+            )
+        case CCD.MOONSHOTAI_KIMI_K2_5 | CCD.NVIDIA_NEMOTRON_NANO_12B_V2:
+            return await converse_adapter.create(
+                tools_support=ToolsSupport.ALWAYS,
+                supported_image_types=ConverseImageType.all(),
             )
         case CCD.META_LLAMA3_8B_INSTRUCT_V1 | CCD.META_LLAMA3_70B_INSTRUCT_V1:
             return await converse_adapter.create(
