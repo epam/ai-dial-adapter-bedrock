@@ -65,13 +65,19 @@ class ToolCallTest:
     def function_name(self) -> str:
         return self.functions[0]["name"]
 
+    def tool_call_id(self, idx: int) -> str:
+        # Bedrock passes the last 9 characters of a tool call id to Devstral,
+        # which requires them to be alphanumeric:
+        # > Tool call id was erature_1 but must be a-z, A-Z, 0-9, with a length of 9.
+        return f"toolcall{idx + 1}"
+
     def tool_request(
         self, content: str | None = None
     ) -> ChatCompletionMessageParam:
         return ai_tools(
             [
                 tool_request(
-                    f"{self.function_name}_{idx + 1}",
+                    self.tool_call_id(idx),
                     self.function_name,
                     self.function_args(idx),
                 )
@@ -83,7 +89,7 @@ class ToolCallTest:
     def tool_responses(self) -> list[ChatCompletionMessageParam]:
         return [
             tool_response(
-                f"{self.function_name}_{idx + 1}",
+                self.tool_call_id(idx),
                 f"{self.city_temps[idx]} celsius",
             )
             for idx in range(self.targets)
