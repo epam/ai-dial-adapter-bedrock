@@ -66,9 +66,6 @@ class ToolCallTest:
         return self.functions[0]["name"]
 
     def tool_call_id(self, idx: int) -> str:
-        # Bedrock passes the last 9 characters of a tool call id to Devstral,
-        # which requires them to be alphanumeric:
-        # > Tool call id was erature_1 but must be a-z, A-Z, 0-9, with a length of 9.
         return f"toolcall{idx + 1}"
 
     def tool_request(
