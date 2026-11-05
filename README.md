@@ -83,8 +83,8 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
 |Anthropic|Claude 5.5 Opus|anthropic.claude-opus-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5.5 Sonnet|anthropic.claude-sonnet-5-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
-|Anthropic|Claude 5.5 Haiku|anthropic.claude-haiku-5-5|(text/image/document)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5.5 Sonnet|anthropic.claude-sonnet-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5.5 Haiku|anthropic.claude-haiku-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|

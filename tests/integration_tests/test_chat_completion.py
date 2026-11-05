@@ -137,7 +137,9 @@ def support_mantle_claude_client(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
-        # Haiku 5.5 and Sonnet 5.5 aren't available via Mantle yet
+        # Haiku 5.5 and Sonnet 5.5 support Mantle only in us-gov-west-1:
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-5-5.html#model-card-anthropic-claude-haiku-5-5-regional-availability
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5-5.html#model-card-anthropic-claude-sonnet-5-5-regional-availability
         D.ANTHROPIC_CLAUDE_V5_5_OPUS,
     }
 
