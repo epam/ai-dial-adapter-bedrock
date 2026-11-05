@@ -910,7 +910,7 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
 
 See the [translation guide](https://github.com/epam/ai-dial-sdk/blob/0.47.0/docs/messages-to-chat-translation.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
 
-Set `DIAL_SDK_LOG=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the SDK's `aidial_sdk` logger.
+Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the SDK's `aidial_sdk` logger.
 
 ### Translation limitations
 
