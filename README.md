@@ -908,15 +908,15 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
 
 ### Translation details
 
-See the [translation guide](docs/chatcompletion-translations.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
+See the [translation guide](https://github.com/epam/ai-dial-sdk/blob/0.47.0/docs/messages-to-chat-translation.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
 
-Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the project's `bedrock` logger.
+Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the SDK's `aidial_sdk` logger.
 
 ### Translation limitations
 
 Supported inputs include text, images, inline/text/content documents, search results, and custom function tools. Provider tools (web search, bash, text editor, …) are sent as DIAL static functions, so only a deployment that understands them can run them. System instructions move to the front, assistant thinking is omitted on replay, and text/tool interleaving can change. Files API sources, document URLs, and unknown message roles are rejected with `400`. Token counting and output-cap clamping are outside the supported API.
 
-See the [translation guide](docs/chatcompletion-translations.md) for the complete behavior and limitations.
+See the [translation guide](https://github.com/epam/ai-dial-sdk/blob/0.47.0/docs/messages-to-chat-translation.md) for the complete behavior and limitations.
 
 ---
 
