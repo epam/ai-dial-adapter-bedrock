@@ -13,7 +13,6 @@ CONVERSE_TO_DIAL_FINISH_REASON = {
     ConverseStopReason.STOP_SEQUENCE: DialFinishReason.STOP,
     ConverseStopReason.GUARDRAIL_INTERVENED: DialFinishReason.CONTENT_FILTER,
     ConverseStopReason.CONTENT_FILTERED: DialFinishReason.CONTENT_FILTER,
-    ConverseStopReason.MODEL_CONTEXT_WINDOW_EXCEEDED: DialFinishReason.LENGTH,
 }
 
 
