@@ -10,7 +10,7 @@ from aidial_adapter_anthropic.dial.tools import ToolsMode
 from aidial_sdk.chat_completion import FinishReason as DialFinishReason
 from aidial_sdk.chat_completion import FunctionCall as DialFunctionCall
 from aidial_sdk.chat_completion import ToolCall as DialToolCall
-from aidial_sdk.exceptions import RuntimeServerError
+from aidial_sdk.exceptions import InvalidRequestError, RuntimeServerError
 
 from aidial_adapter_bedrock.llm.converse.constants import (
     CONVERSE_TO_DIAL_FINISH_REASON,
@@ -23,6 +23,13 @@ from aidial_adapter_bedrock.utils.log_config import bedrock_logger as log
 def to_dial_finish_reason(
     converse_stop_reason: ConverseStopReason,
 ) -> DialFinishReason:
+    if converse_stop_reason == ConverseStopReason.MODEL_CONTEXT_WINDOW_EXCEEDED:
+        raise InvalidRequestError(
+            message="The model's maximum context length was exceeded. "
+            "Please reduce the length of the messages.",
+            code="context_length_exceeded",
+            param="messages",
+        )
     if converse_stop_reason not in CONVERSE_TO_DIAL_FINISH_REASON:
         raise RuntimeServerError(
             f"Unsupported converse stop reason: {converse_stop_reason}"
