@@ -30,7 +30,7 @@ RUN pip install wheel==0.46.2
 # vendored copies of msgpack, urllib3 and pkg_resources (setuptools 70.3.0, not the
 # standalone setuptools installed above). Must stay after the last pip usage.
 RUN pip uninstall -y pip
-# fix CVE-2025-6965 and CVE-2026-22184 and CVE-2026-40200 and CVE-2026-4738
+# fix CVE-2025-6965 and CVE-2026-22184 and CVE-2026-40200
 RUN apk upgrade --no-cache sqlite-libs zlib musl musl-utils
 # fix CVE-2026-53612, CVE-2026-53613, CVE-2026-53614, CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410
 RUN apk upgrade --no-cache libuuid
