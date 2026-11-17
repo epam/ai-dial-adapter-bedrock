@@ -19,6 +19,7 @@ def configure_loggers():
         "app",
         "bedrock",
         "aidial_adapter_anthropic",
+        "aidial_sdk",
         "uvicorn",
         "__main__",
     ]:

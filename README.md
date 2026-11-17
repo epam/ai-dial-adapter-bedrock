@@ -82,6 +82,9 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 
 |Vendor|Model|Deployment name|Modality|`/tokenize`|`/truncate_prompt`, `max_prompt_tokens`|tools/functions|`/configuration`|Implementation|
 |---|---|---|---|---|---|---|---|---|
+|Anthropic|Claude 5.5 Opus|anthropic.claude-opus-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5.5 Sonnet|anthropic.claude-sonnet-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
+|Anthropic|Claude 5.5 Haiku|anthropic.claude-haiku-5-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Opus|anthropic.claude-opus-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Sonnet|anthropic.claude-sonnet-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 5 Fable|anthropic.claude-fable-5|(text/image/document)-to-text|mantle: 🟢 \| legacy: 🟡|mantle: 🟢 \| legacy: 🟡|✅|✅|Anthropic SDK/Converse API|
@@ -103,7 +106,22 @@ Note that a model supports `/truncate_prompt` endpoint if and only if it support
 |Anthropic|Claude 3 Haiku|anthropic.claude-3-haiku-20240307-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |Anthropic|Claude 3 Opus|anthropic.claude-3-opus-20240229-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Anthropic SDK/Converse API|
 |DeepSeek|DeepSeek R1|deepseek.r1-v1:0|text-to-text|🟡|🟡|❌|✅|Converse API|
+|DeepSeek|DeepSeek V3.2|deepseek.v3.2|text-to-text|🟡|🟡|✅|✅|Converse API|
 |MiniMax|MiniMax M2.5|minimax.minimax-m2.5|text-to-text|🟡|🟡|✅|✅|Converse API|
+|MiniMax|MiniMax M2.1|minimax.minimax-m2.1|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Mistral AI|Devstral 2 123B|mistral.devstral-2-123b|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Moonshot AI|Kimi K2.5|moonshotai.kimi-k2.5|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|NVIDIA|Nemotron Super 3 120B|nvidia.nemotron-super-3-120b|text-to-text|🟡|🟡|✅|✅|Converse API|
+|NVIDIA|Nemotron Nano 3 30B|nvidia.nemotron-nano-3-30b|text-to-text|🟡|🟡|✅|✅|Converse API|
+|NVIDIA|Nemotron Nano 12B v2|nvidia.nemotron-nano-12b-v2|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
+|NVIDIA|Nemotron Nano 9B v2|nvidia.nemotron-nano-9b-v2|text-to-text|🟡|🟡|✅|✅|Converse API|
+|OpenAI|GPT OSS 120B|openai.gpt-oss-120b-1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|OpenAI|GPT OSS 20B|openai.gpt-oss-20b-1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
+|OpenAI|GPT OSS Safeguard 120B|openai.gpt-oss-safeguard-120b|text-to-text|🟡|🟡|✅|✅|Converse API|
+|OpenAI|GPT OSS Safeguard 20B|openai.gpt-oss-safeguard-20b|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Z.ai|GLM 5|zai.glm-5|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Z.ai|GLM 4.7|zai.glm-4.7|text-to-text|🟡|🟡|✅|✅|Converse API|
+|Z.ai|GLM 4.7 Flash|zai.glm-4.7-flash|text-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Scout 17B Instruct|meta.llama4-scout-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 4 Chat Maverick 17B Instruct|meta.llama4-maverick-17b-instruct-v1:0|(text/image)-to-text|🟡|🟡|✅|✅|Converse API|
 |Meta|Llama 3.3 70B Instruct|meta.llama3-3-70b-instruct-v1:0|text-to-text|🟡|🟡|✅|✅|Converse API|
@@ -890,15 +908,15 @@ To expose a Chat-Completions model under `/anthropic/v1/messages`, add an `anthr
 
 ### Translation details
 
-See the [translation guide](docs/chatcompletion-translations.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
+See the [translation guide](https://github.com/epam/ai-dial-sdk/blob/0.47.0/docs/messages-to-chat-translation.md) for request parameters, content mapping, tools, caching, usage, and errors. Request parameters are forwarded without checking the deployment's features, so the target deployment can reject the ones it doesn't support.
 
-Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the project's `bedrock` logger.
+Set `LOG_LEVEL=DEBUG` to log inbound requests and outgoing responses or SSE chunks through the SDK's `aidial_sdk` logger.
 
 ### Translation limitations
 
 Supported inputs include text, images, inline/text/content documents, search results, and custom function tools. Provider tools (web search, bash, text editor, …) are sent as DIAL static functions, so only a deployment that understands them can run them. System instructions move to the front, assistant thinking is omitted on replay, and text/tool interleaving can change. Files API sources, document URLs, and unknown message roles are rejected with `400`. Token counting and output-cap clamping are outside the supported API.
 
-See the [translation guide](docs/chatcompletion-translations.md) for the complete behavior and limitations.
+See the [translation guide](https://github.com/epam/ai-dial-sdk/blob/0.47.0/docs/messages-to-chat-translation.md) for the complete behavior and limitations.
 
 ---
 

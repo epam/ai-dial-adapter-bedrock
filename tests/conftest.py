@@ -53,9 +53,13 @@ def get_openai_client(test_http_client: httpx.AsyncClient):
         if region:
             headers["region"] = region
 
-        default_headers = (
-            {"x-upstream-extra-data": json.dumps(headers)} if headers else None
-        )
+        default_headers = {}
+        if headers:
+            default_headers["x-upstream-extra-data"] = json.dumps(headers)
+        # DIAL Core sends the header, and the SDK requires it on chat completions
+        if deployment_id:
+            default_headers["X-DIAL-DEPLOYMENT-ID"] = deployment_id
+
         return AsyncAzureOpenAI(
             azure_endpoint=str(test_http_client.base_url),
             azure_deployment=deployment_id,

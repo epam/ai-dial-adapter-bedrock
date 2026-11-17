@@ -1,16 +1,17 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from aidial_adapter_anthropic.passthrough import mount_anthropic_api
 from aidial_sdk import DIALApp
 from aidial_sdk.telemetry.types import TelemetryConfig
-from fastapi import FastAPI
+from aidial_sdk.translators.messages_to_chat_completions import (
+    mount_translator,
+)
+from fastapi import FastAPI, Request
 
 from aidial_adapter_bedrock.anthropic_passthrough import (
     get_anthropic_client,
-)
-from aidial_adapter_bedrock.anthropic_translator.chat_completions.app import (
-    app as chat_completions_translator_app,
 )
 from aidial_adapter_bedrock.bedrock import (
     create_anthropic_client,
@@ -68,10 +69,9 @@ app.add_chat_completion("{deployment_id}", BedrockChatCompletion())
 app.add_embeddings("{deployment_id}", BedrockEmbeddings())
 
 
-mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
+async def get_dial_client(_: Request) -> httpx.AsyncClient:
+    return get_anthropic_http_client()
 
-app.mount(
-    path="/openaiChatCompletions",
-    app=chat_completions_translator_app,
-    name="Anthropic Messages to Chat Completions translator",
-)
+
+mount_anthropic_api(app, get_anthropic_client, path="/anthropic")
+mount_translator(app, get_dial_client, path="/openaiChatCompletions")

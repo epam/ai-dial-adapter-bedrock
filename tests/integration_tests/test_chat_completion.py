@@ -69,6 +69,9 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.ANTHROPIC_CLAUDE_V5_SONNET.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V5_OPUS.US: _EAST_1,
     D.ANTHROPIC_CLAUDE_V5_FABLE.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_5_HAIKU.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_5_OPUS.US: _EAST_1,
+    D.ANTHROPIC_CLAUDE_V5_5_SONNET.US: _EAST_1,
     D.META_LLAMA3_8B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_70B_INSTRUCT_V1: _WEST,
     D.META_LLAMA3_1_8B_INSTRUCT_V1: _WEST,
@@ -91,6 +94,21 @@ _DEPLOYMENT_TO_REGION: Mapping[Deployment, str] = {
     D.DEEPSEEK_R1_V2.US: _EAST_1,
     D.STABILITY_STABLE_IMAGE_ULTRA_V1: _WEST,
     D.MINIMAX_M25: _EAST_1,
+    D.DEEPSEEK_V3_2: _EAST_1,
+    D.MINIMAX_M21: _EAST_1,
+    D.MISTRAL_DEVSTRAL_2_123B: _EAST_1,
+    D.MOONSHOTAI_KIMI_K2_5: _EAST_1,
+    D.NVIDIA_NEMOTRON_NANO_9B_V2: _EAST_1,
+    D.NVIDIA_NEMOTRON_NANO_12B_V2: _EAST_1,
+    D.NVIDIA_NEMOTRON_NANO_3_30B: _EAST_1,
+    D.NVIDIA_NEMOTRON_SUPER_3_120B: _EAST_1,
+    D.OPENAI_GPT_OSS_20B: _EAST_1,
+    D.OPENAI_GPT_OSS_120B: _EAST_1,
+    D.OPENAI_GPT_OSS_SAFEGUARD_20B: _EAST_1,
+    D.OPENAI_GPT_OSS_SAFEGUARD_120B: _EAST_1,
+    D.ZAI_GLM_4_7: _EAST_1,
+    D.ZAI_GLM_4_7_FLASH: _EAST_1,
+    D.ZAI_GLM_5: _EAST_1,
 }
 
 
@@ -119,6 +137,10 @@ def support_mantle_claude_client(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        # Haiku 5.5 and Sonnet 5.5 support Mantle only in us-gov-west-1:
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-5-5.html#model-card-anthropic-claude-haiku-5-5-regional-availability
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5-5.html#model-card-anthropic-claude-sonnet-5-5-regional-availability
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
     }
 
 
@@ -174,6 +196,9 @@ def is_claude(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     ]
 
 
@@ -185,6 +210,9 @@ def is_vision_model(deployment: D) -> bool:
         D.META_LLAMA4_SCOUT_17B_INSTRUCT_V1,
         D.AMAZON_NOVA_PRO,
         D.AMAZON_NOVA_LITE,
+        D.MOONSHOTAI_KIMI_K2_5,
+        # Nemotron Nano 12B accepts images, but it's too unstable in describing them
+        # D.NVIDIA_NEMOTRON_NANO_12B_V2,
     ] or (
         is_claude(deployment)
         # Claude 3.5 Haiku was launched as a text-only model
@@ -235,6 +263,26 @@ def is_ai21(deployment: D) -> bool:
     return "ai21." in deployment.value
 
 
+def is_gpt_oss(deployment: D) -> bool:
+    return "openai.gpt-oss" in deployment.value
+
+
+def is_nemotron(deployment: D) -> bool:
+    return "nvidia.nemotron" in deployment.value
+
+
+def is_glm(deployment: D) -> bool:
+    return "zai.glm" in deployment.value
+
+
+def is_kimi(deployment: D) -> bool:
+    return "moonshotai.kimi" in deployment.value
+
+
+def is_devstral(deployment: D) -> bool:
+    return "mistral.devstral" in deployment.value
+
+
 def supports_tools(deployment: D) -> bool:
     return is_claude(deployment) or deployment in [
         # Llama models are supposed to support tools, but they are highly unstable
@@ -250,6 +298,21 @@ def supports_tools(deployment: D) -> bool:
         D.AMAZON_NOVA_LITE,
         D.AMAZON_NOVA_MICRO,
         D.MINIMAX_M25,
+        D.MINIMAX_M21,
+        D.DEEPSEEK_V3_2,
+        D.MISTRAL_DEVSTRAL_2_123B,
+        D.MOONSHOTAI_KIMI_K2_5,
+        D.NVIDIA_NEMOTRON_NANO_9B_V2,
+        D.NVIDIA_NEMOTRON_NANO_12B_V2,
+        D.NVIDIA_NEMOTRON_NANO_3_30B,
+        D.NVIDIA_NEMOTRON_SUPER_3_120B,
+        D.OPENAI_GPT_OSS_20B,
+        D.OPENAI_GPT_OSS_120B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_20B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_120B,
+        D.ZAI_GLM_4_7,
+        D.ZAI_GLM_4_7_FLASH,
+        D.ZAI_GLM_5,
         # DeepSeek via Converse API doesn't support tools even though
         # tool support is claimed in the official documentation:
         # https://api-docs.deepseek.com/guides/function_calling
@@ -266,7 +329,10 @@ def is_stable_with_vacuous_tool_definition(deployment: D) -> bool:
     # Opus 5 is unstable when a tool declares no parameters or no description:
     # it either invents a placeholder argument ({"___dummy": null}) or
     # replies with a textual pseudo-call instead of a tool call.
-    return deployment != D.ANTHROPIC_CLAUDE_V5_OPUS
+    # GPT OSS models invent a placeholder argument as well ({"": ""}).
+    return deployment != D.ANTHROPIC_CLAUDE_V5_OPUS and not is_gpt_oss(
+        deployment
+    )
 
 
 _vacuous_tool_definition_deployments = select(
@@ -276,7 +342,13 @@ _vacuous_tool_definition_deployments = select(
 
 
 def supports_forced_tool_choice(deployment: D) -> bool:
-    return supports_tools(deployment) and is_claude(deployment)
+    # Opus 5.5 and Sonnet 5.5 reject `tool_choice` of type `any` and `tool`
+    return (
+        supports_tools(deployment)
+        and is_claude(deployment)
+        and deployment
+        not in [D.ANTHROPIC_CLAUDE_V5_5_OPUS, D.ANTHROPIC_CLAUDE_V5_5_SONNET]
+    )
 
 
 def supports_parallel_tool_calls(deployment: D) -> bool:
@@ -290,6 +362,10 @@ def supports_parallel_tool_calls(deployment: D) -> bool:
         D.META_LLAMA3_3_70B_INSTRUCT_V1,
         D.AI21_JAMBA_1_5_MINI_V1,
         D.AMAZON_NOVA_MICRO,
+        D.OPENAI_GPT_OSS_20B,
+        D.OPENAI_GPT_OSS_120B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_20B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_120B,
     ] and supports_tools(deployment)
 
 
@@ -310,6 +386,9 @@ def supports_document_understanding(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     ]
 
 
@@ -334,6 +413,9 @@ def supports_json_object_response_format(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_5_HAIKU,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     ]
 
 
@@ -343,11 +425,30 @@ def supports_json_schema_response_format(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V4_6_OPUS,
         D.ANTHROPIC_CLAUDE_V4_5_SONNET,
         D.ANTHROPIC_CLAUDE_V4_6_SONNET,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     ]
 
 
 def supports_stop_sequence(deployment: D) -> bool:
-    return not is_minimax(deployment)
+    # Converse API: "This model doesn't support the stopSequences field."
+    return not is_minimax(deployment) and deployment not in [
+        D.DEEPSEEK_V3_2,
+        D.MISTRAL_DEVSTRAL_2_123B,
+        D.MOONSHOTAI_KIMI_K2_5,
+        D.NVIDIA_NEMOTRON_NANO_9B_V2,
+        D.NVIDIA_NEMOTRON_NANO_12B_V2,
+        D.NVIDIA_NEMOTRON_NANO_3_30B,
+        D.NVIDIA_NEMOTRON_SUPER_3_120B,
+        D.OPENAI_GPT_OSS_20B,
+        D.OPENAI_GPT_OSS_120B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_20B,
+        D.OPENAI_GPT_OSS_SAFEGUARD_120B,
+        D.ZAI_GLM_4_7,
+        D.ZAI_GLM_4_7_FLASH,
+        D.ZAI_GLM_5,
+    ]
 
 
 def is_claude_5(deployment: D) -> bool:
@@ -355,6 +456,9 @@ def is_claude_5(deployment: D) -> bool:
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_SONNET,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     ]
 
 
@@ -365,6 +469,8 @@ def is_reasoning_model(deployment: D) -> bool:
         is_deepseek(deployment)
         or is_minimax(deployment)
         or is_claude_5(deployment)
+        or is_gpt_oss(deployment)
+        or deployment == D.NVIDIA_NEMOTRON_NANO_9B_V2
     )
 
 
@@ -694,6 +800,11 @@ async def test_empty_user_message(
         or is_nova(origin)
         or is_deepseek(origin)
         or is_minimax(origin)
+        or is_gpt_oss(origin)
+        or is_nemotron(origin)
+        or is_glm(origin)
+        or is_kimi(origin)
+        or is_devstral(origin)
     ):
         message = converse_api_error_message
     else:

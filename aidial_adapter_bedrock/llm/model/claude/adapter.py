@@ -38,6 +38,9 @@ def _supports_thinking(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     }
 
 
@@ -58,6 +61,9 @@ def _supports_documents(deployment: ClaudeDeployment) -> bool:
         D.ANTHROPIC_CLAUDE_V4_8_OPUS,
         D.ANTHROPIC_CLAUDE_V5_OPUS,
         D.ANTHROPIC_CLAUDE_V5_FABLE,
+        D.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+        D.ANTHROPIC_CLAUDE_V5_5_OPUS,
+        D.ANTHROPIC_CLAUDE_V5_5_SONNET,
     }
 
 
@@ -111,7 +117,13 @@ class _Tokenizer(ApproximateTokenizer):
                     return (675, 804)
                 case D.ANTHROPIC_CLAUDE_V4_8_OPUS:
                     return (290, 410)
-                case D.ANTHROPIC_CLAUDE_V5_OPUS | D.ANTHROPIC_CLAUDE_V5_FABLE:
+                case (
+                    D.ANTHROPIC_CLAUDE_V5_OPUS
+                    | D.ANTHROPIC_CLAUDE_V5_FABLE
+                    | D.ANTHROPIC_CLAUDE_V5_5_HAIKU
+                    | D.ANTHROPIC_CLAUDE_V5_5_OPUS
+                    | D.ANTHROPIC_CLAUDE_V5_5_SONNET
+                ):
                     return (286, 406)
                 case _:
                     assert_never(self.deployment)

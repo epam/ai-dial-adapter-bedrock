@@ -36,6 +36,9 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     ANTHROPIC_CLAUDE_V4_8_OPUS = "anthropic.claude-opus-4-8"
     ANTHROPIC_CLAUDE_V5_OPUS = "anthropic.claude-opus-5"
     ANTHROPIC_CLAUDE_V5_FABLE = "anthropic.claude-fable-5"
+    ANTHROPIC_CLAUDE_V5_5_HAIKU = "anthropic.claude-haiku-5-5"
+    ANTHROPIC_CLAUDE_V5_5_OPUS = "anthropic.claude-opus-5-5"
+    ANTHROPIC_CLAUDE_V5_5_SONNET = "anthropic.claude-sonnet-5-5"
 
     STABILITY_STABLE_DIFFUSION_3_5_LARGE_V1 = "stability.sd3-5-large-v1:0"
     STABILITY_STABLE_IMAGE_CORE_V1_1 = "stability.stable-image-core-v1:1"
@@ -61,8 +64,28 @@ class ChatCompletionDeployment(RegionInferenceDeployment):
     COHERE_COMMAND_R_PLUS_V1 = "cohere.command-r-plus-v1:0"
 
     DEEPSEEK_R1_V2 = "deepseek.r1-v1:0"
+    DEEPSEEK_V3_2 = "deepseek.v3.2"
 
+    MINIMAX_M21 = "minimax.minimax-m2.1"
     MINIMAX_M25 = "minimax.minimax-m2.5"
+
+    MISTRAL_DEVSTRAL_2_123B = "mistral.devstral-2-123b"
+
+    MOONSHOTAI_KIMI_K2_5 = "moonshotai.kimi-k2.5"
+
+    NVIDIA_NEMOTRON_NANO_9B_V2 = "nvidia.nemotron-nano-9b-v2"
+    NVIDIA_NEMOTRON_NANO_12B_V2 = "nvidia.nemotron-nano-12b-v2"
+    NVIDIA_NEMOTRON_NANO_3_30B = "nvidia.nemotron-nano-3-30b"
+    NVIDIA_NEMOTRON_SUPER_3_120B = "nvidia.nemotron-super-3-120b"
+
+    OPENAI_GPT_OSS_20B = "openai.gpt-oss-20b-1:0"
+    OPENAI_GPT_OSS_120B = "openai.gpt-oss-120b-1:0"
+    OPENAI_GPT_OSS_SAFEGUARD_20B = "openai.gpt-oss-safeguard-20b"
+    OPENAI_GPT_OSS_SAFEGUARD_120B = "openai.gpt-oss-safeguard-120b"
+
+    ZAI_GLM_4_7 = "zai.glm-4.7"
+    ZAI_GLM_4_7_FLASH = "zai.glm-4.7-flash"
+    ZAI_GLM_5 = "zai.glm-5"
 
 
 ClaudeDeployment = Literal[
@@ -86,6 +109,9 @@ ClaudeDeployment = Literal[
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V4_8_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_OPUS,
     ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_FABLE,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_HAIKU,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_OPUS,
+    ChatCompletionDeployment.ANTHROPIC_CLAUDE_V5_5_SONNET,
 ]
 
 

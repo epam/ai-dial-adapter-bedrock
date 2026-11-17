@@ -84,8 +84,26 @@ def _get_tokenizer_factory(
             | CCD.META_LLAMA4_SCOUT_17B_INSTRUCT_V1
             | CCD.COHERE_COMMAND_R_V1
             | CCD.COHERE_COMMAND_R_PLUS_V1
+            | CCD.ANTHROPIC_CLAUDE_V5_5_HAIKU
+            | CCD.ANTHROPIC_CLAUDE_V5_5_OPUS
+            | CCD.ANTHROPIC_CLAUDE_V5_5_SONNET
             | CCD.DEEPSEEK_R1_V2
+            | CCD.DEEPSEEK_V3_2
+            | CCD.MINIMAX_M21
             | CCD.MINIMAX_M25
+            | CCD.MISTRAL_DEVSTRAL_2_123B
+            | CCD.MOONSHOTAI_KIMI_K2_5
+            | CCD.NVIDIA_NEMOTRON_NANO_9B_V2
+            | CCD.NVIDIA_NEMOTRON_NANO_12B_V2
+            | CCD.NVIDIA_NEMOTRON_NANO_3_30B
+            | CCD.NVIDIA_NEMOTRON_SUPER_3_120B
+            | CCD.OPENAI_GPT_OSS_20B
+            | CCD.OPENAI_GPT_OSS_120B
+            | CCD.OPENAI_GPT_OSS_SAFEGUARD_20B
+            | CCD.OPENAI_GPT_OSS_SAFEGUARD_120B
+            | CCD.ZAI_GLM_4_7
+            | CCD.ZAI_GLM_4_7_FLASH
+            | CCD.ZAI_GLM_5
         ):
             return default_converse_tokenizer_factory
         case (
