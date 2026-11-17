@@ -119,6 +119,7 @@ class ConverseStopReason(str, Enum):
     STOP_SEQUENCE = "stop_sequence"
     GUARDRAIL_INTERVENED = "guardrail_intervened"
     CONTENT_FILTERED = "content_filtered"
+    MODEL_CONTEXT_WINDOW_EXCEEDED = "model_context_window_exceeded"
 
 
 class ConverseMessage(TypedDict):
